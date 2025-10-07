@@ -1,0 +1,39 @@
+# Intercom Analysis Configuration
+
+# Date range settings
+date_range:
+  default_days: 180  # 6 months
+  max_days: 365      # Maximum allowed range
+
+# Text analysis settings
+text_analysis:
+  language: "en"
+  max_ngram_size: 3
+  deduplication_threshold: 0.9
+  num_keywords: 20
+  min_keyword_length: 3
+
+# API settings
+api:
+  per_page: 150
+  rate_limit_buffer: 10
+  timeout: 30
+  max_retries: 3
+
+# Common patterns to search for
+patterns:
+  - "cache"
+  - "browser"
+  - "extension"
+  - "slow"
+  - "loading"
+  - "cookies"
+  - "incognito"
+  - "firewall"
+  - "network"
+  - "error"
+  - "bug"
+  - "issue"
+  - "problem"
+
+
