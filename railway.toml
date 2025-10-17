@@ -1,0 +1,27 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "python deploy/railway_web.py"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[environments.production]
+[environments.production.variables]
+PYTHON_VERSION = "3.11"
+PYTHONPATH = "/app/src"
+DEPLOYMENT_MODE = "web"
+
+[environments.cron]
+[environments.cron.variables]
+PYTHON_VERSION = "3.11"
+PYTHONPATH = "/app/src"
+DEPLOYMENT_MODE = "cron"
+ANALYSIS_TYPE = "weekly"
+
+# Railway service configuration
+[service]
+name = "intercom-analysis-tool"
+description = "Intercom Analysis Tool with Chat Interface"

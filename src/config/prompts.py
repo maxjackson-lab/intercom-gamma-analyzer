@@ -296,4 +296,79 @@ For each trend:
 5. **Recommendations:** [Suggested actions]
 
 Return as a structured analysis."""
+    
+    @staticmethod
+    def get_technical_troubleshooting_prompt(
+        start_date: str,
+        end_date: str,
+        intercom_data: str
+    ) -> str:
+        """Generate technical troubleshooting analysis prompt."""
+        date_range = f"{start_date} to {end_date}"
+        
+        return f"""# Technical Troubleshooting Analysis - {date_range}
+
+You will receive a complete Intercom dataset with pre-computed statistics for {date_range}. Create a comprehensive technical troubleshooting analysis focusing on common support patterns and agent responses.
+
+**Data:** {intercom_data}
+
+**ANALYSIS REQUIREMENTS:**
+- Focus on technical troubleshooting patterns (cache clearing, browser switching, connection issues)
+- Identify escalation patterns to Dae-Ho, Hilary, or Max Jackson
+- Extract common agent responses for macro creation
+- Analyze resolution success rates by issue type
+- Use ONLY actual data - no estimates or approximations
+- Include exact quotes with working Intercom conversation URLs
+- Group findings by issue category for easy macro development
+
+Output markdown only. No JSON. No preambles. Use \\n---\\n to separate major sections into cards.
+
+\\n---\\n
+
+# Technical Troubleshooting Analysis
+Analysis of {{total_conversations}} conversations from {date_range}
+
+## Executive Summary
+
+{{executive_summary}}
+
+\\n---\\n
+
+## Most Common Technical Issues
+
+{{common_issues_analysis}}
+
+\\n---\\n
+
+## Agent Response Patterns
+
+{{agent_response_patterns}}
+
+\\n---\\n
+
+## Escalation Analysis
+
+{{escalation_analysis}}
+
+\\n---\\n
+
+## Recommended Macros
+
+{{macro_recommendations}}
+
+\\n---\\n
+
+## Training Opportunities
+
+{{training_opportunities}}
+
+\\n---\\n
+
+## Customer Success Stories
+
+{{success_stories}}
+
+\\n---\\n
+
+*Based on {{total_conversations}} conversations from {date_range}*"""
 

@@ -1,0 +1,105 @@
+name: Monthly Intercom Analysis
+
+on:
+  schedule:
+    # Run on the 1st of every month at 9 AM UTC
+    - cron: '0 9 1 * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  monthly-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90  # Longer timeout for monthly analysis
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run monthly analysis
+      env:
+        INTERCOM_ACCESS_TOKEN: ${{ secrets.INTERCOM_ACCESS_TOKEN }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        GAMMA_API_KEY: ${{ secrets.GAMMA_API_KEY }}
+        INTERCOM_WORKSPACE_ID: ${{ secrets.INTERCOM_WORKSPACE_ID }}
+      run: |
+        python -m src.main comprehensive-analysis \
+          --start-date $(date -d '30 days ago' +%Y-%m-%d) \
+          --end-date $(date +%Y-%m-%d) \
+          --max-conversations 5000 \
+          --generate-gamma \
+          --gamma-style detailed \
+          --gamma-export pptx \
+          --export-docs
+        
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: monthly-analysis-results
+        path: outputs/
+        retention-days: 90  # Keep monthly results longer
+        
+    - name: Create summary report
+      if: success()
+      run: |
+        echo "# Monthly Analysis Summary" > monthly_summary.md
+        echo "Date: $(date)" >> monthly_summary.md
+        echo "Analysis Period: $(date -d '30 days ago' +%Y-%m-%d) to $(date +%Y-%m-%d)" >> monthly_summary.md
+        echo "" >> monthly_summary.md
+        echo "## Results" >> monthly_summary.md
+        echo "- Analysis completed successfully" >> monthly_summary.md
+        echo "- Gamma presentation generated" >> monthly_summary.md
+        echo "- Results uploaded as artifacts" >> monthly_summary.md
+        
+    - name: Upload summary
+      uses: actions/upload-artifact@v3
+      if: success()
+      with:
+        name: monthly-summary
+        path: monthly_summary.md
+        retention-days: 90
+        
+    - name: Notify on failure
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('Monthly Analysis Failed')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: `🚨 **Monthly Analysis Failed** - ${new Date().toISOString()}\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}\n\nPlease check the logs for details.`
+            });
+          } else {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚨 **Monthly Analysis Failed** - ${new Date().toISOString()}\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}\n\nPlease check the logs for details.`
+            });
+          }
+
+
+
+

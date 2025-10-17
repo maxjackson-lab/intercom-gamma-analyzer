@@ -7,7 +7,7 @@ from typing import Dict, List, Any, Optional
 import openai
 from openai import AsyncOpenAI
 
-from ..config.settings import settings
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -202,18 +202,49 @@ class OpenAIClient:
             raise
     
     async def analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Analyze sentiment of customer feedback."""
+        """Analyze sentiment of customer feedback (legacy method)."""
+        return await self.analyze_sentiment_multilingual(text, language=None)
+    
+    async def analyze_sentiment_multilingual(
+        self, 
+        text: str, 
+        language: str = None
+    ) -> Dict[str, Any]:
+        """
+        Analyze sentiment using ChatGPT for any language.
+        
+        Args:
+            text: The customer feedback text to analyze
+            language: Optional language hint (e.g., 'en', 'es', 'ja')
+        
+        Returns:
+            Dictionary containing:
+                - sentiment: 'positive', 'negative', or 'neutral'
+                - confidence: Float between 0.0 and 1.0
+                - analysis: Detailed explanation of sentiment
+                - emotional_indicators: List of detected emotions
+                - model: 'openai'
+        
+        Raises:
+            Exception: If OpenAI API call fails
+        """
+        self.logger.info(f"Analyzing sentiment with OpenAI (language: {language})")
+        
         try:
+            language_context = f" (Language: {language})" if language else ""
+            
             prompt = f"""
-            Analyze the sentiment of the following customer feedback:
+            Analyze the sentiment of this customer feedback{language_context}:
             
             {text}
             
             Provide:
             - Overall sentiment (positive, negative, neutral)
-            - Sentiment score (0-1)
+            - Confidence score (0-1)
             - Key emotional indicators
-            - Summary of the feedback
+            - Brief explanation of your analysis
+            
+            Consider cultural context and language nuances.
             """
             
             response = await self.client.chat.completions.create(
@@ -221,7 +252,7 @@ class OpenAIClient:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a sentiment analysis expert who provides accurate, nuanced analysis of customer feedback."
+                        "content": "You are a multilingual sentiment analysis expert who provides accurate, nuanced analysis of customer feedback in any language, considering cultural context and language-specific expressions."
                     },
                     {
                         "role": "user",
@@ -232,33 +263,73 @@ class OpenAIClient:
                 temperature=0.1
             )
             
-            # Parse sentiment analysis
             analysis_text = response.choices[0].message.content
             
-            # Simple parsing - in production, you'd want more robust parsing
-            sentiment = "neutral"
-            score = 0.5
+            # Enhanced parsing for better accuracy
+            sentiment = self._parse_sentiment_enhanced(analysis_text)
+            confidence = self._extract_confidence_score(analysis_text)
+            emotional_indicators = self._extract_emotional_indicators(analysis_text)
             
-            if "positive" in analysis_text.lower():
-                sentiment = "positive"
-                score = 0.8
-            elif "negative" in analysis_text.lower():
-                sentiment = "negative"
-                score = 0.2
+            self.logger.debug(f"OpenAI analysis: {sentiment} (confidence: {confidence})")
             
             return {
                 "sentiment": sentiment,
-                "score": score,
-                "analysis": analysis_text
+                "confidence": confidence,
+                "analysis": analysis_text,
+                "emotional_indicators": emotional_indicators,
+                "language": language,
+                "model": "openai"
             }
             
         except Exception as e:
-            self.logger.error(f"Failed to analyze sentiment: {e}")
-            return {
-                "sentiment": "neutral",
-                "score": 0.5,
-                "analysis": "Sentiment analysis failed"
-            }
+            self.logger.error(f"OpenAI sentiment analysis failed: {e}")
+            raise
+    
+    def _parse_sentiment_enhanced(self, analysis_text: str) -> str:
+        """Enhanced sentiment parsing from ChatGPT response."""
+        text_lower = analysis_text.lower()
+        
+        # More sophisticated parsing
+        if any(word in text_lower for word in ['positive', 'good', 'satisfied', 'happy', 'pleased', 'excellent']):
+            return 'positive'
+        elif any(word in text_lower for word in ['negative', 'bad', 'dissatisfied', 'unhappy', 'frustrated', 'angry', 'disappointed']):
+            return 'negative'
+        else:
+            return 'neutral'
+    
+    def _extract_confidence_score(self, analysis_text: str) -> float:
+        """Extract confidence score from ChatGPT response."""
+        import re
+        # Look for confidence scores in the text
+        confidence_match = re.search(r'confidence[:\s]*(\d+\.?\d*)', analysis_text.lower())
+        if confidence_match:
+            return float(confidence_match.group(1))
+        
+        # Default confidence based on sentiment strength indicators
+        if 'very' in analysis_text.lower() or 'extremely' in analysis_text.lower():
+            return 0.9
+        elif 'somewhat' in analysis_text.lower() or 'slightly' in analysis_text.lower():
+            return 0.6
+        else:
+            return 0.8
+    
+    def _extract_emotional_indicators(self, analysis_text: str) -> list:
+        """Extract emotional indicators from ChatGPT response."""
+        # Simple extraction - look for emotional words
+        emotional_words = []
+        text_lower = analysis_text.lower()
+        
+        emotions = [
+            'grateful', 'satisfied', 'pleased', 'happy', 'excited', 'enthusiastic',
+            'frustrated', 'disappointed', 'angry', 'worried', 'concerned', 'upset',
+            'curious', 'polite', 'neutral', 'professional', 'inquisitive'
+        ]
+        
+        for emotion in emotions:
+            if emotion in text_lower:
+                emotional_words.append(emotion)
+        
+        return emotional_words[:3]  # Return top 3 emotions
     
     async def generate_trend_explanation(self, trend_data: Dict[str, Any]) -> str:
         """Generate explanation for trend data."""

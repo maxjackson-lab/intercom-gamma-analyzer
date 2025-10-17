@@ -1,0 +1,905 @@
+categories:
+  Abuse:
+    confidence_threshold: 0.7
+    description: Reports of harmful behavior, DMCA, malicious links
+    keywords:
+    - abuse
+    - spam
+    - malicious
+    - dmca
+    - harassment
+    - inappropriate
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Spam messages or content
+      keywords:
+      - spam
+      - unsolicited
+      - promotional
+      name: Spam
+    - confidence_threshold: 0.8
+      description: Suspicious or harmful links
+      keywords:
+      - malicious
+      - virus
+      - phishing
+      - suspicious link
+      name: Malicious Links
+    - confidence_threshold: 0.8
+      description: Copyright infringement reports
+      keywords:
+      - dmca
+      - copyright
+      - infringement
+      name: DMCA
+    - confidence_threshold: 0.8
+      description: Harassment or bullying
+      keywords:
+      - harassment
+      - bullying
+      - threat
+      - intimidation
+      name: Harassment
+    - confidence_threshold: 0.8
+      description: Inappropriate or offensive content
+      keywords:
+      - inappropriate
+      - offensive
+      - explicit
+      name: Inappropriate Content
+    - confidence_threshold: 0.8
+      description: Suspected account compromise
+      keywords:
+      - hacked
+      - compromised
+      - unauthorized access
+      name: Account Takeover
+    - confidence_threshold: 0.8
+      description: Suspected fake or impersonation
+      keywords:
+      - fake
+      - impersonation
+      - identity theft
+      name: Fake Account
+    - confidence_threshold: 0.8
+      description: User reporting another user
+      keywords:
+      - report user
+      - block user
+      - user complaint
+      name: Report User
+    - confidence_threshold: 0.8
+      description: Other abuse-related issues
+      keywords:
+      - abuse
+      - violation
+      - policy violation
+      name: Other Abuse
+  Account:
+    confidence_threshold: 0.7
+    description: Account access, settings, credits, email changes
+    keywords:
+    - account
+    - login
+    - password
+    - email
+    - settings
+    - credits
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Problems logging in
+      keywords:
+      - login
+      - sign in
+      - authentication
+      - password
+      name: Login Issues
+    - confidence_threshold: 0.8
+      description: Request to change email address
+      keywords:
+      - email change
+      - update email
+      - new email
+      name: Email Change
+    - confidence_threshold: 0.8
+      description: Password reset requests
+      keywords:
+      - password reset
+      - forgot password
+      - reset password
+      name: Password Reset
+    - confidence_threshold: 0.8
+      description: Account configuration changes
+      keywords:
+      - settings
+      - preferences
+      - profile
+      - account settings
+      name: Account Settings
+    - confidence_threshold: 0.8
+      description: Credit-related questions
+      keywords:
+      - credits
+      - balance
+      - usage
+      - billing credits
+      name: Credits
+    - confidence_threshold: 0.8
+      description: Request to delete account
+      keywords:
+      - delete account
+      - close account
+      - remove account
+      name: Account Deletion
+    - confidence_threshold: 0.8
+      description: 2FA setup or issues
+      keywords:
+      - 2fa
+      - two factor
+      - authenticator
+      - security
+      name: Two-Factor Auth
+    - confidence_threshold: 0.8
+      description: General account access issues
+      keywords:
+      - access
+      - permissions
+      - locked out
+      name: Account Access
+    - confidence_threshold: 0.8
+      description: Profile information updates
+      keywords:
+      - profile
+      - name change
+      - update profile
+      name: Profile Update
+    - confidence_threshold: 0.8
+      description: Account verification issues
+      keywords:
+      - verification
+      - verify
+      - unverified
+      name: Account Verification
+    - confidence_threshold: 0.8
+      description: Merging multiple accounts
+      keywords:
+      - merge
+      - combine
+      - duplicate account
+      name: Account Merge
+    - confidence_threshold: 0.8
+      description: Other account-related issues
+      keywords:
+      - account
+      - user
+      - member
+      name: Other Account
+  Agent/Buddy:
+    confidence_threshold: 0.7
+    description: 'AI agent questions and usage (internal name: Buddy)'
+    keywords:
+    - agent
+    - buddy
+    - fin
+    - ai
+    - bot
+    - assistant
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Questions about AI agent
+      keywords:
+      - agent
+      - fin
+      - ai
+      - bot
+      - assistant
+      name: Agent Question
+    - confidence_threshold: 0.8
+      description: Feedback on AI agent
+      keywords:
+      - agent feedback
+      - fin feedback
+      - ai feedback
+      name: Agent Feedback
+    - confidence_threshold: 0.8
+      description: AI agent training requests
+      keywords:
+      - agent training
+      - fin training
+      - ai training
+      name: Agent Training
+    - confidence_threshold: 0.8
+      description: AI agent integration
+      keywords:
+      - agent integration
+      - fin integration
+      - ai integration
+      name: Agent Integration
+    - confidence_threshold: 0.8
+      description: AI agent performance
+      keywords:
+      - agent performance
+      - fin performance
+      - ai performance
+      name: Agent Performance
+    - confidence_threshold: 0.8
+      description: Other AI agent issues
+      keywords:
+      - agent
+      - ai
+      - fin
+      - buddy
+      name: Other Agent
+  Billing:
+    confidence_threshold: 0.7
+    description: Refunds, invoices, subscriptions, payment methods
+    keywords:
+    - billing
+    - payment
+    - invoice
+    - refund
+    - subscription
+    - credit card
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Refund requests
+      keywords:
+      - refund
+      - money back
+      - cancel payment
+      name: Refund
+    - confidence_threshold: 0.8
+      description: Subscription management
+      keywords:
+      - subscription
+      - plan
+      - upgrade
+      - downgrade
+      name: Subscription
+    - confidence_threshold: 0.8
+      description: Invoice questions
+      keywords:
+      - invoice
+      - receipt
+      - billing statement
+      name: Invoice
+    - confidence_threshold: 0.8
+      description: Payment method updates
+      keywords:
+      - payment method
+      - credit card
+      - billing info
+      name: Payment Method
+    - confidence_threshold: 0.8
+      description: Billing information changes
+      keywords:
+      - billing address
+      - tax info
+      - billing details
+      name: Billing Info
+    - confidence_threshold: 0.8
+      description: Pricing questions
+      keywords:
+      - price
+      - cost
+      - pricing
+      - how much
+      name: Pricing
+    - confidence_threshold: 0.8
+      description: Discount requests
+      keywords:
+      - discount
+      - coupon
+      - promo
+      - deal
+      name: Discount
+    - confidence_threshold: 0.8
+      description: Account credits
+      keywords:
+      - credit
+      - balance
+      - account credit
+      name: Credit
+    - confidence_threshold: 0.8
+      description: Payment failures
+      keywords:
+      - failed payment
+      - declined
+      - payment error
+      name: Failed Payment
+    - confidence_threshold: 0.8
+      description: Billing cycle questions
+      keywords:
+      - billing cycle
+      - renewal
+      - auto-renew
+      name: Billing Cycle
+    - confidence_threshold: 0.8
+      description: Tax-related questions
+      keywords:
+      - tax
+      - vat
+      - taxes
+      - tax exempt
+      name: Tax
+    - confidence_threshold: 0.8
+      description: Currency conversion
+      keywords:
+      - currency
+      - exchange rate
+      - usd
+      - eur
+      name: Currency
+    - confidence_threshold: 0.8
+      description: Enterprise billing
+      keywords:
+      - enterprise
+      - volume
+      - custom pricing
+      name: Enterprise Billing
+    - confidence_threshold: 0.8
+      description: Trial period questions
+      keywords:
+      - trial
+      - free trial
+      - trial period
+      name: Trial
+    - confidence_threshold: 0.8
+      description: Subscription cancellation
+      keywords:
+      - cancel
+      - cancellation
+      - stop subscription
+      name: Cancellation
+    - confidence_threshold: 0.8
+      description: Account reactivation
+      keywords:
+      - reactivate
+      - restore
+      - reactivation
+      name: Reactivation
+    - confidence_threshold: 0.8
+      description: Prorated billing
+      keywords:
+      - proration
+      - prorated
+      - partial refund
+      name: Proration
+    - confidence_threshold: 0.8
+      description: Billing disputes
+      keywords:
+      - dispute
+      - chargeback
+      - billing error
+      name: Billing Dispute
+    - confidence_threshold: 0.8
+      description: Payment history requests
+      keywords:
+      - payment history
+      - transactions
+      - billing history
+      name: Payment History
+    - confidence_threshold: 0.8
+      description: Billing contact changes
+      keywords:
+      - billing contact
+      - account manager
+      name: Billing Contact
+    - confidence_threshold: 0.8
+      description: Custom invoice requests
+      keywords:
+      - custom invoice
+      - invoice format
+      name: Invoice Customization
+    - confidence_threshold: 0.8
+      description: Billing data export
+      keywords:
+      - export billing
+      - billing data
+      - financial report
+      name: Billing Export
+    - confidence_threshold: 0.8
+      description: Multi-currency billing
+      keywords:
+      - multi-currency
+      - currency conversion
+      name: Multi-Currency
+    - confidence_threshold: 0.8
+      description: Billing system integration
+      keywords:
+      - billing integration
+      - api billing
+      name: Billing Integration
+    - confidence_threshold: 0.8
+      description: Automated billing
+      keywords:
+      - automated billing
+      - auto-billing
+      name: Billing Automation
+    - confidence_threshold: 0.8
+      description: Billing analytics
+      keywords:
+      - billing analytics
+      - usage analytics
+      name: Billing Analytics
+    - confidence_threshold: 0.8
+      description: Billing compliance
+      keywords:
+      - compliance
+      - audit
+      - billing compliance
+      name: Billing Compliance
+    - confidence_threshold: 0.8
+      description: Billing system migration
+      keywords:
+      - migration
+      - billing migration
+      name: Billing Migration
+    - confidence_threshold: 0.8
+      description: Other billing issues
+      keywords:
+      - billing
+      - payment
+      - financial
+      name: Other Billing
+  Bug:
+    confidence_threshold: 0.7
+    description: Product bugs, errors, functionality issues
+    keywords:
+    - bug
+    - error
+    - broken
+    - not working
+    - issue
+    - problem
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Export functionality bugs
+      keywords:
+      - export
+      - ppt
+      - pdf
+      - slides
+      - download
+      name: Export
+    - confidence_threshold: 0.8
+      description: Account-related bugs
+      keywords:
+      - account bug
+      - login bug
+      - profile bug
+      name: Account
+    - confidence_threshold: 0.8
+      description: AI agent bugs
+      keywords:
+      - agent bug
+      - fin bug
+      - ai bug
+      - bot bug
+      name: Agent
+    - confidence_threshold: 0.8
+      description: API-related bugs
+      keywords:
+      - api bug
+      - api error
+      - integration bug
+      name: API
+    - confidence_threshold: 0.8
+      description: Authentication bugs
+      keywords:
+      - auth bug
+      - login bug
+      - session bug
+      name: Authentication
+    - confidence_threshold: 0.8
+      description: Billing system bugs
+      keywords:
+      - billing bug
+      - payment bug
+      - invoice bug
+      name: Billing
+    - confidence_threshold: 0.8
+      description: Collaboration features
+      keywords:
+      - collaboration bug
+      - sharing bug
+      - permissions bug
+      name: Collaboration
+    - confidence_threshold: 0.8
+      description: Dashboard bugs
+      keywords:
+      - dashboard bug
+      - ui bug
+      - interface bug
+      name: Dashboard
+    - confidence_threshold: 0.8
+      description: Data-related bugs
+      keywords:
+      - data bug
+      - sync bug
+      - data loss
+      name: Data
+    - confidence_threshold: 0.8
+      description: Email functionality bugs
+      keywords:
+      - email bug
+      - notification bug
+      - email delivery
+      name: Email
+    - confidence_threshold: 0.8
+      description: File upload bugs
+      keywords:
+      - upload bug
+      - file bug
+      - attachment bug
+      name: File Upload
+    - confidence_threshold: 0.8
+      description: Font-related bugs
+      keywords:
+      - font bug
+      - text bug
+      - formatting bug
+      name: Font
+    - confidence_threshold: 0.8
+      description: Import functionality bugs
+      keywords:
+      - import bug
+      - upload bug
+      - file import
+      name: Import
+    - confidence_threshold: 0.8
+      description: Third-party integration bugs
+      keywords:
+      - integration bug
+      - connector bug
+      - api bug
+      name: Integration
+    - confidence_threshold: 0.8
+      description: Mobile app bugs
+      keywords:
+      - mobile bug
+      - app bug
+      - ios bug
+      - android bug
+      name: Mobile
+    - confidence_threshold: 0.8
+      description: Performance issues
+      keywords:
+      - slow
+      - performance
+      - loading
+      - timeout
+      name: Performance
+    - confidence_threshold: 0.8
+      description: Publishing bugs
+      keywords:
+      - publish bug
+      - deploy bug
+      - publication bug
+      name: Publishing
+    - confidence_threshold: 0.8
+      description: Search functionality bugs
+      keywords:
+      - search bug
+      - find bug
+      - search not working
+      name: Search
+    - confidence_threshold: 0.8
+      description: Security-related bugs
+      keywords:
+      - security bug
+      - vulnerability
+      - security issue
+      name: Security
+    - confidence_threshold: 0.8
+      description: Synchronization bugs
+      keywords:
+      - sync bug
+      - sync issue
+      - data sync
+      name: Sync
+    - confidence_threshold: 0.8
+      description: Template bugs
+      keywords:
+      - template bug
+      - theme bug
+      - design bug
+      name: Template
+    - confidence_threshold: 0.8
+      description: User interface bugs
+      keywords:
+      - ui bug
+      - ux bug
+      - interface bug
+      - design bug
+      name: UI/UX
+    - confidence_threshold: 0.8
+      description: Video-related bugs
+      keywords:
+      - video bug
+      - media bug
+      - playback bug
+      name: Video
+    - confidence_threshold: 0.8
+      description: Workspace bugs
+      keywords:
+      - workspace bug
+      - team bug
+      - organization bug
+      name: Workspace
+    - confidence_threshold: 0.8
+      description: Other bug reports
+      keywords:
+      - bug
+      - error
+      - issue
+      - problem
+      name: Other Bug
+  Chargeback:
+    confidence_threshold: 0.7
+    description: Disputed or unauthorized charges
+    keywords:
+    - chargeback
+    - dispute
+    - unauthorized
+    - fraudulent
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Chargeback disputes
+      keywords:
+      - chargeback
+      - dispute
+      - unauthorized charge
+      name: Chargeback
+  Feedback:
+    confidence_threshold: 0.7
+    description: Feature requests and suggestions
+    keywords:
+    - feedback
+    - suggestion
+    - feature request
+    - improvement
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Feature requests
+      keywords:
+      - feature request
+      - new feature
+      - suggestion
+      name: Feature Request
+    - confidence_threshold: 0.8
+      description: Product improvements
+      keywords:
+      - improvement
+      - enhancement
+      - better
+      name: Improvement
+    - confidence_threshold: 0.8
+      description: UX feedback
+      keywords:
+      - ux
+      - user experience
+      - usability
+      name: User Experience
+    - confidence_threshold: 0.8
+      description: Other feedback
+      keywords:
+      - feedback
+      - suggestion
+      - comment
+      name: Other Feedback
+  Partnerships:
+    confidence_threshold: 0.7
+    description: Business collaborations, affiliate programs
+    keywords:
+    - partnership
+    - affiliate
+    - collaboration
+    - business
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Partnership inquiries
+      keywords:
+      - partnership
+      - collaboration
+      - business
+      name: Partnership
+    - confidence_threshold: 0.8
+      description: Affiliate program
+      keywords:
+      - affiliate
+      - referral
+      - commission
+      name: Affiliate
+    - confidence_threshold: 0.8
+      description: Integration partnerships
+      keywords:
+      - integration
+      - api partnership
+      - connector
+      name: Integration
+  Privacy:
+    confidence_threshold: 0.7
+    description: Data protection, security, ToS, privacy policies
+    keywords:
+    - privacy
+    - security
+    - data protection
+    - gdpr
+    - tos
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Privacy policy questions
+      keywords:
+      - privacy policy
+      - privacy
+      - data protection
+      name: Privacy Policy
+    - confidence_threshold: 0.8
+      description: GDPR compliance
+      keywords:
+      - gdpr
+      - data protection
+      - privacy rights
+      name: GDPR
+    - confidence_threshold: 0.8
+      description: Security concerns
+      keywords:
+      - security
+      - data security
+      - protection
+      name: Security
+    - confidence_threshold: 0.8
+      description: Terms of service
+      keywords:
+      - terms
+      - tos
+      - terms of service
+      name: Terms of Service
+  Product Question:
+    confidence_threshold: 0.7
+    description: How-to questions about features
+    keywords:
+    - how to
+    - question
+    - help
+    - tutorial
+    - guide
+    subcategories:
+    - confidence_threshold: 0.8
+      description: How-to questions
+      keywords:
+      - how to
+      - how do i
+      - tutorial
+      - guide
+      name: How to Use
+    - confidence_threshold: 0.8
+      description: Feature explanations
+      keywords:
+      - what is
+      - explain
+      - feature
+      name: Feature Explanation
+    - confidence_threshold: 0.8
+      description: Best practices
+      keywords:
+      - best practice
+      - tips
+      - recommendations
+      name: Best Practices
+    - confidence_threshold: 0.8
+      description: Workflow questions
+      keywords:
+      - workflow
+      - process
+      - steps
+      name: Workflow
+    - confidence_threshold: 0.8
+      description: Integration questions
+      keywords:
+      - integration
+      - connect
+      - setup
+      name: Integration
+    - confidence_threshold: 0.8
+      description: Customization questions
+      keywords:
+      - customize
+      - personalize
+      - settings
+      name: Customization
+    - confidence_threshold: 0.8
+      description: General troubleshooting
+      keywords:
+      - troubleshoot
+      - help
+      - problem
+      name: Troubleshooting
+    - confidence_threshold: 0.8
+      description: Training requests
+      keywords:
+      - training
+      - learn
+      - education
+      name: Training
+    - confidence_threshold: 0.8
+      description: Documentation requests
+      keywords:
+      - documentation
+      - docs
+      - manual
+      name: Documentation
+    - confidence_threshold: 0.8
+      description: General support
+      keywords:
+      - support
+      - help
+      - assistance
+      name: Support
+    - confidence_threshold: 0.8
+      description: Other product questions
+      keywords:
+      - question
+      - help
+      - support
+      name: Other Product
+  Promotions:
+    confidence_threshold: 0.7
+    description: Discounts, special offers, coupon codes
+    keywords:
+    - promotion
+    - discount
+    - coupon
+    - offer
+    - deal
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Promotional offers
+      keywords:
+      - promotion
+      - offer
+      - deal
+      - discount
+      name: Promotion
+  Unknown:
+    confidence_threshold: 0.7
+    description: Unclassified or unresponsive conversations
+    keywords:
+    - unknown
+    - unclassified
+    - unresponsive
+    - unclear
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Unclassified conversations
+      keywords:
+      - unknown
+      - unclear
+      - unclassified
+      name: Unknown
+  Workspace:
+    confidence_threshold: 0.7
+    description: Member management, permissions, sharing
+    keywords:
+    - workspace
+    - team
+    - member
+    - permission
+    - sharing
+    subcategories:
+    - confidence_threshold: 0.8
+      description: Member management
+      keywords:
+      - member
+      - team
+      - user management
+      name: Member Management
+    - confidence_threshold: 0.8
+      description: Permission management
+      keywords:
+      - permission
+      - access
+      - role
+      - admin
+      name: Permissions

@@ -6,9 +6,9 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from .base_analyzer import BaseAnalyzer
-from ..models.analysis_models import AnalysisRequest, TrendAnalysisResults
-from ..config.prompts import PromptTemplates
+from analyzers.base_analyzer import BaseAnalyzer
+from models.analysis_models import AnalysisRequest, TrendAnalysisResults
+from config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 
