@@ -3,18 +3,20 @@ Pydantic settings configuration for the Intercom Gamma Analyzer.
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseSettings, Field, validator
-from pydantic_settings import BaseSettings as PydanticBaseSettings
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
 import os
 
 
-class Settings(PydanticBaseSettings):
+class Settings(BaseSettings):
     """Application settings with environment variable support."""
     
     # API Keys
     intercom_access_token: str = Field(..., env="INTERCOM_ACCESS_TOKEN")
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
+    anthropic_api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     gamma_api_key: Optional[str] = Field(None, env="GAMMA_API_KEY")
+    intercom_workspace_id: Optional[str] = Field(None, env="INTERCOM_WORKSPACE_ID")
     
     # Intercom API Settings
     intercom_base_url: str = Field("https://api.intercom.io", env="INTERCOM_BASE_URL")
@@ -27,6 +29,16 @@ class Settings(PydanticBaseSettings):
     openai_model: str = Field("gpt-4o", env="OPENAI_MODEL")
     openai_temperature: float = Field(0.1, env="OPENAI_TEMPERATURE")
     openai_max_tokens: int = Field(4000, env="OPENAI_MAX_TOKENS")
+    
+    # Anthropic/Claude Settings
+    anthropic_model: str = Field("claude-3-opus-20240229", env="ANTHROPIC_MODEL")
+    anthropic_max_tokens: int = Field(4000, env="ANTHROPIC_MAX_TOKENS")
+    
+    # Canny API Settings
+    canny_api_key: Optional[str] = Field(None, env="CANNY_API_KEY")
+    canny_base_url: str = Field("https://canny.io/api/v1", env="CANNY_BASE_URL")
+    canny_timeout: int = Field(30, env="CANNY_TIMEOUT")
+    canny_max_retries: int = Field(3, env="CANNY_MAX_RETRIES")
     
     # Analysis Settings
     default_analysis_days: int = Field(30, env="DEFAULT_ANALYSIS_DAYS")
@@ -42,6 +54,10 @@ class Settings(PydanticBaseSettings):
         ],
         env="DEFAULT_TIER1_COUNTRIES"
     )
+    voc_default_ai_model: str = Field("openai", env="VOC_DEFAULT_AI_MODEL")  # "openai" or "claude"
+    voc_enable_ai_fallback: bool = Field(True, env="VOC_ENABLE_AI_FALLBACK")
+    voc_historical_weeks: int = Field(26, env="VOC_HISTORICAL_WEEKS")  # 6 months
+    voc_top_categories_count: int = Field(10, env="VOC_TOP_CATEGORIES_COUNT")
     
     # Text Analysis Settings
     yake_language: str = Field("en", env="YAKE_LANGUAGE")
@@ -59,23 +75,26 @@ class Settings(PydanticBaseSettings):
     gamma_base_url: str = Field("https://gamma.app/api", env="GAMMA_BASE_URL")
     gamma_default_template: str = Field("presentation", env="GAMMA_DEFAULT_TEMPLATE")
     
-    @validator('default_tier1_countries', pre=True)
+    @field_validator('default_tier1_countries', mode='before')
+    @classmethod
     def parse_tier1_countries(cls, v):
         if isinstance(v, str):
             return [country.strip() for country in v.split(',')]
         return v
     
-    @validator('log_level')
+    @field_validator('log_level')
+    @classmethod
     def validate_log_level(cls, v):
         valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
         if v.upper() not in valid_levels:
             raise ValueError(f'log_level must be one of {valid_levels}')
         return v.upper()
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False
+    }
 
 
 # Global settings instance

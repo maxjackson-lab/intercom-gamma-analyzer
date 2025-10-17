@@ -3,11 +3,16 @@ Main CLI application for Intercom to Gamma analysis tool.
 """
 
 import asyncio
+import json
 import logging
 import sys
-from datetime import datetime, date
+import warnings
+from datetime import datetime, date, timedelta
 from typing import List, Optional
 from pathlib import Path
+
+# Suppress urllib3 SSL warning
+warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL 1.1.1+')
 
 import click
 from rich.console import Console
@@ -20,15 +25,36 @@ sys.path.append(str(Path(__file__).parent))
 
 from config.settings import settings
 from services.intercom_service import IntercomService
+from services.intercom_service_v2 import IntercomServiceV2
+from services.elt_pipeline import ELTPipeline
+from config.taxonomy import taxonomy_manager
 from services.metrics_calculator import MetricsCalculator
 from services.openai_client import OpenAIClient
 from services.gamma_client import GammaClient
 from services.data_exporter import DataExporter
 from services.query_builder import QueryBuilder, GeneralQueryService
+from services.chunked_fetcher import ChunkedFetcher
+from services.data_preprocessor import DataPreprocessor
+from services.category_filters import CategoryFilters
+from services.gamma_generator import GammaGenerator
+from services.orchestrator import AnalysisOrchestrator
 from analyzers.voice_analyzer import VoiceAnalyzer
 from analyzers.trend_analyzer import TrendAnalyzer
+from analyzers.base_category_analyzer import BaseCategoryAnalyzer
+from analyzers.billing_analyzer import BillingAnalyzer
+from analyzers.product_analyzer import ProductAnalyzer
+from analyzers.sites_analyzer import SitesAnalyzer
+from analyzers.api_analyzer import ApiAnalyzer
+from analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
+from analyzers.canny_analyzer import CannyAnalyzer
+from services.ai_model_factory import AIModelFactory, AIModel
+from services.agent_feedback_separator import AgentFeedbackSeparator
+from services.historical_data_manager import HistoricalDataManager
+from services.canny_client import CannyClient
+from services.canny_preprocessor import CannyPreprocessor
 from models.analysis_models import AnalysisRequest, AnalysisMode
 from utils.logger import setup_logging
+from utils.cli_help import help_system
 
 console = Console()
 
@@ -264,8 +290,315 @@ def query(query_type: Optional[str], suggestion: Optional[str], custom_query: Op
     asyncio.run(run_general_query(query_type, suggestion, custom_query, export_format, max_pages))
 
 
+# Help Commands
 @cli.command()
-def query-suggestions():
+def help():
+    """Show comprehensive help message"""
+    help_system.show_main_help()
+
+@cli.command()
+def interactive():
+    """Start interactive mode with guided prompts"""
+    help_system.interactive_mode()
+
+@cli.command()
+def list_commands():
+    """List all available commands"""
+    help_system.show_main_help()
+
+@cli.command()
+def examples():
+    """Show usage examples"""
+    help_system.show_examples()
+
+@cli.command()
+def show_categories():
+    """List available categories"""
+    help_system.show_categories()
+
+@cli.command()
+@click.option('--days', type=int, default=90, help='Number of days to scan for tags')
+@click.option('--agent', help='Filter by specific agent')
+def show_tags(days: int, agent: Optional[str]):
+    """List tags in your data"""
+    console.print(f"[bold]Scanning {days} days for tags...[/bold]")
+    # TODO: Implement tag discovery
+    console.print("Tag discovery not yet implemented")
+
+@cli.command()
+@click.option('--days', type=int, default=90, help='Number of days to scan for agents')
+def show_agents(days: int):
+    """List all agents"""
+    console.print(f"[bold]Scanning {days} days for agents...[/bold]")
+    # TODO: Implement agent discovery
+    console.print("Agent discovery not yet implemented")
+
+@cli.command()
+@click.option('--days', type=int, default=90, help='Number of days to scan')
+@click.option('--auto-update', is_flag=True, help='Automatically update taxonomy')
+def sync_taxonomy(days: int, auto_update: bool):
+    """Update taxonomy from Intercom"""
+    console.print(f"[bold]Syncing taxonomy from {days} days of data...[/bold]")
+    # TODO: Implement taxonomy sync
+    console.print("Taxonomy sync not yet implemented")
+
+# Primary Commands (Technical Triage)
+@cli.command(name='tech-analysis')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--max-pages', type=int, help='Maximum pages to fetch (for testing)')
+@click.option('--generate-ai-report', is_flag=True, help='Generate AI-powered insights report')
+def tech_analysis(days: int, start_date: Optional[str], end_date: Optional[str], max_pages: Optional[int], generate_ai_report: bool):
+    """Analyze technical troubleshooting patterns in Intercom conversations"""
+    
+    console.print(f"[bold green]Technical Troubleshooting Analysis[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run technical analysis
+    asyncio.run(run_technical_analysis_v2(start_dt, end_dt, max_pages, generate_ai_report))
+
+@cli.command(name='find-macros')
+@click.option('--min-occurrences', type=int, default=5, help='Minimum occurrences for macro (default: 5)')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+def find_macros(min_occurrences: int, days: int, start_date: Optional[str], end_date: Optional[str]):
+    """Discover macro opportunities from repeated agent responses"""
+    
+    console.print(f"[bold green]Macro Discovery Analysis[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    console.print(f"Looking for patterns with {min_occurrences}+ occurrences")
+    
+    # Run macro analysis
+    asyncio.run(run_macro_analysis(start_dt, end_dt, min_occurrences))
+
+@cli.command(name='fin-escalations')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--detailed', is_flag=True, help='Generate detailed performance report')
+def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str], detailed: bool):
+    """Analyze Fin → human handoffs and effectiveness"""
+    
+    console.print(f"[bold green]Fin Escalation Analysis[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run Fin analysis
+    asyncio.run(run_fin_analysis(start_dt, end_dt, detailed))
+
+@cli.command(name='analyze-agent')
+@click.option('--agent', required=True, help='Agent name to analyze (e.g., "Dae-Ho")')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+def analyze_agent(agent: str, days: int, start_date: Optional[str], end_date: Optional[str]):
+    """Agent-specific performance analysis"""
+    
+    console.print(f"[bold green]Agent Performance Analysis: {agent}[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run agent analysis
+    asyncio.run(run_agent_analysis(agent, start_dt, end_dt))
+
+
+# Secondary Commands (VoC Reports)
+@cli.command(name='analyze-category')
+@click.option('--category', required=True, help='Category to analyze (e.g., billing, bug)')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--output-format', type=click.Choice(['csv', 'excel', 'json']), default='csv', help='Output format')
+def analyze_category(category: str, days: int, start_date: Optional[str], end_date: Optional[str], output_format: str):
+    """Single taxonomy category report"""
+    
+    console.print(f"[bold green]Category Analysis: {category.title()}[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run category analysis
+    asyncio.run(run_category_analysis(category, start_dt, end_dt, output_format))
+
+@cli.command(name='analyze-all-categories')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--parallel', is_flag=True, help='Run analyses in parallel (faster)')
+def analyze_all_categories(days: int, start_date: Optional[str], end_date: Optional[str], parallel: bool):
+    """All 13 taxonomy reports"""
+    
+    console.print(f"[bold green]All Categories Analysis[/bold green]")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run all categories analysis
+    asyncio.run(run_all_categories_analysis(start_dt, end_dt, parallel))
+
+
+# Advanced Commands (Synthesis)
+@cli.command(name='synthesize')
+@click.option('--categories', required=True, help='Comma-separated categories (e.g., "Billing,Bug")')
+@click.option('--pattern', help='Specific pattern to analyze (e.g., "refund after bug")')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+def synthesize(categories: str, pattern: Optional[str], days: int, start_date: Optional[str], end_date: Optional[str]):
+    """Cross-category pattern analysis"""
+    
+    console.print(f"[bold green]Synthesis Analysis[/bold green]")
+    console.print(f"Categories: {categories}")
+    if pattern:
+        console.print(f"Pattern: {pattern}")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run synthesis analysis
+    asyncio.run(run_synthesis_analysis(categories, pattern, start_dt, end_dt))
+
+@cli.command(name='analyze-custom-tag')
+@click.option('--tag', required=True, help='Custom tag to analyze (e.g., "DC")')
+@click.option('--agent', help='Filter by specific agent')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+def analyze_custom_tag(tag: str, agent: Optional[str], days: int, start_date: Optional[str], end_date: Optional[str]):
+    """Custom tag analysis (e.g., "DC")"""
+    
+    console.print(f"[bold green]Custom Tag Analysis: {tag}[/bold green]")
+    if agent:
+        console.print(f"Agent filter: {agent}")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run custom tag analysis
+    asyncio.run(run_custom_tag_analysis(tag, agent, start_dt, end_dt))
+
+@cli.command(name='analyze-escalations')
+@click.option('--to', help='Escalated to (e.g., "Hilary", "Dae-Ho")')
+@click.option('--from', help='Escalated from (agent name)')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+def analyze_escalations(to: Optional[str], from_agent: Optional[str], days: int, start_date: Optional[str], end_date: Optional[str]):
+    """Escalation pattern analysis"""
+    
+    console.print(f"[bold green]Escalation Analysis[/bold green]")
+    if to:
+        console.print(f"Escalated to: {to}")
+    if from_agent:
+        console.print(f"Escalated from: {from_agent}")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run escalation analysis
+    asyncio.run(run_escalation_analysis(to, from_agent, start_dt, end_dt))
+
+@cli.command(name='analyze-pattern')
+@click.option('--pattern', required=True, help='Text pattern to search (e.g., "email change")')
+@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--case-sensitive', is_flag=True, help='Case sensitive search')
+def analyze_pattern(pattern: str, days: int, start_date: Optional[str], end_date: Optional[str], case_sensitive: bool):
+    """Text pattern search"""
+    
+    console.print(f"[bold green]Pattern Analysis: {pattern}[/bold green]")
+    if case_sensitive:
+        console.print("Case sensitive search enabled")
+    
+    # Calculate date range
+    if start_date and end_date:
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        console.print(f"Analyzing from {start_date} to {end_date}")
+    else:
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
+        console.print(f"Analyzing last {days} days of conversations")
+    
+    # Run pattern analysis
+    asyncio.run(run_pattern_analysis(pattern, start_dt, end_dt, case_sensitive))
+
+
+@cli.command(name='query-suggestions')
+def query_suggestions():
     """Show available query suggestions"""
     console.print("[bold green]Available Query Suggestions[/bold green]")
     
@@ -619,6 +952,101 @@ async def run_data_export(start_date, end_date, export_format: str, max_pages: O
         sys.exit(1)
 
 
+async def run_technical_analysis(days: int, max_pages: Optional[int], generate_ai_report: bool):
+    """Run technical troubleshooting analysis."""
+    try:
+        # Initialize services
+        intercom_service = IntercomService()
+        data_exporter = DataExporter()
+        openai_client = OpenAIClient() if generate_ai_report else None
+        
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Fetch conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await intercom_service.fetch_conversations_by_date_range(
+                start_date, end_date, max_pages=max_pages
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Export technical troubleshooting analysis
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing technical patterns...", total=None)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_path = data_exporter.export_technical_troubleshooting_analysis(
+                conversations, f"tech_analysis_{timestamp}"
+            )
+            
+            progress.update(task, description="✅ Technical analysis completed")
+        
+        console.print(f"\n[bold green]Technical Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {len(conversations):,}")
+        console.print(f"CSV Export: {csv_path}")
+        
+        # Generate AI report if requested
+        if generate_ai_report and openai_client:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating AI insights report...", total=None)
+                
+                # Prepare data summary for AI
+                data_summary = f"""
+                Total conversations: {len(conversations)}
+                Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}
+                
+                Sample conversation data:
+                {json.dumps(conversations[:3], indent=2, default=str)}
+                """
+                
+                # Generate AI report
+                from src.config.prompts import PromptTemplates
+                prompt = PromptTemplates.get_technical_troubleshooting_prompt(
+                    start_date.strftime('%Y-%m-%d'),
+                    end_date.strftime('%Y-%m-%d'),
+                    data_summary
+                )
+                
+                ai_report = await openai_client.generate_text(prompt)
+                
+                # Save AI report
+                report_path = data_exporter.output_dir / f"tech_analysis_report_{timestamp}.md"
+                with open(report_path, 'w') as f:
+                    f.write(ai_report or "No report generated")
+                
+                progress.update(task, description="✅ AI report generated")
+            
+            console.print(f"AI Report: {report_path}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
 async def run_general_query(query_type: Optional[str], suggestion: Optional[str], custom_query: Optional[str], export_format: str, max_pages: Optional[int]):
     """Run general query."""
     try:
@@ -696,6 +1124,1702 @@ async def generate_gamma_presentation(results, filename: str):
         
     except Exception as e:
         console.print(f"[yellow]Warning: Could not generate Gamma presentation: {e}[/yellow]")
+
+
+# Async helper functions for new commands
+async def run_technical_analysis_v2(start_date: datetime, end_date: datetime, max_pages: Optional[int], generate_ai_report: bool):
+    """Run technical analysis with improved pipeline."""
+    try:
+        # Initialize services
+        pipeline = ELTPipeline()
+        openai_client = OpenAIClient() if generate_ai_report else None
+        
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Extract and load data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Extracting and loading data...", total=None)
+            
+            stats = await pipeline.extract_and_load(start_date.date(), end_date.date(), max_pages)
+            
+            progress.update(task, description=f"✅ Loaded {stats['conversations_count']} conversations")
+        
+        if stats['conversations_count'] == 0:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Transform for technical analysis
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing technical patterns...", total=None)
+            
+            filters = {
+                'start_date': start_date.date(),
+                'end_date': end_date.date()
+            }
+            
+            df = pipeline.transform_for_analysis("technical", filters)
+            
+            progress.update(task, description="✅ Technical analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_path = pipeline.export_analysis_data("technical", filters, "csv")
+        
+        console.print(f"\n[bold green]Technical Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {stats['conversations_count']:,}")
+        console.print(f"CSV Export: {csv_path}")
+        
+        # Generate AI report if requested
+        if generate_ai_report and openai_client:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating AI insights report...", total=None)
+                
+                # Prepare data summary for AI
+                data_summary = f"""
+                Total conversations: {stats['conversations_count']}
+                Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}
+                
+                Technical patterns found: {len(df)} patterns
+                """
+                
+                # Generate AI report
+                from config.prompts import PromptTemplates
+                prompt = PromptTemplates.get_technical_troubleshooting_prompt(
+                    start_date.strftime('%Y-%m-%d'),
+                    end_date.strftime('%Y-%m-%d'),
+                    data_summary
+                )
+                
+                ai_report = await openai_client.generate_analysis(prompt)
+                
+                # Save AI report
+                report_path = pipeline.output_dir / f"tech_analysis_report_{timestamp}.md"
+                with open(report_path, 'w') as f:
+                    f.write(ai_report or "No report generated")
+                
+                progress.update(task, description="✅ AI report generated")
+            
+            console.print(f"AI Report: {report_path}")
+        
+        pipeline.close()
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+async def run_macro_analysis(start_date: datetime, end_date: datetime, min_occurrences: int):
+    """Run macro discovery analysis."""
+    console.print(f"[yellow]Macro analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze {min_occurrences}+ occurrences from {start_date.date()} to {end_date.date()}")
+
+
+async def run_fin_analysis(start_date: datetime, end_date: datetime, detailed: bool):
+    """Run Fin escalation analysis."""
+    console.print(f"[yellow]Fin analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze Fin effectiveness from {start_date.date()} to {end_date.date()}")
+
+
+async def run_agent_analysis(agent: str, start_date: datetime, end_date: datetime):
+    """Run agent performance analysis."""
+    console.print(f"[yellow]Agent analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze {agent} performance from {start_date.date()} to {end_date.date()}")
+
+
+async def run_category_analysis(category: str, start_date: datetime, end_date: datetime, output_format: str):
+    """Run single category analysis."""
+    console.print(f"[yellow]Category analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze {category} category from {start_date.date()} to {end_date.date()}")
+
+
+async def run_all_categories_analysis(start_date: datetime, end_date: datetime, parallel: bool):
+    """Run all categories analysis."""
+    console.print(f"[yellow]All categories analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze all 13 categories from {start_date.date()} to {end_date.date()}")
+
+
+async def run_synthesis_analysis(categories: str, pattern: Optional[str], start_date: datetime, end_date: datetime):
+    """Run synthesis analysis."""
+    console.print(f"[yellow]Synthesis analysis not yet implemented[/yellow]")
+    console.print(f"Would synthesize {categories} from {start_date.date()} to {end_date.date()}")
+
+
+async def run_custom_tag_analysis(tag: str, agent: Optional[str], start_date: datetime, end_date: datetime):
+    """Run custom tag analysis."""
+    console.print(f"[yellow]Custom tag analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze {tag} tag from {start_date.date()} to {end_date.date()}")
+
+
+async def run_escalation_analysis(to: Optional[str], from_agent: Optional[str], start_date: datetime, end_date: datetime):
+    """Run escalation analysis."""
+    console.print(f"[yellow]Escalation analysis not yet implemented[/yellow]")
+    console.print(f"Would analyze escalations from {start_date.date()} to {end_date.date()}")
+
+
+async def run_pattern_analysis(pattern: str, start_date: datetime, end_date: datetime, case_sensitive: bool):
+    """Run pattern analysis."""
+    console.print(f"[yellow]Pattern analysis not yet implemented[/yellow]")
+    console.print(f"Would search for '{pattern}' from {start_date.date()} to {end_date.date()}")
+
+
+# New Category Analysis Commands
+@cli.command(name='analyze-billing')
+@click.option('--days', type=int, default=30, help='Number of days to analyze')
+@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
+                   generate_gamma: bool, max_conversations: Optional[int]):
+    """Analyze billing conversations (refunds, invoices, credits, discounts)."""
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=days)
+    if not end_date:
+        end_date = datetime.now()
+    
+    asyncio.run(run_billing_analysis(start_date, end_date, generate_gamma, max_conversations))
+
+
+@cli.command(name='analyze-product')
+@click.option('--days', type=int, default=30, help='Number of days to analyze')
+@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+def analyze_product(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
+                   generate_gamma: bool, max_conversations: Optional[int]):
+    """Analyze product conversations (export issues, bugs, feature requests)."""
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=days)
+    if not end_date:
+        end_date = datetime.now()
+    
+    asyncio.run(run_product_analysis(start_date, end_date, generate_gamma, max_conversations))
+
+
+@cli.command(name='analyze-sites')
+@click.option('--days', type=int, default=30, help='Number of days to analyze')
+@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
+                 generate_gamma: bool, max_conversations: Optional[int]):
+    """Analyze sites conversations (domain, publishing, education)."""
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=days)
+    if not end_date:
+        end_date = datetime.now()
+    
+    asyncio.run(run_sites_analysis(start_date, end_date, generate_gamma, max_conversations))
+
+
+@cli.command(name='analyze-api')
+@click.option('--days', type=int, default=30, help='Number of days to analyze')
+@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
+               generate_gamma: bool, max_conversations: Optional[int]):
+    """Analyze API conversations (authentication, integration, performance)."""
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=days)
+    if not end_date:
+        end_date = datetime.now()
+    
+    asyncio.run(run_api_analysis(start_date, end_date, generate_gamma, max_conversations))
+
+
+@cli.command(name='analyze-all-categories')
+@click.option('--days', type=int, default=30, help='Number of days to analyze')
+@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentations')
+@click.option('--parallel', is_flag=True, help='Run analyses in parallel')
+@click.option('--max-conversations', type=int, help='Maximum conversations per category')
+def analyze_all_categories(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
+                          generate_gamma: bool, parallel: bool, max_conversations: Optional[int]):
+    """Analyze all 4 main categories (Billing, Product, Sites, API)."""
+    if not start_date:
+        start_date = datetime.now() - timedelta(days=days)
+    if not end_date:
+        end_date = datetime.now()
+    
+    asyncio.run(run_all_categories_analysis_v2(start_date, end_date, generate_gamma, parallel, max_conversations))
+
+
+# Analysis Implementation Functions
+async def run_billing_analysis(start_date: datetime, end_date: datetime, generate_gamma: bool, max_conversations: Optional[int]):
+    """Run billing analysis with new infrastructure."""
+    try:
+        console.print(f"[bold blue]Billing Analysis[/bold blue]")
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Initialize services
+        chunked_fetcher = ChunkedFetcher()
+        data_preprocessor = DataPreprocessor()
+        category_filters = CategoryFilters()
+        billing_analyzer = BillingAnalyzer()
+        gamma_generator = GammaGenerator() if generate_gamma else None
+        
+        # Fetch conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await chunked_fetcher.fetch_conversations_chunked(
+                start_date, end_date, max_pages=None
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Preprocess data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Preprocessing data...", total=None)
+            
+            processed_conversations, preprocessing_stats = data_preprocessor.preprocess_conversations(
+                conversations, {'max_conversations': max_conversations}
+            )
+            
+            progress.update(task, description=f"✅ Preprocessed {len(processed_conversations)} conversations")
+        
+        # Analyze billing conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing billing patterns...", total=None)
+            
+            analysis_results = await billing_analyzer.analyze_category(
+                processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+            )
+            
+            progress.update(task, description="✅ Billing analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(settings.output_directory)
+        
+        # Save analysis results
+        results_file = output_dir / f"billing_analysis_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            import json
+            json.dump(analysis_results, f, indent=2, default=str)
+        
+        console.print(f"\n[bold green]Billing Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {analysis_results['data_summary']['filtered_conversations']:,}")
+        console.print(f"Results saved to: {results_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma and gamma_generator:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating Gamma presentation...", total=None)
+                
+                presentation_results = await gamma_generator.generate_presentation(
+                    analysis_results, "executive_summary", output_dir
+                )
+                
+                progress.update(task, description="✅ Gamma presentation generated")
+            
+            console.print(f"Gamma presentation saved to: {output_dir}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+async def run_product_analysis(start_date: datetime, end_date: datetime, generate_gamma: bool, max_conversations: Optional[int]):
+    """Run product analysis with new infrastructure."""
+    try:
+        console.print(f"[bold blue]Product Analysis[/bold blue]")
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Initialize services
+        chunked_fetcher = ChunkedFetcher()
+        data_preprocessor = DataPreprocessor()
+        category_filters = CategoryFilters()
+        product_analyzer = ProductAnalyzer()
+        gamma_generator = GammaGenerator() if generate_gamma else None
+        
+        # Fetch conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await chunked_fetcher.fetch_conversations_chunked(
+                start_date, end_date, max_pages=None
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Preprocess data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Preprocessing data...", total=None)
+            
+            processed_conversations, preprocessing_stats = data_preprocessor.preprocess_conversations(
+                conversations, {'max_conversations': max_conversations}
+            )
+            
+            progress.update(task, description=f"✅ Preprocessed {len(processed_conversations)} conversations")
+        
+        # Analyze product conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing product patterns...", total=None)
+            
+            analysis_results = await product_analyzer.analyze_category(
+                processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+            )
+            
+            progress.update(task, description="✅ Product analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(settings.output_directory)
+        
+        # Save analysis results
+        results_file = output_dir / f"product_analysis_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            import json
+            json.dump(analysis_results, f, indent=2, default=str)
+        
+        console.print(f"\n[bold green]Product Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {analysis_results['data_summary']['filtered_conversations']:,}")
+        console.print(f"Results saved to: {results_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma and gamma_generator:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating Gamma presentation...", total=None)
+                
+                presentation_results = await gamma_generator.generate_presentation(
+                    analysis_results, "executive_summary", output_dir
+                )
+                
+                progress.update(task, description="✅ Gamma presentation generated")
+            
+            console.print(f"Gamma presentation saved to: {output_dir}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+async def run_sites_analysis(start_date: datetime, end_date: datetime, generate_gamma: bool, max_conversations: Optional[int]):
+    """Run sites analysis with new infrastructure."""
+    try:
+        console.print(f"[bold blue]Sites Analysis[/bold blue]")
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Initialize services
+        chunked_fetcher = ChunkedFetcher()
+        data_preprocessor = DataPreprocessor()
+        category_filters = CategoryFilters()
+        sites_analyzer = SitesAnalyzer()
+        gamma_generator = GammaGenerator() if generate_gamma else None
+        
+        # Fetch conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await chunked_fetcher.fetch_conversations_chunked(
+                start_date, end_date, max_pages=None
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Preprocess data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Preprocessing data...", total=None)
+            
+            processed_conversations, preprocessing_stats = data_preprocessor.preprocess_conversations(
+                conversations, {'max_conversations': max_conversations}
+            )
+            
+            progress.update(task, description=f"✅ Preprocessed {len(processed_conversations)} conversations")
+        
+        # Analyze sites conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing sites patterns...", total=None)
+            
+            analysis_results = await sites_analyzer.analyze_category(
+                processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+            )
+            
+            progress.update(task, description="✅ Sites analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(settings.output_directory)
+        
+        # Save analysis results
+        results_file = output_dir / f"sites_analysis_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            import json
+            json.dump(analysis_results, f, indent=2, default=str)
+        
+        console.print(f"\n[bold green]Sites Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {analysis_results['data_summary']['filtered_conversations']:,}")
+        console.print(f"Results saved to: {results_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma and gamma_generator:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating Gamma presentation...", total=None)
+                
+                presentation_results = await gamma_generator.generate_presentation(
+                    analysis_results, "executive_summary", output_dir
+                )
+                
+                progress.update(task, description="✅ Gamma presentation generated")
+            
+            console.print(f"Gamma presentation saved to: {output_dir}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+async def run_api_analysis(start_date: datetime, end_date: datetime, generate_gamma: bool, max_conversations: Optional[int]):
+    """Run API analysis with new infrastructure."""
+    try:
+        console.print(f"[bold blue]API Analysis[/bold blue]")
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Initialize services
+        chunked_fetcher = ChunkedFetcher()
+        data_preprocessor = DataPreprocessor()
+        category_filters = CategoryFilters()
+        api_analyzer = ApiAnalyzer()
+        gamma_generator = GammaGenerator() if generate_gamma else None
+        
+        # Fetch conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await chunked_fetcher.fetch_conversations_chunked(
+                start_date, end_date, max_pages=None
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Preprocess data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Preprocessing data...", total=None)
+            
+            processed_conversations, preprocessing_stats = data_preprocessor.preprocess_conversations(
+                conversations, {'max_conversations': max_conversations}
+            )
+            
+            progress.update(task, description=f"✅ Preprocessed {len(processed_conversations)} conversations")
+        
+        # Analyze API conversations
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Analyzing API patterns...", total=None)
+            
+            analysis_results = await api_analyzer.analyze_category(
+                processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+            )
+            
+            progress.update(task, description="✅ API analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(settings.output_directory)
+        
+        # Save analysis results
+        results_file = output_dir / f"api_analysis_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            import json
+            json.dump(analysis_results, f, indent=2, default=str)
+        
+        console.print(f"\n[bold green]API Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {analysis_results['data_summary']['filtered_conversations']:,}")
+        console.print(f"Results saved to: {results_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma and gamma_generator:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating Gamma presentation...", total=None)
+                
+                presentation_results = await gamma_generator.generate_presentation(
+                    analysis_results, "executive_summary", output_dir
+                )
+                
+                progress.update(task, description="✅ Gamma presentation generated")
+            
+            console.print(f"Gamma presentation saved to: {output_dir}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetime, generate_gamma: bool, parallel: bool, max_conversations: Optional[int]):
+    """Run all categories analysis with new infrastructure."""
+    try:
+        console.print(f"[bold blue]All Categories Analysis[/bold blue]")
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        console.print(f"Categories: Billing, Product, Sites, API")
+        
+        # Initialize services
+        chunked_fetcher = ChunkedFetcher()
+        data_preprocessor = DataPreprocessor()
+        category_filters = CategoryFilters()
+        gamma_generator = GammaGenerator() if generate_gamma else None
+        
+        # Fetch conversations once
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Fetching conversations...", total=None)
+            
+            conversations = await chunked_fetcher.fetch_conversations_chunked(
+                start_date, end_date, max_pages=None
+            )
+            
+            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
+        
+        if not conversations:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Preprocess data once
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Preprocessing data...", total=None)
+            
+            processed_conversations, preprocessing_stats = data_preprocessor.preprocess_conversations(
+                conversations, {'max_conversations': max_conversations}
+            )
+            
+            progress.update(task, description=f"✅ Preprocessed {len(processed_conversations)} conversations")
+        
+        # Initialize analyzers
+        analyzers = {
+            'Billing': BillingAnalyzer(),
+            'Product': ProductAnalyzer(),
+            'Sites': SitesAnalyzer(),
+            'API': ApiAnalyzer()
+        }
+        
+        # Run analyses
+        analysis_results = {}
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path(settings.output_directory)
+        
+        if parallel:
+            # Run analyses in parallel
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Running parallel analyses...", total=len(analyzers))
+                
+                async def analyze_category(category_name, analyzer):
+                    result = await analyzer.analyze_category(
+                        processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+                    )
+                    return category_name, result
+                
+                # Create tasks for parallel execution
+                tasks = [analyze_category(category, analyzer) for category, analyzer in analyzers.items()]
+                results = await asyncio.gather(*tasks)
+                
+                for category_name, result in results:
+                    analysis_results[category_name] = result
+                    progress.advance(task)
+        else:
+            # Run analyses sequentially
+            for category_name, analyzer in analyzers.items():
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console
+                ) as progress:
+                    task = progress.add_task(f"Analyzing {category_name}...", total=None)
+                    
+                    result = await analyzer.analyze_category(
+                        processed_conversations, start_date, end_date, {'generate_ai_insights': True}
+                    )
+                    analysis_results[category_name] = result
+                    
+                    progress.update(task, description=f"✅ {category_name} analysis completed")
+        
+        # Save individual results
+        for category_name, result in analysis_results.items():
+            results_file = output_dir / f"{category_name.lower()}_analysis_{timestamp}.json"
+            with open(results_file, 'w') as f:
+                import json
+                json.dump(result, f, indent=2, default=str)
+        
+        console.print(f"\n[bold green]All Categories Analysis Completed![/bold green]")
+        for category_name, result in analysis_results.items():
+            console.print(f"{category_name}: {result['data_summary']['filtered_conversations']:,} conversations")
+        
+        # Generate comprehensive Gamma presentation if requested
+        if generate_gamma and gamma_generator:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Generating comprehensive Gamma presentation...", total=None)
+                
+                # Convert to list format for multi-category presentation
+                results_list = list(analysis_results.values())
+                presentation_results = await gamma_generator.generate_multi_category_presentation(
+                    results_list, output_dir
+                )
+                
+                progress.update(task, description="✅ Comprehensive Gamma presentation generated")
+            
+            console.print(f"Comprehensive Gamma presentation saved to: {output_dir}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command(name='comprehensive-analysis')
+@click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
+@click.option('--max-conversations', default=1000, help='Maximum conversations to analyze')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--gamma-style', default='executive', type=click.Choice(['executive', 'detailed', 'training']), help='Gamma presentation style')
+@click.option('--gamma-export', type=click.Choice(['pdf', 'pptx']), help='Gamma export format')
+@click.option('--export-docs', is_flag=True, help='Generate markdown for Google Docs')
+@click.option('--include-fin-analysis', is_flag=True, default=True, help='Include Fin escalation analysis')
+@click.option('--include-technical-analysis', is_flag=True, default=True, help='Include technical pattern analysis')
+@click.option('--include-macro-analysis', is_flag=True, default=True, help='Include macro opportunity analysis')
+@click.option('--output-dir', default='outputs', help='Output directory for results')
+def comprehensive_analysis(
+    start_date: str,
+    end_date: str,
+    max_conversations: int,
+    generate_gamma: bool,
+    gamma_style: str,
+    gamma_export: str,
+    export_docs: bool,
+    include_fin_analysis: bool,
+    include_technical_analysis: bool,
+    include_macro_analysis: bool,
+    output_dir: str
+):
+    """Run comprehensive analysis across all categories and components."""
+    try:
+        # Parse dates
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Create output directory
+        output_path = Path(output_dir)
+        output_path.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        console.print(f"[bold blue]Starting Comprehensive Analysis[/bold blue]")
+        console.print(f"Date range: {start_date} to {end_date}")
+        console.print(f"Max conversations: {max_conversations}")
+        console.print(f"Output directory: {output_dir}")
+        
+        # Initialize orchestrator
+        orchestrator = AnalysisOrchestrator()
+        
+        # Set up options
+        options = {
+            'max_conversations': max_conversations,
+            'generate_gamma_presentation': generate_gamma,
+            'gamma_style': gamma_style,
+            'gamma_export': gamma_export,
+            'export_docs': export_docs,
+            'include_fin_analysis': include_fin_analysis,
+            'include_technical_analysis': include_technical_analysis,
+            'include_macro_analysis': include_macro_analysis,
+            'generate_ai_insights': True
+        }
+        
+        # Run comprehensive analysis
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Running comprehensive analysis...", total=None)
+            
+            results = asyncio.run(orchestrator.run_comprehensive_analysis(
+                start_dt, end_dt, options
+            ))
+            
+            progress.update(task, description="✅ Comprehensive analysis completed")
+        
+        # Save results
+        results_file = output_path / f"comprehensive_analysis_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            import json
+            json.dump(results, f, indent=2, default=str)
+        
+        # Display summary
+        console.print(f"\n[bold green]Comprehensive Analysis Completed![/bold green]")
+        
+        if 'error' in results:
+            console.print(f"[red]Error: {results['error']}[/red]")
+            return
+        
+        # Display key metrics
+        metadata = results.get('analysis_metadata', {})
+        console.print(f"Total conversations analyzed: {metadata.get('total_conversations', 0):,}")
+        
+        # Display category results
+        category_results = results.get('category_results', {})
+        console.print(f"\n[bold]Category Analysis Results:[/bold]")
+        for category, result in category_results.items():
+            if 'error' not in result:
+                filtered_count = result.get('data_summary', {}).get('filtered_conversations', 0)
+                console.print(f"  {category.title()}: {filtered_count:,} conversations")
+            else:
+                console.print(f"  {category.title()}: Error - {result['error']}")
+        
+        # Display specialized results
+        specialized_results = results.get('specialized_results', {})
+        console.print(f"\n[bold]Specialized Analysis Results:[/bold]")
+        for analysis_type, result in specialized_results.items():
+            if 'error' not in result:
+                if analysis_type == 'fin_escalations':
+                    escalation_rate = result.get('escalation_analysis', {}).get('escalation_rate', 0)
+                    console.print(f"  Fin Escalations: {escalation_rate:.1f}% escalation rate")
+                elif analysis_type == 'technical_patterns':
+                    pattern_count = len(result.get('technical_patterns', []))
+                    console.print(f"  Technical Patterns: {pattern_count} patterns detected")
+                elif analysis_type == 'macro_opportunities':
+                    opportunity_count = len(result.get('macro_opportunities', []))
+                    console.print(f"  Macro Opportunities: {opportunity_count} opportunities found")
+            else:
+                console.print(f"  {analysis_type.title()}: Error - {result['error']}")
+        
+        # Display synthesis results
+        synthesis_results = results.get('synthesis_results', {})
+        if synthesis_results:
+            console.print(f"\n[bold]Cross-Category Insights:[/bold]")
+            executive_summary = synthesis_results.get('executive_summary', {})
+            key_findings = executive_summary.get('overview', {}).get('key_findings', [])
+            for finding in key_findings[:3]:  # Show top 3 findings
+                console.print(f"  • {finding}")
+        
+        # Display Gamma presentation info
+        if generate_gamma and results.get('gamma_presentation'):
+            console.print(f"\n[bold green]Gamma presentation generated![/bold green]")
+            console.print(f"Results saved to: {output_path}")
+        
+        console.print(f"\nDetailed results saved to: {results_file}")
+        
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command(name='generate-gamma')
+@click.option('--analysis-file', required=True, type=click.Path(exists=True), help='Path to analysis JSON file')
+@click.option('--style', default='executive', type=click.Choice(['executive', 'detailed', 'training']), help='Presentation style')
+@click.option('--export-pdf', is_flag=True, help='Also export as PDF')
+@click.option('--export-pptx', is_flag=True, help='Also export as PPTX')
+@click.option('--export-docs', is_flag=True, help='Generate markdown for Google Docs')
+@click.option('--output-dir', default='outputs', help='Output directory for results')
+def generate_gamma(analysis_file, style, export_pdf, export_pptx, export_docs, output_dir):
+    """Generate Gamma presentation from existing analysis JSON file."""
+    try:
+        import json
+        from services.gamma_generator import GammaGenerator
+        from services.google_docs_exporter import GoogleDocsExporter
+        from pathlib import Path
+        
+        # Load analysis results
+        with open(analysis_file, 'r') as f:
+            analysis_results = json.load(f)
+        
+        console.print(f"[bold blue]Generating Gamma Presentation[/bold blue]")
+        console.print(f"Style: {style}")
+        console.print(f"Analysis file: {analysis_file}")
+        console.print(f"Output directory: {output_dir}")
+        
+        # Create output directory
+        output_path = Path(output_dir)
+        output_path.mkdir(exist_ok=True)
+        
+        # Initialize services
+        gamma_generator = GammaGenerator()
+        docs_exporter = GoogleDocsExporter()
+        
+        # Determine export format
+        export_format = None
+        if export_pdf:
+            export_format = "pdf"
+        elif export_pptx:
+            export_format = "pptx"
+        
+        # Generate Gamma presentation
+        console.print(f"[yellow]Generating {style} presentation...[/yellow]")
+        result = asyncio.run(gamma_generator.generate_from_analysis(
+            analysis_results=analysis_results,
+            style=style,
+            export_format=export_format,
+            output_dir=output_path
+        ))
+        
+        # Display results
+        console.print(f"[green]✅ Gamma presentation generated successfully![/green]")
+        console.print(f"Gamma URL: {result['gamma_url']}")
+        console.print(f"Generation ID: {result['generation_id']}")
+        console.print(f"Credits used: {result['credits_used']}")
+        console.print(f"Generation time: {result['generation_time_seconds']:.1f} seconds")
+        
+        if result.get('export_url'):
+            console.print(f"Export URL: {result['export_url']}")
+        
+        # Generate Google Docs export if requested
+        if export_docs:
+            console.print(f"[yellow]Generating Google Docs markdown...[/yellow]")
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            docs_filename = f"analysis_{style}_{timestamp}.md"
+            docs_path = output_path / docs_filename
+            
+            docs_exporter.export_to_markdown(
+                analysis_results=analysis_results,
+                output_path=docs_path,
+                style=style
+            )
+            
+            console.print(f"[green]✅ Google Docs markdown generated![/green]")
+            console.print(f"Markdown file: {docs_path}")
+        
+    except Exception as e:
+        console.print(f"[red]Error generating Gamma presentation: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+@cli.command(name='generate-all-gamma')
+@click.option('--analysis-file', required=True, type=click.Path(exists=True), help='Path to analysis JSON file')
+@click.option('--export-pdf', is_flag=True, help='Also export as PDF')
+@click.option('--export-pptx', is_flag=True, help='Also export as PPTX')
+@click.option('--export-docs', is_flag=True, help='Generate markdown for Google Docs')
+@click.option('--output-dir', default='outputs', help='Output directory for results')
+def generate_all_gamma(analysis_file, export_pdf, export_pptx, export_docs, output_dir):
+    """Generate all Gamma presentation styles from existing analysis JSON file."""
+    try:
+        import json
+        from services.gamma_generator import GammaGenerator
+        from services.google_docs_exporter import GoogleDocsExporter
+        from pathlib import Path
+        
+        # Load analysis results
+        with open(analysis_file, 'r') as f:
+            analysis_results = json.load(f)
+        
+        console.print(f"[bold blue]Generating All Gamma Presentations[/bold blue]")
+        console.print(f"Analysis file: {analysis_file}")
+        console.print(f"Output directory: {output_dir}")
+        
+        # Create output directory
+        output_path = Path(output_dir)
+        output_path.mkdir(exist_ok=True)
+        
+        # Initialize services
+        gamma_generator = GammaGenerator()
+        docs_exporter = GoogleDocsExporter()
+        
+        # Determine export format
+        export_format = None
+        if export_pdf:
+            export_format = "pdf"
+        elif export_pptx:
+            export_format = "pptx"
+        
+        # Generate all presentation styles
+        console.print(f"[yellow]Generating all presentation styles...[/yellow]")
+        results = asyncio.run(gamma_generator.generate_all_styles(
+            analysis_results=analysis_results,
+            export_format=export_format,
+            output_dir=output_path
+        ))
+        
+        # Display results
+        console.print(f"[green]✅ All Gamma presentations generated![/green]")
+        
+        for style, result in results.items():
+            if result.get('gamma_url'):
+                console.print(f"\n[bold]{style.title()} Presentation:[/bold]")
+                console.print(f"  Gamma URL: {result['gamma_url']}")
+                console.print(f"  Credits used: {result['credits_used']}")
+                console.print(f"  Generation time: {result['generation_time_seconds']:.1f} seconds")
+                
+                if result.get('export_url'):
+                    console.print(f"  Export URL: {result['export_url']}")
+            else:
+                console.print(f"\n[red]{style.title()} Presentation: Failed - {result.get('error', 'Unknown error')}[/red]")
+        
+        # Generate Google Docs exports if requested
+        if export_docs:
+            console.print(f"\n[yellow]Generating Google Docs markdown files...[/yellow]")
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            
+            for style in ['executive', 'detailed', 'training']:
+                docs_filename = f"analysis_{style}_{timestamp}.md"
+                docs_path = output_path / docs_filename
+                
+                docs_exporter.export_to_markdown(
+                    analysis_results=analysis_results,
+                    output_path=docs_path,
+                    style=style
+                )
+                
+                console.print(f"[green]✅ {style.title()} markdown: {docs_path}[/green]")
+        
+        # Show summary
+        stats = gamma_generator.get_generation_statistics(results)
+        console.print(f"\n[bold]Summary:[/bold]")
+        console.print(f"  Total generations: {stats['total_generations']}")
+        console.print(f"  Successful: {stats['successful_generations']}")
+        console.print(f"  Failed: {stats['failed_generations']}")
+        console.print(f"  Total credits used: {stats['total_credits_used']}")
+        console.print(f"  Total time: {stats['total_time_seconds']:.1f} seconds")
+        
+    except Exception as e:
+        console.print(f"[red]Error generating Gamma presentations: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+def run_comprehensive_analysis_wrapper(
+    start_date: str,
+    end_date: str,
+    max_conversations: int = 1000,
+    generate_gamma: bool = True,
+    gamma_style: str = "executive",
+    gamma_export: str = None,
+    export_docs: bool = False,
+    output_dir: str = "outputs"
+) -> dict:
+    """
+    Serverless wrapper for comprehensive analysis.
+    Designed for deployment platforms like Modal, Railway, or AWS Lambda.
+    
+    Args:
+        start_date: Start date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format
+        max_conversations: Maximum conversations to analyze
+        generate_gamma: Whether to generate Gamma presentation
+        gamma_style: Gamma presentation style (executive, detailed, training)
+        gamma_export: Export format (pdf, pptx) or None
+        export_docs: Whether to generate Google Docs markdown
+        output_dir: Output directory for results
+        
+    Returns:
+        Dictionary with analysis results and Gamma URLs
+    """
+    try:
+        # Parse dates
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Prepare options
+        options = {
+            'max_conversations': max_conversations,
+            'generate_gamma_presentation': generate_gamma,
+            'gamma_style': gamma_style,
+            'gamma_export': gamma_export,
+            'export_docs': export_docs,
+            'output_directory': output_dir
+        }
+        
+        # Initialize orchestrator
+        orchestrator = AnalysisOrchestrator()
+        
+        # Run analysis
+        results = asyncio.run(orchestrator.run_comprehensive_analysis(
+            start_date=start_dt,
+            end_date=end_dt,
+            options=options
+        ))
+        
+        # Extract key results for serverless response
+        response = {
+            'success': True,
+            'analysis_metadata': results.get('analysis_metadata', {}),
+            'validation': results.get('validation', {}),
+            'total_conversations': len(results.get('conversations', [])),
+            'category_results': results.get('category_results', {}),
+            'gamma_presentation': results.get('gamma_presentation', {}),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Add Gamma URLs if available
+        gamma_result = results.get('gamma_presentation', {})
+        if gamma_result and not gamma_result.get('error'):
+            response['gamma_url'] = gamma_result.get('gamma_url')
+            response['export_url'] = gamma_result.get('export_url')
+            response['credits_used'] = gamma_result.get('credits_used')
+        
+        return response
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }
+
+
+async def run_canny_analysis(
+    start_date: str,
+    end_date: str,
+    board_id: Optional[str],
+    ai_model: str,
+    enable_fallback: bool,
+    include_comments: bool,
+    include_votes: bool,
+    generate_gamma: bool,
+    output_dir: str
+):
+    """Run Canny product feedback analysis."""
+    try:
+        console.print(f"[bold blue]Starting Canny Analysis[/bold blue]")
+        console.print(f"Date Range: {start_date} to {end_date}")
+        console.print(f"AI Model: {ai_model}")
+        console.print(f"Board ID: {board_id or 'All boards'}")
+        
+        # Initialize components
+        ai_factory = AIModelFactory()
+        canny_client = CannyClient()
+        canny_analyzer = CannyAnalyzer(ai_factory)
+        
+        # Test Canny connection
+        console.print(f"[yellow]Testing Canny API connection...[/yellow]")
+        await canny_client.test_connection()
+        console.print(f"[green]✅ Canny API connection successful[/green]")
+        
+        # Parse dates
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Fetch Canny data
+        console.print(f"[yellow]Fetching Canny posts...[/yellow]")
+        if board_id:
+            posts = await canny_client.fetch_posts_by_date_range(
+                start_date=start_dt,
+                end_date=end_dt,
+                board_id=board_id,
+                include_comments=include_comments,
+                include_votes=include_votes
+            )
+        else:
+            # Fetch from all boards
+            all_boards_posts = await canny_client.fetch_all_boards_posts(
+                start_date=start_dt,
+                end_date=end_dt,
+                include_comments=include_comments,
+                include_votes=include_votes
+            )
+            # Flatten posts from all boards
+            posts = []
+            for board_posts in all_boards_posts.values():
+                posts.extend(board_posts)
+        
+        if not posts:
+            console.print("[red]No Canny posts found for the specified date range.[/red]")
+            return
+        
+        console.print(f"[green]Found {len(posts)} Canny posts[/green]")
+        
+        # Run sentiment analysis
+        console.print(f"[yellow]Running sentiment analysis...[/yellow]")
+        
+        ai_model_enum = AIModel.ANTHROPIC_CLAUDE if ai_model == 'claude' else AIModel.OPENAI_GPT4
+        
+        analysis_results = await canny_analyzer.analyze_canny_sentiment(
+            posts=posts,
+            ai_model=ai_model_enum,
+            enable_fallback=enable_fallback
+        )
+        
+        # Save results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = Path(output_dir) / f"canny_analysis_{timestamp}.json"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_file, 'w') as f:
+            import json
+            json.dump({
+                'analysis_results': analysis_results,
+                'metadata': {
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'board_id': board_id,
+                    'ai_model': ai_model,
+                    'total_posts': len(posts),
+                    'generated_at': datetime.now().isoformat()
+                }
+            }, f, indent=2)
+        
+        console.print(f"[green]Canny analysis completed![/green]")
+        console.print(f"Results saved to: {output_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma:
+            console.print(f"[yellow]Generating Gamma presentation...[/yellow]")
+            
+            from services.gamma_generator import GammaGenerator
+            gamma_generator = GammaGenerator()
+            
+            try:
+                gamma_result = await gamma_generator.generate_from_canny_analysis(
+                    canny_results=analysis_results,
+                    style='executive',
+                    export_format=None,
+                    output_dir=Path(output_dir)
+                )
+                
+                console.print(f"[green]✅ Gamma URL: {gamma_result['gamma_url']}[/green]")
+                
+                # Save Gamma metadata
+                gamma_output = output_file.parent / f"canny_gamma_{timestamp}.json"
+                with open(gamma_output, 'w') as f:
+                    json.dump(gamma_result, f, indent=2)
+                
+                console.print(f"Gamma metadata saved to: {gamma_output}")
+                    
+            except Exception as e:
+                console.print(f"[red]Gamma generation failed: {e}[/red]")
+                console.print("[yellow]Canny analysis results still saved to JSON[/yellow]")
+        
+        # Display insights
+        insights = analysis_results.get('insights', [])
+        if insights:
+            console.print(f"\n[bold]Key Insights:[/bold]")
+            for insight in insights[:5]:  # Show top 5 insights
+                console.print(f"• {insight}")
+        
+        return output_file
+        
+    except Exception as e:
+        console.print(f"[red]Canny analysis failed: {e}[/red]")
+        raise
+
+
+async def run_voc_analysis(
+    start_date: str,
+    end_date: str,
+    ai_model: str,
+    enable_fallback: bool,
+    include_trends: bool,
+    include_canny: bool,
+    canny_board_id: Optional[str],
+    generate_gamma: bool,
+    separate_agent_feedback: bool,
+    output_dir: str
+):
+    """Run Voice of Customer analysis."""
+    try:
+        console.print(f"[bold blue]Starting Voice of Customer Analysis[/bold blue]")
+        console.print(f"Date Range: {start_date} to {end_date}")
+        console.print(f"AI Model: {ai_model}")
+        console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
+        
+        # Initialize components
+        ai_factory = AIModelFactory()
+        agent_separator = AgentFeedbackSeparator()
+        historical_manager = HistoricalDataManager(output_dir)
+        voc_analyzer = VoiceOfCustomerAnalyzer(ai_factory, agent_separator, historical_manager)
+        
+        # Parse dates
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Fetch conversations
+        console.print(f"[yellow]Fetching conversations from Intercom...[/yellow]")
+        intercom_service = IntercomServiceV2()
+        conversations = await intercom_service.fetch_conversations_by_date_range(
+            start_date=start_dt,
+            end_date=end_dt
+        )
+        
+        if not conversations:
+            console.print("[red]No conversations found for the specified date range.[/red]")
+            return
+        
+        console.print(f"[green]Found {len(conversations)} conversations[/green]")
+        
+        # Run VoC analysis
+        console.print(f"[yellow]Running Voice of Customer analysis...[/yellow]")
+        
+        ai_model_enum = AIModel.ANTHROPIC_CLAUDE if ai_model == 'claude' else AIModel.OPENAI_GPT4
+        
+        analysis_results = await voc_analyzer.analyze_weekly_sentiment(
+            conversations=conversations,
+            ai_model=ai_model_enum,
+            enable_fallback=enable_fallback,
+            options={'include_trends': include_trends}
+        )
+        
+        # Fetch and analyze Canny data if requested
+        canny_results = None
+        if include_canny:
+            console.print(f"[yellow]Fetching Canny data...[/yellow]")
+            try:
+                canny_client = CannyClient()
+                canny_analyzer = CannyAnalyzer(ai_factory)
+                
+                # Test Canny connection
+                await canny_client.test_connection()
+                console.print(f"[green]✅ Canny API connection successful[/green]")
+                
+                # Fetch Canny posts
+                if canny_board_id:
+                    canny_posts = await canny_client.fetch_posts_by_date_range(
+                        start_date=start_dt,
+                        end_date=end_dt,
+                        board_id=canny_board_id,
+                        include_comments=True,
+                        include_votes=True
+                    )
+                else:
+                    # Fetch from all boards
+                    all_boards_posts = await canny_client.fetch_all_boards_posts(
+                        start_date=start_dt,
+                        end_date=end_dt,
+                        include_comments=True,
+                        include_votes=True
+                    )
+                    # Flatten posts from all boards
+                    canny_posts = []
+                    for board_posts in all_boards_posts.values():
+                        canny_posts.extend(board_posts)
+                
+                if canny_posts:
+                    console.print(f"[green]Found {len(canny_posts)} Canny posts[/green]")
+                    
+                    # Analyze Canny sentiment
+                    canny_results = await canny_analyzer.analyze_canny_sentiment(
+                        posts=canny_posts,
+                        ai_model=ai_model_enum,
+                        enable_fallback=enable_fallback
+                    )
+                    console.print(f"[green]Canny analysis completed![/green]")
+                else:
+                    console.print("[yellow]No Canny posts found for the specified date range.[/yellow]")
+                    
+            except Exception as e:
+                console.print(f"[red]Canny integration failed: {e}[/red]")
+                console.print("[yellow]Continuing with Intercom analysis only...[/yellow]")
+        
+        # Generate insights
+        insights = voc_analyzer.generate_insights(analysis_results)
+        
+        # Save results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = Path(output_dir) / f"voc_analysis_{timestamp}.json"
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_file, 'w') as f:
+            import json
+            result_data = {
+                'analysis_results': analysis_results,
+                'insights': insights,
+                'metadata': {
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'ai_model': ai_model,
+                    'total_conversations': len(conversations),
+                    'include_canny': include_canny,
+                    'canny_board_id': canny_board_id,
+                    'generated_at': datetime.now().isoformat()
+                }
+            }
+            
+            # Add Canny results if available
+            if canny_results:
+                result_data['canny_results'] = canny_results
+                result_data['metadata']['total_canny_posts'] = canny_results.get('posts_analyzed', 0)
+            
+            json.dump(result_data, f, indent=2)
+        
+        console.print(f"[green]VoC analysis completed![/green]")
+        console.print(f"Results saved to: {output_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma:
+            console.print(f"[yellow]Generating Gamma presentation...[/yellow]")
+            
+            from services.gamma_generator import GammaGenerator
+            gamma_generator = GammaGenerator()
+            
+            try:
+                # Use combined results if Canny data is available
+                if canny_results:
+                    # For now, use VoC analysis and note Canny data in metadata
+                    combined_results = analysis_results.copy()
+                    combined_results['canny_summary'] = {
+                        'posts_analyzed': canny_results.get('posts_analyzed', 0),
+                        'overall_sentiment': canny_results.get('sentiment_summary', {}).get('overall', 'neutral'),
+                        'top_requests': canny_results.get('top_requests', [])[:3],  # Top 3
+                        'total_votes': canny_results.get('vote_analysis', {}).get('total_votes', 0)
+                    }
+                    gamma_result = await gamma_generator.generate_from_voc_analysis(
+                        voc_results=combined_results,
+                        style='executive',
+                        export_format=None,
+                        output_dir=Path(output_dir)
+                    )
+                else:
+                    gamma_result = await gamma_generator.generate_from_voc_analysis(
+                        voc_results=analysis_results,
+                        style='executive',
+                        export_format=None,
+                        output_dir=Path(output_dir)
+                    )
+                
+                console.print(f"[green]✅ Gamma URL: {gamma_result['gamma_url']}[/green]")
+                
+                # Save Gamma metadata
+                gamma_output = output_file.parent / f"voc_gamma_{timestamp}.json"
+                with open(gamma_output, 'w') as f:
+                    json.dump(gamma_result, f, indent=2)
+                
+                console.print(f"Gamma metadata saved to: {gamma_output}")
+                    
+            except Exception as e:
+                console.print(f"[red]Gamma generation failed: {e}[/red]")
+                console.print("[yellow]VoC analysis results still saved to JSON[/yellow]")
+        
+        # Display insights
+        if insights:
+            console.print(f"\n[bold]Key Insights:[/bold]")
+            for insight in insights[:5]:  # Show top 5 insights
+                console.print(f"• {insight}")
+        
+        return output_file
+        
+    except Exception as e:
+        console.print(f"[red]VoC analysis failed: {e}[/red]")
+        raise
+
+
+@cli.command(name='canny-analysis')
+@click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
+@click.option('--board-id', help='Specific Canny board ID (optional)')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai', 
+              help='AI model to use for sentiment analysis')
+@click.option('--enable-fallback/--no-fallback', default=True,
+              help='Enable fallback to other AI model if primary fails')
+@click.option('--include-comments/--no-comments', default=True,
+              help='Include comments in analysis')
+@click.option('--include-votes/--no-votes', default=True,
+              help='Include votes in analysis')
+@click.option('--generate-gamma', is_flag=True, default=False,
+              help='Generate Gamma presentation from results')
+@click.option('--output-dir', default='outputs', help='Output directory')
+def canny_analysis(
+    start_date: str,
+    end_date: str,
+    board_id: Optional[str],
+    ai_model: str,
+    enable_fallback: bool,
+    include_comments: bool,
+    include_votes: bool,
+    generate_gamma: bool,
+    output_dir: str
+):
+    """
+    Analyze Canny product feedback with sentiment analysis.
+    
+    Examples:
+        # Analyze all boards
+        python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31
+        
+        # Analyze specific board
+        python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31 --board-id 12345
+        
+        # Use Claude with Gamma generation
+        python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31 --ai-model claude --generate-gamma
+    """
+    console.print(f"[bold]Canny Product Feedback Analysis[/bold]")
+    console.print(f"Date Range: {start_date} to {end_date}")
+    console.print(f"AI Model: {ai_model}")
+    console.print(f"Board ID: {board_id or 'All boards'}")
+    console.print(f"Comments: {'included' if include_comments else 'excluded'}")
+    console.print(f"Votes: {'included' if include_votes else 'excluded'}")
+    
+    asyncio.run(run_canny_analysis(
+        start_date, end_date, board_id, ai_model, enable_fallback,
+        include_comments, include_votes, generate_gamma, output_dir
+    ))
+
+
+@cli.command(name='voice-of-customer')
+@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter', 'year']),
+              help='Time period for analysis (overrides start/end dates if provided)')
+@click.option('--periods-back', type=int, default=1,
+              help='Number of periods back to analyze (e.g., --time-period month --periods-back 3)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD) - used if no time-period specified')
+@click.option('--end-date', help='End date (YYYY-MM-DD) - used if no time-period specified')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai', 
+              help='AI model to use for sentiment analysis')
+@click.option('--enable-fallback/--no-fallback', default=True,
+              help='Enable fallback to other AI model if primary fails')
+@click.option('--include-trends', is_flag=True, default=False,
+              help='Include historical trend analysis')
+@click.option('--include-canny', is_flag=True, default=False,
+              help='Include Canny feedback in analysis')
+@click.option('--canny-board-id', help='Specific Canny board ID for combined analysis')
+@click.option('--generate-gamma', is_flag=True, default=False,
+              help='Generate Gamma presentation from results')
+@click.option('--separate-agent-feedback', is_flag=True, default=True,
+              help='Separate feedback by agent type (Finn, Boldr, Horatio, etc.)')
+@click.option('--output-dir', default='outputs', help='Output directory')
+def voice_of_customer_analysis(
+    time_period: Optional[str],
+    periods_back: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    ai_model: str,
+    enable_fallback: bool,
+    include_trends: bool,
+    include_canny: bool,
+    canny_board_id: Optional[str],
+    generate_gamma: bool,
+    separate_agent_feedback: bool,
+    output_dir: str
+):
+    """
+    Generate Voice of Customer sentiment analysis.
+    
+    Examples:
+        # Last week
+        python src/main.py voice-of-customer --time-period week
+        
+        # Last month
+        python src/main.py voice-of-customer --time-period month
+        
+        # Last 3 months
+        python src/main.py voice-of-customer --time-period month --periods-back 3
+        
+        # Last quarter
+        python src/main.py voice-of-customer --time-period quarter
+        
+        # Custom date range
+        python src/main.py voice-of-customer --start-date 2024-01-01 --end-date 2024-01-07
+        
+        # With Gamma presentation
+        python src/main.py voice-of-customer --time-period week --generate-gamma
+    """
+    from datetime import datetime, timedelta
+    import calendar
+    
+    # Calculate dates based on time period or use provided dates
+    if time_period:
+        end_dt = datetime.now()
+        
+        if time_period == 'week':
+            start_dt = end_dt - timedelta(weeks=periods_back)
+        elif time_period == 'month':
+            # Go back N months
+            month = end_dt.month - periods_back
+            year = end_dt.year
+            while month <= 0:
+                month += 12
+                year -= 1
+            start_dt = datetime(year, month, 1)
+        elif time_period == 'quarter':
+            # Calculate quarter start
+            current_quarter = (end_dt.month - 1) // 3
+            quarter_month = current_quarter * 3 + 1
+            
+            # Go back N quarters
+            total_quarters_back = periods_back
+            years_back = total_quarters_back // 4
+            quarters_back = total_quarters_back % 4
+            
+            target_year = end_dt.year - years_back
+            target_quarter = current_quarter - quarters_back
+            
+            while target_quarter < 0:
+                target_quarter += 4
+                target_year -= 1
+            
+            target_month = target_quarter * 3 + 1
+            start_dt = datetime(target_year, target_month, 1)
+        elif time_period == 'year':
+            start_dt = datetime(end_dt.year - periods_back, 1, 1)
+        
+        start_date = start_dt.strftime('%Y-%m-%d')
+        end_date = end_dt.strftime('%Y-%m-%d')
+        
+        console.print(f"[bold]Voice of Customer Analysis - {time_period.capitalize()}[/bold]")
+        console.print(f"Period: Last {periods_back} {time_period}(s)")
+    else:
+        if not start_date or not end_date:
+            console.print("[red]Error: Must provide either --time-period or both --start-date and --end-date[/red]")
+            return
+        
+        console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
+    
+    console.print(f"Date Range: {start_date} to {end_date}")
+    console.print(f"AI Model: {ai_model}")
+    console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
+    
+    asyncio.run(run_voc_analysis(
+        start_date, end_date, ai_model, enable_fallback,
+        include_trends, include_canny, canny_board_id, generate_gamma, separate_agent_feedback, output_dir
+    ))
+
+
+@cli.command()
+@click.option('--model', default='gpt-4o-mini', help='AI model to use for chat')
+@click.option('--enable-cache', is_flag=True, help='Enable semantic caching')
+@click.option('--railway', is_flag=True, help='Enable Railway deployment mode')
+def chat(model: str, enable_cache: bool, railway: bool):
+    """Start interactive chat interface for natural language command translation"""
+    
+    console.print(Panel.fit(
+        "[bold green]🤖 Intercom Analysis Tool - Chat Interface[/bold green]\n"
+        "Natural language interface for generating analysis reports",
+        border_style="green"
+    ))
+    
+    try:
+        # Import chat components
+        from chat.chat_interface import ChatInterface
+        from chat.terminal_ui import TerminalChatUI
+        from config.settings import Settings
+        
+        # Initialize settings
+        settings = Settings()
+        
+        # Initialize chat interface
+        chat_interface = ChatInterface(settings)
+        
+        console.print("[green]✅ Chat interface initialized successfully[/green]")
+        console.print("[dim]Type 'help' for available commands, 'quit' to exit[/dim]")
+        
+        # Start the terminal UI
+        terminal_ui = TerminalChatUI(chat_interface.translator, chat_interface.suggestion_engine)
+        terminal_ui.start_chat()
+        
+    except ImportError as e:
+        console.print(f"[red]❌ Failed to import chat components: {e}[/red]")
+        console.print("[yellow]Make sure all chat dependencies are installed[/yellow]")
+    except Exception as e:
+        console.print(f"[red]❌ Failed to start chat interface: {e}[/red]")
+        console.print("[yellow]Check the logs for more details[/yellow]")
 
 
 if __name__ == "__main__":

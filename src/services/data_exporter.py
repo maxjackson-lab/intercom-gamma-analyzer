@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from ..config.settings import settings
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,89 @@ class DataExporter:
         self.logger.info(f"Parquet export completed: {output_path}")
         return str(output_path)
     
+    def export_technical_troubleshooting_analysis(
+        self, 
+        conversations: List[Dict], 
+        filename: str
+    ) -> str:
+        """Export technical troubleshooting analysis to CSV."""
+        self.logger.info(f"Exporting technical troubleshooting analysis for {len(conversations)} conversations")
+        
+        output_path = self.output_dir / f"{filename}_technical_troubleshooting.csv"
+        
+        # Prepare technical troubleshooting data
+        tech_data = []
+        
+        for conv in conversations:
+            # Extract all conversation text
+            full_text = self._extract_conversation_text(conv)
+            
+            # Detect technical troubleshooting patterns
+            patterns = self._detect_technical_patterns(full_text)
+            
+            # Extract agent actions and escalations
+            agent_actions = self._extract_agent_actions(conv)
+            escalations = self._detect_escalations(full_text)
+            
+            # Get conversation metadata
+            row = {
+                'conversation_id': conv.get('id'),
+                'conversation_url': f"https://app.intercom.com/a/inbox/{conv.get('id')}",
+                'created_at': self._format_timestamp(conv.get('created_at')),
+                'state': conv.get('state'),
+                'priority': conv.get('priority'),
+                'admin_assignee_id': conv.get('admin_assignee_id'),
+                'tags': ', '.join([tag.get('name', tag) if isinstance(tag, dict) else tag for tag in conv.get('tags', {}).get('tags', [])]),
+                'topics': ', '.join([topic.get('name', topic) if isinstance(topic, dict) else topic for topic in conv.get('topics', {}).get('topics', [])]),
+                'language': conv.get('custom_attributes', {}).get('Language', ''),
+                'ai_agent_participated': conv.get('ai_agent_participated', False),
+                'fin_ai_preview': conv.get('custom_attributes', {}).get('Fin AI Agent: Preview', False),
+                'copilot_used': conv.get('custom_attributes', {}).get('Copilot used', False),
+                'conversation_rating': conv.get('conversation_rating'),
+                'time_to_admin_reply': conv.get('statistics', {}).get('time_to_admin_reply'),
+                'handling_time': conv.get('statistics', {}).get('handling_time'),
+                'count_conversation_parts': conv.get('statistics', {}).get('count_conversation_parts'),
+                'count_reopens': conv.get('statistics', {}).get('count_reopens'),
+            }
+            
+            # Add detected patterns
+            row.update({
+                'cache_clear_mentioned': patterns.get('cache_clear', False),
+                'browser_switch_mentioned': patterns.get('browser_switch', False),
+                'connection_issue_mentioned': patterns.get('connection_issue', False),
+                'escalation_mentioned': patterns.get('escalation', False),
+                'product_issue_mentioned': patterns.get('product_issue', False),
+                'detected_keywords': ', '.join(patterns.get('keywords', [])),
+                'escalated_to': ', '.join(escalations.get('escalated_to', [])),
+                'escalation_notes': escalations.get('notes', ''),
+                'agent_actions': ', '.join(agent_actions.get('actions', [])),
+                'resolution_notes': agent_actions.get('resolution_notes', ''),
+                'customer_response': agent_actions.get('customer_response', ''),
+            })
+            
+            # Determine primary issue category
+            if patterns.get('escalation'):
+                row['primary_issue_category'] = 'escalation'
+            elif patterns.get('cache_clear'):
+                row['primary_issue_category'] = 'cache_clear'
+            elif patterns.get('browser_switch'):
+                row['primary_issue_category'] = 'browser_switch'
+            elif patterns.get('connection_issue'):
+                row['primary_issue_category'] = 'connection_issue'
+            elif patterns.get('product_issue'):
+                row['primary_issue_category'] = 'product_issue'
+            else:
+                row['primary_issue_category'] = 'other'
+            
+            tech_data.append(row)
+        
+        # Create DataFrame and export
+        df = pd.DataFrame(tech_data)
+        df.to_csv(output_path, index=False)
+        
+        self.logger.info(f"Technical troubleshooting analysis export completed: {output_path}")
+        return str(output_path)
+    
     # Data preparation methods
     def _prepare_conversations_dataframe(self, conversations: List[Dict]) -> pd.DataFrame:
         """Prepare conversations data for DataFrame."""
@@ -190,16 +273,35 @@ class DataExporter:
             # Basic conversation info
             row = {
                 'conversation_id': conv.get('id'),
+                'conversation_url': f"https://app.intercom.com/a/inbox/{conv.get('id')}",
                 'created_at': self._format_timestamp(conv.get('created_at')),
                 'updated_at': self._format_timestamp(conv.get('updated_at')),
-                'closed_at': self._format_timestamp(conv.get('closed_at')),
+                'closed_at': self._format_timestamp(conv.get('statistics', {}).get('last_close_at')),
                 'state': conv.get('state'),
+                'priority': conv.get('priority'),
                 'source_type': conv.get('source', {}).get('type'),
                 'source_subject': conv.get('source', {}).get('subject'),
                 'source_body': conv.get('source', {}).get('body', '')[:500],  # Truncate for readability
+                'source_url': conv.get('source', {}).get('url'),
                 'conversation_rating': conv.get('conversation_rating'),
-                'tags': ', '.join(conv.get('tags', {}).get('tags', [])),
+                'tags': ', '.join([tag.get('name', tag) if isinstance(tag, dict) else tag for tag in conv.get('tags', {}).get('tags', [])]),
+                'topics': ', '.join([topic.get('name', topic) if isinstance(topic, dict) else topic for topic in conv.get('topics', {}).get('topics', [])]),
             }
+            
+            # Custom attributes (Hilary's metadata)
+            custom_attrs = conv.get('custom_attributes', {})
+            row.update({
+                'has_attachments': custom_attrs.get('Has attachments', False),
+                'auto_translated': custom_attrs.get('Auto-translated', False),
+                'fin_ai_preview': custom_attrs.get('Fin AI Agent: Preview', False),
+                'copilot_used': custom_attrs.get('Copilot used', False),
+                'language': custom_attrs.get('Language', ''),
+            })
+            
+            # AI Agent participation
+            row['ai_agent_participated'] = conv.get('ai_agent_participated', False)
+            row['ai_resolution_state'] = conv.get('ai_agent', {}).get('resolution_state')
+            row['ai_source_title'] = conv.get('ai_agent', {}).get('source_title')
             
             # Contact information
             contact = conv.get('contacts', {}).get('contacts', [{}])[0] if conv.get('contacts', {}).get('contacts') else {}
@@ -210,6 +312,26 @@ class DataExporter:
                 'contact_country': contact.get('location', {}).get('country'),
                 'contact_city': contact.get('location', {}).get('city'),
                 'user_tier': contact.get('custom_attributes', {}).get('tier'),
+            })
+            
+            # Assignment and team info
+            row.update({
+                'admin_assignee_id': conv.get('admin_assignee_id'),
+                'team_assignee_id': conv.get('team_assignee_id'),
+                'sla_applied': conv.get('sla_applied'),
+            })
+            
+            # Statistics
+            stats = conv.get('statistics', {})
+            row.update({
+                'time_to_assignment': stats.get('time_to_assignment'),
+                'time_to_admin_reply': stats.get('time_to_admin_reply'),
+                'time_to_first_close': stats.get('time_to_first_close'),
+                'median_time_to_reply': stats.get('median_time_to_reply'),
+                'handling_time': stats.get('handling_time'),
+                'count_reopens': stats.get('count_reopens'),
+                'count_assignments': stats.get('count_assignments'),
+                'count_conversation_parts': stats.get('count_conversation_parts'),
             })
             
             # Conversation parts
@@ -587,4 +709,156 @@ class DataExporter:
             return 'Poor'
         else:
             return 'Very Poor'
+    
+    def _detect_technical_patterns(self, text: str) -> Dict[str, Any]:
+        """Detect technical troubleshooting patterns in conversation text."""
+        import re
+        
+        text_lower = text.lower()
+        patterns = {
+            'cache_clear': False,
+            'browser_switch': False,
+            'connection_issue': False,
+            'escalation': False,
+            'product_issue': False,
+            'keywords': []
+        }
+        
+        # Cache clearing patterns
+        cache_patterns = [
+            'clear cache', 'clear cookies', 'ctrl+shift+delete', 'ctrl shift delete',
+            'hard refresh', 'cache', 'cookies', 'browser cache', 'clear browsing data',
+            'incognito', 'private browsing', 'clear history'
+        ]
+        
+        for pattern in cache_patterns:
+            if pattern in text_lower:
+                patterns['cache_clear'] = True
+                patterns['keywords'].append(pattern)
+                break
+        
+        # Browser switching patterns
+        browser_patterns = [
+            'different browser', 'try chrome', 'try firefox', 'try safari', 'try edge',
+            'switch browser', 'another browser', 'incognito mode', 'private window',
+            'browser issue', 'browser problem', 'update browser', 'browser version'
+        ]
+        
+        for pattern in browser_patterns:
+            if pattern in text_lower:
+                patterns['browser_switch'] = True
+                patterns['keywords'].append(pattern)
+                break
+        
+        # Connection issues
+        connection_patterns = [
+            'internet connection', 'wifi', 'network', 'connectivity', 'connection issue',
+            'slow connection', 'connection problem', 'offline', 'not loading',
+            'timeout', 'connection error', 'network error', 'dns', 'proxy'
+        ]
+        
+        for pattern in connection_patterns:
+            if pattern in text_lower:
+                patterns['connection_issue'] = True
+                patterns['keywords'].append(pattern)
+                break
+        
+        # Escalation patterns
+        escalation_patterns = [
+            '@dae-ho', '@hilary', '@max', '@max jackson', 'escalate', 'escalation',
+            'note to', 'cc:', 'forward to', 'assign to', 'hand off', 'transfer',
+            'supervisor', 'manager', 'lead', 'senior'
+        ]
+        
+        for pattern in escalation_patterns:
+            if pattern in text_lower:
+                patterns['escalation'] = True
+                patterns['keywords'].append(pattern)
+                break
+        
+        # Product issues (generic)
+        product_patterns = [
+            'bug', 'error', 'issue', 'problem', 'not working', 'broken', 'glitch',
+            'feature', 'functionality', 'sprite', 'gamma', 'app', 'platform',
+            'technical issue', 'system error', 'application error'
+        ]
+        
+        for pattern in product_patterns:
+            if pattern in text_lower:
+                patterns['product_issue'] = True
+                patterns['keywords'].append(pattern)
+                break
+        
+        return patterns
+    
+    def _detect_escalations(self, text: str) -> Dict[str, Any]:
+        """Detect escalation patterns and who was escalated to."""
+        import re
+        
+        text_lower = text.lower()
+        escalations = {
+            'escalated_to': [],
+            'notes': ''
+        }
+        
+        # Look for specific names
+        names = ['dae-ho', 'hilary', 'max', 'max jackson']
+        for name in names:
+            if name in text_lower:
+                escalations['escalated_to'].append(name.title())
+        
+        # Look for escalation notes
+        escalation_indicators = ['note to', 'cc:', 'forward to', 'assign to', 'escalate']
+        for indicator in escalation_indicators:
+            if indicator in text_lower:
+                # Try to extract the note content
+                pattern = rf'{indicator}[^.!?]*[.!?]'
+                matches = re.findall(pattern, text_lower)
+                if matches:
+                    escalations['notes'] = matches[0]
+                break
+        
+        return escalations
+    
+    def _extract_agent_actions(self, conversation: Dict) -> Dict[str, Any]:
+        """Extract agent actions and responses from conversation."""
+        actions = {
+            'actions': [],
+            'resolution_notes': '',
+            'customer_response': ''
+        }
+        
+        parts = conversation.get('conversation_parts', {}).get('conversation_parts', [])
+        
+        for part in parts:
+            author = part.get('author', {})
+            if author.get('type') == 'admin':
+                body = part.get('body', '')
+                if body:
+                    # Look for common agent actions
+                    body_lower = body.lower()
+                    
+                    if any(word in body_lower for word in ['clear', 'cache', 'cookies']):
+                        actions['actions'].append('cache_clear_instruction')
+                    if any(word in body_lower for word in ['browser', 'chrome', 'firefox', 'safari']):
+                        actions['actions'].append('browser_switch_instruction')
+                    if any(word in body_lower for word in ['connection', 'wifi', 'network']):
+                        actions['actions'].append('connection_troubleshooting')
+                    if any(word in body_lower for word in ['escalate', 'note to', 'assign']):
+                        actions['actions'].append('escalation')
+                    
+                    # Store the last agent message as resolution notes
+                    actions['resolution_notes'] = body[:500]  # Truncate for readability
+        
+        # Look for customer responses after agent actions
+        for i, part in enumerate(parts):
+            author = part.get('author', {})
+            if author.get('type') == 'user' and i > 0:
+                # Check if previous part was from admin
+                prev_part = parts[i-1]
+                if prev_part.get('author', {}).get('type') == 'admin':
+                    actions['customer_response'] = part.get('body', '')[:200]
+                    break
+        
+        return actions
 

@@ -9,8 +9,8 @@ from collections import Counter, defaultdict
 import pandas as pd
 import numpy as np
 
-from ..config.metrics_config import VOICE_METRICS, TREND_METRICS, MetricCategory
-from ..models.analysis_models import (
+from config.metrics_config import VOICE_METRICS, TREND_METRICS, MetricCategory
+from models.analysis_models import (
     VolumeMetrics, EfficiencyMetrics, SatisfactionMetrics, 
     TopicMetrics, GeographicMetrics, FrictionMetrics, ChannelMetrics
 )
