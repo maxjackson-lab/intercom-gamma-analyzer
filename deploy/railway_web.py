@@ -30,8 +30,12 @@ try:
     from src.chat.chat_interface import ChatInterface
     from src.config.settings import Settings
     HAS_CHAT = True
-except ImportError:
+    print("✅ Chat dependencies imported successfully")
+except ImportError as e:
     HAS_CHAT = False
+    print(f"❌ Chat dependencies import failed: {e}")
+    print("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
+    print("   The web interface will still work, but chat features will be limited")
 
 # Initialize FastAPI app
 if HAS_FASTAPI:
@@ -273,7 +277,7 @@ if HAS_FASTAPI:
                     const statusText = document.getElementById('statusText');
                     
                     if (!data.chat_interface) {
-                        statusText.innerHTML = '⚠️ Chat interface is not available. Please check that all required environment variables are set (INTERCOM_ACCESS_TOKEN, OPENAI_API_KEY).';
+                        statusText.innerHTML = '⚠️ Chat interface is not available. This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.';
                         statusMessage.style.display = 'block';
                         statusMessage.style.backgroundColor = '#fef3c7';
                         statusMessage.style.borderLeft = '4px solid #f59e0b';
@@ -381,7 +385,11 @@ if HAS_FASTAPI:
     async def chat_endpoint(request: ChatRequest):
         """Process chat queries."""
         if not chat_interface:
-            raise HTTPException(status_code=500, detail="Chat interface not initialized")
+            return ChatResponse(
+                success=False,
+                message="Chat interface not available. This is likely due to missing dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.",
+                data={"error_type": "dependencies_missing"}
+            )
         
         try:
             result = chat_interface.process_query(request.query, request.context)
