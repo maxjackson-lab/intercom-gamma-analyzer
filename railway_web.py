@@ -606,10 +606,17 @@ if HAS_FASTAPI:
                     
                     const data = await response.json();
                     
+                    // DEBUG: Log the actual response structure
+                    console.log('Full response:', JSON.stringify(data, null, 2));
+                    console.log('data.data:', data.data);
+                    console.log('data.data.translation:', data.data?.translation);
+                    
                     if (data.success) {
                         addMessage('bot', data.message);
                         if (data.data && data.data.translation) {
                             const translation = data.data.translation;
+                            console.log('translation object:', translation);
+                            console.log('translation.translation:', translation.translation);
                             if (translation.translation) {
                                 const cmd = translation.translation;
                                 
