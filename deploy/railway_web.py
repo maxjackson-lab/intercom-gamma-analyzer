@@ -30,8 +30,12 @@ try:
     from src.chat.chat_interface import ChatInterface
     from src.config.settings import Settings
     HAS_CHAT = True
-except ImportError:
+    print("✅ Chat dependencies imported successfully")
+except ImportError as e:
     HAS_CHAT = False
+    print(f"❌ Chat dependencies import failed: {e}")
+    print("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
+    print("   The web interface will still work, but chat features will be limited")
 
 # Initialize FastAPI app
 if HAS_FASTAPI:
@@ -72,15 +76,37 @@ def initialize_chat():
     """Initialize the chat interface."""
     global chat_interface
     if not HAS_CHAT:
-        print("Chat interface dependencies not available")
+        print("❌ Chat interface dependencies not available")
         return False
     
     try:
+        print("🔧 Checking environment variables...")
+        
+        # Check for required environment variables
+        required_vars = ["INTERCOM_ACCESS_TOKEN", "OPENAI_API_KEY"]
+        missing_vars = []
+        
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            print(f"⚠️ Missing required environment variables: {missing_vars}")
+            print("   Chat interface will not be available until these are set")
+            return False
+        
+        print("🔧 Initializing settings...")
         settings = Settings()
+        print("✅ Settings loaded successfully")
+        
+        print("🔧 Initializing chat interface...")
         chat_interface = ChatInterface(settings)
+        print("✅ Chat interface initialized successfully")
         return True
     except Exception as e:
-        print(f"Failed to initialize chat interface: {e}")
+        print(f"❌ Failed to initialize chat interface: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 if HAS_FASTAPI:
@@ -207,6 +233,9 @@ if HAS_FASTAPI:
                 <div class="message bot-message">
                     <strong>Bot:</strong> Hello! I can help you generate analysis reports using natural language. Try asking me something like "Give me last week's voice of customer report" or "Show me billing analysis for this month".
                 </div>
+                <div class="message bot-message" id="statusMessage" style="display: none;">
+                    <strong>System:</strong> <span id="statusText"></span>
+                </div>
             </div>
             
             <div class="input-container">
@@ -234,6 +263,35 @@ if HAS_FASTAPI:
         </div>
 
         <script>
+            // Check system status on page load
+            window.onload = function() {
+                checkSystemStatus();
+            };
+            
+            async function checkSystemStatus() {
+                try {
+                    const response = await fetch('/health');
+                    const data = await response.json();
+                    
+                    const statusMessage = document.getElementById('statusMessage');
+                    const statusText = document.getElementById('statusText');
+                    
+                    if (!data.chat_interface) {
+                        statusText.innerHTML = '⚠️ Chat interface is not available. This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.';
+                        statusMessage.style.display = 'block';
+                        statusMessage.style.backgroundColor = '#fef3c7';
+                        statusMessage.style.borderLeft = '4px solid #f59e0b';
+                    } else {
+                        statusText.innerHTML = '✅ Chat interface is ready! You can start asking questions.';
+                        statusMessage.style.display = 'block';
+                        statusMessage.style.backgroundColor = '#d1fae5';
+                        statusMessage.style.borderLeft = '4px solid #10b981';
+                    }
+                } catch (error) {
+                    console.error('Failed to check system status:', error);
+                }
+            }
+            
             function setQuery(query) {
                 document.getElementById('queryInput').value = query;
             }
@@ -327,7 +385,11 @@ if HAS_FASTAPI:
     async def chat_endpoint(request: ChatRequest):
         """Process chat queries."""
         if not chat_interface:
-            raise HTTPException(status_code=500, detail="Chat interface not initialized")
+            return ChatResponse(
+                success=False,
+                message="Chat interface not available. This is likely due to missing dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.",
+                data={"error_type": "dependencies_missing"}
+            )
         
         try:
             result = chat_interface.process_query(request.query, request.context)
@@ -357,7 +419,9 @@ if HAS_FASTAPI:
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
-            "chat_interface": chat_interface is not None
+            "chat_interface": chat_interface is not None,
+            "fastapi": HAS_FASTAPI,
+            "chat_deps": HAS_CHAT
         }
 
     @app.get("/api/commands")
@@ -404,18 +468,22 @@ def main():
     
     print("🚀 Starting Intercom Analysis Tool Chat Interface...")
     
-    # Initialize chat interface
-    if not initialize_chat():
-        print("❌ Failed to initialize chat interface")
-        sys.exit(1)
+    # Try to initialize chat interface (but don't fail if it doesn't work)
+    print("🔧 Attempting to initialize chat interface...")
+    chat_init_success = initialize_chat()
     
-    print("✅ Chat interface initialized successfully")
+    if chat_init_success:
+        print("✅ Chat interface initialized successfully")
+    else:
+        print("⚠️ Chat interface initialization failed, but server will start anyway")
+        print("   The health endpoint will still work, but chat features may be limited")
     
     # Get port from Railway environment
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
     print(f"🌐 Starting web server on {host}:{port}")
+    print(f"📊 Health check available at: http://{host}:{port}/health")
     
     # Start the server
     uvicorn.run(
