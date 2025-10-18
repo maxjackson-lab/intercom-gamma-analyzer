@@ -28,6 +28,7 @@ try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
+    from sse_starlette import EventSourceResponse
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
     import uvicorn
@@ -39,6 +40,8 @@ except ImportError:
 try:
     from src.chat.chat_interface import ChatInterface
     from src.config.settings import Settings
+    from src.services.web_command_executor import WebCommandExecutor
+    from src.services.execution_state_manager import ExecutionStateManager, ExecutionStatus
     HAS_CHAT = True
     print("✅ Chat dependencies imported successfully")
 except ImportError as e:
@@ -81,10 +84,12 @@ else:
 
 # Global chat interface
 chat_interface = None
+command_executor = None
+state_manager = None
 
 def initialize_chat():
     """Initialize the chat interface."""
-    global chat_interface
+    global chat_interface, command_executor, state_manager
     if not HAS_CHAT:
         print("❌ Chat interface dependencies not available")
         return False
@@ -112,6 +117,15 @@ def initialize_chat():
         print("🔧 Initializing chat interface...")
         chat_interface = ChatInterface(settings)
         print("✅ Chat interface initialized successfully")
+        
+        print("🔧 Initializing command executor...")
+        command_executor = WebCommandExecutor()
+        print("✅ Command executor initialized successfully")
+        
+        print("🔧 Initializing state manager...")
+        state_manager = ExecutionStateManager(max_concurrent=5, max_queue_size=20)
+        print("✅ State manager initialized successfully")
+        
         return True
     except Exception as e:
         print(f"❌ Failed to initialize chat interface: {e}")
@@ -130,6 +144,7 @@ if HAS_FASTAPI:
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Intercom Analysis Tool - Chat Interface</title>
+        <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
         <style>
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -233,6 +248,234 @@ if HAS_FASTAPI:
             .example:hover {
                 background-color: #f3f4f6;
             }
+            
+            /* Terminal and Rich library-inspired styles */
+            .terminal-container {
+                display: none;
+                margin-top: 20px;
+                background: #1e1e1e;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            }
+            .terminal-header {
+                background: #2d2d2d;
+                padding: 10px 15px;
+                border-bottom: 1px solid #3d3d3d;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .terminal-title {
+                color: #d4d4d4;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            .terminal-controls {
+                display: flex;
+                gap: 8px;
+            }
+            .terminal-output {
+                background: #1e1e1e;
+                color: #d4d4d4;
+                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                font-size: 13px;
+                padding: 15px;
+                max-height: 500px;
+                overflow-y: auto;
+                line-height: 1.6;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+            }
+            .terminal-output::-webkit-scrollbar {
+                width: 8px;
+            }
+            .terminal-output::-webkit-scrollbar-track {
+                background: #2d2d2d;
+            }
+            .terminal-output::-webkit-scrollbar-thumb {
+                background: #4d4d4d;
+                border-radius: 4px;
+            }
+            .terminal-output::-webkit-scrollbar-thumb:hover {
+                background: #5d5d5d;
+            }
+            .terminal-line {
+                margin: 2px 0;
+            }
+            .terminal-line.stdout {
+                color: #d4d4d4;
+            }
+            .terminal-line.stderr {
+                color: #ef4444;
+            }
+            .terminal-line.status {
+                color: #10b981;
+                font-weight: bold;
+            }
+            .terminal-line.error {
+                color: #ef4444;
+                font-weight: bold;
+            }
+            
+            /* Progress indicators */
+            .progress-container {
+                margin: 10px 0;
+                padding: 10px;
+                background: #2d2d2d;
+                border-radius: 6px;
+            }
+            .progress-bar-wrapper {
+                background: #3d3d3d;
+                height: 20px;
+                border-radius: 10px;
+                overflow: hidden;
+                margin: 5px 0;
+            }
+            .progress-bar {
+                background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+                height: 100%;
+                transition: width 0.3s ease;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            .spinner {
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border: 2px solid #3d3d3d;
+                border-top-color: #10b981;
+                border-radius: 50%;
+                animation: spin 0.6s linear infinite;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            
+            /* Rich panel styles */
+            .panel {
+                border: 2px solid #3d3d3d;
+                border-radius: 8px;
+                margin: 10px 0;
+                overflow: hidden;
+            }
+            .panel-header {
+                background: #2d2d2d;
+                padding: 8px 12px;
+                border-bottom: 1px solid #3d3d3d;
+                color: #10b981;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            .panel-content {
+                padding: 12px;
+                background: #1e1e1e;
+                color: #d4d4d4;
+            }
+            .panel.success .panel-header {
+                color: #10b981;
+                border-left: 4px solid #10b981;
+            }
+            .panel.error .panel-header {
+                color: #ef4444;
+                border-left: 4px solid #ef4444;
+            }
+            .panel.warning .panel-header {
+                color: #f59e0b;
+                border-left: 4px solid #f59e0b;
+            }
+            .panel.info .panel-header {
+                color: #3b82f6;
+                border-left: 4px solid #3b82f6;
+            }
+            
+            /* Execution controls */
+            .execution-controls {
+                display: flex;
+                gap: 10px;
+                margin-top: 15px;
+                align-items: center;
+            }
+            .btn-execute {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.2s;
+            }
+            .btn-execute:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+            }
+            .btn-execute:disabled {
+                background: #6b7280;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .btn-cancel {
+                background: #ef4444;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.2s;
+            }
+            .btn-cancel:hover {
+                background: #dc2626;
+            }
+            .btn-download {
+                background: #3b82f6;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                text-decoration: none;
+                display: inline-block;
+                transition: all 0.2s;
+            }
+            .btn-download:hover {
+                background: #2563eb;
+            }
+            
+            /* Status badges */
+            .status-badge {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: uppercase;
+            }
+            .status-badge.running {
+                background: #dbeafe;
+                color: #1e40af;
+            }
+            .status-badge.completed {
+                background: #d1fae5;
+                color: #065f46;
+            }
+            .status-badge.failed {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+            .status-badge.queued {
+                background: #fef3c7;
+                color: #92400e;
+            }
         </style>
     </head>
     <body>
@@ -254,6 +497,24 @@ if HAS_FASTAPI:
             </div>
             
             <div id="status"></div>
+            
+            <!-- Terminal output container -->
+            <div class="terminal-container" id="terminalContainer">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        <span class="spinner" id="executionSpinner" style="display:none;"></span>
+                        <span id="terminalTitle">Command Execution</span>
+                    </div>
+                    <div class="terminal-controls">
+                        <span class="status-badge" id="executionStatus" style="display:none;">Running</span>
+                        <button class="btn-cancel" id="cancelButton" onclick="cancelExecution()" style="display:none;">Cancel</button>
+                    </div>
+                </div>
+                <div class="terminal-output" id="terminalOutput"></div>
+                <div id="executionResults" style="padding: 15px; background: #2d2d2d; display: none;">
+                    <div id="downloadLinks"></div>
+                </div>
+            </div>
             
             <div class="examples">
                 <h3>💡 Example Queries</h3>
@@ -423,6 +684,160 @@ if HAS_FASTAPI:
                 data={}
             )
 
+    @app.get("/execute")
+    async def execute_command_stream(
+        command: str,
+        args: str,
+        execution_id: str
+    ):
+        """Stream command execution output via Server-Sent Events."""
+        if not command_executor or not state_manager:
+            raise HTTPException(status_code=500, detail="Execution services not available")
+        
+        # Parse args from JSON string
+        try:
+            args_list = json.loads(args) if args else []
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid args format")
+        
+        # Check execution state
+        execution_state = await state_manager.get_execution(execution_id)
+        if not execution_state:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        # Start the execution
+        started = await state_manager.start_execution(execution_id)
+        if not started:
+            raise HTTPException(status_code=429, detail="Too many concurrent executions")
+        
+        async def event_generator():
+            """Generate SSE events from command output."""
+            try:
+                # Send heartbeat every 30 seconds
+                heartbeat_task = asyncio.create_task(heartbeat_generator())
+                
+                async for output in command_executor.execute_command(
+                    command, args_list, execution_id=execution_id
+                ):
+                    # Update state manager with output
+                    await state_manager.add_output(execution_id, output)
+                    
+                    # Update status in state manager
+                    if output.get("type") == "status":
+                        if "completed successfully" in output.get("data", ""):
+                            await state_manager.update_execution_status(
+                                execution_id, ExecutionStatus.COMPLETED, return_code=0
+                            )
+                        elif "Starting" in output.get("data", ""):
+                            await state_manager.update_execution_status(
+                                execution_id, ExecutionStatus.RUNNING
+                            )
+                    elif output.get("type") == "error":
+                        await state_manager.update_execution_status(
+                            execution_id, ExecutionStatus.FAILED, 
+                            error_message=output.get("data")
+                        )
+                    
+                    # Yield as SSE event
+                    yield {
+                        "event": "message",
+                        "data": json.dumps(output)
+                    }
+                
+                # Cancel heartbeat
+                heartbeat_task.cancel()
+                
+            except asyncio.CancelledError:
+                # Client disconnected
+                await state_manager.update_execution_status(
+                    execution_id, ExecutionStatus.CANCELLED
+                )
+                await command_executor.cancel_execution(execution_id)
+                raise
+            except Exception as e:
+                await state_manager.update_execution_status(
+                    execution_id, ExecutionStatus.ERROR, error_message=str(e)
+                )
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"type": "error", "data": str(e)})
+                }
+        
+        async def heartbeat_generator():
+            """Send heartbeat every 30 seconds to keep connection alive."""
+            while True:
+                await asyncio.sleep(30)
+                yield {"event": "heartbeat", "data": ""}
+        
+        return EventSourceResponse(event_generator())
+    
+    @app.post("/execute/start")
+    async def start_execution(command: str, args: str):
+        """Start a new command execution."""
+        if not command_executor or not state_manager:
+            raise HTTPException(status_code=500, detail="Execution services not available")
+        
+        try:
+            # Parse args
+            args_list = json.loads(args) if args else []
+            
+            # Generate execution ID
+            execution_id = command_executor.generate_execution_id()
+            
+            # Create execution state
+            execution = await state_manager.create_execution(
+                execution_id, command, args_list
+            )
+            
+            return {
+                "execution_id": execution_id,
+                "status": execution.status.value,
+                "queue_position": execution.queue_position,
+                "message": "Execution queued successfully"
+            }
+        except ValueError as e:
+            raise HTTPException(status_code=429, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
+    
+    @app.post("/execute/cancel/{execution_id}")
+    async def cancel_execution(execution_id: str):
+        """Cancel a running or queued execution."""
+        if not command_executor or not state_manager:
+            raise HTTPException(status_code=500, detail="Execution services not available")
+        
+        # Cancel in state manager
+        cancelled = await state_manager.cancel_execution(execution_id)
+        if not cancelled:
+            raise HTTPException(status_code=404, detail="Execution not found or already completed")
+        
+        # Cancel in executor if running
+        await command_executor.cancel_execution(execution_id)
+        
+        return {"message": "Execution cancelled successfully"}
+    
+    @app.get("/execute/status/{execution_id}")
+    async def get_execution_status(execution_id: str):
+        """Get the status of an execution."""
+        if not state_manager:
+            raise HTTPException(status_code=500, detail="State manager not available")
+        
+        execution = await state_manager.get_execution(execution_id)
+        if not execution:
+            raise HTTPException(status_code=404, detail="Execution not found")
+        
+        return {
+            "execution_id": execution.execution_id,
+            "command": execution.command,
+            "args": execution.args,
+            "status": execution.status.value,
+            "start_time": execution.start_time.isoformat(),
+            "end_time": execution.end_time.isoformat() if execution.end_time else None,
+            "queue_position": execution.queue_position,
+            "error_message": execution.error_message,
+            "return_code": execution.return_code
+        }
+
     @app.get("/health")
     async def health_check():
         """Health check endpoint for Railway."""
@@ -430,6 +845,8 @@ if HAS_FASTAPI:
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
             "chat_interface": chat_interface is not None,
+            "command_executor": command_executor is not None,
+            "state_manager": state_manager is not None,
             "fastapi": HAS_FASTAPI,
             "chat_deps": HAS_CHAT
         }
