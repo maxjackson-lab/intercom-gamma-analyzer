@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Dict, Any
 
 # Add src to path
-sys.path.append(str(Path(__file__).parent.parent / "src"))
+src_path = str(Path(__file__).parent.parent / "src")
+sys.path.insert(0, src_path)
+print(f"🔧 Added to Python path: {src_path}")
+print(f"🔧 Current Python path: {sys.path[:3]}...")  # Show first 3 entries
 
 try:
     from fastapi import FastAPI, HTTPException, Request
