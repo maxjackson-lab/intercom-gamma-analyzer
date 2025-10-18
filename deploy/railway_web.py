@@ -637,8 +637,8 @@ if HAS_FASTAPI:
                 <div class="message bot-message">
                     <strong>Bot:</strong> Hello! I can help you generate analysis reports using natural language. Try asking me something like "Give me last week's voice of customer report" or "Show me billing analysis for this month".
                 </div>
-                <div class="message bot-message" id="statusMessage" style="display: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);">
-                    <strong>System:</strong> <span id="statusText" style="color: #10b981;"></span>
+                <div class="message bot-message" id="statusMessage" style="display: none;">
+                    <strong>System:</strong> <span id="statusText"></span>
                 </div>
             </div>
             
@@ -708,13 +708,15 @@ if HAS_FASTAPI:
                     if (!data.chat_interface) {
                         statusText.innerHTML = '⚠️ Chat interface is not available. This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.';
                         statusMessage.style.display = 'block';
-                        statusMessage.style.backgroundColor = '#fef3c7';
-                        statusMessage.style.borderLeft = '4px solid #f59e0b';
+                        statusMessage.style.background = 'rgba(245, 158, 11, 0.1)';
+                        statusMessage.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+                        statusMessage.style.color = '#fbbf24';
                     } else {
                         statusText.innerHTML = '✅ Chat interface is ready! You can start asking questions.';
                         statusMessage.style.display = 'block';
-                        statusMessage.style.backgroundColor = '#d1fae5';
-                        statusMessage.style.borderLeft = '4px solid #10b981';
+                        statusMessage.style.background = 'rgba(34, 197, 94, 0.1)';
+                        statusMessage.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+                        statusMessage.style.color = '#ffffff';
                     }
                 } catch (error) {
                     console.error('Failed to check system status:', error);
