@@ -1390,8 +1390,14 @@ if HAS_FASTAPI:
         if not execution:
             raise HTTPException(status_code=404, detail="Execution not found")
         
-        # Get output buffer
-        output_buffer = execution.output_buffer[since:] if since < len(execution.output_buffer) else []
+        # Convert deque to list and slice
+        try:
+            output_list = list(execution.output_buffer) if execution.output_buffer else []
+            output_buffer = output_list[since:] if since < len(output_list) else []
+        except Exception as e:
+            # If conversion fails, return empty list
+            output_buffer = []
+            output_list = []
         
         return {
             "execution_id": execution.execution_id,
@@ -1404,7 +1410,7 @@ if HAS_FASTAPI:
             "error_message": execution.error_message,
             "return_code": execution.return_code,
             "output": output_buffer,
-            "output_length": len(execution.output_buffer)
+            "output_length": len(output_list)
         }
 
     @app.get("/execute/list")
