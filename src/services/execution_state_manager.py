@@ -7,9 +7,10 @@ tracking active executions, queuing, and cleanup.
 
 import asyncio
 import logging
+from collections import deque
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from typing import Dict, List, Optional, Any, Deque
+from dataclasses import dataclass, asdict, field
 from enum import Enum
 
 
@@ -27,21 +28,23 @@ class ExecutionStatus(Enum):
 
 @dataclass
 class ExecutionState:
-    """Execution state data structure."""
+    """Execution state data structure with bounded output buffer."""
     execution_id: str
     command: str
     args: List[str]
     status: ExecutionStatus
     start_time: datetime
     end_time: Optional[datetime] = None
-    output_buffer: List[Dict[str, Any]] = None
+    output_buffer: Optional[Deque[Dict[str, Any]]] = None
     error_message: Optional[str] = None
     return_code: Optional[int] = None
     queue_position: Optional[int] = None
+    max_output_buffer_size: int = 1000  # Maximum number of output entries to keep
     
     def __post_init__(self):
+        """Initialize output buffer as bounded deque if not provided."""
         if self.output_buffer is None:
-            self.output_buffer = []
+            self.output_buffer = deque(maxlen=self.max_output_buffer_size)
 
 
 class ExecutionStateManager:

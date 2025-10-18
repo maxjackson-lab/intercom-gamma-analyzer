@@ -8,9 +8,15 @@ streaming output via Server-Sent Events (SSE).
 import asyncio
 import json
 import logging
+import os
+import re
+import shutil
+import signal
+import sys
 import uuid
-from datetime import datetime
-from typing import Dict, List, Optional, AsyncIterator, Any
+from collections import deque
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, AsyncIterator, Any, Deque
 from pathlib import Path
 
 from ..config.settings import settings
@@ -26,16 +32,179 @@ class WebCommandExecutor:
     - Execution state tracking and unique ID generation
     - Error handling and timeout management
     - Output buffering for download/display
+    - Security: Command validation, bounded buffers, no shell execution
     """
     
-    def __init__(self):
+    # Security constants
+    MAX_OUTPUT_LINES = 10000  # Maximum number of output lines to buffer
+    MAX_ARG_LENGTH = 1024  # Maximum length of a single argument
+    MAX_ARGS_COUNT = 100  # Maximum number of arguments
+    
+    # Command whitelist - only these commands are allowed
+    ALLOWED_COMMANDS = {
+        "python", "python3", "python3.9", "python3.10", "python3.11", "python3.12"
+    }
+    
+    # Shell metacharacters that are not allowed in arguments
+    SHELL_METACHARACTERS = re.compile(r'[;|&$><`*?~\n\x00]')
+    
+    def __init__(self, max_output_lines: int = MAX_OUTPUT_LINES):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
         self.execution_states: Dict[str, Dict[str, Any]] = {}
+        self.max_output_lines = max_output_lines
         
     def generate_execution_id(self) -> str:
         """Generate unique execution ID."""
         return str(uuid.uuid4())
+    
+    def _validate_command_and_args(self, command: str, args: List[str]) -> tuple[str, List[str]]:
+        """
+        Validate command and arguments for security.
+        
+        Args:
+            command: The command to execute
+            args: List of command arguments
+            
+        Returns:
+            Tuple of (validated_command_path, validated_args)
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        # Validate command is in whitelist
+        if command not in self.ALLOWED_COMMANDS:
+            raise ValueError(
+                f"Command '{command}' is not allowed. "
+                f"Permitted commands: {', '.join(sorted(self.ALLOWED_COMMANDS))}"
+            )
+        
+        # Resolve command to absolute path and verify it's executable
+        command_path = shutil.which(command)
+        if not command_path:
+            raise ValueError(f"Command '{command}' not found in PATH")
+        
+        # Verify the command is executable
+        if not os.access(command_path, os.X_OK):
+            raise ValueError(f"Command '{command}' is not executable")
+        
+        # Validate number of arguments
+        if len(args) > self.MAX_ARGS_COUNT:
+            raise ValueError(f"Too many arguments (max {self.MAX_ARGS_COUNT})")
+        
+        # Validate each argument
+        validated_args = []
+        for i, arg in enumerate(args):
+            # Must be a string
+            if not isinstance(arg, str):
+                raise ValueError(f"Argument {i} must be a string, got {type(arg).__name__}")
+            
+            # Check length
+            if len(arg) > self.MAX_ARG_LENGTH:
+                raise ValueError(
+                    f"Argument {i} exceeds maximum length of {self.MAX_ARG_LENGTH} characters"
+                )
+            
+            # Check for shell metacharacters
+            if self.SHELL_METACHARACTERS.search(arg):
+                raise ValueError(
+                    f"Argument {i} contains disallowed shell metacharacters"
+                )
+            
+            validated_args.append(arg)
+        
+        self.logger.info(f"Validated command: {command_path} with {len(validated_args)} args")
+        return command_path, validated_args
+    
+    def _get_project_root(self) -> Path:
+        """
+        Get the project root directory for command execution.
+        
+        Returns the configured project root from settings, or falls back to
+        the parent directory of this file for non-Railway environments.
+        """
+        # Try to get from settings
+        if hasattr(settings, 'PROJECT_ROOT') and settings.PROJECT_ROOT:
+            return Path(settings.PROJECT_ROOT)
+        
+        # Check for Railway-specific path
+        if os.path.exists("/app"):
+            return Path("/app")
+        
+        # Fall back to project root (3 levels up from this file)
+        return Path(__file__).resolve().parent.parent.parent
+    
+    async def _merge_async_iters(
+        self, 
+        stdout_iter: AsyncIterator[bytes], 
+        stderr_iter: AsyncIterator[bytes],
+        execution_id: str
+    ) -> AsyncIterator[tuple[str, str]]:
+        """
+        Merge stdout and stderr async iterators to avoid deadlock.
+        
+        This drains both streams concurrently so neither can fill its pipe buffer
+        and block the process.
+        
+        Args:
+            stdout_iter: Async iterator for stdout lines
+            stderr_iter: Async iterator for stderr lines
+            execution_id: Execution ID for tracking
+            
+        Yields:
+            Tuples of (stream_type, data) where stream_type is "stdout" or "stderr"
+        """
+        # Create tasks for both streams
+        stdout_queue: asyncio.Queue = asyncio.Queue()
+        stderr_queue: asyncio.Queue = asyncio.Queue()
+        
+        async def read_stream(stream_iter: AsyncIterator[bytes], stream_type: str, queue: asyncio.Queue):
+            """Read from a stream and put lines into a queue."""
+            try:
+                async for line in stream_iter:
+                    await queue.put((stream_type, line))
+            except Exception as e:
+                self.logger.exception(f"Error reading {stream_type} for execution {execution_id}")
+            finally:
+                await queue.put((stream_type, None))  # Signal end of stream
+        
+        # Start reader tasks
+        stdout_task = asyncio.create_task(read_stream(stdout_iter, "stdout", stdout_queue))
+        stderr_task = asyncio.create_task(read_stream(stderr_iter, "stderr", stderr_queue))
+        
+        # Track which streams are still active
+        active_streams = {"stdout", "stderr"}
+        
+        try:
+            while active_streams:
+                # Wait for data from either queue
+                done, pending = await asyncio.wait(
+                    [
+                        asyncio.create_task(stdout_queue.get()) if "stdout" in active_streams else asyncio.sleep(float('inf')),
+                        asyncio.create_task(stderr_queue.get()) if "stderr" in active_streams else asyncio.sleep(float('inf'))
+                    ],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+                
+                for task in done:
+                    stream_type, data = await task
+                    if data is None:
+                        # Stream ended
+                        active_streams.discard(stream_type)
+                    else:
+                        yield (stream_type, data.decode('utf-8', errors='replace').rstrip())
+                
+                # Cancel pending tasks
+                for task in pending:
+                    task.cancel()
+        finally:
+            # Ensure reader tasks are cleaned up
+            stdout_task.cancel()
+            stderr_task.cancel()
+            try:
+                await asyncio.gather(stdout_task, stderr_task, return_exceptions=True)
+            except asyncio.CancelledError:
+                pass
     
     async def execute_command(
         self, 
@@ -46,6 +215,9 @@ class WebCommandExecutor:
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute a command and stream output in real-time.
+        
+        Security: Commands are validated against a whitelist, arguments are sanitized,
+        and processes are executed without shell=True to prevent injection attacks.
         
         Args:
             command: The command to execute (e.g., 'python')
@@ -58,14 +230,36 @@ class WebCommandExecutor:
         """
         if execution_id is None:
             execution_id = self.generate_execution_id()
+        
+        # Validate command and arguments
+        try:
+            command_path, validated_args = self._validate_command_and_args(command, args)
+        except ValueError as e:
+            # Validation failed - set error state and abort
+            self.execution_states[execution_id] = {
+                "status": "error",
+                "command": command,
+                "args": args,
+                "start_time": datetime.now(timezone.utc),
+                "output_buffer": deque(maxlen=self.max_output_lines),
+                "process": None,
+                "error": str(e)
+            }
+            yield {
+                "type": "error",
+                "data": f"Validation error: {str(e)}",
+                "execution_id": execution_id,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            return
             
-        # Initialize execution state
+        # Initialize execution state with bounded buffer
         self.execution_states[execution_id] = {
             "status": "starting",
             "command": command,
-            "args": args,
-            "start_time": datetime.now(),
-            "output_buffer": [],
+            "args": validated_args,
+            "start_time": datetime.now(timezone.utc),
+            "output_buffer": deque(maxlen=self.max_output_lines),  # Bounded buffer
             "process": None
         }
         
@@ -73,18 +267,30 @@ class WebCommandExecutor:
             # Yield start event
             yield {
                 "type": "status",
-                "data": f"Starting command: {command} {' '.join(args)}",
+                "data": f"Starting command: {command} {' '.join(validated_args)}",
                 "execution_id": execution_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
-            # Create subprocess
+            # Get working directory (environment-agnostic)
+            cwd = str(self._get_project_root())
+            
+            # Create subprocess with new session for process group management
+            # IMPORTANT: Using create_subprocess_exec (not shell=True) to prevent shell injection
+            process_kwargs = {
+                "stdout": asyncio.subprocess.PIPE,
+                "stderr": asyncio.subprocess.PIPE,
+                "cwd": cwd,
+                "env": settings.get_environment_variables()
+            }
+            
+            # Start new session on Unix for process group management
+            if sys.platform != "win32":
+                process_kwargs["start_new_session"] = True
+            
             process = await asyncio.create_subprocess_exec(
-                command, *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd="/app",  # Railway container working directory
-                env=settings.get_environment_variables()
+                command_path, *validated_args,
+                **process_kwargs
             )
             
             # Store process reference
@@ -97,43 +303,26 @@ class WebCommandExecutor:
                 "type": "status",
                 "data": "Command is running...",
                 "execution_id": execution_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
-            # Stream stdout
-            async for line in process.stdout:
-                line_data = line.decode('utf-8', errors='replace').rstrip()
+            # Stream output from both stdout and stderr concurrently to avoid deadlock
+            async for stream_type, line_data in self._merge_async_iters(
+                process.stdout, process.stderr, execution_id
+            ):
                 if line_data:  # Skip empty lines
-                    # Buffer output for later download
+                    # Buffer output with bounded deque (automatically drops oldest)
                     self.execution_states[execution_id]["output_buffer"].append({
-                        "type": "stdout",
+                        "type": stream_type,
                         "data": line_data,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                     
                     yield {
-                        "type": "stdout",
+                        "type": stream_type,
                         "data": line_data,
                         "execution_id": execution_id,
-                        "timestamp": datetime.now().isoformat()
-                    }
-            
-            # Stream stderr
-            async for line in process.stderr:
-                line_data = line.decode('utf-8', errors='replace').rstrip()
-                if line_data:  # Skip empty lines
-                    # Buffer output for later download
-                    self.execution_states[execution_id]["output_buffer"].append({
-                        "type": "stderr",
-                        "data": line_data,
-                        "timestamp": datetime.now().isoformat()
-                    })
-                    
-                    yield {
-                        "type": "stderr",
-                        "data": line_data,
-                        "execution_id": execution_id,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }
             
             # Wait for process completion with timeout
@@ -146,7 +335,7 @@ class WebCommandExecutor:
                         "type": "status",
                         "data": f"Command completed successfully (exit code: {return_code})",
                         "execution_id": execution_id,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }
                 else:
                     self.execution_states[execution_id]["status"] = "failed"
@@ -154,7 +343,7 @@ class WebCommandExecutor:
                         "type": "error",
                         "data": f"Command failed with exit code: {return_code}",
                         "execution_id": execution_id,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat()
                     }
                     
             except asyncio.TimeoutError:
@@ -166,17 +355,18 @@ class WebCommandExecutor:
                     "type": "error",
                     "data": f"Command timed out after {timeout} seconds",
                     "execution_id": execution_id,
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
         except Exception as e:
-            self.logger.error(f"Command execution error: {e}")
+            # Use logger.exception to capture full traceback
+            self.logger.exception(f"Command execution error for {execution_id}")
             self.execution_states[execution_id]["status"] = "error"
             yield {
                 "type": "error",
                 "data": f"Execution error: {str(e)}",
                 "execution_id": execution_id,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
         finally:
@@ -184,13 +374,15 @@ class WebCommandExecutor:
             if execution_id in self.active_processes:
                 del self.active_processes[execution_id]
             
-            # Update final state
+            # Update final state with timezone-aware timestamp
             if execution_id in self.execution_states:
-                self.execution_states[execution_id]["end_time"] = datetime.now()
+                self.execution_states[execution_id]["end_time"] = datetime.now(timezone.utc)
     
     async def cancel_execution(self, execution_id: str) -> bool:
         """
-        Cancel a running execution.
+        Cancel a running execution, including all child processes.
+        
+        Uses process group termination to ensure child processes are also killed.
         
         Args:
             execution_id: The execution ID to cancel
@@ -201,21 +393,54 @@ class WebCommandExecutor:
         if execution_id in self.active_processes:
             process = self.active_processes[execution_id]
             try:
-                process.terminate()
-                await asyncio.wait_for(process.wait(), timeout=5)
-                self.execution_states[execution_id]["status"] = "cancelled"
-                self.logger.info(f"Execution {execution_id} cancelled successfully")
-                return True
-            except asyncio.TimeoutError:
-                # Force kill if terminate doesn't work
-                process.kill()
-                await process.wait()
-                self.execution_states[execution_id]["status"] = "force_killed"
-                self.logger.warning(f"Execution {execution_id} force killed")
-                return True
+                # On Unix, send signal to process group to kill child processes too
+                if sys.platform != "win32" and hasattr(os, 'killpg'):
+                    try:
+                        # Get process group ID (should be same as PID since we used start_new_session)
+                        pgid = os.getpgid(process.pid)
+                        # Send SIGTERM to entire process group
+                        os.killpg(pgid, signal.SIGTERM)
+                    except (ProcessLookupError, PermissionError, OSError) as e:
+                        # Process may have already exited or we don't have permission
+                        self.logger.warning(f"Failed to send SIGTERM to process group: {e}")
+                        # Fall back to terminating just the parent process
+                        process.terminate()
+                else:
+                    # Windows or no killpg support - terminate parent only
+                    process.terminate()
+                
+                # Wait for graceful termination
+                try:
+                    await asyncio.wait_for(process.wait(), timeout=5)
+                    self.execution_states[execution_id]["status"] = "cancelled"
+                    self.logger.info(f"Execution {execution_id} cancelled successfully")
+                    return True
+                except asyncio.TimeoutError:
+                    # Force kill if terminate doesn't work
+                    if sys.platform != "win32" and hasattr(os, 'killpg'):
+                        try:
+                            pgid = os.getpgid(process.pid)
+                            os.killpg(pgid, signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError, OSError):
+                            process.kill()
+                    else:
+                        process.kill()
+                    
+                    # Wait again after force kill
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=2)
+                    except asyncio.TimeoutError:
+                        pass  # Process is dead or zombie, continue
+                    
+                    self.execution_states[execution_id]["status"] = "force_killed"
+                    self.logger.warning(f"Execution {execution_id} force killed")
+                    return True
+                    
             except Exception as e:
-                self.logger.error(f"Error cancelling execution {execution_id}: {e}")
+                self.logger.exception(f"Error cancelling execution {execution_id}")
                 return False
+        
+        # Execution ID not found in active processes
         return False
     
     def get_execution_state(self, execution_id: str) -> Optional[Dict[str, Any]]:
@@ -230,12 +455,23 @@ class WebCommandExecutor:
         return []
     
     def cleanup_old_executions(self, max_age_hours: int = 1):
-        """Clean up old execution states."""
-        cutoff_time = datetime.now().timestamp() - (max_age_hours * 3600)
+        """Clean up old execution states using timezone-aware timestamps."""
+        # Use timezone-aware cutoff time
+        cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
         
         to_remove = []
         for execution_id, state in self.execution_states.items():
-            start_time = state.get("start_time", datetime.now())
+            start_time = state.get("start_time", datetime.now(timezone.utc))
+            
+            # Normalize start_time to UTC timezone-aware datetime
+            if start_time.tzinfo is None:
+                # Naive datetime - assume UTC
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            else:
+                # Already aware - convert to UTC
+                start_time = start_time.astimezone(timezone.utc)
+            
+            # Compare timestamps
             if start_time.timestamp() < cutoff_time:
                 to_remove.append(execution_id)
         

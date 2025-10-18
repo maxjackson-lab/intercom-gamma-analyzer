@@ -25,9 +25,10 @@ except ImportError as e:
     print(f"🔧 sys.path: {sys.path[:3]}")  # Show first 3 entries
 
 try:
-    from fastapi import FastAPI, HTTPException, Request
+    from fastapi import FastAPI, HTTPException, Request, Depends
     from fastapi.responses import HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
+    from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     from sse_starlette import EventSourceResponse
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
@@ -67,6 +68,40 @@ if HAS_FASTAPI:
         allow_headers=["*"],
     )
     
+    # Security scheme for bearer token authentication
+    security = HTTPBearer(auto_error=False)
+    
+    async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+        """
+        Verify bearer token for command execution endpoints.
+        
+        This protects sensitive command execution endpoints from unauthorized access.
+        Token validation can be customized based on your security requirements.
+        """
+        # Get the expected token from environment (if not set, allow local development)
+        expected_token = os.getenv("EXECUTION_API_TOKEN")
+        
+        # If no token is configured, allow access (for development/backwards compatibility)
+        # In production, you should always set EXECUTION_API_TOKEN
+        if not expected_token:
+            return "development"
+        
+        # Check if credentials were provided
+        if not credentials:
+            raise HTTPException(
+                status_code=403,
+                detail="Authentication required. Please provide a valid bearer token."
+            )
+        
+        # Validate the token
+        if credentials.credentials != expected_token:
+            raise HTTPException(
+                status_code=403,
+                detail="Invalid authentication credentials"
+            )
+        
+        return credentials.credentials
+    
     # Pydantic models
     class ChatRequest(BaseModel):
         query: str
@@ -86,6 +121,21 @@ else:
 chat_interface = None
 command_executor = None
 state_manager = None
+
+# Command whitelist for security - only these commands can be executed
+ALLOWED_COMMANDS = {
+    "python",
+    "python3",
+    "python3.9",
+    "python3.10",
+    "python3.11",
+    "python3.12",
+}
+
+# Maximum argument lengths for security
+MAX_ARG_LENGTH = 1024
+MAX_ARGS_COUNT = 100
+MAX_ARGS_TOTAL_LENGTH = 8192
 
 def initialize_chat():
     """Initialize the chat interface."""
@@ -870,36 +920,92 @@ if HAS_FASTAPI:
     async def execute_command_stream(
         command: str,
         args: str,
-        execution_id: str
+        execution_id: str,
+        token: str = Depends(verify_token)  # Require authentication
     ):
-        """Stream command execution output via Server-Sent Events."""
+        """
+        Stream command execution output via Server-Sent Events.
+        
+        Security: This endpoint requires bearer token authentication.
+        Set EXECUTION_API_TOKEN environment variable to enable authentication.
+        """
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
-        # Parse args from JSON string
+        # Validate command whitelist
+        if command not in ALLOWED_COMMANDS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Command '{command}' is not allowed. Permitted commands: {', '.join(sorted(ALLOWED_COMMANDS))}"
+            )
+        
+        # Parse and validate args from JSON string
         try:
             args_list = json.loads(args) if args else []
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid args format")
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail="Invalid args format: must be valid JSON array") from e
+        
+        # Validate args is a list
+        if not isinstance(args_list, list):
+            raise HTTPException(status_code=400, detail="Args must be a JSON array")
+        
+        # Validate args count
+        if len(args_list) > MAX_ARGS_COUNT:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Too many arguments (max {MAX_ARGS_COUNT})"
+            )
+        
+        # Validate each arg is a string and enforce length limits
+        total_length = 0
+        validated_args = []
+        for i, arg in enumerate(args_list):
+            if not isinstance(arg, str):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Argument {i} must be a string, got {type(arg).__name__}"
+                )
+            if len(arg) > MAX_ARG_LENGTH:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Argument {i} exceeds maximum length of {MAX_ARG_LENGTH} characters"
+                )
+            total_length += len(arg)
+            validated_args.append(arg)
+        
+        # Check total length
+        if total_length > MAX_ARGS_TOTAL_LENGTH:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Total argument length exceeds maximum of {MAX_ARGS_TOTAL_LENGTH} characters"
+            )
         
         # Check execution state
-        execution_state = await state_manager.get_execution(execution_id)
-        if not execution_state:
-            raise HTTPException(status_code=404, detail="Execution not found")
+        try:
+            execution_state = await state_manager.get_execution(execution_id)
+            if not execution_state:
+                raise HTTPException(status_code=404, detail="Execution not found")
+        except ValueError as e:
+            # Domain validation error from state manager
+            raise HTTPException(status_code=429, detail=str(e)) from e
         
         # Start the execution
-        started = await state_manager.start_execution(execution_id)
-        if not started:
-            raise HTTPException(status_code=429, detail="Too many concurrent executions")
+        try:
+            started = await state_manager.start_execution(execution_id)
+            if not started:
+                raise HTTPException(status_code=429, detail="Too many concurrent executions")
+        except ValueError as e:
+            raise HTTPException(status_code=429, detail=str(e)) from e
         
         async def event_generator():
             """Generate SSE events from command output."""
+            heartbeat_task = None
             try:
                 # Send heartbeat every 30 seconds
                 heartbeat_task = asyncio.create_task(heartbeat_generator())
                 
                 async for output in command_executor.execute_command(
-                    command, args_list, execution_id=execution_id
+                    command, validated_args, execution_id=execution_id
                 ):
                     # Update state manager with output
                     await state_manager.add_output(execution_id, output)
@@ -926,9 +1032,6 @@ if HAS_FASTAPI:
                         "data": json.dumps(output)
                     }
                 
-                # Cancel heartbeat
-                heartbeat_task.cancel()
-                
             except asyncio.CancelledError:
                 # Client disconnected
                 await state_manager.update_execution_status(
@@ -936,7 +1039,17 @@ if HAS_FASTAPI:
                 )
                 await command_executor.cancel_execution(execution_id)
                 raise
-            except Exception as e:
+            except json.JSONDecodeError as e:
+                # JSON encoding error
+                await state_manager.update_execution_status(
+                    execution_id, ExecutionStatus.ERROR, error_message=f"JSON encoding error: {str(e)}"
+                )
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"type": "error", "data": "Output encoding error"})
+                }
+            except ValueError as e:
+                # Domain validation error
                 await state_manager.update_execution_status(
                     execution_id, ExecutionStatus.ERROR, error_message=str(e)
                 )
@@ -944,6 +1057,34 @@ if HAS_FASTAPI:
                     "event": "error",
                     "data": json.dumps({"type": "error", "data": str(e)})
                 }
+            except RuntimeError as e:
+                # Operational error
+                await state_manager.update_execution_status(
+                    execution_id, ExecutionStatus.ERROR, error_message=str(e)
+                )
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"type": "error", "data": "Command execution failed"})
+                }
+            except Exception as e:
+                # Unexpected error - log but don't expose details to client
+                import logging
+                logging.getLogger(__name__).exception(f"Unexpected error in execution {execution_id}")
+                await state_manager.update_execution_status(
+                    execution_id, ExecutionStatus.ERROR, error_message=str(e)
+                )
+                yield {
+                    "event": "error",
+                    "data": json.dumps({"type": "error", "data": "Internal server error during execution"})
+                }
+            finally:
+                # Always cleanup heartbeat task
+                if heartbeat_task is not None and not heartbeat_task.done():
+                    heartbeat_task.cancel()
+                    try:
+                        await asyncio.wait_for(heartbeat_task, timeout=1.0)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
+                        pass  # Expected when cancelling
         
         async def heartbeat_generator():
             """Send heartbeat every 30 seconds to keep connection alive."""
