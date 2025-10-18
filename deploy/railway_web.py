@@ -641,8 +641,8 @@ if HAS_FASTAPI:
                 <div class="message bot-message">
                     <strong>Bot:</strong> Hello! I can help you generate analysis reports using natural language. Try asking me something like "Give me last week's voice of customer report" or "Show me billing analysis for this month".
                 </div>
-                <div class="message bot-message" id="statusMessage" style="display: none;">
-                    <strong>System:</strong> <span id="statusText"></span>
+                <div class="message bot-message" id="statusMessage" style="display: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <strong>System:</strong> <span id="statusText" style="color: #10b981;"></span>
                 </div>
             </div>
             
@@ -810,8 +810,13 @@ if HAS_FASTAPI:
             
             async function executeCommand(command, args) {
                 try {
+                    // Convert CLI command to full python execution
+                    // voice-of-customer → python src/main.py voice-of-customer
+                    const fullCommand = 'python';
+                    const fullArgs = ['src/main.py', command, ...args];
+                    
                     // Start execution and get execution ID
-                    const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}`, {
+                    const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`, {
                         method: 'POST'
                     });
                     
@@ -835,8 +840,8 @@ if HAS_FASTAPI:
                     executionStatus.textContent = 'Running';
                     cancelButton.style.display = 'inline-block';
                     
-                    // Start SSE connection
-                    const eventSource = new EventSource(`/execute?command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}&execution_id=${currentExecutionId}`);
+                    // Start SSE connection with full command
+                    const eventSource = new EventSource(`/execute?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}&execution_id=${currentExecutionId}`);
                     currentEventSource = eventSource;
                     
                     eventSource.onmessage = function(event) {
