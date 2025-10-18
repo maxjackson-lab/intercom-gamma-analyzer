@@ -4,7 +4,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "startCommand": "python deploy/railway_web.py",
+    "startCommand": "python -m deploy.railway_web",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
@@ -14,14 +14,14 @@
     "production": {
       "variables": {
         "PYTHON_VERSION": "3.11",
-        "PYTHONPATH": "/app/src",
+        "PYTHONPATH": "/app",
         "DEPLOYMENT_MODE": "web"
       }
     },
     "cron": {
       "variables": {
         "PYTHON_VERSION": "3.11",
-        "PYTHONPATH": "/app/src",
+        "PYTHONPATH": "/app",
         "DEPLOYMENT_MODE": "cron",
         "ANALYSIS_TYPE": "weekly"
       }

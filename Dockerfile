@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set Python path
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app
 
 # Create output directory
 RUN mkdir -p /app/outputs
@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Default command (can be overridden by Railway)
-CMD ["python", "deploy/railway_web.py"]
+CMD ["python", "-m", "deploy.railway_web"]

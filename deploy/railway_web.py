@@ -11,44 +11,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-# Check Python path setup
+# Verify Python path setup
 print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
 print(f"🔧 Current working directory: {os.getcwd()}")
 print(f"🔧 Script location: {__file__}")
-print(f"🔧 Expected src path: {Path(__file__).parent.parent / 'src'}")
 
-# Ensure src is in Python path (fallback if PYTHONPATH not set)
-src_path = str(Path(__file__).parent.parent / "src")
-if src_path not in sys.path:
-    sys.path.insert(0, src_path)
-    print(f"🔧 Added src to Python path: {src_path}")
-else:
-    print(f"🔧 src already in Python path: {src_path}")
-
-# Test if we can find the src directory and key files
-src_dir = Path(__file__).parent.parent / "src"
-print(f"🔧 src directory exists: {src_dir.exists()}")
-if src_dir.exists():
-    print(f"🔧 src directory contents: {list(src_dir.iterdir())}")
-    
-    chat_dir = src_dir / "chat"
-    print(f"🔧 chat directory exists: {chat_dir.exists()}")
-    if chat_dir.exists():
-        print(f"🔧 chat directory contents: {list(chat_dir.iterdir())}")
-
-# Let's also check the entire app directory structure
-print(f"🔧 App directory contents: {list(Path('/app').iterdir())}")
-print(f"🔧 Current script parent contents: {list(Path(__file__).parent.iterdir())}")
-print(f"🔧 Current script parent parent contents: {list(Path(__file__).parent.parent.iterdir())}")
-
-# Try to import directly to see the exact error
+# Test src import
 try:
     import src
     print(f"✅ Successfully imported src module")
-    print(f"🔧 src module location: {src.__file__}")
 except ImportError as e:
     print(f"❌ Failed to import src: {e}")
-    print(f"🔧 sys.path: {sys.path[:5]}")  # Show first 5 entries
+    print(f"🔧 sys.path: {sys.path[:3]}")  # Show first 3 entries
 
 try:
     from fastapi import FastAPI, HTTPException, Request
