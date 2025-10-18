@@ -1105,11 +1105,7 @@ if HAS_FASTAPI:
         
         async def event_generator():
             """Generate SSE events from command output."""
-            heartbeat_task = None
             try:
-                # Send heartbeat every 30 seconds
-                heartbeat_task = asyncio.create_task(heartbeat_generator())
-                
                 async for output in command_executor.execute_command(
                     command, validated_args, execution_id=execution_id
                 ):
@@ -1184,19 +1180,8 @@ if HAS_FASTAPI:
                     "data": json.dumps({"type": "error", "data": "Internal server error during execution"})
                 }
             finally:
-                # Always cleanup heartbeat task
-                if heartbeat_task is not None and not heartbeat_task.done():
-                    heartbeat_task.cancel()
-                    try:
-                        await asyncio.wait_for(heartbeat_task, timeout=1.0)
-                    except (asyncio.CancelledError, asyncio.TimeoutError):
-                        pass  # Expected when cancelling
-        
-        async def heartbeat_generator():
-            """Send heartbeat every 30 seconds to keep connection alive."""
-            while True:
-                await asyncio.sleep(30)
-                yield {"event": "heartbeat", "data": ""}
+                # Cleanup
+                pass
         
         return EventSourceResponse(event_generator())
     
