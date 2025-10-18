@@ -27,11 +27,11 @@ ENV PYTHONPATH=/app/src
 RUN mkdir -p /app/outputs
 
 # Expose port for web interface
-EXPOSE 8000
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Default command (can be overridden by Railway)
 CMD ["python", "deploy/railway_web.py"]
