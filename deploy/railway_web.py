@@ -804,6 +804,9 @@ if HAS_FASTAPI:
                 }
             }
             
+            let pollingInterval = null;
+            let outputIndex = 0;
+            
             async function executeCommand(command, args) {
                 try {
                     // Convert CLI command to full python execution
@@ -818,6 +821,7 @@ if HAS_FASTAPI:
                     
                     const startData = await startResponse.json();
                     currentExecutionId = startData.execution_id;
+                    outputIndex = 0;
                     
                     // Show terminal container
                     const terminalContainer = document.getElementById('terminalContainer');
@@ -836,33 +840,61 @@ if HAS_FASTAPI:
                     executionStatus.textContent = 'Running';
                     cancelButton.style.display = 'inline-block';
                     
-                    // Start SSE connection with full command
-                    const eventSource = new EventSource(`/execute?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}&execution_id=${currentExecutionId}`);
-                    currentEventSource = eventSource;
-                    
-                    eventSource.onmessage = function(event) {
-                        const data = JSON.parse(event.data);
-                        appendTerminalOutput(data);
-                    };
-                    
-                    eventSource.addEventListener('error', function(event) {
-                        console.error('SSE Error:', event);
-                        executionSpinner.style.display = 'none';
-                        executionStatus.className = 'status-badge failed';
-                        executionStatus.textContent = 'Failed';
-                        cancelButton.style.display = 'none';
-                        eventSource.close();
-                        currentEventSource = null;
-                    });
-                    
-                    eventSource.addEventListener('heartbeat', function(event) {
-                        // Keep-alive heartbeat, do nothing
-                        console.log('Heartbeat received');
-                    });
+                    // Start polling for updates
+                    startPolling();
                     
                 } catch (error) {
                     console.error('Execution error:', error);
                     addMessage('bot', `Failed to start execution: ${error.message}`);
+                }
+            }
+            
+            function startPolling() {
+                // Poll every 1 second for updates
+                pollingInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch(`/execute/status/${currentExecutionId}?since=${outputIndex}`);
+                        const data = await response.json();
+                        
+                        // Update output
+                        if (data.output && data.output.length > 0) {
+                            data.output.forEach(outputItem => {
+                                appendTerminalOutput(outputItem);
+                            });
+                            outputIndex = data.output_length;
+                        }
+                        
+                        // Check if execution is complete
+                        if (data.status === 'completed' || data.status === 'failed' || data.status === 'error' || data.status === 'cancelled') {
+                            stopPolling();
+                            
+                            const executionSpinner = document.getElementById('executionSpinner');
+                            const executionStatus = document.getElementById('executionStatus');
+                            const cancelButton = document.getElementById('cancelButton');
+                            
+                            executionSpinner.style.display = 'none';
+                            cancelButton.style.display = 'none';
+                            
+                            if (data.status === 'completed') {
+                                executionStatus.className = 'status-badge completed';
+                                executionStatus.textContent = 'Completed';
+                                showDownloadLinks();
+                            } else {
+                                executionStatus.className = 'status-badge failed';
+                                executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Polling error:', error);
+                        // Continue polling despite errors
+                    }
+                }, 1000); // Poll every 1 second
+            }
+            
+            function stopPolling() {
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
                 }
             }
             
@@ -917,14 +949,11 @@ if HAS_FASTAPI:
                 if (!currentExecutionId) return;
                 
                 try {
+                    stopPolling();
+                    
                     await fetch(`/execute/cancel/${currentExecutionId}`, {
                         method: 'POST'
                     });
-                    
-                    if (currentEventSource) {
-                        currentEventSource.close();
-                        currentEventSource = null;
-                    }
                     
                     const executionSpinner = document.getElementById('executionSpinner');
                     const executionStatus = document.getElementById('executionStatus');
@@ -1181,9 +1210,35 @@ if HAS_FASTAPI:
         
         return EventSourceResponse(event_generator())
     
+    async def run_command_background(execution_id: str, command: str, args: list):
+        """Run command in background and update state."""
+        try:
+            await state_manager.start_execution(execution_id)
+            await state_manager.update_execution_status(execution_id, ExecutionStatus.RUNNING)
+            
+            async for output in command_executor.execute_command(command, args, execution_id=execution_id):
+                # Update state manager with output
+                await state_manager.add_output(execution_id, output)
+                
+                # Update status based on output type
+                if output.get("type") == "status":
+                    if "completed successfully" in output.get("data", ""):
+                        await state_manager.update_execution_status(
+                            execution_id, ExecutionStatus.COMPLETED, return_code=0
+                        )
+                elif output.get("type") == "error":
+                    await state_manager.update_execution_status(
+                        execution_id, ExecutionStatus.FAILED, 
+                        error_message=output.get("data")
+                    )
+        except Exception as e:
+            await state_manager.update_execution_status(
+                execution_id, ExecutionStatus.ERROR, error_message=str(e)
+            )
+    
     @app.post("/execute/start")
     async def start_execution(command: str, args: str):
-        """Start a new command execution."""
+        """Start a new command execution as a background task."""
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
@@ -1199,11 +1254,14 @@ if HAS_FASTAPI:
                 execution_id, command, args_list
             )
             
+            # Start background task
+            asyncio.create_task(run_command_background(execution_id, command, args_list))
+            
             return {
                 "execution_id": execution_id,
                 "status": execution.status.value,
                 "queue_position": execution.queue_position,
-                "message": "Execution queued successfully"
+                "message": "Execution started in background"
             }
         except ValueError as e:
             raise HTTPException(status_code=429, detail=str(e))
@@ -1227,14 +1285,23 @@ if HAS_FASTAPI:
         return {"message": "Execution cancelled successfully"}
     
     @app.get("/execute/status/{execution_id}")
-    async def get_execution_status(execution_id: str):
-        """Get the status of an execution."""
+    async def get_execution_status(execution_id: str, since: int = 0):
+        """
+        Get the status and output of an execution.
+        
+        Args:
+            execution_id: The execution ID
+            since: Return only output after this index (for polling)
+        """
         if not state_manager:
             raise HTTPException(status_code=500, detail="State manager not available")
         
         execution = await state_manager.get_execution(execution_id)
         if not execution:
             raise HTTPException(status_code=404, detail="Execution not found")
+        
+        # Get output buffer
+        output_buffer = execution.output_buffer[since:] if since < len(execution.output_buffer) else []
         
         return {
             "execution_id": execution.execution_id,
@@ -1245,7 +1312,9 @@ if HAS_FASTAPI:
             "end_time": execution.end_time.isoformat() if execution.end_time else None,
             "queue_position": execution.queue_position,
             "error_message": execution.error_message,
-            "return_code": execution.return_code
+            "return_code": execution.return_code,
+            "output": output_buffer,
+            "output_length": len(execution.output_buffer)
         }
 
     @app.get("/health")
