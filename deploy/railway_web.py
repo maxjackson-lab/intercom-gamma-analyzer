@@ -750,43 +750,57 @@ if HAS_FASTAPI:
             }
             
             async function resumeJob(executionId) {
-                currentExecutionId = executionId;
-                
-                // Fetch current status
-                const response = await fetch(`/execute/status/${executionId}`);
-                const data = await response.json();
-                
-                // Show terminal
-                const terminalContainer = document.getElementById('terminalContainer');
-                const terminalOutput = document.getElementById('terminalOutput');
-                const terminalTitle = document.getElementById('terminalTitle');
-                const executionStatus = document.getElementById('executionStatus');
-                
-                terminalContainer.style.display = 'block';
-                terminalOutput.innerHTML = '';
-                terminalTitle.textContent = `Job: ${data.command}`;
-                executionStatus.style.display = 'inline-block';
-                executionStatus.className = `status-badge ${data.status}`;
-                executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-                
-                // Display all output
-                outputIndex = 0;
-                if (data.output) {
-                    data.output.forEach(outputItem => {
-                        appendTerminalOutput(outputItem);
-                    });
-                    outputIndex = data.output_length;
-                }
-                
-                // If still running, start polling
-                if (data.status === 'running' || data.status === 'starting') {
+                try {
+                    currentExecutionId = executionId;
+                    
+                    // Fetch current status
+                    const response = await fetch(`/execute/status/${executionId}`);
+                    const data = await response.json();
+                    
+                    console.log('Resume job data:', data);
+                    console.log('Output array:', data.output);
+                    console.log('Output length:', data.output_length);
+                    
+                    // Show terminal
+                    const terminalContainer = document.getElementById('terminalContainer');
+                    const terminalOutput = document.getElementById('terminalOutput');
+                    const terminalTitle = document.getElementById('terminalTitle');
+                    const executionStatus = document.getElementById('executionStatus');
                     const executionSpinner = document.getElementById('executionSpinner');
                     const cancelButton = document.getElementById('cancelButton');
-                    executionSpinner.style.display = 'inline-block';
-                    cancelButton.style.display = 'inline-block';
-                    startPolling();
-                } else if (data.status === 'completed') {
-                    showDownloadLinks();
+                    
+                    terminalContainer.style.display = 'block';
+                    terminalOutput.innerHTML = '';
+                    terminalTitle.textContent = `Job: ${data.command} (ID: ${executionId.substring(0, 8)}...)`;
+                    executionStatus.style.display = 'inline-block';
+                    executionStatus.className = `status-badge ${data.status}`;
+                    executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                    
+                    // Display all output
+                    outputIndex = 0;
+                    if (data.output && data.output.length > 0) {
+                        console.log(`Displaying ${data.output.length} output items`);
+                        data.output.forEach((outputItem, index) => {
+                            console.log(`Output item ${index}:`, outputItem);
+                            appendTerminalOutput(outputItem);
+                        });
+                        outputIndex = data.output_length;
+                    } else {
+                        console.log('No output available yet');
+                        terminalOutput.innerHTML = '<div style="color: #666; padding: 20px;">No output available yet. Job may still be starting...</div>';
+                    }
+                    
+                    // If still running, start polling
+                    if (data.status === 'running' || data.status === 'starting' || data.status === 'queued') {
+                        executionSpinner.style.display = 'inline-block';
+                        cancelButton.style.display = 'inline-block';
+                        startPolling();
+                    } else if (data.status === 'completed') {
+                        showDownloadLinks();
+                    }
+                } catch (error) {
+                    console.error('Resume job error:', error);
+                    alert(`Failed to load job: ${error.message}`);
                 }
             }
             
