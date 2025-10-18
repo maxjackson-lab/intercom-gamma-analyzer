@@ -573,6 +573,10 @@ if HAS_FASTAPI:
                 }
             }
             
+            let currentExecutionId = null;
+            let currentEventSource = null;
+            const ansiUp = new AnsiUp();
+            
             async function sendMessage() {
                 const input = document.getElementById('queryInput');
                 const button = document.getElementById('sendButton');
@@ -608,8 +612,22 @@ if HAS_FASTAPI:
                             const translation = data.data.translation;
                             if (translation.translation) {
                                 const cmd = translation.translation;
-                                addMessage('bot', `Command: ${cmd.command} ${cmd.args ? cmd.args.join(' ') : ''}`);
+                                
+                                // Show command and explanation
+                                const commandText = `${cmd.command} ${cmd.args ? cmd.args.join(' ') : ''}`;
+                                addMessage('bot', `Command: <code>${commandText}</code>`);
                                 addMessage('bot', `Explanation: ${cmd.explanation}`);
+                                
+                                // Add execute button
+                                const executeButton = document.createElement('div');
+                                executeButton.className = 'execution-controls';
+                                executeButton.innerHTML = `
+                                    <button class="btn-execute" onclick="executeCommand('${cmd.command}', ${JSON.stringify(cmd.args || []).replace(/"/g, '&quot;')})">
+                                        Execute Command
+                                    </button>
+                                `;
+                                chatContainer.appendChild(executeButton);
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
                         }
                         showStatus('success', 'Query processed successfully!');
@@ -626,6 +644,163 @@ if HAS_FASTAPI:
                     button.disabled = false;
                     button.textContent = 'Send';
                 }
+            }
+            
+            async function executeCommand(command, args) {
+                try {
+                    // Start execution and get execution ID
+                    const startResponse = await fetch('/execute/start', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}`
+                    });
+                    
+                    const startData = await startResponse.json();
+                    currentExecutionId = startData.execution_id;
+                    
+                    // Show terminal container
+                    const terminalContainer = document.getElementById('terminalContainer');
+                    const terminalOutput = document.getElementById('terminalOutput');
+                    const terminalTitle = document.getElementById('terminalTitle');
+                    const executionSpinner = document.getElementById('executionSpinner');
+                    const executionStatus = document.getElementById('executionStatus');
+                    const cancelButton = document.getElementById('cancelButton');
+                    
+                    terminalContainer.style.display = 'block';
+                    terminalOutput.innerHTML = '';
+                    terminalTitle.textContent = `Executing: ${command}`;
+                    executionSpinner.style.display = 'inline-block';
+                    executionStatus.style.display = 'inline-block';
+                    executionStatus.className = 'status-badge running';
+                    executionStatus.textContent = 'Running';
+                    cancelButton.style.display = 'inline-block';
+                    
+                    // Start SSE connection
+                    const eventSource = new EventSource(`/execute?command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}&execution_id=${currentExecutionId}`);
+                    currentEventSource = eventSource;
+                    
+                    eventSource.onmessage = function(event) {
+                        const data = JSON.parse(event.data);
+                        appendTerminalOutput(data);
+                    };
+                    
+                    eventSource.addEventListener('error', function(event) {
+                        console.error('SSE Error:', event);
+                        executionSpinner.style.display = 'none';
+                        executionStatus.className = 'status-badge failed';
+                        executionStatus.textContent = 'Failed';
+                        cancelButton.style.display = 'none';
+                        eventSource.close();
+                        currentEventSource = null;
+                    });
+                    
+                    eventSource.addEventListener('heartbeat', function(event) {
+                        // Keep-alive heartbeat, do nothing
+                        console.log('Heartbeat received');
+                    });
+                    
+                } catch (error) {
+                    console.error('Execution error:', error);
+                    addMessage('bot', `Failed to start execution: ${error.message}`);
+                }
+            }
+            
+            function appendTerminalOutput(data) {
+                const terminalOutput = document.getElementById('terminalOutput');
+                const executionSpinner = document.getElementById('executionSpinner');
+                const executionStatus = document.getElementById('executionStatus');
+                const cancelButton = document.getElementById('cancelButton');
+                
+                // Create line element
+                const line = document.createElement('div');
+                line.className = `terminal-line ${data.type}`;
+                
+                // Convert ANSI codes to HTML
+                const htmlContent = ansiUp.ansi_to_html(data.data || '');
+                line.innerHTML = htmlContent;
+                
+                terminalOutput.appendChild(line);
+                terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                
+                // Update status based on output type
+                if (data.type === 'status') {
+                    if (data.data.includes('completed successfully')) {
+                        executionSpinner.style.display = 'none';
+                        executionStatus.className = 'status-badge completed';
+                        executionStatus.textContent = 'Completed';
+                        cancelButton.style.display = 'none';
+                        
+                        // Close SSE connection
+                        if (currentEventSource) {
+                            currentEventSource.close();
+                            currentEventSource = null;
+                        }
+                        
+                        // Show download links
+                        showDownloadLinks();
+                    }
+                } else if (data.type === 'error') {
+                    executionSpinner.style.display = 'none';
+                    executionStatus.className = 'status-badge failed';
+                    executionStatus.textContent = 'Failed';
+                    cancelButton.style.display = 'none';
+                    
+                    if (currentEventSource) {
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    }
+                }
+            }
+            
+            async function cancelExecution() {
+                if (!currentExecutionId) return;
+                
+                try {
+                    await fetch(`/execute/cancel/${currentExecutionId}`, {
+                        method: 'POST'
+                    });
+                    
+                    if (currentEventSource) {
+                        currentEventSource.close();
+                        currentEventSource = null;
+                    }
+                    
+                    const executionSpinner = document.getElementById('executionSpinner');
+                    const executionStatus = document.getElementById('executionStatus');
+                    const cancelButton = document.getElementById('cancelButton');
+                    
+                    executionSpinner.style.display = 'none';
+                    executionStatus.className = 'status-badge';
+                    executionStatus.textContent = 'Cancelled';
+                    cancelButton.style.display = 'none';
+                    
+                    appendTerminalOutput({
+                        type: 'status',
+                        data: 'Execution cancelled by user'
+                    });
+                } catch (error) {
+                    console.error('Cancel error:', error);
+                }
+            }
+            
+            function showDownloadLinks() {
+                const executionResults = document.getElementById('executionResults');
+                const downloadLinks = document.getElementById('downloadLinks');
+                
+                // TODO: Fetch actual file list from execution results
+                // For now, show a generic message
+                downloadLinks.innerHTML = `
+                    <div class="panel success">
+                        <div class="panel-header">✓ Execution Complete</div>
+                        <div class="panel-content">
+                            <p>Command executed successfully! Generated files are available in the outputs directory.</p>
+                            <p>Check the command output above for Gamma presentation URLs and file locations.</p>
+                        </div>
+                    </div>
+                `;
+                executionResults.style.display = 'block';
             }
             
             function addMessage(type, content) {
