@@ -11,11 +11,30 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-# Add src to path
+# Check Python path setup
+print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+print(f"🔧 Current working directory: {os.getcwd()}")
+print(f"🔧 Script location: {__file__}")
+print(f"🔧 Expected src path: {Path(__file__).parent.parent / 'src'}")
+
+# Ensure src is in Python path (fallback if PYTHONPATH not set)
 src_path = str(Path(__file__).parent.parent / "src")
-sys.path.insert(0, src_path)
-print(f"🔧 Added to Python path: {src_path}")
-print(f"🔧 Current Python path: {sys.path[:3]}...")  # Show first 3 entries
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+    print(f"🔧 Added src to Python path: {src_path}")
+else:
+    print(f"🔧 src already in Python path: {src_path}")
+
+# Test if we can find the src directory and key files
+src_dir = Path(__file__).parent.parent / "src"
+print(f"🔧 src directory exists: {src_dir.exists()}")
+if src_dir.exists():
+    print(f"🔧 src directory contents: {list(src_dir.iterdir())}")
+    
+    chat_dir = src_dir / "chat"
+    print(f"🔧 chat directory exists: {chat_dir.exists()}")
+    if chat_dir.exists():
+        print(f"🔧 chat directory contents: {list(chat_dir.iterdir())}")
 
 try:
     from fastapi import FastAPI, HTTPException, Request
