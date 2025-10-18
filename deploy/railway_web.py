@@ -11,6 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
+# Silence tokenizers parallelism warning
+os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
+
 # Verify Python path setup
 print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
 print(f"🔧 Current working directory: {os.getcwd()}")
