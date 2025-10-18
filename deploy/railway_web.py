@@ -36,6 +36,20 @@ if src_dir.exists():
     if chat_dir.exists():
         print(f"🔧 chat directory contents: {list(chat_dir.iterdir())}")
 
+# Let's also check the entire app directory structure
+print(f"🔧 App directory contents: {list(Path('/app').iterdir())}")
+print(f"🔧 Current script parent contents: {list(Path(__file__).parent.iterdir())}")
+print(f"🔧 Current script parent parent contents: {list(Path(__file__).parent.parent.iterdir())}")
+
+# Try to import directly to see the exact error
+try:
+    import src
+    print(f"✅ Successfully imported src module")
+    print(f"🔧 src module location: {src.__file__}")
+except ImportError as e:
+    print(f"❌ Failed to import src: {e}")
+    print(f"🔧 sys.path: {sys.path[:5]}")  # Show first 5 entries
+
 try:
     from fastapi import FastAPI, HTTPException, Request
     from fastapi.responses import HTMLResponse, JSONResponse
