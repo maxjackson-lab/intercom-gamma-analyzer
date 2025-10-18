@@ -712,12 +712,8 @@ if HAS_FASTAPI:
             async function executeCommand(command, args) {
                 try {
                     // Start execution and get execution ID
-                    const startResponse = await fetch('/execute/start', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: `command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}`
+                    const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}`, {
+                        method: 'POST'
                     });
                     
                     const startData = await startResponse.json();
