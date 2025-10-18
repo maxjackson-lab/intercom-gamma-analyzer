@@ -206,122 +206,211 @@ if HAS_FASTAPI:
         <title>Intercom Analysis Tool - Chat Interface</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
         <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                max-width: 800px;
-                margin: 0 auto;
+                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+                min-height: 100vh;
+                color: #e4e4e7;
                 padding: 20px;
-                background-color: #f5f5f5;
             }
+            
             .container {
-                background: white;
-                border-radius: 12px;
-                padding: 30px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                max-width: 900px;
+                margin: 0 auto;
+                background: rgba(30, 30, 46, 0.8);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                padding: 40px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 
+                           0 0 1px rgba(139, 92, 246, 0.3);
+                border: 1px solid rgba(139, 92, 246, 0.1);
             }
+            
             h1 {
-                color: #2563eb;
+                background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
                 text-align: center;
+                font-size: 32px;
+                font-weight: 700;
                 margin-bottom: 30px;
+                letter-spacing: -0.5px;
             }
             .chat-container {
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                height: 400px;
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-radius: 16px;
+                height: 450px;
                 overflow-y: auto;
-                padding: 20px;
-                margin-bottom: 20px;
-                background-color: #fafafa;
+                padding: 24px;
+                margin-bottom: 24px;
+                background: rgba(17, 17, 27, 0.6);
+                backdrop-filter: blur(10px);
+            }
+            .chat-container::-webkit-scrollbar {
+                width: 8px;
+            }
+            .chat-container::-webkit-scrollbar-track {
+                background: rgba(139, 92, 246, 0.05);
+                border-radius: 4px;
+            }
+            .chat-container::-webkit-scrollbar-thumb {
+                background: rgba(139, 92, 246, 0.3);
+                border-radius: 4px;
+            }
+            .chat-container::-webkit-scrollbar-thumb:hover {
+                background: rgba(139, 92, 246, 0.5);
             }
             .message {
-                margin-bottom: 15px;
-                padding: 10px;
-                border-radius: 8px;
+                margin-bottom: 16px;
+                padding: 14px 18px;
+                border-radius: 12px;
+                animation: slideIn 0.3s ease-out;
+            }
+            @keyframes slideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
             .user-message {
-                background-color: #dbeafe;
-                margin-left: 20px;
+                background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+                border: 1px solid rgba(139, 92, 246, 0.3);
+                margin-left: 40px;
             }
             .bot-message {
-                background-color: #f3f4f6;
-                margin-right: 20px;
+                background: rgba(30, 30, 46, 0.6);
+                border: 1px solid rgba(139, 92, 246, 0.1);
+                margin-right: 40px;
+            }
+            .bot-message code {
+                background: rgba(139, 92, 246, 0.1);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: 'Consolas', monospace;
+                color: #a78bfa;
             }
             .input-container {
                 display: flex;
-                gap: 10px;
+                gap: 12px;
+                margin-bottom: 24px;
             }
             input[type="text"] {
                 flex: 1;
-                padding: 12px;
-                border: 1px solid #d1d5db;
-                border-radius: 6px;
-                font-size: 16px;
+                padding: 14px 18px;
+                background: rgba(17, 17, 27, 0.8);
+                border: 2px solid rgba(139, 92, 246, 0.2);
+                border-radius: 12px;
+                font-size: 15px;
+                color: #e4e4e7;
+                transition: all 0.3s ease;
+            }
+            input[type="text"]:focus {
+                outline: none;
+                border-color: rgba(139, 92, 246, 0.6);
+                box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+            }
+            input[type="text"]::placeholder {
+                color: rgba(228, 228, 231, 0.4);
             }
             button {
-                padding: 12px 24px;
-                background-color: #2563eb;
+                padding: 14px 28px;
+                background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
                 color: white;
                 border: none;
-                border-radius: 6px;
+                border-radius: 12px;
                 cursor: pointer;
-                font-size: 16px;
+                font-size: 15px;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
             }
             button:hover {
-                background-color: #1d4ed8;
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
+            }
+            button:active {
+                transform: translateY(0);
             }
             button:disabled {
-                background-color: #9ca3af;
+                background: rgba(107, 114, 128, 0.5);
                 cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
             }
             .status {
                 text-align: center;
                 margin-top: 20px;
-                padding: 10px;
-                border-radius: 6px;
+                padding: 12px;
+                border-radius: 12px;
+                font-weight: 500;
             }
             .status.success {
-                background-color: #d1fae5;
-                color: #065f46;
+                background: rgba(16, 185, 129, 0.15);
+                color: #10b981;
+                border: 1px solid rgba(16, 185, 129, 0.3);
             }
             .status.error {
-                background-color: #fee2e2;
-                color: #991b1b;
+                background: rgba(239, 68, 68, 0.15);
+                color: #ef4444;
+                border: 1px solid rgba(239, 68, 68, 0.3);
             }
             .examples {
-                margin-top: 30px;
-                padding: 20px;
-                background-color: #f8fafc;
-                border-radius: 8px;
+                margin-top: 32px;
+                padding: 24px;
+                background: rgba(17, 17, 27, 0.4);
+                border-radius: 16px;
+                border: 1px solid rgba(139, 92, 246, 0.1);
             }
             .examples h3 {
-                margin-top: 0;
-                color: #374151;
+                margin: 0 0 16px 0;
+                color: #e4e4e7;
+                font-size: 16px;
+                font-weight: 600;
+                opacity: 0.9;
             }
             .example {
-                margin: 10px 0;
-                padding: 8px 12px;
-                background-color: white;
-                border-radius: 4px;
+                margin: 8px 0;
+                padding: 12px 16px;
+                background: rgba(30, 30, 46, 0.6);
+                border-radius: 10px;
                 cursor: pointer;
-                border: 1px solid #e5e7eb;
+                border: 1px solid rgba(139, 92, 246, 0.15);
+                transition: all 0.2s ease;
+                color: #e4e4e7;
             }
             .example:hover {
-                background-color: #f3f4f6;
+                background: rgba(139, 92, 246, 0.1);
+                border-color: rgba(139, 92, 246, 0.4);
+                transform: translateX(4px);
             }
             
             /* Terminal and Rich library-inspired styles */
             .terminal-container {
                 display: none;
-                margin-top: 20px;
-                background: #1e1e1e;
-                border-radius: 8px;
+                margin-top: 24px;
+                background: rgba(17, 17, 27, 0.9);
+                border-radius: 16px;
                 overflow: hidden;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+                           0 0 1px rgba(139, 92, 246, 0.3);
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                animation: slideIn 0.4s ease-out;
             }
             .terminal-header {
-                background: #2d2d2d;
-                padding: 10px 15px;
-                border-bottom: 1px solid #3d3d3d;
+                background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+                padding: 14px 20px;
+                border-bottom: 1px solid rgba(139, 92, 246, 0.2);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -464,23 +553,29 @@ if HAS_FASTAPI:
                 align-items: center;
             }
             .btn-execute {
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
+                padding: 12px 24px;
+                border-radius: 12px;
                 cursor: pointer;
                 font-weight: 600;
-                transition: all 0.2s;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+                font-size: 14px;
             }
             .btn-execute:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(139, 92, 246, 0.5);
+            }
+            .btn-execute:active {
+                transform: translateY(0);
             }
             .btn-execute:disabled {
-                background: #6b7280;
+                background: rgba(107, 114, 128, 0.5);
                 cursor: not-allowed;
                 transform: none;
+                box-shadow: none;
             }
             .btn-cancel {
                 background: #ef4444;
