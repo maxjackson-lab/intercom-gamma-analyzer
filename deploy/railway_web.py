@@ -16,6 +16,12 @@ print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
 print(f"🔧 Current working directory: {os.getcwd()}")
 print(f"🔧 Script location: {__file__}")
 
+# Ensure /app is in Python path for script execution
+app_root = Path(__file__).parent.parent  # /app
+if str(app_root) not in sys.path:
+    sys.path.insert(0, str(app_root))
+    print(f"🔧 Added app root to Python path: {app_root}")
+
 # Test src import
 try:
     import src
