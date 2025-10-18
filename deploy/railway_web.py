@@ -647,6 +647,15 @@ if HAS_FASTAPI:
                 <button onclick="sendMessage()" id="sendButton">Send</button>
             </div>
             
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; color: #e5e7eb; font-size: 14px;">
+                    📧 Email me when complete (optional):
+                </label>
+                <input type="email" id="emailInput" placeholder="your.email@gamma.app" 
+                       style="width: 100%; padding: 10px 14px; background: #0a0a0a; border: 1px solid #2a2a2a; 
+                              border-radius: 8px; color: #e5e7eb; font-size: 14px;">
+            </div>
+            
             <div id="status"></div>
             
             <!-- Terminal output container -->
@@ -667,6 +676,12 @@ if HAS_FASTAPI:
                 </div>
             </div>
             
+            <!-- Recent Jobs -->
+            <div id="recentJobs" class="examples" style="display: none;">
+                <h3>📋 Recent Jobs</h3>
+                <div id="jobsList"></div>
+            </div>
+            
             <div class="examples">
                 <h3>💡 Example Queries</h3>
                 <div class="example" onclick="setQuery('Give me last week\\'s voice of customer report')">
@@ -685,9 +700,10 @@ if HAS_FASTAPI:
         </div>
 
         <script>
-            // Check system status on page load
+            // Check system status and load recent jobs on page load
             window.onload = function() {
                 checkSystemStatus();
+                loadRecentJobs();
             };
             
             async function checkSystemStatus() {
@@ -711,6 +727,75 @@ if HAS_FASTAPI:
                     }
                 } catch (error) {
                     console.error('Failed to check system status:', error);
+                }
+            }
+            
+            async function loadRecentJobs() {
+                try {
+                    const response = await fetch('/execute/list?limit=10');
+                    const data = await response.json();
+                    
+                    if (data.executions && data.executions.length > 0) {
+                        const recentJobs = document.getElementById('recentJobs');
+                        const jobsList = document.getElementById('jobsList');
+                        
+                        jobsList.innerHTML = data.executions.map(job => `
+                            <div class="example" onclick="resumeJob('${job.execution_id}')" style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600;">${job.command} ${job.args.slice(0, 3).join(' ')}...</div>
+                                    <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                                        Started: ${new Date(job.start_time).toLocaleString()}
+                                    </div>
+                                </div>
+                                <span class="status-badge ${job.status}">${job.status}</span>
+                            </div>
+                        `).join('');
+                        
+                        recentJobs.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Failed to load recent jobs:', error);
+                }
+            }
+            
+            async function resumeJob(executionId) {
+                currentExecutionId = executionId;
+                
+                // Fetch current status
+                const response = await fetch(`/execute/status/${executionId}`);
+                const data = await response.json();
+                
+                // Show terminal
+                const terminalContainer = document.getElementById('terminalContainer');
+                const terminalOutput = document.getElementById('terminalOutput');
+                const terminalTitle = document.getElementById('terminalTitle');
+                const executionStatus = document.getElementById('executionStatus');
+                
+                terminalContainer.style.display = 'block';
+                terminalOutput.innerHTML = '';
+                terminalTitle.textContent = `Job: ${data.command}`;
+                executionStatus.style.display = 'inline-block';
+                executionStatus.className = `status-badge ${data.status}`;
+                executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                
+                // Display all output
+                outputIndex = 0;
+                if (data.output) {
+                    data.output.forEach(outputItem => {
+                        appendTerminalOutput(outputItem);
+                    });
+                    outputIndex = data.output_length;
+                }
+                
+                // If still running, start polling
+                if (data.status === 'running' || data.status === 'starting') {
+                    const executionSpinner = document.getElementById('executionSpinner');
+                    const cancelButton = document.getElementById('cancelButton');
+                    executionSpinner.style.display = 'inline-block';
+                    cancelButton.style.display = 'inline-block';
+                    startPolling();
+                } else if (data.status === 'completed') {
+                    showDownloadLinks();
                 }
             }
             
@@ -809,13 +894,22 @@ if HAS_FASTAPI:
             
             async function executeCommand(command, args) {
                 try {
+                    // Get email if provided
+                    const email = document.getElementById('emailInput').value.trim();
+                    
                     // Convert CLI command to full python execution
                     // voice-of-customer → python src/main.py voice-of-customer
                     const fullCommand = 'python';
                     const fullArgs = ['src/main.py', command, ...args];
                     
+                    // Build URL with email parameter if provided
+                    let url = `/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`;
+                    if (email) {
+                        url += `&email=${encodeURIComponent(email)}`;
+                    }
+                    
                     // Start execution and get execution ID
-                    const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`, {
+                    const startResponse = await fetch(url, {
                         method: 'POST'
                     });
                     
@@ -1210,8 +1304,11 @@ if HAS_FASTAPI:
         
         return EventSourceResponse(event_generator())
     
-    async def run_command_background(execution_id: str, command: str, args: list):
+    async def run_command_background(execution_id: str, command: str, args: list, email: str = None):
         """Run command in background and update state."""
+        gamma_url = None
+        output_files = []
+        
         try:
             await state_manager.start_execution(execution_id)
             await state_manager.update_execution_status(execution_id, ExecutionStatus.RUNNING)
@@ -1220,12 +1317,28 @@ if HAS_FASTAPI:
                 # Update state manager with output
                 await state_manager.add_output(execution_id, output)
                 
+                # Extract Gamma URL from output
+                if "gamma.app" in output.get("data", ""):
+                    import re
+                    urls = re.findall(r'https://gamma\.app/docs/[a-zA-Z0-9-]+', output.get("data", ""))
+                    if urls:
+                        gamma_url = urls[0]
+                
+                # Extract output files
+                if "outputs/" in output.get("data", ""):
+                    import re
+                    files = re.findall(r'outputs/[^\s]+\.(?:json|md|csv)', output.get("data", ""))
+                    output_files.extend(files)
+                
                 # Update status based on output type
                 if output.get("type") == "status":
                     if "completed successfully" in output.get("data", ""):
                         await state_manager.update_execution_status(
                             execution_id, ExecutionStatus.COMPLETED, return_code=0
                         )
+                        # Send email if provided
+                        if email:
+                            await send_completion_email(email, execution_id, command, args, gamma_url, output_files)
                 elif output.get("type") == "error":
                     await state_manager.update_execution_status(
                         execution_id, ExecutionStatus.FAILED, 
@@ -1236,8 +1349,141 @@ if HAS_FASTAPI:
                 execution_id, ExecutionStatus.ERROR, error_message=str(e)
             )
     
+    async def send_completion_email(email: str, execution_id: str, command: str, args: list, gamma_url: str = None, output_files: list = None):
+        """Send email notification when job completes."""
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            # Get SMTP settings from environment
+            smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+            smtp_port = int(os.getenv("SMTP_PORT", "587"))
+            smtp_user = os.getenv("SMTP_USER")
+            smtp_pass = os.getenv("SMTP_PASSWORD")
+            
+            if not smtp_user or not smtp_pass:
+                print(f"⚠️ SMTP not configured, skipping email to {email}")
+                return
+            
+            # Create email
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = f'✅ Analysis Complete: {command}'
+            msg['From'] = smtp_user
+            msg['To'] = email
+            
+            # Try to load and parse the JSON report for email summary
+            report_summary = None
+            if output_files:
+                try:
+                    # Find the JSON file
+                    json_file = next((f for f in output_files if f.endswith('.json')), None)
+                    if json_file:
+                        with open(f'/app/{json_file}', 'r') as f:
+                            report_data = json.load(f)
+                            # Extract key metrics for email
+                            report_summary = {
+                                'total_conversations': report_data.get('metadata', {}).get('total_conversations', 'N/A'),
+                                'date_range': f"{report_data.get('metadata', {}).get('start_date', '')} to {report_data.get('metadata', {}).get('end_date', '')}",
+                                'top_categories': report_data.get('summary', {}).get('top_categories', [])[:5],
+                                'sentiment': report_data.get('summary', {}).get('sentiment_overview', {})
+                            }
+                except Exception as e:
+                    print(f"Could not parse report for email: {e}")
+            
+            # Email body with visual summary
+            body = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }}
+                    .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
+                    .header {{ background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); padding: 30px; color: white; }}
+                    .content {{ padding: 30px; }}
+                    .metric {{ background: #f8fafc; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #2563eb; }}
+                    .metric-label {{ font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }}
+                    .metric-value {{ font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 5px; }}
+                    .gamma-link {{ display: inline-block; background: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: 600; }}
+                    .gamma-link:hover {{ background: #1d4ed8; }}
+                    .footer {{ padding: 20px; background: #f8fafc; text-align: center; color: #64748b; font-size: 13px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1 style="margin: 0; font-size: 24px;">✅ Your Analysis is Complete!</h1>
+                        <p style="margin: 10px 0 0 0; opacity: 0.9;">Voice of Customer Analysis</p>
+                    </div>
+                    
+                    <div class="content">
+                        {f'''
+                        <div class="metric">
+                            <div class="metric-label">Total Conversations Analyzed</div>
+                            <div class="metric-value">{report_summary['total_conversations']}</div>
+                        </div>
+                        
+                        <div class="metric">
+                            <div class="metric-label">Date Range</div>
+                            <div class="metric-value" style="font-size: 16px;">{report_summary['date_range']}</div>
+                        </div>
+                        
+                        {f"""
+                        <div class="metric">
+                            <div class="metric-label">Top Categories</div>
+                            <div style="margin-top: 10px;">
+                                {''.join([f'<div style="padding: 6px 0; border-bottom: 1px solid #e2e8f0;">• {cat}</div>' for cat in report_summary['top_categories']])}
+                            </div>
+                        </div>
+                        """ if report_summary.get('top_categories') else ''}
+                        ''' if report_summary else ''}
+                        
+                        {f'''
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="{gamma_url}" class="gamma-link">
+                                📊 View Gamma Presentation
+                            </a>
+                        </div>
+                        ''' if gamma_url else ''}
+                        
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <div style="font-size: 13px; color: #64748b; margin-bottom: 8px;">Job Details:</div>
+                            <div style="font-size: 12px; color: #94a3b8; font-family: monospace;">ID: {execution_id}</div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 30px;">
+                            <a href="https://intercom-gamma-analyzer-production.up.railway.app/" 
+                               style="color: #2563eb; text-decoration: none; font-size: 14px;">
+                                View Full Results in Dashboard →
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p style="margin: 0;">Intercom Analysis Tool</p>
+                        <p style="margin: 5px 0 0 0;">Powered by Gamma.app</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(body, 'html'))
+            
+            # Send email
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+            
+            print(f"✅ Email sent to {email}")
+            
+        except Exception as e:
+            print(f"❌ Failed to send email: {e}")
+            import traceback
+            traceback.print_exc()
+    
     @app.post("/execute/start")
-    async def start_execution(command: str, args: str):
+    async def start_execution(command: str, args: str, email: str = None):
         """Start a new command execution as a background task."""
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
@@ -1254,14 +1500,18 @@ if HAS_FASTAPI:
                 execution_id, command, args_list
             )
             
-            # Start background task
-            asyncio.create_task(run_command_background(execution_id, command, args_list))
+            # Store email if provided
+            if email:
+                execution.email = email
+            
+            # Start background task with email notification
+            asyncio.create_task(run_command_background(execution_id, command, args_list, email))
             
             return {
                 "execution_id": execution_id,
                 "status": execution.status.value,
                 "queue_position": execution.queue_position,
-                "message": "Execution started in background"
+                "message": "Execution started in background" + (f" - will email {email} when complete" if email else "")
             }
         except ValueError as e:
             raise HTTPException(status_code=429, detail=str(e))
@@ -1317,6 +1567,28 @@ if HAS_FASTAPI:
             "output_length": len(execution.output_buffer)
         }
 
+    @app.get("/execute/list")
+    async def list_executions(limit: int = 50):
+        """Get list of recent executions."""
+        if not state_manager:
+            raise HTTPException(status_code=500, detail="State manager not available")
+        
+        executions = await state_manager.get_all_executions(limit=limit)
+        
+        return {
+            "executions": [
+                {
+                    "execution_id": exec.execution_id,
+                    "command": exec.command,
+                    "args": exec.args,
+                    "status": exec.status.value,
+                    "start_time": exec.start_time.isoformat(),
+                    "end_time": exec.end_time.isoformat() if exec.end_time else None,
+                }
+                for exec in executions
+            ]
+        }
+    
     @app.get("/health")
     async def health_check():
         """Health check endpoint for Railway."""
