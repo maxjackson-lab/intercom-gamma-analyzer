@@ -132,10 +132,14 @@ state_manager = None
 ALLOWED_COMMANDS = {
     "python",
     "python3",
-    "python3.9",
-    "python3.10",
-    "python3.11",
-    "python3.12",
+    # Intercom Analysis CLI commands
+    "voice-of-customer",
+    "billing-analysis",
+    "product-analysis",
+    "sites-analysis",
+    "api-analysis",
+    "canny-analysis",
+    "trend-analysis",
 }
 
 # Maximum argument lengths for security
