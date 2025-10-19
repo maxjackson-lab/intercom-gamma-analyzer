@@ -65,7 +65,8 @@ PyYAML>=6.0
 # Web interface dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+sse-starlette>=1.6.5
 
-# Note: sentence-transformers and faiss-cpu are excluded for Railway deployment
-# due to their large size and potential installation issues in containers.
-# The chat interface will work with reduced functionality (no semantic caching).
+# Chat interface dependencies (included for full functionality)
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.0

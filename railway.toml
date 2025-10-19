@@ -11,13 +11,13 @@ restartPolicyMaxRetries = 3
 [environments.production]
 [environments.production.variables]
 PYTHON_VERSION = "3.11"
-PYTHONPATH = "/app/src"
+PYTHONPATH = "/app"
 DEPLOYMENT_MODE = "web"
 
 [environments.cron]
 [environments.cron.variables]
 PYTHON_VERSION = "3.11"
-PYTHONPATH = "/app/src"
+PYTHONPATH = "/app"
 DEPLOYMENT_MODE = "cron"
 ANALYSIS_TYPE = "weekly"
 
