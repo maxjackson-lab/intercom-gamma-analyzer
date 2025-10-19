@@ -1181,11 +1181,11 @@ if HAS_FASTAPI:
                                 // Add execute button
                                 const executeButton = document.createElement('div');
                                 executeButton.className = 'execution-controls';
-                                executeButton.innerHTML = `
-                                    <button class="btn-execute" onclick="executeCommand('${cmd.command}', ${JSON.stringify(cmd.args || []).replace(/"/g, '&quot;')})">
-                                        Execute Command
-                                    </button>
-                                `;
+                                const executeBtn = document.createElement('button');
+                                executeBtn.className = 'btn-execute';
+                                executeBtn.textContent = 'Execute Command';
+                                executeBtn.onclick = () => executeCommand(cmd.command, cmd.args || []);
+                                executeButton.appendChild(executeBtn);
                                 chatContainer.appendChild(executeButton);
                                 chatContainer.scrollTop = chatContainer.scrollHeight;
                             }
