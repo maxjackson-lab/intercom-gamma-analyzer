@@ -627,6 +627,96 @@ if HAS_FASTAPI:
                 background: #fef3c7;
                 color: #92400e;
             }
+            
+            /* Analysis Summary Styles */
+            .summary-container {
+                margin-top: 24px;
+                background: #0a0a0a;
+                border-radius: 12px;
+                padding: 20px;
+                border: 1px solid #222222;
+                animation: slideIn 0.3s ease-out;
+            }
+            .summary-container h3 {
+                color: #d4d4d4;
+                margin: 0 0 16px 0;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .summary-cards {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+            }
+            .summary-card {
+                background: #151515;
+                border-radius: 8px;
+                padding: 16px;
+                border: 1px solid #333333;
+            }
+            .card-title {
+                color: #9ca3af;
+                font-size: 12px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 8px;
+            }
+            .card-value {
+                color: #d4d4d4;
+                font-size: 18px;
+                font-weight: 600;
+            }
+            .download-link {
+                color: #60a5fa;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .download-link:hover {
+                color: #93c5fd;
+                text-decoration: underline;
+            }
+            
+            /* Gamma Links Styles */
+            .gamma-container {
+                margin-top: 24px;
+                background: #0a0a0a;
+                border-radius: 12px;
+                padding: 20px;
+                border: 1px solid #222222;
+                animation: slideIn 0.3s ease-out;
+            }
+            .gamma-container h3 {
+                color: #d4d4d4;
+                margin: 0 0 16px 0;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .gamma-link {
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-decoration: none;
+                padding: 16px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 16px;
+                transition: all 0.2s ease;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            }
+            .gamma-link:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+                color: white;
+                text-decoration: none;
+            }
+            .gamma-icon {
+                font-size: 20px;
+            }
         </style>
     </head>
     <body>
@@ -665,6 +755,18 @@ if HAS_FASTAPI:
                 <div id="executionResults" style="padding: 15px; background: #2d2d2d; display: none;">
                     <div id="downloadLinks"></div>
                 </div>
+            </div>
+            
+            <!-- Analysis Summary -->
+            <div id="analysisSummary" class="summary-container" style="display: none;">
+                <h3>📊 Analysis Summary</h3>
+                <div class="summary-cards"></div>
+            </div>
+            
+            <!-- Gamma Links -->
+            <div id="gammaLinks" class="gamma-container" style="display: none;">
+                <h3>📈 Gamma Presentations</h3>
+                <div class="gamma-links"></div>
             </div>
             
             <!-- Recent Jobs -->
@@ -971,6 +1073,19 @@ if HAS_FASTAPI:
                                 executionStatus.className = 'status-badge completed';
                                 executionStatus.textContent = 'Completed';
                                 showDownloadLinks();
+                                
+                                // Parse and display analysis summary
+                                const terminalOutput = document.getElementById('terminalOutput');
+                                const fullOutput = terminalOutput.textContent;
+                                
+                                // Parse Gamma links
+                                const gammaUrls = parseGammaLinks(fullOutput);
+                                showGammaLinks(gammaUrls);
+                                
+                                // Parse and show analysis summary
+                                const summary = parseAnalysisSummary(fullOutput);
+                                showAnalysisSummary(summary);
+                                
                             } else {
                                 executionStatus.className = 'status-badge failed';
                                 executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -1081,6 +1196,102 @@ if HAS_FASTAPI:
                     </div>
                 `;
                 executionResults.style.display = 'block';
+            }
+            
+            function parseGammaLinks(output) {
+                // Look for Gamma URLs in the output
+                const gammaRegex = /https:\/\/gamma\.app\/docs\/[a-zA-Z0-9-]+/g;
+                const matches = output.match(gammaRegex);
+                return matches || [];
+            }
+            
+            function showGammaLinks(gammaUrls) {
+                if (gammaUrls.length === 0) return;
+                
+                const gammaContainer = document.getElementById('gammaLinks');
+                if (!gammaContainer) return;
+                
+                gammaContainer.innerHTML = gammaUrls.map(url => `
+                    <a href="${url}" target="_blank" class="gamma-link">
+                        <span class="gamma-icon">📊</span>
+                        Open Gamma Presentation
+                    </a>
+                `).join('');
+                gammaContainer.style.display = 'block';
+            }
+            
+            function parseAnalysisSummary(output) {
+                // Try to extract key metrics from the output
+                const summary = {
+                    conversations: 0,
+                    dateRange: '',
+                    topCategories: [],
+                    sentiment: '',
+                    keyInsights: []
+                };
+                
+                // Extract conversation count
+                const convMatch = output.match(/(\d{1,3}(?:,\d{3})*)\s+conversations?/i);
+                if (convMatch) {
+                    summary.conversations = parseInt(convMatch[1].replace(/,/g, ''));
+                }
+                
+                // Extract date range
+                const dateMatch = output.match(/(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/);
+                if (dateMatch) {
+                    summary.dateRange = `${dateMatch[1]} to ${dateMatch[2]}`;
+                }
+                
+                // Extract CSV export path
+                const csvMatch = output.match(/CSV Export:\s*([^\n]+)/);
+                if (csvMatch) {
+                    summary.csvPath = csvMatch[1].trim();
+                }
+                
+                return summary;
+            }
+            
+            function showAnalysisSummary(summary) {
+                const summaryContainer = document.getElementById('analysisSummary');
+                if (!summaryContainer) return;
+                
+                let html = '<div class="summary-cards">';
+                
+                if (summary.conversations > 0) {
+                    html += `
+                        <div class="summary-card">
+                            <div class="card-title">Conversations Analyzed</div>
+                            <div class="card-value">${summary.conversations.toLocaleString()}</div>
+                        </div>
+                    `;
+                }
+                
+                if (summary.dateRange) {
+                    html += `
+                        <div class="summary-card">
+                            <div class="card-title">Date Range</div>
+                            <div class="card-value">${summary.dateRange}</div>
+                        </div>
+                    `;
+                }
+                
+                if (summary.csvPath) {
+                    const fileName = summary.csvPath.split('/').pop();
+                    html += `
+                        <div class="summary-card">
+                            <div class="card-title">Data Export</div>
+                            <div class="card-value">
+                                <a href="/outputs/${summary.csvPath}" download class="download-link">
+                                    📄 ${fileName}
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+                summaryContainer.innerHTML = html;
+                summaryContainer.style.display = 'block';
             }
             
             function addMessage(type, content) {
@@ -1423,6 +1634,17 @@ if HAS_FASTAPI:
         
         executions = await state_manager.get_all_executions(limit=limit)
         
+        # Debug: Check persistence directory
+        import os
+        from pathlib import Path
+        persistence_dir = Path("/app/outputs/jobs")
+        debug_info = {
+            "persistence_dir_exists": persistence_dir.exists(),
+            "persistence_dir_path": str(persistence_dir),
+            "files_in_dir": [str(f) for f in persistence_dir.glob("*.json")] if persistence_dir.exists() else [],
+            "total_executions_in_memory": len(state_manager._executions)
+        }
+        
         return {
             "executions": [
                 {
@@ -1432,10 +1654,85 @@ if HAS_FASTAPI:
                     "status": exec.status.value,
                     "start_time": exec.start_time.isoformat(),
                     "end_time": exec.end_time.isoformat() if exec.end_time else None,
+                    "error_message": exec.error_message,
+                    "return_code": exec.return_code
                 }
                 for exec in executions
-            ]
+            ],
+            "debug": debug_info
         }
+    
+    @app.get("/outputs/{file_path:path}")
+    async def serve_output_file(file_path: str):
+        """Serve files from the outputs directory."""
+        import os
+        from pathlib import Path
+        
+        # Security: Prevent path traversal
+        if ".." in file_path or file_path.startswith("/"):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        # Build full path
+        full_path = Path("/app/outputs") / file_path
+        
+        # Security: Ensure file is within outputs directory
+        try:
+            full_path = full_path.resolve()
+            outputs_dir = Path("/app/outputs").resolve()
+            if not str(full_path).startswith(str(outputs_dir)):
+                raise HTTPException(status_code=400, detail="Access denied")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
+        # Check if file exists
+        if not full_path.exists() or not full_path.is_file():
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Determine content type
+        content_type = "application/octet-stream"
+        if file_path.endswith(".json"):
+            content_type = "application/json"
+        elif file_path.endswith(".csv"):
+            content_type = "text/csv"
+        elif file_path.endswith(".md"):
+            content_type = "text/markdown"
+        elif file_path.endswith(".txt"):
+            content_type = "text/plain"
+        
+        # Return file
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=str(full_path),
+            media_type=content_type,
+            filename=full_path.name
+        )
+    
+    @app.get("/outputs")
+    async def list_output_files():
+        """List all files in the outputs directory."""
+        import os
+        from pathlib import Path
+        
+        outputs_dir = Path("/app/outputs")
+        if not outputs_dir.exists():
+            return {"files": []}
+        
+        files = []
+        for file_path in outputs_dir.rglob("*"):
+            if file_path.is_file():
+                relative_path = file_path.relative_to(outputs_dir)
+                files.append({
+                    "name": file_path.name,
+                    "path": str(relative_path),
+                    "size": file_path.stat().st_size,
+                    "modified": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                    "type": file_path.suffix
+                })
+        
+        # Sort by modification time (newest first)
+        files.sort(key=lambda x: x["modified"], reverse=True)
+        
+        return {"files": files}
     
     @app.get("/health")
     async def health_check():
