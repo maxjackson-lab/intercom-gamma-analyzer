@@ -923,6 +923,19 @@ if HAS_FASTAPI:
         </div>
 
         <script>
+            // VERSION MARKER: v3.0.2-f5d29d0 - If you see this, the latest code is deployed
+            console.log('✅ JavaScript v3.0.2-f5d29d0 loaded successfully');
+            
+            // Global error handler - catch all JavaScript errors and display them
+            window.onerror = function(msg, url, lineNo, columnNo, error) {
+                console.error('🚨 Global JavaScript Error:', msg, 'at line', lineNo);
+                const errorDiv = document.createElement('div');
+                errorDiv.style = 'position:fixed;top:0;left:0;right:0;background:#ff0000;color:#fff;padding:20px;z-index:99999;font-family:monospace;';
+                errorDiv.innerHTML = `<strong>JavaScript Error:</strong> ${msg}<br><strong>Line:</strong> ${lineNo}:${columnNo}`;
+                document.body.prepend(errorDiv);
+                return false;
+            };
+            
             // Check system status and load recent jobs on page load
             window.onload = function() {
                 checkSystemStatus();
