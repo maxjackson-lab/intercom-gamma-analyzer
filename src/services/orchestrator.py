@@ -19,6 +19,7 @@ from services.gamma_generator import GammaGenerator
 from services.fin_escalation_analyzer import FinEscalationAnalyzer
 from services.technical_pattern_detector import TechnicalPatternDetector
 from services.macro_opportunity_finder import MacroOpportunityFinder
+from services.story_driven_orchestrator import StoryDrivenOrchestrator
 
 from analyzers.billing_analyzer import BillingAnalyzer
 from analyzers.product_analyzer import ProductAnalyzer
@@ -60,6 +61,9 @@ class AnalysisOrchestrator:
             'sites': SitesAnalyzer(),
             'api': ApiAnalyzer()
         }
+        
+        # Initialize story-driven orchestrator
+        self.story_driven_orchestrator = StoryDrivenOrchestrator()
         
         self.logger.info("AnalysisOrchestrator initialized")
 
