@@ -206,7 +206,7 @@ if HAS_FASTAPI:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool - Chat Interface</title>
+        <title>Intercom Analysis Tool - Chat Interface v2.0</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
         <style>
             * {
