@@ -206,7 +206,7 @@ if HAS_FASTAPI:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool - Chat Interface v2.0</title>
+        <title>Intercom Analysis Tool v3.0.2 [736b1d4]</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
         <style>
             * {
@@ -916,6 +916,11 @@ if HAS_FASTAPI:
                 </div>
             </div>
         </div>
+        
+        <!-- Version marker for cache verification -->
+        <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
+            v3.0.2-736b1d4
+        </div>
 
         <script>
             // Check system status and load recent jobs on page load
@@ -1594,7 +1599,14 @@ if HAS_FASTAPI:
     </body>
     </html>
         """
-        return html_content
+        return HTMLResponse(
+            content=html_content,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat_endpoint(request: ChatRequest):
@@ -2024,7 +2036,33 @@ if HAS_FASTAPI:
             "fastapi": HAS_FASTAPI,
             "chat_deps": HAS_CHAT
         }
-
+    
+    @app.get("/debug/version")
+    async def get_version():
+        """Debug endpoint to verify which code is deployed."""
+        import subprocess
+        try:
+            # Get actual git commit hash
+            git_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+                                              cwd='/app', stderr=subprocess.DEVNULL).decode().strip()
+        except:
+            git_hash = "unknown"
+        
+        return {
+            "version": "3.0.2",
+            "commit": git_hash,
+            "expected_commit": "736b1d4",
+            "timestamp": datetime.now().isoformat(),
+            "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
+            "fixes_included": [
+                "JavaScript regex syntax error fixed (line 1185)",
+                "Cache-control headers added",
+                "Version marker added to HTML",
+                "Canny imports fixed",
+                "Datetime bugs fixed"
+            ]
+        }
+    
     @app.get("/api/commands")
     async def get_commands():
         """Get available commands."""
