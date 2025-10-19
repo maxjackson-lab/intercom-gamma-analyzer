@@ -1242,8 +1242,81 @@ async def run_agent_analysis(agent: str, start_date: datetime, end_date: datetim
 
 async def run_category_analysis(category: str, start_date: datetime, end_date: datetime, output_format: str):
     """Run single category analysis."""
-    console.print(f"[yellow]Category analysis not yet implemented[/yellow]")
-    console.print(f"Would analyze {category} category from {start_date.date()} to {end_date.date()}")
+    try:
+        # Initialize services
+        pipeline = ELTPipeline()
+        
+        console.print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        # Extract and load data
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Extracting and loading data...", total=None)
+            
+            stats = await pipeline.extract_and_load(start_date, end_date)
+            
+            progress.update(task, description=f"✅ Loaded {stats['conversations_count']} conversations")
+        
+        if stats['conversations_count'] == 0:
+            console.print("[yellow]No conversations found for the specified date range.[/yellow]")
+            return
+        
+        # Get all conversations and filter by category using CategoryFilters
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task(f"Analyzing {category} category...", total=None)
+            
+            # Get all conversations from the date range
+            all_conversations = await pipeline.intercom_service.fetch_conversations_by_date_range(
+                start_date, end_date
+            )
+            
+            # Use CategoryFilters to filter by category
+            from services.category_filters import CategoryFilters
+            category_filters = CategoryFilters()
+            filtered_conversations = category_filters.filter_by_category(
+                all_conversations, category, include_subcategories=True
+            )
+            
+            progress.update(task, description=f"✅ {category} analysis completed")
+        
+        # Export results
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        
+        if output_format == "csv":
+            csv_path = output_dir / f"{category}_analysis_{timestamp}.csv"
+            import pandas as pd
+            df = pd.DataFrame(filtered_conversations)
+            df.to_csv(csv_path, index=False)
+        elif output_format == "json":
+            json_path = output_dir / f"{category}_analysis_{timestamp}.json"
+            import json
+            with open(json_path, 'w') as f:
+                json.dump(filtered_conversations, f, indent=2, default=str)
+            csv_path = json_path
+        else:
+            # Default to CSV
+            csv_path = output_dir / f"{category}_analysis_{timestamp}.csv"
+            import pandas as pd
+            df = pd.DataFrame(filtered_conversations)
+            df.to_csv(csv_path, index=False)
+        
+        console.print(f"\n[bold green]{category.title()} Analysis Completed![/bold green]")
+        console.print(f"Total conversations analyzed: {stats['conversations_count']:,}")
+        console.print(f"Category matches: {len(filtered_conversations):,}")
+        console.print(f"Export: {csv_path}")
+        
+    except Exception as e:
+        console.print(f"[red]Error in category analysis: {e}[/red]")
+        raise
 
 
 async def run_all_categories_analysis(start_date: datetime, end_date: datetime, parallel: bool):
