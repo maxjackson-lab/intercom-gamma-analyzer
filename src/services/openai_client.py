@@ -7,7 +7,7 @@ from typing import Dict, List, Any, Optional
 import openai
 from openai import AsyncOpenAI
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

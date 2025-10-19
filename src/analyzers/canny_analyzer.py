@@ -7,9 +7,9 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 
-from services.ai_model_factory import AIModelFactory, AIModel
-from services.canny_preprocessor import CannyPreprocessor
-from models.canny_models import (
+from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.canny_preprocessor import CannyPreprocessor
+from src.models.canny_models import (
     CannyAnalysisResults, CannySentimentAnalysis, CannyPostWithSentiment,
     CannyEngagementMetrics, CannyVoteAnalysis, CannyWeeklySnapshot
 )

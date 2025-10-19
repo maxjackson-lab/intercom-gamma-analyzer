@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional
 import re
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

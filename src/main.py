@@ -120,10 +120,10 @@ def trends(start_date: str, end_date: str, focus_areas: Optional[str], custom_pr
            generate_gamma: bool, output_format: str):
     """Generate general purpose trend analysis for any time period"""
     
-    # Parse dates
+    # Parse dates (keep as datetime objects for pipeline compatibility)
     try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     except ValueError:
         console.print("[red]Error: Invalid date format. Use YYYY-MM-DD[/red]")
         sys.exit(1)
@@ -167,10 +167,10 @@ def custom(prompt_file: str, start_date: str, end_date: str, generate_gamma: boo
         console.print(f"[red]Error: Prompt file not found: {prompt_file}[/red]")
         sys.exit(1)
     
-    # Parse dates
+    # Parse dates (keep as datetime objects for pipeline compatibility)
     try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     except ValueError:
         console.print("[red]Error: Invalid date format. Use YYYY-MM-DD[/red]")
         sys.exit(1)
@@ -259,10 +259,10 @@ def test():
 def export(start_date: str, end_date: str, export_format: str, max_pages: Optional[int], include_metrics: bool):
     """Export raw conversation data to spreadsheets and other formats"""
     
-    # Parse dates
+    # Parse dates (keep as datetime objects for pipeline compatibility)
     try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     except ValueError:
         console.print("[red]Error: Invalid date format. Use YYYY-MM-DD[/red]")
         sys.exit(1)

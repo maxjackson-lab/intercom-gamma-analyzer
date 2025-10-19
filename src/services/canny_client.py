@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 import httpx
 from urllib.parse import urlencode
 
-from config.settings import settings
-from models.canny_models import (
+from src.config.settings import settings
+from src.models.canny_models import (
     CannyBoard, CannyPost, CannyComment, CannyVote,
     CannyPostStatus
 )

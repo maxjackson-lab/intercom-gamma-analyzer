@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import re
 
-from models.canny_models import (
+from src.models.canny_models import (
     CannyPost, CannyComment, CannyVote, CannyPostWithSentiment,
     CannyPostStatus
 )

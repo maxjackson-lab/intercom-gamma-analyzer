@@ -905,8 +905,11 @@ if HAS_FASTAPI:
                 <div class="example" onclick="setQuery('Show me billing analysis for this month with Gamma presentation')">
                     Show me billing analysis for this month with Gamma presentation
                 </div>
-                <div class="example" onclick="setQuery('Create a custom report for API tickets by Horatio agents in September')">
-                    Create a custom report for API tickets by Horatio agents in September
+                <div class="example" onclick="setQuery('Analyze Canny feature requests from last week with Gamma presentation')">
+                    Analyze Canny feature requests from last week with Gamma presentation
+                </div>
+                <div class="example" onclick="setQuery('Create a combined Intercom + Canny feedback analysis')">
+                    Create a combined Intercom + Canny feedback analysis
                 </div>
                 <div class="example" onclick="setQuery('Help me understand what commands are available')">
                     Help me understand what commands are available
@@ -1050,6 +1053,7 @@ if HAS_FASTAPI:
                         <strong>System:</strong> Chat interface is not available, but you can execute CLI commands directly. Try commands like:
                         <br>• <code>voice-of-customer --generate-gamma</code>
                         <br>• <code>billing-analysis --generate-gamma</code>
+                        <br>• <code>canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31</code>
                         <br>• <code>tech-analysis --days 7</code>
                         <br>• <code>api-analysis --generate-gamma</code>
                     </div>
@@ -1067,6 +1071,9 @@ if HAS_FASTAPI:
                     </div>
                     <div class="example" onclick="setQuery('billing-analysis --generate-gamma')">
                         billing-analysis --generate-gamma
+                    </div>
+                    <div class="example" onclick="setQuery('canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31')">
+                        canny-analysis --generate-gamma
                     </div>
                     <div class="example" onclick="setQuery('tech-analysis --days 7')">
                         tech-analysis --days 7

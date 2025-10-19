@@ -6,8 +6,8 @@ from enum import Enum
 from typing import Union, Dict, Any
 import logging
 
-from services.openai_client import OpenAIClient
-from services.claude_client import ClaudeClient
+from src.services.openai_client import OpenAIClient
+from src.services.claude_client import ClaudeClient
 
 logger = logging.getLogger(__name__)
 
