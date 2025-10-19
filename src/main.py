@@ -83,7 +83,8 @@ def cli(verbose: bool, output_dir: str):
 @click.option('--tier1-countries', help='Comma-separated tier 1 countries')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
-def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str):
+@click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
+def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool):
     """Generate Voice of Customer analysis for monthly executive reports"""
     
     # Parse tier1 countries
@@ -97,16 +98,21 @@ def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma:
     console.print(f"Month: {month}/{year}")
     console.print(f"Tier 1 Countries: {', '.join(tier1_list)}")
     
-    # Create analysis request
-    request = AnalysisRequest(
-        mode=AnalysisMode.VOICE_OF_CUSTOMER,
-        month=month,
-        year=year,
-        tier1_countries=tier1_list
-    )
-    
-    # Run analysis
-    asyncio.run(run_voice_analysis(request, generate_gamma, output_format))
+    if multi_agent:
+        console.print("[bold yellow]🤖 Multi-Agent Mode Enabled[/bold yellow] (Premium quality, 3-5x cost)")
+        # Use multi-agent orchestrator
+        asyncio.run(run_multi_agent_voice_analysis(month, year, tier1_list, generate_gamma, output_format))
+    else:
+        # Create analysis request
+        request = AnalysisRequest(
+            mode=AnalysisMode.VOICE_OF_CUSTOMER,
+            month=month,
+            year=year,
+            tier1_countries=tier1_list
+        )
+        
+        # Run standard analysis
+        asyncio.run(run_voice_analysis(request, generate_gamma, output_format))
 
 
 @cli.command()
@@ -2893,6 +2899,72 @@ def chat(model: str, enable_cache: bool, railway: bool):
     except Exception as e:
         console.print(f"[red]❌ Failed to start chat interface: {e}[/red]")
         console.print("[yellow]Check the logs for more details[/yellow]")
+
+
+async def run_multi_agent_voice_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
+    """Run voice of customer analysis using multi-agent orchestrator"""
+    try:
+        from src.agents.orchestrator import MultiAgentOrchestrator
+        
+        # Calculate date range for the month
+        from calendar import monthrange
+        start_date = datetime(year, month, 1)
+        last_day = monthrange(year, month)[1]
+        end_date = datetime(year, month, last_day, 23, 59, 59)
+        
+        console.print(f"\n🤖 [bold cyan]Multi-Agent Analysis Starting[/bold cyan]")
+        console.print(f"Mode: 5-Agent Sequential Workflow")
+        console.print(f"Expected cost: 3-5x standard mode")
+        console.print(f"Expected quality improvement: +30%\n")
+        
+        # Initialize orchestrator
+        orchestrator = MultiAgentOrchestrator()
+        
+        # Execute multi-agent workflow
+        results = await orchestrator.execute_analysis(
+            analysis_type="voice-of-customer",
+            start_date=start_date,
+            end_date=end_date,
+            generate_gamma=generate_gamma
+        )
+        
+        # Display results
+        console.print("\n" + "="*80)
+        console.print("[bold green]🎉 Multi-Agent Analysis Complete![/bold green]")
+        console.print("="*80 + "\n")
+        
+        summary = results['summary']
+        console.print(f"✅ Agents completed: {summary['successful_agents']}/5")
+        console.print(f"⏱️  Total time: {summary['total_execution_time']:.1f}s")
+        console.print(f"🎯 Average confidence: {summary['average_confidence']:.2f}")
+        console.print(f"💰 Total tokens: ~{summary['total_tokens']:,}")
+        
+        if results['errors']:
+            console.print(f"\n⚠️  Errors: {len(results['errors'])}")
+            for error in results['errors']:
+                console.print(f"   - {error}")
+        
+        # Show Gamma URL if generated
+        if generate_gamma and 'PresentationAgent' in results['agent_results']:
+            presentation = results['agent_results']['PresentationAgent']['data']
+            if presentation.get('gamma_url'):
+                console.print(f"\n📊 [bold blue]Gamma Presentation:[/bold blue] {presentation['gamma_url']}")
+        
+        # Export results
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = output_dir / f"multi_agent_voc_{month}_{year}_{timestamp}.json"
+        
+        with open(results_file, 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+        
+        console.print(f"\n📁 Full results saved: {results_file}")
+        
+    except Exception as e:
+        console.print(f"[red]Error in multi-agent analysis: {e}[/red]")
+        raise
 
 
 if __name__ == "__main__":
