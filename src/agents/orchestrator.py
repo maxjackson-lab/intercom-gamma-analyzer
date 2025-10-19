@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from src.agents.base_agent import AgentContext, AgentResult
+from src.agents.base_agent import BaseAgent, AgentContext, AgentResult
 from src.agents.data_agent import DataAgent
 from src.agents.category_agent import CategoryAgent
 from src.agents.sentiment_agent import SentimentAgent
