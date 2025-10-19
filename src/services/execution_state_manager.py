@@ -7,6 +7,8 @@ tracking active executions, queuing, and cleanup.
 
 import asyncio
 import logging
+import json
+from pathlib import Path
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Deque
@@ -59,10 +61,14 @@ class ExecutionStateManager:
     - State persistence for downloads
     """
     
-    def __init__(self, max_concurrent: int = 5, max_queue_size: int = 20):
+    def __init__(self, max_concurrent: int = 5, max_queue_size: int = 20, persistence_dir: str = "/app/outputs/jobs"):
         self.max_concurrent = max_concurrent
         self.max_queue_size = max_queue_size
+        self.persistence_dir = Path(persistence_dir)
         self.logger = logging.getLogger(self.__class__.__name__)
+        
+        # Create persistence directory
+        self.persistence_dir.mkdir(parents=True, exist_ok=True)
         
         # State storage
         self._executions: Dict[str, ExecutionState] = {}
@@ -80,6 +86,9 @@ class ExecutionStateManager:
             "cancelled_executions": 0,
             "queue_full_rejections": 0
         }
+        
+        # Load existing jobs from disk
+        self._load_from_disk()
     
     async def create_execution(
         self, 
@@ -121,6 +130,9 @@ class ExecutionStateManager:
             self._executions[execution_id] = execution
             self._queue.append(execution_id)
             self._stats["total_executions"] += 1
+            
+            # Save to disk for persistence
+            self._save_to_disk(execution_id)
             
             self.logger.info(f"Created execution {execution_id} (queue position: {execution.queue_position})")
             return execution
@@ -195,6 +207,9 @@ class ExecutionStateManager:
                         self._stats["failed_executions"] += 1
                     elif status == ExecutionStatus.CANCELLED:
                         self._stats["cancelled_executions"] += 1
+                
+                # Save to disk after status update
+                self._save_to_disk(execution_id)
                 
                 self.logger.info(f"Updated execution {execution_id} status to {status.value}")
     
@@ -297,3 +312,74 @@ class ExecutionStateManager:
             # Sort by start time (newest first)
             executions.sort(key=lambda x: x.start_time, reverse=True)
             return executions[:limit]
+    
+    def _save_to_disk(self, execution_id: str):
+        """Save execution state to disk for persistence."""
+        try:
+            execution = self._executions.get(execution_id)
+            if not execution:
+                return
+            
+            # Convert to dict for JSON serialization
+            data = {
+                "execution_id": execution.execution_id,
+                "command": execution.command,
+                "args": execution.args,
+                "status": execution.status.value,
+                "start_time": execution.start_time.isoformat(),
+                "end_time": execution.end_time.isoformat() if execution.end_time else None,
+                "error_message": execution.error_message,
+                "return_code": execution.return_code,
+                "queue_position": execution.queue_position,
+                "output_count": len(list(execution.output_buffer)) if execution.output_buffer else 0
+            }
+            
+            # Save to file
+            filepath = self.persistence_dir / f"{execution_id}.json"
+            import json
+            with open(filepath, 'w') as f:
+                json.dump(data, f, indent=2)
+                
+        except Exception as e:
+            self.logger.error(f"Failed to save execution {execution_id} to disk: {e}")
+    
+    def _load_from_disk(self):
+        """Load existing executions from disk on startup."""
+        try:
+            if not self.persistence_dir.exists():
+                return
+            
+            import json
+            from collections import deque
+            
+            loaded_count = 0
+            for filepath in self.persistence_dir.glob("*.json"):
+                try:
+                    with open(filepath, 'r') as f:
+                        data = json.load(f)
+                    
+                    # Recreate ExecutionState
+                    execution = ExecutionState(
+                        execution_id=data["execution_id"],
+                        command=data["command"],
+                        args=data["args"],
+                        status=ExecutionStatus(data["status"]),
+                        start_time=datetime.fromisoformat(data["start_time"]),
+                        end_time=datetime.fromisoformat(data["end_time"]) if data.get("end_time") else None,
+                        output_buffer=deque(maxlen=1000),  # Empty buffer on reload
+                        error_message=data.get("error_message"),
+                        return_code=data.get("return_code"),
+                        queue_position=data.get("queue_position")
+                    )
+                    
+                    self._executions[execution.execution_id] = execution
+                    loaded_count += 1
+                    
+                except Exception as e:
+                    self.logger.error(f"Failed to load execution from {filepath}: {e}")
+            
+            if loaded_count > 0:
+                self.logger.info(f"Loaded {loaded_count} executions from disk")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load executions from disk: {e}")
