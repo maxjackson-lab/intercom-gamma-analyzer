@@ -28,39 +28,44 @@ class GammaPrompts:
         - Clear action items
         """
         
-        # Build executive summary
+        # Build executive summary with insights focus
         executive_summary = f"""We analyzed {conversation_count:,} customer conversations from {start_date} to {end_date} and identified critical patterns requiring immediate executive attention.
 
-**Key Business Impact:**
-• {len(top_issues)} primary issue categories driving support volume
-• Customer satisfaction trends show {key_metrics.get('sentiment_trend', 'mixed results')}
-• {key_metrics.get('escalation_rate', 15.2):.1f}% of conversations require escalation
-• Estimated cost impact: ${key_metrics.get('estimated_cost_impact', 'TBD')}"""
+**Key Business Insights:**
+• **Volume Pattern:** {len(top_issues)} primary issue categories are driving support volume, with the top category representing {top_issues[0]['percentage']:.1f}% of all conversations
+• **Sentiment Trend:** Customer satisfaction shows {key_metrics.get('sentiment_trend', 'mixed results')} - this indicates {'positive momentum' if 'positive' in str(key_metrics.get('sentiment_trend', '')).lower() else 'areas needing attention'}
+• **Escalation Insight:** {key_metrics.get('escalation_rate', 15.2):.1f}% of conversations require escalation, suggesting {'efficient frontline resolution' if key_metrics.get('escalation_rate', 15.2) < 20 else 'potential training or process gaps'}
+• **Business Impact:** Estimated cost impact of ${key_metrics.get('estimated_cost_impact', 'TBD')} - this represents {'manageable operational cost' if 'TBD' in str(key_metrics.get('estimated_cost_impact', 'TBD')) else 'significant financial opportunity'}"""
         
-        # Build customer voice section
+        # Build customer voice section with insights
         customer_voice = ""
         if customer_quotes:
-            customer_voice = f"""**Customer Voice:**
+            customer_voice = f"""**Customer Voice Insights:**
 
 "{customer_quotes[0]['quote']}"
 *{customer_quotes[0]['customer_name']}*
 [View conversation]({customer_quotes[0]['intercom_url']})
 
-This represents the sentiment of {len(customer_quotes)} key customer interactions analyzed."""
+**What This Tells Us:** This quote represents a common theme across {len(customer_quotes)} key customer interactions. The underlying pattern suggests {'customers are experiencing' if 'problem' in customer_quotes[0]['quote'].lower() or 'issue' in customer_quotes[0]['quote'].lower() else 'customers are expressing'} {'frustration with' if 'frustrat' in customer_quotes[0]['quote'].lower() else 'satisfaction with'} {'product functionality' if 'product' in customer_quotes[0]['quote'].lower() else 'service quality'}. This insight points to {'immediate product improvements needed' if 'problem' in customer_quotes[0]['quote'].lower() else 'successful customer experience delivery'}."""
         
-        # Build metrics table
-        metrics_table = f"""**Support Volume Analysis:**
+        # Build insights-focused analysis
+        top_category = top_issues[0] if top_issues else {'name': 'N/A', 'count': 0, 'percentage': 0}
+        metrics_table = f"""**Support Volume Insights:**
 
-Category | Volume | % of Total | Escalation Rate
----------|--------|------------|----------------
-{chr(10).join([f"{issue['name']} | {issue['count']} | {issue['percentage']:.1f}% | {issue.get('escalation_rate', 15.2):.1f}%" for issue in top_issues[:5]])}"""
+**Primary Focus Area:** {top_category['name']} represents {top_category['percentage']:.1f}% of all support volume ({top_category['count']} conversations). This concentration suggests {'a systemic issue requiring immediate attention' if top_category['percentage'] > 30 else 'a manageable distribution of support topics'}.
+
+**Escalation Pattern Analysis:** The average escalation rate of {key_metrics.get('escalation_rate', 15.2):.1f}% indicates {'efficient frontline resolution capabilities' if key_metrics.get('escalation_rate', 15.2) < 20 else 'opportunities for agent training and knowledge base improvements'}.
+
+**Volume Distribution Insight:** The top 3 categories account for {sum(issue['percentage'] for issue in top_issues[:3]):.1f}% of total volume, {'indicating concentrated support needs' if sum(issue['percentage'] for issue in top_issues[:3]) > 60 else 'showing diverse support requirements'}."""
         
-        # Build recommendations
-        recommendations_text = f"""**Strategic Recommendations:**
+        # Build strategic insights and recommendations
+        recommendations_text = f"""**Strategic Insights & Recommendations:**
 
-1. **Immediate (0-30 days):** {recommendations[0] if recommendations else 'Address top volume category'}
-2. **Short-term (30-60 days):** {recommendations[1] if len(recommendations) > 1 else 'Implement process improvements'}
-3. **Long-term (60-90 days):** {recommendations[2] if len(recommendations) > 2 else 'Technology and training enhancements'}"""
+**Immediate Priority (0-30 days):** {recommendations[0] if recommendations else f'Focus on {top_category["name"]} category - addressing this {top_category["percentage"]:.1f}% of volume will have the highest impact on reducing support costs and improving customer satisfaction'}
+
+**Short-term Strategy (30-60 days):** {recommendations[1] if len(recommendations) > 1 else f'Implement targeted improvements based on escalation patterns - the {key_metrics.get("escalation_rate", 15.2):.1f}% escalation rate suggests specific areas for agent training and process optimization'}
+
+**Long-term Vision (60-90 days):** {recommendations[2] if len(recommendations) > 2 else f'Develop proactive solutions to prevent the top {len(top_issues)} issue categories from recurring - this represents a strategic shift from reactive support to predictive customer success'}"""
         
         # Build ROI section
         roi_section = f"""**Expected Business Impact:**
@@ -620,12 +625,14 @@ Practice: Show empathy, escalate appropriately, ensure follow-up"""
     @staticmethod
     def get_slide_count_for_style(style: str) -> int:
         """Get recommended slide count for each presentation style."""
+        # Remove artificial limits - let Gamma use as many slides as needed
+        # Gamma API allows up to 75 slides for Ultra plan
         slide_counts = {
-            "executive": 10,
-            "detailed": 18,
-            "training": 13
+            "executive": 25,  # Increased from 10 - allow comprehensive executive briefings
+            "detailed": 50,   # Increased from 18 - allow thorough operational analysis
+            "training": 30    # Increased from 13 - allow complete training materials
         }
-        return slide_counts.get(style, 10)
+        return slide_counts.get(style, 25)  # Default to 25 instead of 10
     
     @staticmethod
     def get_additional_instructions_for_style(style: str) -> str:
@@ -647,18 +654,24 @@ FORMAT:
 - Include confidence scores for all quantitative claims
 - Present strategic options for leadership consideration, not prescriptive actions
 - Each option should show: Impact level, Implementation effort, Risk level, Supporting data
+- Use as many slides as needed to tell the complete story - don't truncate important insights
 
 AVOID:
 - Prescriptive recommendations or telling leadership what to do
 - Data without context or trends
 - Opinions not backed by statistical evidence
+- Artificial slide limits that cut off important analysis
+- DO NOT invent or create fake Intercom conversation URLs
+- DO NOT generate placeholder links like "https://app.intercom.com/..." unless explicitly provided in the data
+- Only use conversation links that are explicitly provided in the input data
 
 DESIGN:
 - Clean, modern design with minimal text per slide
 - Emphasize data visualization and trends
-- Professional color scheme suitable for C-level audience""",
-            "detailed": "Create a comprehensive, data-rich presentation for operations teams. Include detailed charts, tables, and analysis with full Intercom conversation links. Use statistical trend analysis and provide complete methodology documentation. Use a professional but detailed design that can accommodate more information per slide.",
-            "training": "Create an engaging, educational presentation for support teams. Use clear examples with Intercom links, practice scenarios, and actionable guidance. Include real conversation examples that demonstrate best practices. Make it visually appealing and easy to follow for learning purposes."
+- Professional color scheme suitable for C-level audience
+- Use multiple slides for complex topics rather than cramming content""",
+            "detailed": "Create a comprehensive, data-rich presentation for operations teams. Include detailed charts, tables, and analysis with full Intercom conversation links. Use statistical trend analysis and provide complete methodology documentation. Use a professional but detailed design that can accommodate more information per slide. Use as many slides as needed to cover all important data and insights - don't truncate analysis due to slide limits. IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.",
+            "training": "Create an engaging, educational presentation for support teams. Use clear examples with Intercom links, practice scenarios, and actionable guidance. Include real conversation examples that demonstrate best practices. Make it visually appealing and easy to follow for learning purposes. Use multiple slides to break down complex topics and ensure complete coverage of all training materials. IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs."
         }
         return instructions.get(style, "Create a professional presentation with clear structure and engaging visuals.")
 

@@ -554,6 +554,9 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
     
     def _build_intercom_url(self, conversation_id: str) -> str:
         """Build Intercom conversation URL."""
+        if not self.workspace_id or self.workspace_id == "your-workspace-id-here":
+            # Return a placeholder if workspace ID is not configured
+            return f"https://app.intercom.com/a/apps/[WORKSPACE_ID]/inbox/inbox/{conversation_id}"
         return f"https://app.intercom.com/a/apps/{self.workspace_id}/inbox/inbox/{conversation_id}"
     
     def _get_quote_context(self, conversation: Dict) -> str:
