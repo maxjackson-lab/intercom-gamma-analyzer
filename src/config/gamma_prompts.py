@@ -88,42 +88,44 @@ class GammaPrompts:
 • Improve response time by {key_metrics.get('response_time_improvement', 20)}%
 • Increase customer satisfaction to {key_metrics.get('target_satisfaction', 85)}%"""
         
-        # Combine into final prompt
-        prompt = f"""Customer Support Executive Analysis: {start_date} to {end_date}
+        # Combine into final prompt with conversational tone
+        prompt = f"""Voice of Customer Analysis: {start_date} to {end_date}
+
+Create an executive briefing presentation that tells the story of what our customers are telling us. Think of this as a trusted analyst briefing leadership on customer insights, not a formal corporate report.
 
 ---
 
-# Executive Summary
+# What Our Customers Are Saying
 
 {executive_summary}
 
 ---
 
-# Customer Voice
+# The Human Story Behind the Data
 
 {customer_voice}
 
 ---
 
-# Support Volume Analysis
+# The Patterns We're Seeing
 
 {metrics_table}
 
 ---
 
-# Strategic Recommendations
+# What This Means for Our Business
 
 {recommendations_text}
 
 ---
 
-# Business Impact & ROI
+# The Opportunity Ahead
 
 {roi_section}
 
 ---
 
-# Implementation Roadmap
+# How We Move Forward
 
 {next_steps}
 
@@ -638,40 +640,81 @@ Practice: Show empathy, escalate appropriately, ensure follow-up"""
     def get_additional_instructions_for_style(style: str) -> str:
         """Get style-specific additional instructions for Gamma."""
         instructions = {
-            "executive": """Create an executive-level strategic analysis presentation.
+            "executive": """Create an executive briefing that feels like a trusted advisor sharing insights, not a formal corporate presentation.
 
-FOCUS ON:
-- Statistical trends with confidence intervals and trend arrows (↑↓→)
-- Week-over-week / period-over-period percentage changes
-- Data-driven insights backed by numbers, not opinions
-- Strategic options with trade-off analysis (Impact vs Effort vs Risk)
-- Include clickable Intercom conversation links for verification
-- Methodology transparency in appendix
+TONE & APPROACH:
+- Conversational and insightful, like briefing a colleague over coffee
+- Focus on "what this means" and "why it matters" rather than just data
+- Tell the story behind the numbers - what are customers really experiencing?
+- Use language that executives can immediately understand and act on
 
-FORMAT:
-- Data → Trends → Options (NOT Data → Recommendations)
-- Use trend indicators for visual clarity (↑ +15%, ↓ -8%, → stable)
-- Include confidence scores for all quantitative claims
-- Present strategic options for leadership consideration, not prescriptive actions
-- Each option should show: Impact level, Implementation effort, Risk level, Supporting data
-- Use as many slides as needed to tell the complete story - don't truncate important insights
+CONTENT STRUCTURE:
+- Start with the human story, then support with data
+- Show trends and patterns, not just snapshots
+- Explain the business impact in plain English
+- Present options for consideration, not prescriptive solutions
+- Include real customer voices to make it tangible
+
+VISUAL STYLE:
+- Clean, modern design that doesn't overwhelm
+- Use data visualizations that tell a story
+- Emphasize key insights with visual hierarchy
+- Professional but approachable color scheme
+- Use as many slides as needed to tell the complete story
 
 AVOID:
-- Prescriptive recommendations or telling leadership what to do
-- Data without context or trends
-- Opinions not backed by statistical evidence
-- Artificial slide limits that cut off important analysis
+- Corporate jargon and formal language
+- Data dumps without interpretation
+- Prescriptive recommendations (present options instead)
+- Artificial slide limits that cut off important insights
 - DO NOT invent or create fake Intercom conversation URLs
-- DO NOT generate placeholder links like "https://app.intercom.com/..." unless explicitly provided in the data
 - Only use conversation links that are explicitly provided in the input data
 
-DESIGN:
-- Clean, modern design with minimal text per slide
-- Emphasize data visualization and trends
-- Professional color scheme suitable for C-level audience
-- Use multiple slides for complex topics rather than cramming content""",
-            "detailed": "Create a comprehensive, data-rich presentation for operations teams. Include detailed charts, tables, and analysis with full Intercom conversation links. Use statistical trend analysis and provide complete methodology documentation. Use a professional but detailed design that can accommodate more information per slide. Use as many slides as needed to cover all important data and insights - don't truncate analysis due to slide limits. IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.",
-            "training": "Create an engaging, educational presentation for support teams. Use clear examples with Intercom links, practice scenarios, and actionable guidance. Include real conversation examples that demonstrate best practices. Make it visually appealing and easy to follow for learning purposes. Use multiple slides to break down complex topics and ensure complete coverage of all training materials. IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs."
+GOAL: Create a presentation that executives will actually want to read and that drives meaningful action.""",
+            "detailed": """Create a comprehensive operational analysis that helps teams understand what's really happening with customer support.
+
+TONE & APPROACH:
+- Detailed but accessible - explain the 'why' behind the data
+- Focus on actionable insights for operations teams
+- Show patterns and trends that help teams improve
+- Use conversational language that makes complex data understandable
+
+CONTENT STRUCTURE:
+- Deep dive into the data with clear explanations
+- Show statistical trends and what they mean for operations
+- Include methodology so teams can trust the analysis
+- Provide specific examples and case studies
+- Use as many slides as needed for complete coverage
+
+VISUAL STYLE:
+- Data-rich but not overwhelming
+- Clear charts and tables that tell a story
+- Professional design that accommodates detailed information
+- Visual hierarchy that guides the reader through complex data
+
+IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.""",
+            "training": """Create an engaging learning experience that helps support teams improve their skills and understanding.
+
+TONE & APPROACH:
+- Educational and encouraging, not prescriptive
+- Focus on practical learning and skill development
+- Use real examples to make concepts tangible
+- Create scenarios that teams can relate to and learn from
+
+CONTENT STRUCTURE:
+- Clear learning objectives and outcomes
+- Real conversation examples with analysis
+- Practice scenarios and best practices
+- Actionable guidance that teams can implement
+- Use multiple slides to break down complex topics
+
+VISUAL STYLE:
+- Engaging and visually appealing
+- Easy to follow learning progression
+- Clear examples and demonstrations
+- Professional but approachable design
+
+IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs."""
         }
         return instructions.get(style, "Create a professional presentation with clear structure and engaging visuals.")
 
