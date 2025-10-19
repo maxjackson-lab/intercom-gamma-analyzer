@@ -36,6 +36,38 @@ You will receive a complete Intercom dataset with pre-computed statistics for {m
 - Highlight both positive trends and areas needing attention
 - Provide actionable insights for executive decision-making
 
+**CRITICAL: GRANULAR BREAKDOWN REQUIRED**
+- We have a detailed taxonomy with 13 primary categories and 100+ subcategories
+- For EACH top-level category, drill down into specific issues within that category
+- Don't just report "Account issues - 234 conversations"
+- Instead provide: "Email change failures - 89 conversations (38% of account issues)"
+- For each specific issue, identify the pattern and include a representative quote
+- Show percentages within each category to highlight the most common problems
+
+**Example of Good Analysis:**
+```
+BAD: "Product questions - 234 conversations"
+
+GOOD: "Product Questions (234 conversations, 28% of total volume)
+├─ Email & Account Management (89 conversations, 38% of product issues)
+│  ├─ Email change failures: 45 conversations
+│  │  Pattern: Users receiving 'email already in use' error
+│  │  Quote: 'I've been trying to change my email for weeks but keep getting an error...'
+│  │  Impact: Users can't update their contact information
+│  ├─ Password reset issues: 34 conversations  
+│  │  Pattern: Reset emails not arriving for Gmail users
+│  │  Quote: 'I never received the password reset email...'
+│  │  Impact: Users locked out of their accounts
+│  └─ Two-factor setup confusion: 10 conversations
+│     Pattern: Users don't understand QR code setup process
+│     Quote: 'I scanned the code but nothing happened...'
+│     Impact: Security feature adoption blocked
+└─ Feature Access (67 conversations, 29% of product issues)
+   ├─ Export functionality confusion: 34 conversations
+   ├─ Publishing permissions: 23 conversations
+   └─ Template access issues: 10 conversations"
+```
+
 Output markdown only. No JSON. No preambles. Use \\n---\\n to separate major sections into cards.
 
 \\n---\\n
@@ -70,27 +102,35 @@ As I move through this data, I will be focusing on our tier 1 countries that com
 
 \\n---\\n
 
-## Top 3 Reasons for Contact
+## Top Contact Categories (with Granular Breakdown)
+
+For each category below, provide the detailed breakdown format shown in the example above:
 
 {{top_contact_reasons_analysis}}
 
 \\n---\\n
 
-## Top Billing Questions
+## Billing Questions (Detailed Breakdown)
 
 {{billing_analysis}}
 
 \\n---\\n
 
-## Top 15 Product Questions
+## Product Questions (Detailed Breakdown)
 
 {{product_questions_analysis}}
 
 \\n---\\n
 
-## Top Account Questions
+## Account Questions (Detailed Breakdown)
 
 {{account_questions_analysis}}
+
+\\n---\\n
+
+## Technical Issues (Detailed Breakdown)
+
+{{technical_issues_analysis}}
 
 \\n---\\n
 
@@ -137,6 +177,24 @@ You will receive a complete Intercom dataset with pre-computed statistics for {d
 - Provide actionable insights based on the focus areas
 - Highlight both positive trends and areas needing attention
 
+**CRITICAL: GRANULAR TREND ANALYSIS REQUIRED**
+- We have a detailed taxonomy with 13 primary categories and 100+ subcategories
+- For EACH trend identified, drill down into specific issues and their changes over time
+- Don't just report "API issues increased 15%"
+- Instead provide: "API Integration Issues increased 15% (156 → 179 conversations)
+  ├─ Webhook timeout errors: +23% (67 → 82 conversations)
+  │  Pattern: Zapier integrations failing more frequently
+  │  Quote: 'My Zapier webhooks keep timing out...'
+  │  Impact: Customer automation workflows breaking
+  ├─ Authentication token expiration: +12% (45 → 50 conversations)
+  │  Pattern: Tokens expiring faster than expected
+  │  Impact: Users locked out of integrations
+  └─ Rate limiting confusion: +8% (44 → 48 conversations)
+     Pattern: Users hitting limits during bulk operations
+     Impact: Workflow efficiency reduced"
+- Show percentage changes and absolute numbers for each specific issue
+- Identify the root cause or pattern behind each trend
+
 Output markdown only. No JSON. No preambles. Use \\n---\\n to separate major sections into cards.
 
 \\n---\\n
@@ -150,13 +208,15 @@ Analysis of {{total_conversations}} conversations from {date_range}
 
 \\n---\\n
 
-## Key Trends
+## Key Trends (with Granular Breakdown)
+
+For each trend, provide the detailed breakdown format showing specific issues and their changes:
 
 {{trend_analysis}}
 
 \\n---\\n
 
-## Detailed Insights
+## Detailed Insights (Category-by-Category Analysis)
 
 {{detailed_insights}}
 
@@ -195,6 +255,12 @@ You will receive a complete Intercom dataset with pre-computed statistics for {d
 - Follow the custom instructions precisely
 - Provide actionable insights based on the specific requirements
 - Maintain professional analysis standards
+
+**TAXONOMY REFERENCE:**
+- We have a detailed taxonomy with 13 primary categories and 100+ subcategories
+- When analyzing categories, drill down into specific issues within each category
+- Use the granular breakdown format when appropriate for the custom analysis
+- Show percentages and patterns for specific issues, not just high-level categories
 
 Output markdown only. No JSON. No preambles. Use \\n---\\n to separate major sections into cards.
 
@@ -324,6 +390,29 @@ You will receive a complete Intercom dataset with pre-computed statistics for {d
 - Include exact quotes with working Intercom conversation URLs
 - Group findings by issue category for easy macro development
 
+**CRITICAL: GRANULAR TECHNICAL BREAKDOWN REQUIRED**
+- We have a detailed taxonomy with 13 primary categories and 100+ subcategories
+- For EACH technical issue category, drill down into specific problems and their solutions
+- Don't just report "Browser issues - 89 conversations"
+- Instead provide: "Browser Compatibility Issues (89 conversations, 23% of technical issues)
+  ├─ Chrome extension conflicts: 34 conversations (38% of browser issues)
+  │  Pattern: Users reporting 'page not loading' after extension updates
+  │  Common Solution: 'Try disabling extensions one by one'
+  │  Success Rate: 78% resolved with extension troubleshooting
+  │  Quote: 'The page was blank until I disabled my ad blocker...'
+  ├─ Safari rendering problems: 28 conversations (31% of browser issues)
+  │  Pattern: Layout issues and missing elements on Safari
+  │  Common Solution: 'Clear Safari cache and cookies'
+  │  Success Rate: 85% resolved with cache clearing
+  │  Quote: 'Everything looks broken on Safari but works fine in Chrome...'
+  └─ Firefox performance issues: 27 conversations (30% of browser issues)
+     Pattern: Slow loading and timeouts on Firefox
+     Common Solution: 'Update Firefox to latest version'
+     Success Rate: 92% resolved with browser update
+     Quote: 'It takes forever to load on Firefox...'"
+- For each specific issue, provide the most common agent response and success rate
+- Identify patterns that could be automated with macros
+
 Output markdown only. No JSON. No preambles. Use \\n---\\n to separate major sections into cards.
 
 \\n---\\n
@@ -337,37 +426,39 @@ Analysis of {{total_conversations}} conversations from {date_range}
 
 \\n---\\n
 
-## Most Common Technical Issues
+## Most Common Technical Issues (Detailed Breakdown)
+
+For each technical category, provide the granular breakdown format:
 
 {{common_issues_analysis}}
 
 \\n---\\n
 
-## Agent Response Patterns
+## Agent Response Patterns (by Issue Type)
 
 {{agent_response_patterns}}
 
 \\n---\\n
 
-## Escalation Analysis
+## Escalation Analysis (Specific Triggers)
 
 {{escalation_analysis}}
 
 \\n---\\n
 
-## Recommended Macros
+## Recommended Macros (Based on Common Patterns)
 
 {{macro_recommendations}}
 
 \\n---\\n
 
-## Training Opportunities
+## Training Opportunities (Specific Skills Needed)
 
 {{training_opportunities}}
 
 \\n---\\n
 
-## Customer Success Stories
+## Customer Success Stories (Resolution Examples)
 
 {{success_stories}}
 
