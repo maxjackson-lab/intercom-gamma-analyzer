@@ -897,7 +897,7 @@ if HAS_FASTAPI:
                 <div id="jobsList"></div>
             </div>
             
-            <div class="examples">
+            <div class="examples" id="examplesSection">
                 <h3>💡 Example Queries</h3>
                 <div class="example" onclick="setQuery('Give me last week\\'s voice of customer report')">
                     Give me last week's voice of customer report
@@ -930,11 +930,14 @@ if HAS_FASTAPI:
                     const statusText = document.getElementById('statusText');
                     
                     if (!data.chat_interface) {
-                        statusText.innerHTML = '⚠️ Chat interface is not available. This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu) that are too large for Railway deployment. The basic analysis functionality should still work through the CLI interface.';
+                        statusText.innerHTML = '⚠️ Chat interface is not available due to missing dependencies. You can still execute CLI commands directly below.';
                         statusMessage.style.display = 'block';
                         statusMessage.style.background = 'rgba(245, 158, 11, 0.1)';
                         statusMessage.style.border = '1px solid rgba(245, 158, 11, 0.3)';
                         statusMessage.style.color = '#fbbf24';
+                        
+                        // Show direct CLI input when chat is not available
+                        showDirectCLIInput();
                     } else {
                         statusText.innerHTML = '✅ Chat interface is ready! You can start asking questions.';
                         statusMessage.style.display = 'block';
@@ -1032,6 +1035,82 @@ if HAS_FASTAPI:
             
             function setQuery(query) {
                 document.getElementById('queryInput').value = query;
+            }
+            
+            function showDirectCLIInput() {
+                // Hide the chat interface and show direct CLI input
+                const chatContainer = document.getElementById('chatContainer');
+                const inputContainer = document.querySelector('.input-container');
+                const queryInput = document.getElementById('queryInput');
+                const sendButton = document.getElementById('sendButton');
+                
+                // Update the interface for direct CLI commands
+                chatContainer.innerHTML = `
+                    <div class="message bot-message">
+                        <strong>System:</strong> Chat interface is not available, but you can execute CLI commands directly. Try commands like:
+                        <br>• <code>voice-of-customer --generate-gamma</code>
+                        <br>• <code>billing-analysis --generate-gamma</code>
+                        <br>• <code>tech-analysis --days 7</code>
+                        <br>• <code>api-analysis --generate-gamma</code>
+                    </div>
+                `;
+                
+                queryInput.placeholder = "Enter CLI command (e.g., voice-of-customer --generate-gamma)";
+                sendButton.textContent = "Execute";
+                
+                // Update the examples section for CLI commands
+                const examplesSection = document.getElementById('examplesSection');
+                examplesSection.innerHTML = `
+                    <h3>💡 Example CLI Commands</h3>
+                    <div class="example" onclick="setQuery('voice-of-customer --generate-gamma')">
+                        voice-of-customer --generate-gamma
+                    </div>
+                    <div class="example" onclick="setQuery('billing-analysis --generate-gamma')">
+                        billing-analysis --generate-gamma
+                    </div>
+                    <div class="example" onclick="setQuery('tech-analysis --days 7')">
+                        tech-analysis --days 7
+                    </div>
+                    <div class="example" onclick="setQuery('api-analysis --generate-gamma')">
+                        api-analysis --generate-gamma
+                    </div>
+                `;
+                
+                // Update the sendMessage function to handle direct CLI commands
+                window.sendMessage = async function() {
+                    const input = document.getElementById('queryInput');
+                    const button = document.getElementById('sendButton');
+                    const chatContainer = document.getElementById('chatContainer');
+                    
+                    const command = input.value.trim();
+                    if (!command) return;
+                    
+                    // Disable input and show loading
+                    input.disabled = true;
+                    button.disabled = true;
+                    button.textContent = 'Executing...';
+                    
+                    // Add user message
+                    addMessage('user', `CLI Command: <code>${command}</code>`);
+                    input.value = '';
+                    
+                    // Parse command and args
+                    const parts = command.split(' ');
+                    const cmd = parts[0];
+                    const args = parts.slice(1);
+                    
+                    try {
+                        // Execute the command directly
+                        await executeCommand(cmd, args);
+                    } catch (error) {
+                        addMessage('bot', `Error: ${error.message}`);
+                    } finally {
+                        // Re-enable input
+                        input.disabled = false;
+                        button.disabled = false;
+                        button.textContent = 'Execute';
+                    }
+                };
             }
             
             function handleKeyPress(event) {
