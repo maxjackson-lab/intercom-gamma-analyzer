@@ -717,6 +717,106 @@ if HAS_FASTAPI:
             .gamma-icon {
                 font-size: 20px;
             }
+            
+            /* Tab Navigation Styles */
+            .tab-navigation {
+                background: #151515;
+                border-bottom: 1px solid #222222;
+                display: flex;
+                padding: 0;
+            }
+            .tab-button {
+                background: transparent;
+                border: none;
+                color: #9ca3af;
+                padding: 12px 20px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 500;
+                border-bottom: 2px solid transparent;
+                transition: all 0.2s ease;
+            }
+            .tab-button:hover {
+                color: #d4d4d4;
+                background: rgba(255, 255, 255, 0.05);
+            }
+            .tab-button.active {
+                color: #60a5fa;
+                border-bottom-color: #60a5fa;
+                background: rgba(96, 165, 250, 0.1);
+            }
+            
+            /* Tab Content Styles */
+            .tab-content {
+                position: relative;
+            }
+            .tab-pane {
+                display: none;
+                padding: 20px;
+                min-height: 200px;
+            }
+            .tab-pane.active {
+                display: block;
+            }
+            
+            /* Files Container Styles */
+            .files-container {
+                background: #0a0a0a;
+                border-radius: 12px;
+                padding: 20px;
+                border: 1px solid #222222;
+            }
+            .files-container h3 {
+                color: #d4d4d4;
+                margin: 0 0 16px 0;
+                font-size: 16px;
+                font-weight: 600;
+            }
+            .files-list {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .file-item {
+                background: #151515;
+                border-radius: 8px;
+                padding: 16px;
+                border: 1px solid #333333;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .file-info {
+                display: flex;
+                flex-direction: column;
+            }
+            .file-name {
+                color: #d4d4d4;
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .file-meta {
+                color: #9ca3af;
+                font-size: 12px;
+                margin-top: 4px;
+            }
+            .file-download {
+                background: #60a5fa;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                text-decoration: none;
+                transition: background 0.2s ease;
+            }
+            .file-download:hover {
+                background: #3b82f6;
+                color: white;
+                text-decoration: none;
+            }
         </style>
     </head>
     <body>
@@ -751,23 +851,45 @@ if HAS_FASTAPI:
                         <button class="btn-cancel" id="cancelButton" onclick="cancelExecution()" style="display:none;">Cancel</button>
                     </div>
                 </div>
-                <div class="terminal-output" id="terminalOutput"></div>
+                
+                <!-- Tab Navigation -->
+                <div class="tab-navigation" id="tabNavigation" style="display: none;">
+                    <button class="tab-button active" onclick="switchTab('terminal')" id="terminalTab">Terminal</button>
+                    <button class="tab-button" onclick="switchTab('summary')" id="summaryTab">Summary</button>
+                    <button class="tab-button" onclick="switchTab('files')" id="filesTab">Files</button>
+                    <button class="tab-button" onclick="switchTab('gamma')" id="gammaTab">Gamma</button>
+                </div>
+                
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <div class="tab-pane active" id="terminalTabContent">
+                        <div class="terminal-output" id="terminalOutput"></div>
+                    </div>
+                    <div class="tab-pane" id="summaryTabContent">
+                        <div id="analysisSummary" class="summary-container">
+                            <h3>📊 Analysis Summary</h3>
+                            <div class="summary-cards"></div>
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="filesTabContent">
+                        <div id="filesList" class="files-container">
+                            <h3>📁 Generated Files</h3>
+                            <div class="files-list"></div>
+                        </div>
+                    </div>
+                    <div class="tab-pane" id="gammaTabContent">
+                        <div id="gammaLinks" class="gamma-container">
+                            <h3>📈 Gamma Presentations</h3>
+                            <div class="gamma-links"></div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="executionResults" style="padding: 15px; background: #2d2d2d; display: none;">
                     <div id="downloadLinks"></div>
                 </div>
             </div>
             
-            <!-- Analysis Summary -->
-            <div id="analysisSummary" class="summary-container" style="display: none;">
-                <h3>📊 Analysis Summary</h3>
-                <div class="summary-cards"></div>
-            </div>
-            
-            <!-- Gamma Links -->
-            <div id="gammaLinks" class="gamma-container" style="display: none;">
-                <h3>📈 Gamma Presentations</h3>
-                <div class="gamma-links"></div>
-            </div>
             
             <!-- Recent Jobs -->
             <div id="recentJobs" class="examples" style="display: none;">
@@ -1074,6 +1196,12 @@ if HAS_FASTAPI:
                                 executionStatus.textContent = 'Completed';
                                 showDownloadLinks();
                                 
+                                // Show tab navigation
+                                const tabNavigation = document.getElementById('tabNavigation');
+                                if (tabNavigation) {
+                                    tabNavigation.style.display = 'flex';
+                                }
+                                
                                 // Parse and display analysis summary
                                 const terminalOutput = document.getElementById('terminalOutput');
                                 const fullOutput = terminalOutput.textContent;
@@ -1292,6 +1420,70 @@ if HAS_FASTAPI:
                 html += '</div>';
                 summaryContainer.innerHTML = html;
                 summaryContainer.style.display = 'block';
+            }
+            
+            function switchTab(tabName) {
+                // Hide all tab panes
+                document.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.remove('active');
+                });
+                
+                // Remove active class from all tab buttons
+                document.querySelectorAll('.tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                
+                // Show selected tab pane
+                const targetPane = document.getElementById(tabName + 'TabContent');
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+                
+                // Add active class to selected tab button
+                const targetButton = document.getElementById(tabName + 'Tab');
+                if (targetButton) {
+                    targetButton.classList.add('active');
+                }
+                
+                // Load files if switching to files tab
+                if (tabName === 'files') {
+                    loadFilesList();
+                }
+            }
+            
+            async function loadFilesList() {
+                try {
+                    const response = await fetch('/outputs');
+                    const data = await response.json();
+                    
+                    const filesList = document.querySelector('.files-list');
+                    if (!filesList) return;
+                    
+                    if (data.files && data.files.length > 0) {
+                        filesList.innerHTML = data.files.map(file => `
+                            <div class="file-item">
+                                <div class="file-info">
+                                    <div class="file-name">${file.name}</div>
+                                    <div class="file-meta">
+                                        ${(file.size / 1024).toFixed(1)} KB • 
+                                        ${new Date(file.modified).toLocaleDateString()}
+                                    </div>
+                                </div>
+                                <a href="/outputs/${file.path}" download class="file-download">
+                                    Download
+                                </a>
+                            </div>
+                        `).join('');
+                    } else {
+                        filesList.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 20px;">No files found</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading files:', error);
+                    const filesList = document.querySelector('.files-list');
+                    if (filesList) {
+                        filesList.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 20px;">Error loading files</div>';
+                    }
+                }
             }
             
             function addMessage(type, content) {
