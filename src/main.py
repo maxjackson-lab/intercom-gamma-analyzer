@@ -1144,7 +1144,7 @@ async def run_technical_analysis_v2(start_date: datetime, end_date: datetime, ma
         ) as progress:
             task = progress.add_task("Extracting and loading data...", total=None)
             
-            stats = await pipeline.extract_and_load(start_date.date(), end_date.date(), max_pages)
+            stats = await pipeline.extract_and_load(start_date, end_date, max_pages)
             
             progress.update(task, description=f"✅ Loaded {stats['conversations_count']} conversations")
         
@@ -1161,8 +1161,8 @@ async def run_technical_analysis_v2(start_date: datetime, end_date: datetime, ma
             task = progress.add_task("Analyzing technical patterns...", total=None)
             
             filters = {
-                'start_date': start_date.date(),
-                'end_date': end_date.date()
+                'start_date': start_date,
+                'end_date': end_date
             }
             
             df = pipeline.transform_for_analysis("technical", filters)

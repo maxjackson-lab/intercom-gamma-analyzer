@@ -6,7 +6,7 @@ Extract-Load-Transform pipeline for processing conversation data.
 import asyncio
 import logging
 from datetime import datetime, date, timedelta
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from pathlib import Path
 import json
 import pandas as pd
@@ -33,7 +33,7 @@ class ELTPipeline:
         self.raw_data_dir = self.output_dir / "raw_data"
         self.raw_data_dir.mkdir(exist_ok=True)
     
-    async def extract_and_load(self, start_date: date, end_date: date, max_pages: Optional[int] = None) -> Dict[str, Any]:
+    async def extract_and_load(self, start_date: Union[date, datetime], end_date: Union[date, datetime], max_pages: Optional[int] = None) -> Dict[str, Any]:
         """
         Extract conversations from Intercom and load into DuckDB.
         
@@ -77,9 +77,15 @@ class ELTPipeline:
         logger.info(f"ELT pipeline completed: {len(conversations)} conversations processed")
         return stats
     
-    async def _extract_conversations(self, start_date: date, end_date: date, max_pages: Optional[int]) -> List[Dict]:
+    async def _extract_conversations(self, start_date: Union[date, datetime], end_date: Union[date, datetime], max_pages: Optional[int]) -> List[Dict]:
         """Extract conversations from Intercom API."""
         logger.info(f"Extracting conversations from {start_date} to {end_date}")
+        
+        # Convert date to datetime if needed
+        if isinstance(start_date, date) and not isinstance(start_date, datetime):
+            start_date = datetime.combine(start_date, datetime.min.time())
+        if isinstance(end_date, date) and not isinstance(end_date, datetime):
+            end_date = datetime.combine(end_date, datetime.max.time())
         
         # Use improved Intercom service with chunking
         conversations = await self.intercom_service.fetch_conversations_by_date_range(
