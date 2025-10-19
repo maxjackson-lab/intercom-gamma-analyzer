@@ -25,8 +25,11 @@ COPY . .
 # Set Python path
 ENV PYTHONPATH=/app
 
-# Create output directory
-RUN mkdir -p /app/outputs
+# Create output and static directories
+RUN mkdir -p /app/outputs /app/static
+
+# Ensure static files are present
+COPY static/ /app/static/
 
 # Expose port for web interface
 EXPOSE 8000
