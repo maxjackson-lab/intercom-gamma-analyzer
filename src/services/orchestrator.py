@@ -299,6 +299,80 @@ class AnalysisOrchestrator:
                 'error': f'Specialized analysis failed: {str(e)}',
                 'summary': {}
             }
+    
+    async def run_story_driven_analysis(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        options: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Run a story-driven analysis focused on customer experience narratives.
+        
+        Args:
+            start_date: Start date for analysis
+            end_date: End date for analysis
+            options: Analysis options and configuration
+            
+        Returns:
+            Dictionary containing story-driven analysis results
+        """
+        self.logger.info(f"Starting story-driven analysis from {start_date} to {end_date}")
+        
+        if options is None:
+            options = {}
+        
+        try:
+            # Fetch conversations
+            conversations = await self._fetch_and_preprocess_data(start_date, end_date, options)
+            
+            if not conversations:
+                return {
+                    'error': 'No conversations found for the specified date range',
+                    'summary': {}
+                }
+            
+            # Fetch Canny posts if available
+            canny_posts = []
+            if options.get('include_canny_data', True):
+                try:
+                    from services.canny_client import CannyClient
+                    canny_client = CannyClient()
+                    canny_posts = await canny_client.get_posts(
+                        start_date=start_date,
+                        end_date=end_date,
+                        limit=options.get('canny_limit', 100)
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to fetch Canny data: {e}")
+                    canny_posts = []
+            
+            # Run story-driven analysis
+            story_results = await self.story_driven_orchestrator.run_story_driven_analysis(
+                conversations=conversations,
+                canny_posts=canny_posts,
+                start_date=start_date,
+                end_date=end_date,
+                options=options
+            )
+            
+            # Add metadata
+            story_results['analysis_metadata'].update({
+                'orchestrator_version': 'enhanced_with_story_driven',
+                'analysis_type': 'story_driven_customer_experience',
+                'total_conversations': len(conversations),
+                'total_canny_posts': len(canny_posts)
+            })
+            
+            self.logger.info("Story-driven analysis completed successfully")
+            return story_results
+            
+        except Exception as e:
+            self.logger.error(f"Story-driven analysis failed: {e}")
+            return {
+                'error': f'Story-driven analysis failed: {str(e)}',
+                'summary': {}
+            }
 
     async def _fetch_and_preprocess_data(
         self,

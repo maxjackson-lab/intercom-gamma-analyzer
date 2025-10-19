@@ -5,6 +5,9 @@ Prompt templates for Voice of Customer and trend analysis.
 from typing import Dict, List, Optional
 from datetime import datetime
 
+# Import story-driven prompts
+from config.story_driven_prompts import StoryDrivenPrompts
+
 
 class PromptTemplates:
     """Collection of prompt templates for different analysis modes."""
