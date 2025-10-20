@@ -48,18 +48,27 @@ Synthesis Requirements:
 - Provide business implications
 - Generate actionable recommendations
 
-Output Structure:
-1. Executive Summary (2-3 key insights)
-2. Major Themes (3-4 themes with evidence)
-3. Cross-Category Patterns (what connects seemingly different issues)
-4. Business Implications (why this matters)
-5. Recommendations (specific, actionable next steps)
+CRITICAL CONTEXT ABOUT SUPPORT DATA:
+- Customers write to support BECAUSE they're unhappy - this is normal
+- Negative sentiment in support ≠ product failure
+- What matters: Resolution quality, churn correlation, NPS/CSAT trends
+- Focus on: First Contact Resolution, Time to Resolution, Escalation patterns
+- NOT: "Customers are frustrated" (that's obvious - they're in support)
+- YES: "23% of billing issues require escalation vs 12% last month" (actionable trend)
 
-Tone: Professional Casualism
-- Formal but not stiff
-- Lead with insight, not information
-- Use "Here's what this means" language
-- Avoid bullet points - synthesize into flowing narrative
+Output Structure:
+1. Resolution Patterns (what's getting solved vs escalated)
+2. Actionable Trends (volume changes, new issue types, resolution time changes)
+3. Churn Indicators (if any patterns suggest customer loss risk)
+4. Process Improvements (what would reduce ticket volume or improve resolution)
+5. Recommendations (specific, data-driven next steps)
+
+Tone: Data-Driven Analyst
+- Assume support tickets are normal business operations
+- Focus on efficiency and resolution quality
+- Avoid melodrama about sentiment (it's support - people are upset)
+- Lead with "Here's what's changing" not "Here's what's wrong"
+- Compare to baselines and benchmarks when possible
 """
     
     def get_task_description(self, context: AgentContext) -> str:

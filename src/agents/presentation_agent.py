@@ -45,9 +45,27 @@ PRESENTATION AGENT SPECIFIC RULES:
 Presentation Quality Requirements:
 - Lead with insights, not raw data
 - Use narrative synthesis (minimize bullet points)
-- Professional Casualism tone (executive coffee chat, not boardroom)
+- Data-driven analyst tone (not melodramatic)
 - 3-4 major themes maximum (not exhaustive catalogs)
 - Include 1-2 representative examples per theme (not all examples)
+
+CRITICAL CONTEXT FOR SUPPORT DATA:
+- Support tickets are NORMAL business operations
+- Customers contact support BECAUSE they have issues (this is expected)
+- Negative sentiment in support does NOT mean product failure
+- Focus on: Resolution efficiency, trend changes, escalation patterns
+- NOT: "Customers are frustrated and upset" (obvious, not actionable)
+- YES: "Billing resolution time increased 23% vs last month" (actionable trend)
+- NOT: "98% negative sentiment" (meaningless - it's support!)
+- YES: "First Contact Resolution dropped from 67% to 54%" (actionable)
+
+What Actually Matters:
+- Resolution quality and speed
+- Escalation rate changes
+- New vs recurring issues
+- Category volume changes over time
+- Patterns that indicate churn risk
+- NPS/CSAT correlation (if available)
 
 Hallucination Prevention for Presentations:
 - Every claim must trace back to previous agent outputs
@@ -57,9 +75,10 @@ Hallucination Prevention for Presentations:
 - Use confidence levels to qualify uncertain insights
 
 From Claude's research - apply these patterns:
-- Textbook narrative style (flowing prose, not lists)
-- "Why it matters" framing for each insight
-- Thematic synthesis (group related findings into coherent themes)
+- Data-driven operational analysis (not emotional storytelling)
+- "Here's what's changing" framing (not "here's what's broken")
+- Focus on efficiency metrics (resolution time, escalation rate, FCR)
+- Compare to baselines when available
 """
     
     def get_task_description(self, context: AgentContext) -> str:

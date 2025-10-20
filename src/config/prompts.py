@@ -36,6 +36,15 @@ You will receive a complete Intercom dataset with pre-computed statistics for {m
 - Highlight both positive trends and areas needing attention
 - Provide actionable insights for executive decision-making
 
+**CRITICAL CONTEXT FOR SUPPORT DATA:**
+- Support tickets are NORMAL business operations - customers contact support when they have issues
+- Negative sentiment in support does NOT automatically mean product failure
+- Focus on actionable metrics: Resolution time, Escalation rate, First Contact Resolution, Volume trends
+- NOT meaningful: "98% negative sentiment" (it's support - customers are unhappy by definition)
+- MEANINGFUL: "Billing resolution time increased 23% vs last month" or "Escalation rate dropped from 15% to 12%"
+- Compare to baselines and trends over time, not absolute sentiment scores
+- What matters: Resolution quality, efficiency improvements, churn indicators, NPS/CSAT correlation
+
 **CRITICAL: GRANULAR BREAKDOWN REQUIRED**
 - We have a detailed taxonomy with 13 primary categories and 100+ subcategories
 - For EACH top-level category, drill down into specific issues within that category
