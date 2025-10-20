@@ -800,7 +800,18 @@ if HAS_FASTAPI:
     async def get_commands():
         """Get available commands."""
         if not chat_interface:
-            raise HTTPException(status_code=500, detail="Chat interface not initialized")
+            # Fallback: return basic command list when chat is unavailable
+            return {
+                "commands": [
+                    {"name": "voice-of-customer", "description": "Voice of Customer analysis", "example": "voice-of-customer --generate-gamma"},
+                    {"name": "billing-analysis", "description": "Billing-specific analysis", "example": "billing-analysis --generate-gamma"},
+                    {"name": "tech-analysis", "description": "Technical troubleshooting analysis", "example": "tech-analysis --days 7"},
+                    {"name": "api-analysis", "description": "API-related issues analysis", "example": "api-analysis --generate-gamma"},
+                    {"name": "product-analysis", "description": "Product questions analysis", "example": "product-analysis --generate-gamma"},
+                    {"name": "sites-analysis", "description": "Sites-related issues analysis", "example": "sites-analysis --generate-gamma"},
+                    {"name": "canny-analysis", "description": "Canny feedback analysis", "example": "canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31"}
+                ]
+            }
         
         try:
             commands = chat_interface.get_available_commands()
