@@ -235,6 +235,14 @@ if HAS_FASTAPI:
                 <button onclick="sendMessage()" id="sendButton">Send</button>
             </div>
             
+            <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3);">
+                <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb;">
+                    <input type="checkbox" id="multiAgentMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-weight: 500;">🤖 Multi-Agent Mode</span>
+                    <span style="margin-left: 10px; font-size: 12px; color: #9ca3af;">(Premium quality, 3-5x cost, +30% insight improvement)</span>
+                </label>
+            </div>
+            
             <div id="status"></div>
             
             <!-- Terminal output container -->

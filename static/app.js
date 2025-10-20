@@ -304,10 +304,19 @@ let outputIndex = 0;
 
 async function executeCommand(command, args) {
     try {
+        // Check if multi-agent mode is enabled
+        const multiAgentCheckbox = document.getElementById('multiAgentMode');
+        const useMultiAgent = multiAgentCheckbox && multiAgentCheckbox.checked;
+        
         // Convert CLI command to full python execution
         // voice-of-customer → python src/main.py voice-of-customer
         const fullCommand = 'python';
-        const fullArgs = ['src/main.py', command, ...args];
+        let fullArgs = ['src/main.py', command, ...args];
+        
+        // Add --multi-agent flag if enabled
+        if (useMultiAgent) {
+            fullArgs.push('--multi-agent');
+        }
         
         // Start execution and get execution ID
         const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`, {
