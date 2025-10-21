@@ -84,7 +84,9 @@ def cli(verbose: bool, output_dir: str):
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
-def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool):
+@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard', 
+              help='Analysis type: standard (single), topic-based (Hilary format), synthesis (insights)')
+def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str):
     """Generate Voice of Customer analysis for monthly executive reports"""
     
     # Parse tier1 countries
@@ -99,19 +101,26 @@ def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma:
     console.print(f"Tier 1 Countries: {', '.join(tier1_list)}")
     
     if multi_agent:
-        console.print("[bold yellow]🤖 Multi-Agent Mode Enabled[/bold yellow] (Premium quality, 3-5x cost)")
-        # Use multi-agent orchestrator
-        asyncio.run(run_multi_agent_voice_analysis(month, year, tier1_list, generate_gamma, output_format))
+        if analysis_type == 'topic-based':
+            console.print("[bold yellow]🤖 Topic-Based Multi-Agent Analysis[/bold yellow]")
+            console.print("Format: Hilary's VoC Cards - Per-topic sentiment with examples")
+            asyncio.run(run_topic_based_analysis(month, year, tier1_list, generate_gamma, output_format))
+        elif analysis_type == 'synthesis':
+            console.print("[bold yellow]🧠 Synthesis Multi-Agent Analysis[/bold yellow]")  
+            console.print("Format: Cross-category insights and strategic recommendations")
+            asyncio.run(run_synthesis_analysis(month, year, tier1_list, generate_gamma, output_format))
+        else:  # Both
+            console.print("[bold yellow]🤖 Complete Multi-Agent Analysis[/bold yellow]")
+            console.print("Includes: Topic-based cards + Synthesis insights")
+            asyncio.run(run_complete_multi_agent_analysis(month, year, tier1_list, generate_gamma, output_format))
     else:
-        # Create analysis request
+        # Single-agent mode
         request = AnalysisRequest(
             mode=AnalysisMode.VOICE_OF_CUSTOMER,
             month=month,
             year=year,
             tier1_countries=tier1_list
         )
-        
-        # Run standard analysis
         asyncio.run(run_voice_analysis(request, generate_gamma, output_format))
 
 
@@ -2901,8 +2910,8 @@ def chat(model: str, enable_cache: bool, railway: bool):
         console.print("[yellow]Check the logs for more details[/yellow]")
 
 
-async def run_multi_agent_voice_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
-    """Run voice of customer analysis using topic-based multi-agent orchestrator"""
+async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
+    """Run topic-based analysis (Hilary's VoC card format)"""
     try:
         from src.agents.topic_orchestrator import TopicOrchestrator
         from src.services.chunked_fetcher import ChunkedFetcher
@@ -2979,8 +2988,72 @@ async def run_multi_agent_voice_analysis(month: int, year: int, tier1_countries:
         console.print(f"📁 Full results: {results_file}")
         
     except Exception as e:
-        console.print(f"[red]Error in multi-agent analysis: {e}[/red]")
+        console.print(f"[red]Error in topic-based analysis: {e}[/red]")
         raise
+
+
+async def run_synthesis_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
+    """Run synthesis analysis (cross-category insights and recommendations)"""
+    try:
+        from src.agents.orchestrator import MultiAgentOrchestrator
+        from src.services.chunked_fetcher import ChunkedFetcher
+        from calendar import monthrange
+        
+        start_date = datetime(year, month, 1)
+        last_day = monthrange(year, month)[1]
+        end_date = datetime(year, month, last_day, 23, 59, 59)
+        
+        console.print(f"\n🧠 [bold cyan]Synthesis Multi-Agent Analysis[/bold cyan]")
+        console.print("Focus: Cross-category patterns, strategic insights, recommendations\n")
+        
+        # Fetch conversations
+        fetcher = ChunkedFetcher()
+        conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
+        console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+        
+        # Use original multi-agent orchestrator for synthesis
+        orchestrator = MultiAgentOrchestrator()
+        results = await orchestrator.execute_analysis(
+            analysis_type="voice-of-customer",
+            start_date=start_date,
+            end_date=end_date,
+            generate_gamma=generate_gamma
+        )
+        
+        # Display and save results
+        console.print("\n🎉 Synthesis analysis complete")
+        
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        results_file = output_dir / f"synthesis_voc_{month}_{year}_{timestamp}.json"
+        with open(results_file, 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+        
+        console.print(f"📁 Results saved: {results_file}")
+        
+    except Exception as e:
+        console.print(f"[red]Error in synthesis analysis: {e}[/red]")
+        raise
+
+
+async def run_complete_multi_agent_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
+    """Run BOTH topic-based AND synthesis analysis"""
+    console.print("[bold cyan]🎯 Running Complete Multi-Agent Analysis[/bold cyan]")
+    console.print("Part 1: Topic-Based Analysis (Hilary's format)")
+    console.print("Part 2: Synthesis Analysis (Strategic insights)\n")
+    
+    # Run topic-based
+    await run_topic_based_analysis(month, year, tier1_countries, generate_gamma, output_format)
+    
+    console.print("\n" + "="*80 + "\n")
+    
+    # Run synthesis
+    await run_synthesis_analysis(month, year, tier1_countries, generate_gamma, output_format)
+    
+    console.print("\n🎉 [bold green]Complete analysis finished![/bold green]")
+    console.print("Check outputs/ for both topic-based cards AND synthesis insights")
 
 
 if __name__ == "__main__":

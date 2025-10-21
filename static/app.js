@@ -304,18 +304,20 @@ let outputIndex = 0;
 
 async function executeCommand(command, args) {
     try {
-        // Check if multi-agent mode is enabled
-        const multiAgentCheckbox = document.getElementById('multiAgentMode');
-        const useMultiAgent = multiAgentCheckbox && multiAgentCheckbox.checked;
+        // Get analysis mode selection
+        const analysisModeSelect = document.getElementById('analysisMode');
+        const analysisMode = analysisModeSelect ? analysisModeSelect.value : 'standard';
         
         // Convert CLI command to full python execution
         // voice-of-customer → python src/main.py voice-of-customer
         const fullCommand = 'python';
         let fullArgs = ['src/main.py', command, ...args];
         
-        // Add --multi-agent flag if enabled
-        if (useMultiAgent) {
+        // Add flags based on analysis mode
+        if (analysisMode !== 'standard') {
             fullArgs.push('--multi-agent');
+            fullArgs.push('--analysis-type');
+            fullArgs.push(analysisMode);
         }
         
         // Start execution and get execution ID

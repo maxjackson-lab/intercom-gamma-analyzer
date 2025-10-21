@@ -236,16 +236,19 @@ if HAS_FASTAPI:
             </div>
             
             <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3);">
-                <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb;">
-                    <input type="checkbox" id="multiAgentMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;" checked>
-                    <span style="font-weight: 500;">🤖 Topic-Based Analysis</span>
-                    <span style="margin-left: 10px; font-size: 12px; color: #9ca3af;">(Hilary's VoC format - Paid/Free separation, Per-topic sentiment, Fin analysis)</span>
-                </label>
-                <div style="margin-top: 8px; font-size: 11px; color: #6b7280; margin-left: 28px;">
-                    ✓ Separates paid (human) vs free (Fin) customers<br>
-                    ✓ Topic-specific sentiment insights<br>
-                    ✓ 3-10 example conversations per topic<br>
-                    ✓ Week-over-week trends (when available)
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; color: #e5e7eb; font-weight: 500; margin-bottom: 8px;">Analysis Mode:</label>
+                    <select id="analysisMode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 6px; color: #e5e7eb; font-size: 14px;">
+                        <option value="standard">Standard (Single-Agent)</option>
+                        <option value="topic-based" selected>🤖 Topic-Based (Hilary's VoC Cards)</option>
+                        <option value="synthesis">🧠 Synthesis (Strategic Insights)</option>
+                        <option value="complete">🎯 Complete (Topic Cards + Synthesis)</option>
+                    </select>
+                </div>
+                <div style="font-size: 11px; color: #6b7280;">
+                    <strong>Topic-Based:</strong> Per-topic sentiment, Paid/Free separation, Fin analysis, Examples<br>
+                    <strong>Synthesis:</strong> Cross-category patterns, Strategic recommendations, Operational insights<br>
+                    <strong>Complete:</strong> Both formats in one analysis
                 </div>
             </div>
             
