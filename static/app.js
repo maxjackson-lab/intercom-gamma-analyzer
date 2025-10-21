@@ -248,14 +248,47 @@ async function sendMessage() {
         button.disabled = false;
         button.textContent = 'Send';
         
-        addMessage('bot', `<strong>Available Commands:</strong><br>
-            • voice-of-customer --start-date YYYY-MM-DD --end-date YYYY-MM-DD --generate-gamma<br>
-            • billing-analysis --generate-gamma<br>
-            • tech-analysis --days 7<br>
-            • api-analysis --generate-gamma<br>
-            • canny-analysis --generate-gamma --start-date YYYY-MM-DD --end-date YYYY-MM-DD<br><br>
-            <strong>Analysis Modes:</strong><br>
-            Use the dropdown above to choose: Topic-Based (Hilary's format), Synthesis (Insights), or Complete (Both)`);
+        addMessage('bot', `<strong>📚 Available Analysis Commands:</strong><br><br>
+            
+            <strong>Main Analysis:</strong><br>
+            • <code>voice-of-customer --start-date YYYY-MM-DD --end-date YYYY-MM-DD --generate-gamma</code><br>
+            &nbsp;&nbsp;Comprehensive VoC analysis with topic detection<br><br>
+            
+            <strong>Category-Specific:</strong><br>
+            • <code>billing-analysis --generate-gamma</code> - Billing, refunds, subscriptions<br>
+            • <code>tech-analysis --days 7</code> - Technical troubleshooting patterns<br>
+            • <code>api-analysis --generate-gamma</code> - API integration issues<br>
+            • <code>product-analysis --generate-gamma</code> - Product questions and features<br>
+            • <code>sites-analysis --generate-gamma</code> - Sites/workspace issues<br><br>
+            
+            <strong>Feedback Analysis:</strong><br>
+            • <code>canny-analysis --generate-gamma --start-date YYYY-MM-DD --end-date YYYY-MM-DD</code><br>
+            &nbsp;&nbsp;Analyze Canny feature requests and votes<br><br>
+            
+            <strong>🏷️ Topics Detected (via Taxonomy):</strong><br>
+            • <strong>Credits</strong> - Credit usage, purchasing, credit model<br>
+            • <strong>Agent/Buddy</strong> - AI assistant behavior and editing<br>
+            • <strong>Workspace Templates</strong> - Template usage and API access<br>
+            • <strong>Billing</strong> - Refunds, subscriptions, payments<br>
+            • <strong>Bug</strong> - Technical issues and errors<br>
+            • <strong>Account</strong> - Login, password, email changes<br>
+            • <strong>API</strong> - Integration and developer issues<br>
+            • <strong>Product Question</strong> - How-to and feature questions<br>
+            • Plus 5+ more subcategories...<br><br>
+            
+            <strong>🤖 Analysis Modes (use dropdown above):</strong><br>
+            • <strong>Topic-Based</strong> - Hilary's VoC card format<br>
+            &nbsp;&nbsp;Per-topic sentiment, Paid/Free separation, 3-10 examples, Fin analysis<br>
+            • <strong>Synthesis</strong> - Strategic insights and recommendations<br>
+            &nbsp;&nbsp;Cross-category patterns, Operational metrics (FCR, resolution time)<br>
+            • <strong>Complete</strong> - Both formats in one analysis<br>
+            &nbsp;&nbsp;Topic cards + Synthesis insights (recommended)<br><br>
+            
+            <strong>💡 Natural Language Examples:</strong><br>
+            • "Give me last week's voice of customer report"<br>
+            • "Show me billing analysis for this month with Gamma"<br>
+            • "Analyze Canny feedback from October"<br>
+            • "Create VoC analysis for the past 7 days"`);
         return;
     }
     

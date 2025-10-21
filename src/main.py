@@ -2861,15 +2861,16 @@ def voice_of_customer_analysis(
         
         console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
     
-    console.print(f"Date Range: {start_date} to {end_date}")
+    console.print(f"Date Range: {start_date} to {end_date} (Pacific Time)")
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
     
     # This branch is multi-agent only
     console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
     
-    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    # Convert to Pacific Time timezone-aware datetimes
+    from src.utils.timezone_utils import get_date_range_pacific
+    start_dt, end_dt = get_date_range_pacific(start_date, end_date)
     
     if analysis_type == 'topic-based':
         asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma))
