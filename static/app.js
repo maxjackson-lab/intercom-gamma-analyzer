@@ -25,6 +25,12 @@ async function checkSystemStatus() {
         const statusMessage = document.getElementById('statusMessage');
         const statusText = document.getElementById('statusText');
         
+        // Guard against missing elements (new form-based interface)
+        if (!statusMessage || !statusText) {
+            console.log('Status elements not found (using form-based interface)');
+            return;
+        }
+        
         if (!data.chat_interface) {
             statusText.innerHTML = '⚠️ Chat interface is not available due to missing dependencies. You can still execute CLI commands directly below.';
             statusMessage.style.display = 'block';
@@ -910,3 +916,81 @@ async function pollExecution(executionId) {
         }
     }
 }
+
+// Simple dropdown form handler for new UI
+function runAnalysis() {
+    // Get form values
+    const analysisType = document.getElementById('analysisType').value;
+    const timePeriod = document.getElementById('timePeriod').value;
+    const dataSource = document.getElementById('dataSource').value;
+    const taxonomyFilter = document.getElementById('taxonomyFilter').value;
+    const outputFormat = document.getElementById('outputFormat').value;
+    
+    // Build command based on analysis type
+    let command = '';
+    let args = [];
+    
+    // Map analysis type to command
+    if (analysisType === 'voice-of-customer-hilary') {
+        command = 'voice-of-customer';
+        args.push('--multi-agent', '--analysis-type', 'topic-based');
+    } else if (analysisType === 'voice-of-customer-synthesis') {
+        command = 'voice-of-customer';
+        args.push('--multi-agent', '--analysis-type', 'synthesis');
+    } else if (analysisType === 'voice-of-customer-complete') {
+        command = 'voice-of-customer';
+        args.push('--multi-agent', '--analysis-type', 'complete');
+    } else {
+        command = analysisType;
+    }
+    
+    // Add time period or custom dates
+    if (timePeriod === 'custom') {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        if (!start || !end) {
+            alert('Please select both start and end dates');
+            return;
+        }
+        args.push('--start-date', start, '--end-date', end);
+    } else {
+        args.push('--time-period', timePeriod);
+    }
+    
+    // Add data source flags
+    if (dataSource === 'canny') {
+        command = 'canny-analysis';
+    } else if (dataSource === 'both') {
+        args.push('--include-canny');
+    }
+    
+    // Add taxonomy filter if selected
+    if (taxonomyFilter) {
+        args.push('--focus-areas', taxonomyFilter);
+    }
+    
+    // Add output format
+    if (outputFormat === 'gamma') {
+        args.push('--generate-gamma');
+    }
+    
+    // Show terminal container and execute
+    document.getElementById('terminalContainer').style.display = 'block';
+    document.getElementById('tabNavigation').style.display = 'flex';
+    
+    // Execute the command using the existing executeCommand function
+    executeCommand(command, args);
+}
+
+// Event listener for custom date inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const timePeriodSelect = document.getElementById('timePeriod');
+    if (timePeriodSelect) {
+        timePeriodSelect.addEventListener('change', function() {
+            const customInputs = document.getElementById('customDateInputs');
+            if (customInputs) {
+                customInputs.style.display = this.value === 'custom' ? 'block' : 'none';
+            }
+        });
+    }
+});

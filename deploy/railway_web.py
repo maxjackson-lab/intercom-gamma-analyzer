@@ -221,105 +221,76 @@ if HAS_FASTAPI:
         <div class="container">
             <h1>🤖 Intercom Analysis Tool - Chat Interface</h1>
             
-            <!-- Simple Form-Based Interface -->
-            <div class="form-container">
-                <div class="form-step" id="step1">
-                    <h2>Step 1: What kind of analysis?</h2>
-                    <div class="option-grid">
-                        <button class="option-btn" onclick="selectAnalysis('voice-of-customer')">
-                            📊 Voice of Customer<br>
-                            <small>Full sentiment analysis with topics</small>
-                        </button>
-                        <button class="option-btn" onclick="selectAnalysis('billing')">
-                            💳 Billing Issues<br>
-                            <small>Refunds, payments, subscriptions</small>
-                        </button>
-                        <button class="option-btn" onclick="selectAnalysis('tech')">
-                            🔧 Technical Issues<br>
-                            <small>Bugs and troubleshooting</small>
-                        </button>
-                        <button class="option-btn" onclick="selectAnalysis('api')">
-                            ⚙️ API Issues<br>
-                            <small>Integration problems</small>
-                        </button>
-                    </div>
+            <!-- Simple Dropdown Form -->
+            <div class="analysis-form">
+                <h2>Configure Analysis</h2>
+                
+                <label>Analysis Type:</label>
+                <select id="analysisType">
+                    <optgroup label="Voice of Customer">
+                        <option value="voice-of-customer-hilary" selected>VoC: Hilary Format (Topic Cards)</option>
+                        <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
+                        <option value="voice-of-customer-complete">VoC: Complete (Both Formats)</option>
+                    </optgroup>
+                    <optgroup label="Category Deep Dives">
+                        <option value="analyze-billing">Billing Analysis</option>
+                        <option value="analyze-product">Product Feedback</option>
+                        <option value="analyze-escalations">Escalations</option>
+                        <option value="tech-analysis">Technical Troubleshooting</option>
+                    </optgroup>
+                    <optgroup label="Combined Analysis">
+                        <option value="analyze-all-categories">All Categories</option>
+                    </optgroup>
+                    <optgroup label="Other Sources">
+                        <option value="canny-analysis">Canny Feedback</option>
+                    </optgroup>
+                </select>
+                
+                <label>Time Period:</label>
+                <select id="timePeriod">
+                    <option value="yesterday">Yesterday (fast - ~1k conversations)</option>
+                    <option value="week" selected>Last Week (~7k conversations)</option>
+                    <option value="month">Last Month (full analysis)</option>
+                    <option value="custom">Custom Date Range...</option>
+                </select>
+                
+                <div id="customDateInputs" style="display:none; margin-top: 10px;">
+                    <label>Start Date: <input type="date" id="startDate"></label>
+                    <label>End Date: <input type="date" id="endDate"></label>
                 </div>
-
-                <div class="form-step" id="step2" style="display:none;">
-                    <h2>Step 2: Time period?</h2>
-                    <div class="option-grid">
-                        <button class="option-btn" onclick="selectTimePeriod('yesterday')">
-                            📅 Yesterday<br>
-                            <small>~1k conversations, fast</small>
-                        </button>
-                        <button class="option-btn" onclick="selectTimePeriod('week')">
-                            📅 Last Week<br>
-                            <small>~7k conversations</small>
-                        </button>
-                        <button class="option-btn" onclick="selectTimePeriod('month')">
-                            📅 Last Month<br>
-                            <small>Full month analysis</small>
-                        </button>
-                        <button class="option-btn" onclick="selectTimePeriod('custom')">
-                            📅 Custom Dates<br>
-                            <small>Pick specific range</small>
-                        </button>
-                    </div>
-                    <div id="customDates" style="display:none; margin-top: 20px;">
-                        <label>Start Date: <input type="date" id="startDate"></label>
-                        <label>End Date: <input type="date" id="endDate"></label>
-                        <button onclick="confirmCustomDates()">Confirm</button>
-                    </div>
-                </div>
-
-                <div class="form-step" id="step3" style="display:none;">
-                    <h2>Step 3: Data source?</h2>
-                    <div class="option-grid">
-                        <button class="option-btn" onclick="selectSource('intercom')">
-                            💬 Intercom Only<br>
-                            <small>Support conversations</small>
-                        </button>
-                        <button class="option-btn" onclick="selectSource('canny')">
-                            ✨ Canny Only<br>
-                            <small>Feature requests</small>
-                        </button>
-                        <button class="option-btn" onclick="selectSource('both')">
-                            🔗 Both<br>
-                            <small>Combined analysis</small>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-step" id="step4" style="display:none;">
-                    <h2>Step 4: Output format?</h2>
-                    <div class="option-grid">
-                        <button class="option-btn" onclick="selectFormat('markdown')">
-                            📝 Markdown<br>
-                            <small>Text report</small>
-                        </button>
-                        <button class="option-btn" onclick="selectFormat('gamma')">
-                            🎨 Gamma Presentation<br>
-                            <small>Auto-generated slides</small>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-step" id="stepConfirm" style="display:none;">
-                    <h2>Ready to run!</h2>
-                    <div class="summary-box">
-                        <p><strong>Analysis:</strong> <span id="summaryAnalysis"></span></p>
-                        <p><strong>Time Period:</strong> <span id="summaryTime"></span></p>
-                        <p><strong>Data Source:</strong> <span id="summarySource"></span></p>
-                        <p><strong>Output:</strong> <span id="summaryFormat"></span></p>
-                    </div>
-                    <button class="run-btn" onclick="executeAnalysis()">▶️ Run Analysis</button>
-                    <button class="back-btn" onclick="resetForm()">🔄 Start Over</button>
-                </div>
-
-                <div class="form-step" id="stepRunning" style="display:none;">
-                    <h2>⏳ Analysis Running...</h2>
-                    <div id="terminalOutput" class="terminal-output"></div>
-                </div>
+                
+                <label>Data Source:</label>
+                <select id="dataSource">
+                    <option value="intercom" selected>Intercom Only</option>
+                    <option value="canny">Canny Only</option>
+                    <option value="both">Both Sources</option>
+                </select>
+                
+                <label>Filter by Taxonomy (optional):</label>
+                <select id="taxonomyFilter">
+                    <option value="" selected>All Categories</option>
+                    <option value="Billing">Billing</option>
+                    <option value="Bug">Bug Reports</option>
+                    <option value="Product Question">Product Questions</option>
+                    <option value="Account">Account Issues</option>
+                    <option value="Feedback">Feature Requests</option>
+                    <option value="Agent/Buddy">Agent/Buddy Issues</option>
+                    <option value="Workspace">Workspace/Team</option>
+                    <option value="Privacy">Privacy/Security</option>
+                    <option value="Chargeback">Chargebacks</option>
+                    <option value="Partnerships">Partnerships</option>
+                    <option value="Promotions">Promotions</option>
+                    <option value="Abuse">Abuse Reports</option>
+                    <option value="Unknown">Unclassified</option>
+                </select>
+                
+                <label>Output Format:</label>
+                <select id="outputFormat">
+                    <option value="markdown" selected>Markdown Report</option>
+                    <option value="gamma">Gamma Presentation</option>
+                </select>
+                
+                <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>
             
             <!-- Old chat input removed - use form wizard above -->
@@ -403,24 +374,7 @@ if HAS_FASTAPI:
                 <div id="jobsList"></div>
             </div>
             
-            <div class="examples" id="examplesSection">
-                <h3>💡 Example Queries</h3>
-                <div class="example" onclick="setQuery('Give me last week\\'s voice of customer report')">
-                    Give me last week's voice of customer report
-                </div>
-                <div class="example" onclick="setQuery('Show me billing analysis for this month with Gamma presentation')">
-                    Show me billing analysis for this month with Gamma presentation
-                </div>
-                <div class="example" onclick="setQuery('Analyze Canny feature requests from last week with Gamma presentation')">
-                    Analyze Canny feature requests from last week with Gamma presentation
-                </div>
-                <div class="example" onclick="setQuery('Create a combined Intercom + Canny feedback analysis')">
-                    Create a combined Intercom + Canny feedback analysis
-                </div>
-                <div class="example" onclick="setQuery('Help me understand what commands are available')">
-                    Help me understand what commands are available
-                </div>
-            </div>
+            <!-- Example queries removed - using simple dropdown form instead -->
         </div>
         
         <!-- Version marker for cache verification -->

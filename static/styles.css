@@ -727,3 +727,97 @@ button:disabled {
     border-radius: 4px;
     font-size: 14px;
 }
+
+/* Simple Dropdown Form Styles */
+.analysis-form {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    margin-bottom: 30px;
+    border: 1px solid #2a2a2a;
+}
+
+.analysis-form h2 {
+    color: #ffffff;
+    margin-bottom: 25px;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.analysis-form label {
+    display: block;
+    margin: 20px 0 8px 0;
+    font-weight: 600;
+    color: #e5e7eb;
+    font-size: 14px;
+}
+
+.analysis-form select,
+.analysis-form input[type="date"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #0a0a0a;
+    color: #e5e7eb;
+    transition: border-color 0.2s;
+}
+
+.analysis-form select:hover,
+.analysis-form input[type="date"]:hover {
+    border-color: #4a4a4a;
+}
+
+.analysis-form select:focus,
+.analysis-form input[type="date"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.analysis-form optgroup {
+    font-weight: bold;
+    color: #667eea;
+}
+
+.analysis-form option {
+    padding: 8px;
+    background: #0a0a0a;
+    color: #e5e7eb;
+}
+
+#customDateInputs {
+    padding: 15px;
+    background: #0a0a0a;
+    border-radius: 8px;
+    border: 1px solid #2a2a2a;
+}
+
+#customDateInputs label {
+    margin: 10px 0;
+}
+
+.run-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 16px 48px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 25px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+}
+
+.run-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.run-button:active {
+    transform: translateY(0);
+}
