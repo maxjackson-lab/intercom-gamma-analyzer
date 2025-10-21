@@ -237,10 +237,16 @@ if HAS_FASTAPI:
             
             <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3);">
                 <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb;">
-                    <input type="checkbox" id="multiAgentMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-                    <span style="font-weight: 500;">🤖 Multi-Agent Mode</span>
-                    <span style="margin-left: 10px; font-size: 12px; color: #9ca3af;">(Premium quality, 3-5x cost, +30% insight improvement)</span>
+                    <input type="checkbox" id="multiAgentMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;" checked>
+                    <span style="font-weight: 500;">🤖 Topic-Based Analysis</span>
+                    <span style="margin-left: 10px; font-size: 12px; color: #9ca3af;">(Hilary's VoC format - Paid/Free separation, Per-topic sentiment, Fin analysis)</span>
                 </label>
+                <div style="margin-top: 8px; font-size: 11px; color: #6b7280; margin-left: 28px;">
+                    ✓ Separates paid (human) vs free (Fin) customers<br>
+                    ✓ Topic-specific sentiment insights<br>
+                    ✓ 3-10 example conversations per topic<br>
+                    ✓ Week-over-week trends (when available)
+                </div>
             </div>
             
             <div id="status"></div>
