@@ -98,6 +98,20 @@ class ChunkedFetcher:
             if progress_callback:
                 progress_callback(len(conversations), len(conversations))
             
+            # Debug: Check actual date range of fetched conversations
+            if conversations:
+                actual_dates = [datetime.fromtimestamp(c.get('created_at')) for c in conversations if c.get('created_at')]
+                if actual_dates:
+                    min_date = min(actual_dates)
+                    max_date = max(actual_dates)
+                    self.logger.info(f"📅 Actual date range in fetched data: {min_date.date()} to {max_date.date()}")
+                    
+                    # Check if dates are outside requested range
+                    if min_date.date() < start_date.date() or max_date.date() > end_date.date():
+                        self.logger.warning(f"⚠️  API returned conversations outside requested range!")
+                        self.logger.warning(f"   Requested: {start_date.date()} to {end_date.date()}")
+                        self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
+            
             self.logger.info(f"Single chunk completed: {len(conversations)} conversations")
             return conversations
             
@@ -132,6 +146,20 @@ class ChunkedFetcher:
                     current_date, chunk_end, max_pages
                 )
                 
+                # Debug: Check actual date range of fetched chunk
+                if chunk_conversations:
+                    actual_dates = [datetime.fromtimestamp(c.get('created_at')) for c in chunk_conversations if c.get('created_at')]
+                    if actual_dates:
+                        min_date = min(actual_dates)
+                        max_date = max(actual_dates)
+                        self.logger.info(f"📅 Chunk actual dates: {min_date.date()} to {max_date.date()}")
+                        
+                        # Check if dates are outside requested range
+                        if min_date.date() < current_date.date() or max_date.date() > chunk_end.date():
+                            self.logger.warning(f"⚠️  API returned conversations outside chunk range!")
+                            self.logger.warning(f"   Requested: {current_date.date()} to {chunk_end.date()}")
+                            self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
+                
                 all_conversations.extend(chunk_conversations)
                 processed_days += (chunk_end - current_date).days + 1
                 
@@ -160,7 +188,18 @@ class ChunkedFetcher:
                     self.logger.error("No conversations fetched, failing")
                     raise FetchError(f"Failed to fetch chunk {current_date.date()}-{chunk_end.date()}: {e}") from e
         
-        self.logger.info(f"Daily chunking completed: {len(all_conversations)} total conversations")
+        # Final verification of all fetched data
+        if all_conversations:
+            all_dates = [datetime.fromtimestamp(c.get('created_at')) for c in all_conversations if c.get('created_at')]
+            if all_dates:
+                final_min = min(all_dates)
+                final_max = max(all_dates)
+                self.logger.info(f"📊 FINAL: Fetched {len(all_conversations)} conversations")
+                self.logger.info(f"📅 FINAL: Date range {final_min.date()} to {final_max.date()}")
+                self.logger.info(f"   Requested: {start_date.date()} to {end_date.date()}")
+        else:
+            self.logger.info(f"Daily chunking completed: {len(all_conversations)} total conversations")
+        
         return all_conversations
     
     async def fetch_with_conversation_limit(
