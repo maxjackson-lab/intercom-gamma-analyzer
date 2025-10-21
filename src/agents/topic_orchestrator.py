@@ -102,13 +102,27 @@ class TopicOrchestrator:
             topic_sentiments = {}
             topic_examples = {}
             
+            # First, get the actual conversations_by_topic from detection result
+            # The detection agent returns conversation IDs mapped to topics
+            # We need to build a map of topic -> actual conversation objects
+            conversations_by_topic_full = {}
+            topics_by_conv_id = topic_detection_result.data.get('topics_by_conversation', {})
+            
+            for conv in paid_conversations:
+                conv_id = conv.get('id')
+                topics_for_conv = topics_by_conv_id.get(conv_id, [])
+                
+                for topic_assignment in topics_for_conv:
+                    topic_name = topic_assignment['topic']
+                    if topic_name not in conversations_by_topic_full:
+                        conversations_by_topic_full[topic_name] = []
+                    conversations_by_topic_full[topic_name].append(conv)
+            
             for topic_name, topic_stats in topic_dist.items():
                 # Get conversations for this topic
-                topic_convs = [
-                    c for c in paid_conversations
-                    if any(t['topic'] == topic_name 
-                          for t in topic_detection_result.data['topics_by_conversation'].get(c.get('id'), []))
-                ]
+                topic_convs = conversations_by_topic_full.get(topic_name, [])
+                
+                self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
                 
                 # Sentiment for this topic
                 topic_context = context.model_copy()
@@ -156,12 +170,12 @@ class TopicOrchestrator:
             self.logger.info("📝 Phase 6: Output Formatting")
             output_context = context.model_copy()
             output_context.previous_results = {
-                'SegmentationAgent': segmentation_result,
-                'TopicDetectionAgent': topic_detection_result,
-                'TopicSentiments': topic_sentiments,
-                'TopicExamples': topic_examples,
-                'FinPerformanceAgent': fin_result,
-                'TrendAgent': trend_result
+                'SegmentationAgent': segmentation_result.dict(),
+                'TopicDetectionAgent': topic_detection_result.dict(),
+                'TopicSentiments': topic_sentiments,  # Already dict
+                'TopicExamples': topic_examples,  # Already dict
+                'FinPerformanceAgent': fin_result.dict(),
+                'TrendAgent': trend_result.dict()
             }
             output_context.metadata = {'week_id': week_id}
             
