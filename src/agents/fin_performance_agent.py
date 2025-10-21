@@ -13,19 +13,21 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.services.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
 
 class FinPerformanceAgent(BaseAgent):
-    """Agent specialized in Fin AI performance analysis"""
+    """Agent specialized in Fin AI performance analysis with LLM insights"""
     
     def __init__(self):
         super().__init__(
             name="FinPerformanceAgent",
             model="gpt-4o",
-            temperature=0.3
+            temperature=0.4
         )
+        self.openai_client = OpenAIClient()
     
     def get_agent_specific_instructions(self) -> str:
         """Fin performance agent instructions"""
@@ -163,6 +165,12 @@ Calculate:
                     )[:3]
                 }
             
+            # Add LLM interpretation of Fin performance
+            if total > 0:
+                self.logger.info("Generating nuanced Fin performance insights with LLM...")
+                llm_insights = await self._generate_fin_insights(result_data)
+                result_data['llm_insights'] = llm_insights
+            
             self.validate_output(result_data)
             
             confidence = resolution_rate if total > 0 else 0.5
@@ -202,4 +210,47 @@ Calculate:
                 error_message=str(e),
                 execution_time=execution_time
             )
+    
+    async def _generate_fin_insights(self, metrics: Dict) -> str:
+        """
+        Use LLM to generate nuanced insights about Fin's performance
+        
+        Args:
+            metrics: Calculated Fin performance metrics
+            
+        Returns:
+            Nuanced performance insights
+        """
+        resolution_rate = metrics.get('resolution_rate', 0)
+        knowledge_gaps = metrics.get('knowledge_gaps_count', 0)
+        total = metrics.get('total_fin_conversations', 0)
+        top_topics = metrics.get('top_performing_topics', [])
+        struggling = metrics.get('struggling_topics', [])
+        
+        prompt = f"""
+Analyze Fin AI's performance and provide nuanced, actionable insights.
+
+Metrics:
+- Total Fin conversations: {total}
+- Resolution rate: {resolution_rate:.1%}
+- Knowledge gaps: {knowledge_gaps} conversations
+
+Top performing topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in top_topics])}
+Struggling topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in struggling])}
+
+Instructions:
+1. Provide 2-3 specific insights about Fin's performance
+2. Be dramatic and specific, not generic
+3. Identify patterns in what Fin does well vs struggles with
+4. Suggest WHY Fin might be struggling (knowledge gaps, complex topics, etc.)
+5. Keep it under 150 words, conversational tone
+
+Insights:"""
+        
+        try:
+            insights = await self.openai_client.generate_analysis(prompt)
+            return insights.strip()
+        except Exception as e:
+            self.logger.warning(f"LLM insights generation failed: {e}")
+            return f"Fin resolved {resolution_rate:.1%} of conversations with {knowledge_gaps} knowledge gaps detected."
 

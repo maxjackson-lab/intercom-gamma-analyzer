@@ -15,19 +15,21 @@ import json
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.services.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
 
 class TrendAgent(BaseAgent):
-    """Agent specialized in week-over-week trend analysis"""
+    """Agent specialized in week-over-week trend analysis with LLM interpretation"""
     
     def __init__(self, historical_data_dir: Optional[Path] = None):
         super().__init__(
             name="TrendAgent",
-            model="gpt-4o-mini",
-            temperature=0.1
+            model="gpt-4o",
+            temperature=0.5
         )
+        self.openai_client = OpenAIClient()
         self.historical_dir = historical_data_dir or Path("outputs/weekly_history")
         self.historical_dir.mkdir(parents=True, exist_ok=True)
     
@@ -115,8 +117,13 @@ Output trends for:
                 # Calculate trends
                 trends = self._calculate_trends(current_results, historical_data)
                 
+                # Add LLM interpretation of trends
+                self.logger.info("Generating trend explanations with LLM...")
+                trend_insights = await self._interpret_trends(trends, current_results, historical_data[-1]['results'] if historical_data else {})
+                
                 result_data = {
                     'trends': trends,
+                    'trend_insights': trend_insights,
                     'week_id': week_id,
                     'historical_weeks_available': len(historical_data),
                     'comparison_week': historical_data[-1]['week_id'] if historical_data else None
@@ -241,4 +248,59 @@ Output trends for:
         elif pct_change < -5:
             return "Decreasing"
         return "Stable"
+    
+    async def _interpret_trends(self, trends: Dict, current: Dict, previous: Dict) -> Dict[str, str]:
+        """
+        Use LLM to interpret WHY trends are happening
+        
+        Args:
+            trends: Calculated trend data
+            current: Current week's results
+            previous: Previous week's results
+            
+        Returns:
+            Topic interpretations explaining the trends
+        """
+        interpretations = {}
+        
+        # Get current sentiment data if available
+        current_sentiments = current.get('topic_sentiments', {})
+        
+        for topic, trend_data in trends.items():
+            direction = trend_data.get('direction', 'stable')
+            change_pct = trend_data.get('volume_change_pct', 0)
+            
+            # Only interpret significant changes
+            if abs(change_pct) < 10:
+                continue
+            
+            # Get sentiment for context
+            sentiment = ""
+            if topic in current_sentiments:
+                sentiment = current_sentiments[topic].get('sentiment_insight', '')
+            
+            prompt = f"""
+Explain WHY this trend might be happening based on the data.
+
+Topic: {topic}
+Volume change: {change_pct:+.1f}% ({direction})
+Current sentiment: {sentiment}
+
+Instructions:
+1. Provide ONE sentence explaining the likely cause
+2. Be specific and actionable
+3. Consider: product changes, user behavior patterns, seasonal factors, issues escalating
+4. Example: "Agent/Buddy volume up 23% likely due to recent editing feature launch causing confusion"
+
+Explanation:"""
+            
+            try:
+                explanation = await self.openai_client.generate_analysis(prompt)
+                interpretations[topic] = explanation.strip()
+                self.logger.info(f"Trend insight for {topic}: {explanation[:100]}...")
+            except Exception as e:
+                self.logger.warning(f"LLM trend interpretation failed for {topic}: {e}")
+                interpretations[topic] = f"Volume {direction} by {change_pct:+.1f}%"
+        
+        return interpretations
 

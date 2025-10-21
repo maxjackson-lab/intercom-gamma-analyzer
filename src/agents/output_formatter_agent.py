@@ -116,8 +116,15 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 # Get trend if available
                 trend = trends.get(topic_name, {})
                 trend_indicator = ""
+                trend_explanation = ""
                 if trend and 'direction' in trend:
                     trend_indicator = f" {trend['direction']} {trend.get('alert', '')}"
+                
+                # Get LLM trend insights from TrendAgent
+                trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
+                trend_insights = trend_agent_data.get('trend_insights', {})
+                if topic_name in trend_insights:
+                    trend_explanation = trend_insights[topic_name]
                 
                 # Format card
                 card = self._format_topic_card(
@@ -125,7 +132,8 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     topic_stats,
                     sentiment,
                     examples,
-                    trend_indicator
+                    trend_indicator,
+                    trend_explanation
                 )
                 output_sections.append(card)
             
@@ -180,7 +188,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 execution_time=execution_time
             )
     
-    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str) -> str:
+    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "") -> str:
         """Format a single topic card"""
         method_label = "Intercom conversation attribute" if stats['detection_method'] == 'attribute' else "Keyword detection"
         
@@ -189,9 +197,13 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
 **Detection Method**: {method_label}
 
 **Sentiment**: {sentiment}
-
-**Examples**:
 """
+        
+        # Add trend explanation if available
+        if trend_explanation:
+            card += f"\n**Trend Analysis**: {trend_explanation}\n"
+        
+        card += "\n**Examples**:\n"
         
         # Add examples
         for i, example in enumerate(examples, 1):
@@ -242,6 +254,11 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             card += "\n**Topics where Fin struggles**:\n"
             for topic, stats in struggling:
                 card += f"- {topic}: {stats['resolution_rate']:.1%} resolution rate ({stats['total']} conversations)\n"
+        
+        # Add LLM-generated insights if available
+        llm_insights = fin_data.get('llm_insights', '')
+        if llm_insights:
+            card += f"\n**AI Performance Insights**:\n{llm_insights}\n"
         
         card += "\n---\n"
         

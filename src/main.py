@@ -2931,6 +2931,7 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
     """Run topic-based analysis with custom date range"""
     from src.agents.topic_orchestrator import TopicOrchestrator
     from src.services.chunked_fetcher import ChunkedFetcher
+    from src.services.gamma_generator import GammaGenerator
     
     console.print("📥 Fetching conversations...")
     fetcher = ChunkedFetcher()
@@ -2958,21 +2959,61 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
     
     console.print(f"✅ Topic-based analysis complete")
     console.print(f"📁 Report: {report_file}")
+    
+    # Generate Gamma presentation if requested
+    if generate_gamma:
+        console.print("\n🎨 Generating Gamma presentation...")
+        try:
+            gamma_gen = GammaGenerator()
+            
+            # Prepare analysis results for Gamma
+            gamma_input = {
+                'analysis_text': results.get('formatted_report', ''),
+                'conversations': conversations[:50],  # Sample for context
+                'metadata': {
+                    'week_id': week_id,
+                    'start_date': start_date.isoformat(),
+                    'end_date': end_date.isoformat(),
+                    'total_conversations': len(conversations),
+                    'analysis_type': 'Topic-Based VoC (Hilary Format)'
+                }
+            }
+            
+            gamma_result = await gamma_gen.generate_from_analysis(
+                analysis_results=gamma_input,
+                style="executive",
+                output_dir=output_dir
+            )
+            
+            gamma_url = gamma_result.get('gamma_url')
+            if gamma_url:
+                console.print(f"✅ Gamma URL: {gamma_url}")
+            else:
+                console.print("[yellow]⚠️  Gamma generation completed but no URL returned[/yellow]")
+        except Exception as e:
+            console.print(f"[red]❌ Gamma generation failed: {e}[/red]")
+            import traceback
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
 
 
 async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
     """Run synthesis analysis with custom date range"""
     from src.agents.orchestrator import MultiAgentOrchestrator
     from src.services.chunked_fetcher import ChunkedFetcher
+    from src.services.gamma_generator import GammaGenerator
     
     console.print("📥 Fetching conversations...")
     fetcher = ChunkedFetcher()
     conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
     console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
     
-    # Store in context for orchestrator
-    # Implementation would go here
+    # TODO: Implement synthesis orchestrator
     console.print("✅ Synthesis analysis complete")
+    console.print("[yellow]Note: Synthesis analysis implementation pending[/yellow]")
+    
+    # Gamma generation would go here when synthesis is implemented
+    if generate_gamma:
+        console.print("[yellow]Gamma generation for synthesis pending synthesis implementation[/yellow]")
 
 
 async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
