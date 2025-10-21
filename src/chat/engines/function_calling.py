@@ -311,7 +311,11 @@ class FunctionCallingEngine:
         query_lower = query.lower()
         
         # Relative date patterns
-        if "last week" in query_lower:
+        if "yesterday" in query_lower:
+            yesterday = datetime.now() - timedelta(days=1)
+            return yesterday.strftime("%Y-%m-%d"), yesterday.strftime("%Y-%m-%d")
+        
+        elif "last week" in query_lower:
             end_date = datetime.now() - timedelta(days=7)
             start_date = end_date - timedelta(days=7)
             return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")

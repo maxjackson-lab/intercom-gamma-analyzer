@@ -164,6 +164,7 @@ class IntentClassifier:
         query_lower = query.lower()
         
         time_patterns = [
+            (r"yesterday", "yesterday"),
             (r"last week|this week|weekly", "week"),
             (r"last month|this month|monthly", "month"),
             (r"last quarter|this quarter|quarterly", "quarter"),

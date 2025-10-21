@@ -325,6 +325,7 @@ class RAGEngine:
         
         # Extract date patterns
         date_patterns = [
+            (r"yesterday", "time_period", "yesterday"),
             (r"last week", "time_period", "week"),
             (r"this week", "time_period", "week"),
             (r"last month", "time_period", "month"),
