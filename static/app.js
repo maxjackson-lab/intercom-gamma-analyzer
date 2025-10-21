@@ -248,11 +248,12 @@ async function sendMessage() {
         button.disabled = false;
         button.textContent = 'Send';
         
-        addMessage('bot', `<strong>📚 Available Analysis Commands:</strong><br><br>
+        addMessage('bot', `            <strong>📚 Available Analysis Commands:</strong><br><br>
             
             <strong>Main Analysis:</strong><br>
             • <code>voice-of-customer --start-date YYYY-MM-DD --end-date YYYY-MM-DD --generate-gamma</code><br>
-            &nbsp;&nbsp;Comprehensive VoC analysis with topic detection<br><br>
+            &nbsp;&nbsp;Comprehensive VoC analysis with topic detection<br>
+            &nbsp;&nbsp;<em>Note: Dates interpreted as Pacific Time (America/Los_Angeles)</em><br><br>
             
             <strong>Category-Specific:</strong><br>
             • <code>billing-analysis --generate-gamma</code> - Billing, refunds, subscriptions<br>
