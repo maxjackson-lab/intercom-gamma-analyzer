@@ -241,6 +241,24 @@ async function sendMessage() {
     addMessage('user', query);
     input.value = '';
     
+    // Handle help queries directly if chat interface might fail
+    const lowerQuery = query.toLowerCase();
+    if (lowerQuery.includes('help') || lowerQuery.includes('available commands') || lowerQuery.includes('what commands')) {
+        input.disabled = false;
+        button.disabled = false;
+        button.textContent = 'Send';
+        
+        addMessage('bot', `<strong>Available Commands:</strong><br>
+            • voice-of-customer --start-date YYYY-MM-DD --end-date YYYY-MM-DD --generate-gamma<br>
+            • billing-analysis --generate-gamma<br>
+            • tech-analysis --days 7<br>
+            • api-analysis --generate-gamma<br>
+            • canny-analysis --generate-gamma --start-date YYYY-MM-DD --end-date YYYY-MM-DD<br><br>
+            <strong>Analysis Modes:</strong><br>
+            Use the dropdown above to choose: Topic-Based (Hilary's format), Synthesis (Insights), or Complete (Both)`);
+        return;
+    }
+    
     try {
         const response = await fetch('/chat', {
             method: 'POST',
