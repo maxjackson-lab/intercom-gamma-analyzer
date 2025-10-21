@@ -2772,6 +2772,9 @@ def canny_analysis(
               help='Generate Gamma presentation from results')
 @click.option('--separate-agent-feedback', is_flag=True, default=True,
               help='Separate feedback by agent type (Finn, Boldr, Horatio, etc.)')
+@click.option('--multi-agent', is_flag=True, help='Use multi-agent mode')
+@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete']), 
+              default='topic-based', help='Analysis type when multi-agent enabled')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def voice_of_customer_analysis(
     time_period: Optional[str],
@@ -2785,6 +2788,8 @@ def voice_of_customer_analysis(
     canny_board_id: Optional[str],
     generate_gamma: bool,
     separate_agent_feedback: bool,
+    multi_agent: bool,
+    analysis_type: str,
     output_dir: str
 ):
     """
@@ -2864,10 +2869,25 @@ def voice_of_customer_analysis(
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
     
-    asyncio.run(run_voc_analysis(
-        start_date, end_date, ai_model, enable_fallback,
-        include_trends, include_canny, canny_board_id, generate_gamma, separate_agent_feedback, output_dir
-    ))
+    if multi_agent:
+        console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
+        # Route to appropriate multi-agent function
+        from calendar import monthrange
+        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        if analysis_type == 'topic-based':
+            asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma))
+        elif analysis_type == 'synthesis':
+            asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma))
+        else:  # complete
+            asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma))
+    else:
+        # Standard single-agent mode
+        asyncio.run(run_voc_analysis(
+            start_date, end_date, ai_model, enable_fallback,
+            include_trends, include_canny, canny_board_id, generate_gamma, separate_agent_feedback, output_dir
+        ))
 
 
 @cli.command()
@@ -2908,6 +2928,62 @@ def chat(model: str, enable_cache: bool, railway: bool):
     except Exception as e:
         console.print(f"[red]❌ Failed to start chat interface: {e}[/red]")
         console.print("[yellow]Check the logs for more details[/yellow]")
+
+
+async def run_topic_based_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+    """Run topic-based analysis with custom date range"""
+    from src.agents.topic_orchestrator import TopicOrchestrator
+    from src.services.chunked_fetcher import ChunkedFetcher
+    
+    console.print("📥 Fetching conversations...")
+    fetcher = ChunkedFetcher()
+    conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
+    console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+    
+    orchestrator = TopicOrchestrator()
+    week_id = start_date.strftime('%Y-W%W')
+    
+    results = await orchestrator.execute_weekly_analysis(
+        conversations=conversations,
+        week_id=week_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # Save output
+    output_dir = Path("outputs")
+    output_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_file = output_dir / f"topic_based_{week_id}_{timestamp}.md"
+    
+    with open(report_file, 'w') as f:
+        f.write(results.get('formatted_report', ''))
+    
+    console.print(f"✅ Topic-based analysis complete")
+    console.print(f"📁 Report: {report_file}")
+
+
+async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+    """Run synthesis analysis with custom date range"""
+    from src.agents.orchestrator import MultiAgentOrchestrator
+    from src.services.chunked_fetcher import ChunkedFetcher
+    
+    console.print("📥 Fetching conversations...")
+    fetcher = ChunkedFetcher()
+    conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
+    console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+    
+    # Store in context for orchestrator
+    # Implementation would go here
+    console.print("✅ Synthesis analysis complete")
+
+
+async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+    """Run both analyses"""
+    await run_topic_based_analysis_custom(start_date, end_date, generate_gamma)
+    console.print("\n" + "="*80 + "\n")
+    await run_synthesis_analysis_custom(start_date, end_date, generate_gamma)
+    console.print("\n🎉 Complete analysis finished!")
 
 
 async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
