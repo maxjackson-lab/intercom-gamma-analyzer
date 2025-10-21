@@ -221,12 +221,104 @@ if HAS_FASTAPI:
         <div class="container">
             <h1>🤖 Intercom Analysis Tool - Chat Interface</h1>
             
-            <div class="chat-container" id="chatContainer">
-                <div class="message bot-message">
-                    <strong>Bot:</strong> Hello! I can help you generate analysis reports using natural language. Try asking me something like "Give me last week's voice of customer report" or "Show me billing analysis for this month".
+            <!-- Simple Form-Based Interface -->
+            <div class="form-container">
+                <div class="form-step" id="step1">
+                    <h2>Step 1: What kind of analysis?</h2>
+                    <div class="option-grid">
+                        <button class="option-btn" onclick="selectAnalysis('voice-of-customer')">
+                            📊 Voice of Customer<br>
+                            <small>Full sentiment analysis with topics</small>
+                        </button>
+                        <button class="option-btn" onclick="selectAnalysis('billing')">
+                            💳 Billing Issues<br>
+                            <small>Refunds, payments, subscriptions</small>
+                        </button>
+                        <button class="option-btn" onclick="selectAnalysis('tech')">
+                            🔧 Technical Issues<br>
+                            <small>Bugs and troubleshooting</small>
+                        </button>
+                        <button class="option-btn" onclick="selectAnalysis('api')">
+                            ⚙️ API Issues<br>
+                            <small>Integration problems</small>
+                        </button>
+                    </div>
                 </div>
-                <div class="message bot-message" id="statusMessage" style="display: none;">
-                    <strong>System:</strong> <span id="statusText"></span>
+
+                <div class="form-step" id="step2" style="display:none;">
+                    <h2>Step 2: Time period?</h2>
+                    <div class="option-grid">
+                        <button class="option-btn" onclick="selectTimePeriod('yesterday')">
+                            📅 Yesterday<br>
+                            <small>~1k conversations, fast</small>
+                        </button>
+                        <button class="option-btn" onclick="selectTimePeriod('week')">
+                            📅 Last Week<br>
+                            <small>~7k conversations</small>
+                        </button>
+                        <button class="option-btn" onclick="selectTimePeriod('month')">
+                            📅 Last Month<br>
+                            <small>Full month analysis</small>
+                        </button>
+                        <button class="option-btn" onclick="selectTimePeriod('custom')">
+                            📅 Custom Dates<br>
+                            <small>Pick specific range</small>
+                        </button>
+                    </div>
+                    <div id="customDates" style="display:none; margin-top: 20px;">
+                        <label>Start Date: <input type="date" id="startDate"></label>
+                        <label>End Date: <input type="date" id="endDate"></label>
+                        <button onclick="confirmCustomDates()">Confirm</button>
+                    </div>
+                </div>
+
+                <div class="form-step" id="step3" style="display:none;">
+                    <h2>Step 3: Data source?</h2>
+                    <div class="option-grid">
+                        <button class="option-btn" onclick="selectSource('intercom')">
+                            💬 Intercom Only<br>
+                            <small>Support conversations</small>
+                        </button>
+                        <button class="option-btn" onclick="selectSource('canny')">
+                            ✨ Canny Only<br>
+                            <small>Feature requests</small>
+                        </button>
+                        <button class="option-btn" onclick="selectSource('both')">
+                            🔗 Both<br>
+                            <small>Combined analysis</small>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-step" id="step4" style="display:none;">
+                    <h2>Step 4: Output format?</h2>
+                    <div class="option-grid">
+                        <button class="option-btn" onclick="selectFormat('markdown')">
+                            📝 Markdown<br>
+                            <small>Text report</small>
+                        </button>
+                        <button class="option-btn" onclick="selectFormat('gamma')">
+                            🎨 Gamma Presentation<br>
+                            <small>Auto-generated slides</small>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-step" id="stepConfirm" style="display:none;">
+                    <h2>Ready to run!</h2>
+                    <div class="summary-box">
+                        <p><strong>Analysis:</strong> <span id="summaryAnalysis"></span></p>
+                        <p><strong>Time Period:</strong> <span id="summaryTime"></span></p>
+                        <p><strong>Data Source:</strong> <span id="summarySource"></span></p>
+                        <p><strong>Output:</strong> <span id="summaryFormat"></span></p>
+                    </div>
+                    <button class="run-btn" onclick="executeAnalysis()">▶️ Run Analysis</button>
+                    <button class="back-btn" onclick="resetForm()">🔄 Start Over</button>
+                </div>
+
+                <div class="form-step" id="stepRunning" style="display:none;">
+                    <h2>⏳ Analysis Running...</h2>
+                    <div id="terminalOutput" class="terminal-output"></div>
                 </div>
             </div>
             
