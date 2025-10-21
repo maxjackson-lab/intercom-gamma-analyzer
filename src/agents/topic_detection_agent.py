@@ -14,12 +14,13 @@ from typing import Dict, Any, List, Tuple
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.services.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
 
 class TopicDetectionAgent(BaseAgent):
-    """Agent specialized in hybrid topic detection"""
+    """Agent specialized in hybrid topic detection with LLM enhancement"""
     
     def __init__(self):
         super().__init__(
@@ -27,6 +28,7 @@ class TopicDetectionAgent(BaseAgent):
             model="gpt-4o-mini",
             temperature=0.1
         )
+        self.openai_client = OpenAIClient()
         
         # Topic definitions (hybrid: attribute + keywords)
         self.topics = {
@@ -198,6 +200,21 @@ For each conversation:
                     'keyword_count': detection_methods[topic]['keyword']
                 }
             
+            # LLM Enhancement: Discover additional semantic topics
+            self.logger.info("Enhancing with LLM for semantic topic discovery...")
+            llm_topics = await self._enhance_with_llm(conversations, topic_distribution)
+            if llm_topics:
+                for topic_name, topic_info in llm_topics.items():
+                    if topic_name not in topic_distribution:
+                        topic_distribution[topic_name] = {
+                            'volume': 0,  # Would need re-scan to get actual count
+                            'percentage': 0,
+                            'detection_method': topic_info['method'],
+                            'attribute_count': 0,
+                            'keyword_count': 0,
+                            'llm_discovered': True
+                        }
+            
             # Prepare result
             result_data = {
                 'topics_by_conversation': topics_by_conversation,
@@ -288,4 +305,62 @@ For each conversation:
                 })
         
         return detected
+    
+    async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Dict:
+        """
+        Use LLM to discover additional semantic topics not caught by keywords
+        
+        Args:
+            conversations: Sample of conversations
+            initial_topics: Topics already detected by rules
+            
+        Returns:
+            Additional topics discovered by LLM
+        """
+        # Sample 20 conversations for LLM analysis
+        sample = conversations[:20]
+        
+        # Build prompt
+        conv_summaries = []
+        for i, conv in enumerate(sample, 1):
+            customer_msgs = conv.get('customer_messages', [])
+            if customer_msgs:
+                conv_summaries.append(f"{i}. {customer_msgs[0][:200]}")
+        
+        if not conv_summaries:
+            return {}
+        
+        prompt = f"""
+Analyze these customer support conversations and identify ANY additional topics not in the predefined list.
+
+Already detected topics: {', '.join(initial_topics.keys())}
+
+Sample conversations:
+{chr(10).join(conv_summaries)}
+
+Instructions:
+1. Look for semantic themes, not just keywords
+2. Only suggest topics that appear in 3+ conversations
+3. Return topics as a JSON array: ["Topic Name 1", "Topic Name 2"]
+4. If no new topics, return empty array: []
+
+Additional topics:"""
+        
+        try:
+            response = await self.openai_client.generate_analysis(prompt)
+            # Parse JSON from response
+            import json
+            # Try to extract JSON array from response
+            if '[' in response and ']' in response:
+                start = response.index('[')
+                end = response.rindex(']') + 1
+                topics_json = response[start:end]
+                new_topics = json.loads(topics_json)
+                
+                self.logger.info(f"LLM discovered {len(new_topics)} additional topics: {new_topics}")
+                return {topic: {'method': 'llm_semantic', 'confidence': 0.7} for topic in new_topics}
+        except Exception as e:
+            self.logger.warning(f"LLM topic enhancement failed: {e}")
+        
+        return {}
 

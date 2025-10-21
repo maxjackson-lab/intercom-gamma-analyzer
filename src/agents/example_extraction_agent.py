@@ -13,19 +13,21 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.services.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
 
 class ExampleExtractionAgent(BaseAgent):
-    """Agent specialized in extracting representative conversation examples"""
+    """Agent specialized in extracting representative conversation examples with LLM selection"""
     
     def __init__(self):
         super().__init__(
             name="ExampleExtractionAgent",
-            model="gpt-4o-mini",
-            temperature=0.1
+            model="gpt-4o",
+            temperature=0.3
         )
+        self.openai_client = OpenAIClient()
     
     def get_agent_specific_instructions(self) -> str:
         """Example extraction agent specific instructions"""
@@ -114,16 +116,24 @@ Selection criteria:
             # Sort by score (highest first)
             scored_conversations.sort(reverse=True, key=lambda x: x[0])
             
-            # Select top 3-10 based on scores
-            # Take top scorers, but ensure minimum quality threshold
+            # Select top candidates (top 20) for LLM refinement
             MIN_SCORE = 2.0
-            selected = [
+            candidates = [
                 conv for score, conv in scored_conversations
                 if score >= MIN_SCORE
-            ][:10]  # Max 10
+            ][:20]  # Top 20 candidates
             
-            # If we don't have at least 3, lower the threshold
-            if len(selected) < 3:
+            # If we don't have at least 10 candidates, lower the threshold
+            if len(candidates) < 10:
+                candidates = [conv for score, conv in scored_conversations[:15]]
+            
+            # Use LLM to select the most dramatic, representative examples
+            self.logger.info(f"Using LLM to select best examples from {len(candidates)} candidates...")
+            selected = await self._llm_select_examples(candidates, topic, sentiment, target_count=7)
+            
+            # Fallback to rule-based if LLM fails
+            if not selected:
+                self.logger.warning("LLM selection failed, using top scored examples")
                 selected = [conv for score, conv in scored_conversations[:7]]
             
             # Format examples
@@ -258,4 +268,73 @@ Selection criteria:
             'conversation_id': conv_id,
             'created_at': conv.get('created_at').isoformat() if conv.get('created_at') else None
         }
+    
+    async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 7) -> List[Dict]:
+        """
+        Use LLM to select the most dramatic and representative examples
+        
+        Args:
+            candidates: Top-scored conversations
+            topic: Topic name
+            sentiment: Sentiment insight for the topic
+            target_count: Number of examples to select
+            
+        Returns:
+            List of selected conversations
+        """
+        if not candidates:
+            return []
+        
+        # Build prompt with candidate summaries
+        candidate_summaries = []
+        for i, conv in enumerate(candidates):
+            customer_msgs = conv.get('customer_messages', [])
+            if customer_msgs:
+                msg = customer_msgs[0][:150]
+                candidate_summaries.append(f"{i+1}. \"{msg}\"")
+        
+        prompt = f"""
+You are selecting the MOST DRAMATIC and REPRESENTATIVE examples for this topic analysis.
+
+Topic: {topic}
+Sentiment Insight: {sentiment}
+
+Candidate conversations (ranked by quality):
+{chr(10).join(candidate_summaries)}
+
+Instructions:
+1. Select {target_count} examples that are:
+   - Most dramatic/emotional (capture the sentiment strongly)
+   - Most representative (show different aspects of the issue)
+   - Most specific (clear, actionable feedback)
+   - Most quotable (would make Hilary sit up and take notice)
+
+2. Return ONLY the numbers (1-{len(candidates)}) as a JSON array
+3. Example: [1, 3, 7, 12, 15, 18, 20]
+
+Selected example numbers:"""
+
+        try:
+            response = await self.openai_client.generate_analysis(prompt)
+            
+            # Parse JSON from response
+            import json
+            if '[' in response and ']' in response:
+                start = response.index('[')
+                end = response.rindex(']') + 1
+                numbers_json = response[start:end]
+                selected_numbers = json.loads(numbers_json)
+                
+                # Convert numbers to conversations (1-indexed to 0-indexed)
+                selected = []
+                for num in selected_numbers:
+                    if 1 <= num <= len(candidates):
+                        selected.append(candidates[num - 1])
+                
+                self.logger.info(f"LLM selected {len(selected)} examples: {selected_numbers}")
+                return selected
+        except Exception as e:
+            self.logger.warning(f"LLM example selection failed: {e}")
+        
+        return []
 
