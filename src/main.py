@@ -2902,9 +2902,10 @@ def chat(model: str, enable_cache: bool, railway: bool):
 
 
 async def run_multi_agent_voice_analysis(month: int, year: int, tier1_countries: List[str], generate_gamma: bool, output_format: str):
-    """Run voice of customer analysis using multi-agent orchestrator"""
+    """Run voice of customer analysis using topic-based multi-agent orchestrator"""
     try:
-        from src.agents.orchestrator import MultiAgentOrchestrator
+        from src.agents.topic_orchestrator import TopicOrchestrator
+        from src.services.chunked_fetcher import ChunkedFetcher
         
         # Calculate date range for the month
         from calendar import monthrange
@@ -2912,55 +2913,70 @@ async def run_multi_agent_voice_analysis(month: int, year: int, tier1_countries:
         last_day = monthrange(year, month)[1]
         end_date = datetime(year, month, last_day, 23, 59, 59)
         
-        console.print(f"\n🤖 [bold cyan]Multi-Agent Analysis Starting[/bold cyan]")
-        console.print(f"Mode: 5-Agent Sequential Workflow")
-        console.print(f"Expected cost: 3-5x standard mode")
-        console.print(f"Expected quality improvement: +30%\n")
+        console.print(f"\n🤖 [bold cyan]Multi-Agent Topic-Based Analysis Starting[/bold cyan]")
+        console.print(f"Mode: Topic-Based Workflow (Hilary's Format)")
+        console.print(f"Agents: Segmentation → Topic Detection → Per-Topic Sentiment → Examples → Fin Analysis → Trends")
+        console.print(f"Expected output: Hilary's exact card format\n")
         
-        # Initialize orchestrator
-        orchestrator = MultiAgentOrchestrator()
-        
-        # Execute multi-agent workflow
-        results = await orchestrator.execute_analysis(
-            analysis_type="voice-of-customer",
+        # Fetch conversations for the period
+        console.print("📥 Fetching conversations...")
+        fetcher = ChunkedFetcher()
+        conversations = await fetcher.fetch_conversations_chunked(
             start_date=start_date,
-            end_date=end_date,
-            generate_gamma=generate_gamma
+            end_date=end_date
+        )
+        
+        console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+        
+        # Initialize topic-based orchestrator
+        orchestrator = TopicOrchestrator()
+        
+        # Execute topic-based workflow
+        week_id = f"{year}-{month:02d}"
+        results = await orchestrator.execute_weekly_analysis(
+            conversations=conversations,
+            week_id=week_id,
+            start_date=start_date,
+            end_date=end_date
         )
         
         # Display results
         console.print("\n" + "="*80)
-        console.print("[bold green]🎉 Multi-Agent Analysis Complete![/bold green]")
+        console.print("[bold green]🎉 Topic-Based Analysis Complete![/bold green]")
         console.print("="*80 + "\n")
         
         summary = results['summary']
-        console.print(f"✅ Agents completed: {summary['successful_agents']}/5")
+        console.print(f"📊 Total conversations: {summary['total_conversations']}")
+        console.print(f"   Paid customers (human support): {summary['paid_conversations']}")
+        console.print(f"   Free customers (Fin AI): {summary['free_conversations']}")
+        console.print(f"🏷️  Topics analyzed: {summary['topics_analyzed']}")
         console.print(f"⏱️  Total time: {summary['total_execution_time']:.1f}s")
-        console.print(f"🎯 Average confidence: {summary['average_confidence']:.2f}")
-        console.print(f"💰 Total tokens: ~{summary['total_tokens']:,}")
+        console.print(f"🤖 Agents completed: {summary['agents_completed']}/7")
         
-        if results['errors']:
-            console.print(f"\n⚠️  Errors: {len(results['errors'])}")
-            for error in results['errors']:
-                console.print(f"   - {error}")
-        
-        # Show Gamma URL if generated
-        if generate_gamma and 'PresentationAgent' in results['agent_results']:
-            presentation = results['agent_results']['PresentationAgent']['data']
-            if presentation.get('gamma_url'):
-                console.print(f"\n📊 [bold blue]Gamma Presentation:[/bold blue] {presentation['gamma_url']}")
+        # Show formatted report preview
+        formatted_report = results.get('formatted_report', '')
+        if formatted_report:
+            console.print("\n📝 [bold]Report Preview:[/bold]")
+            console.print(formatted_report[:500] + "..." if len(formatted_report) > 500 else formatted_report)
         
         # Export results
         output_dir = Path("outputs")
         output_dir.mkdir(exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = output_dir / f"multi_agent_voc_{month}_{year}_{timestamp}.json"
         
+        # Save formatted report
+        report_file = output_dir / f"weekly_voc_{week_id}_{timestamp}.md"
+        with open(report_file, 'w') as f:
+            f.write(formatted_report)
+        
+        # Save full results JSON
+        results_file = output_dir / f"weekly_voc_{week_id}_{timestamp}.json"
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2, default=str)
         
-        console.print(f"\n📁 Full results saved: {results_file}")
+        console.print(f"\n📁 Report saved: {report_file}")
+        console.print(f"📁 Full results: {results_file}")
         
     except Exception as e:
         console.print(f"[red]Error in multi-agent analysis: {e}[/red]")
