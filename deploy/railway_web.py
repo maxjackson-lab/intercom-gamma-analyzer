@@ -237,18 +237,20 @@ if HAS_FASTAPI:
             
             <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3);">
                 <div style="margin-bottom: 12px;">
-                    <label style="display: block; color: #e5e7eb; font-weight: 500; margin-bottom: 8px;">Analysis Mode:</label>
+                    <label style="display: block; color: #e5e7eb; font-weight: 500; margin-bottom: 8px;">🤖 Multi-Agent Analysis Mode:</label>
                     <select id="analysisMode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 6px; color: #e5e7eb; font-size: 14px;">
-                        <option value="standard">Standard (Single-Agent)</option>
-                        <option value="topic-based" selected>🤖 Topic-Based (Hilary's VoC Cards)</option>
+                        <option value="topic-based" selected>📋 Topic-Based (Hilary's VoC Cards)</option>
                         <option value="synthesis">🧠 Synthesis (Strategic Insights)</option>
-                        <option value="complete">🎯 Complete (Topic Cards + Synthesis)</option>
+                        <option value="complete">🎯 Complete (Both Formats)</option>
                     </select>
                 </div>
                 <div style="font-size: 11px; color: #6b7280;">
-                    <strong>Topic-Based:</strong> Per-topic sentiment, Paid/Free separation, Fin analysis, Examples<br>
-                    <strong>Synthesis:</strong> Cross-category patterns, Strategic recommendations, Operational insights<br>
-                    <strong>Complete:</strong> Both formats in one analysis
+                    <strong>Topic-Based:</strong> Per-topic sentiment cards, Paid/Free separation, Fin analysis, 3-10 examples<br>
+                    <strong>Synthesis:</strong> Cross-category patterns, Operational metrics (FCR, resolution time), Strategic recommendations<br>
+                    <strong>Complete:</strong> Both Hilary's cards AND synthesis insights (recommended)
+                </div>
+                <div style="margin-top: 8px; padding: 8px; background: rgba(34, 197, 94, 0.1); border-radius: 4px; font-size: 11px; color: #10b981;">
+                    ℹ️ This branch is multi-agent only. For single-agent analysis, use the main branch.
                 </div>
             </div>
             

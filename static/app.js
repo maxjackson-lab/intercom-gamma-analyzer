@@ -306,19 +306,17 @@ async function executeCommand(command, args) {
     try {
         // Get analysis mode selection
         const analysisModeSelect = document.getElementById('analysisMode');
-        const analysisMode = analysisModeSelect ? analysisModeSelect.value : 'standard';
+        const analysisMode = analysisModeSelect ? analysisModeSelect.value : 'topic-based';
         
         // Convert CLI command to full python execution
         // voice-of-customer → python src/main.py voice-of-customer
         const fullCommand = 'python';
         let fullArgs = ['src/main.py', command, ...args];
         
-        // Add flags based on analysis mode
-        if (analysisMode !== 'standard') {
-            fullArgs.push('--multi-agent');
-            fullArgs.push('--analysis-type');
-            fullArgs.push(analysisMode);
-        }
+        // Always add multi-agent flags on this branch
+        fullArgs.push('--multi-agent');
+        fullArgs.push('--analysis-type');
+        fullArgs.push(analysisMode);
         
         // Start execution and get execution ID
         const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`, {

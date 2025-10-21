@@ -100,28 +100,24 @@ def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma:
     console.print(f"Month: {month}/{year}")
     console.print(f"Tier 1 Countries: {', '.join(tier1_list)}")
     
-    if multi_agent:
-        if analysis_type == 'topic-based':
-            console.print("[bold yellow]🤖 Topic-Based Multi-Agent Analysis[/bold yellow]")
-            console.print("Format: Hilary's VoC Cards - Per-topic sentiment with examples")
-            asyncio.run(run_topic_based_analysis(month, year, tier1_list, generate_gamma, output_format))
-        elif analysis_type == 'synthesis':
-            console.print("[bold yellow]🧠 Synthesis Multi-Agent Analysis[/bold yellow]")  
-            console.print("Format: Cross-category insights and strategic recommendations")
-            asyncio.run(run_synthesis_analysis(month, year, tier1_list, generate_gamma, output_format))
-        else:  # Both
-            console.print("[bold yellow]🤖 Complete Multi-Agent Analysis[/bold yellow]")
-            console.print("Includes: Topic-based cards + Synthesis insights")
-            asyncio.run(run_complete_multi_agent_analysis(month, year, tier1_list, generate_gamma, output_format))
-    else:
-        # Single-agent mode
-        request = AnalysisRequest(
-            mode=AnalysisMode.VOICE_OF_CUSTOMER,
-            month=month,
-            year=year,
-            tier1_countries=tier1_list
-        )
-        asyncio.run(run_voice_analysis(request, generate_gamma, output_format))
+    # This branch is multi-agent only
+    # Route based on analysis type (default: topic-based)
+    if not multi_agent:
+        console.print("[yellow]ℹ️  Note: This branch uses multi-agent by default. Use main branch for single-agent.[/yellow]")
+        analysis_type = analysis_type or 'topic-based'  # Force multi-agent
+    
+    if analysis_type == 'topic-based':
+        console.print("[bold yellow]📋 Topic-Based Multi-Agent Analysis[/bold yellow]")
+        console.print("Format: Hilary's VoC Cards - Per-topic sentiment with examples\n")
+        asyncio.run(run_topic_based_analysis(month, year, tier1_list, generate_gamma, output_format))
+    elif analysis_type == 'synthesis':
+        console.print("[bold yellow]🧠 Synthesis Multi-Agent Analysis[/bold yellow]")  
+        console.print("Format: Cross-category insights and strategic recommendations\n")
+        asyncio.run(run_synthesis_analysis(month, year, tier1_list, generate_gamma, output_format))
+    else:  # complete
+        console.print("[bold yellow]🎯 Complete Multi-Agent Analysis[/bold yellow]")
+        console.print("Includes: Topic-based cards + Synthesis insights\n")
+        asyncio.run(run_complete_multi_agent_analysis(month, year, tier1_list, generate_gamma, output_format))
 
 
 @cli.command()
@@ -2869,25 +2865,18 @@ def voice_of_customer_analysis(
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
     
-    if multi_agent:
-        console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
-        # Route to appropriate multi-agent function
-        from calendar import monthrange
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-        
-        if analysis_type == 'topic-based':
-            asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma))
-        elif analysis_type == 'synthesis':
-            asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma))
-        else:  # complete
-            asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma))
-    else:
-        # Standard single-agent mode
-        asyncio.run(run_voc_analysis(
-            start_date, end_date, ai_model, enable_fallback,
-            include_trends, include_canny, canny_board_id, generate_gamma, separate_agent_feedback, output_dir
-        ))
+    # This branch is multi-agent only
+    console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
+    
+    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    
+    if analysis_type == 'topic-based':
+        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma))
+    elif analysis_type == 'synthesis':
+        asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma))
+    else:  # complete
+        asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma))
 
 
 @cli.command()
