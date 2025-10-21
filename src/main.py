@@ -2749,7 +2749,7 @@ def canny_analysis(
 
 
 @cli.command(name='voice-of-customer')
-@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter', 'year']),
+@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter', 'year', 'yesterday']),
               help='Time period for analysis (overrides start/end dates if provided)')
 @click.option('--periods-back', type=int, default=1,
               help='Number of periods back to analyze (e.g., --time-period month --periods-back 3)')
@@ -2792,6 +2792,9 @@ def voice_of_customer_analysis(
     Generate Voice of Customer sentiment analysis.
     
     Examples:
+        # Yesterday (fast test - ~1k conversations)
+        python src/main.py voice-of-customer --time-period yesterday
+        
         # Last week
         python src/main.py voice-of-customer --time-period week
         
@@ -2817,7 +2820,11 @@ def voice_of_customer_analysis(
     if time_period:
         end_dt = datetime.now()
         
-        if time_period == 'week':
+        if time_period == 'yesterday':
+            # Yesterday only - fast test
+            start_dt = end_dt - timedelta(days=1)
+            end_dt = end_dt - timedelta(days=1)
+        elif time_period == 'week':
             start_dt = end_dt - timedelta(weeks=periods_back)
         elif time_period == 'month':
             # Go back N months

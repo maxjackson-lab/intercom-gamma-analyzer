@@ -39,6 +39,31 @@ class TopicOrchestrator:
         
         self.logger = logging.getLogger(__name__)
     
+    def _extract_customer_messages(self, conversations: List[Dict]) -> List[Dict]:
+        """Extract and add customer_messages to conversations from raw Intercom data"""
+        for conv in conversations:
+            # Extract customer messages from conversation_parts
+            customer_msgs = []
+            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+            
+            for part in parts:
+                author = part.get('author', {})
+                if author.get('type') == 'user':  # Customer message
+                    body = part.get('body', '').strip()
+                    if body:
+                        customer_msgs.append(body)
+            
+            # Also check source (initial message)
+            source = conv.get('source', {})
+            if source.get('author', {}).get('type') == 'user':
+                body = source.get('body', '').strip()
+                if body:
+                    customer_msgs.insert(0, body)  # Add at beginning
+            
+            conv['customer_messages'] = customer_msgs
+        
+        return conversations
+    
     async def execute_weekly_analysis(
         self,
         conversations: List[Dict],
@@ -64,6 +89,9 @@ class TopicOrchestrator:
         start_time = datetime.now()
         self.logger.info(f"🤖 TopicOrchestrator: Starting weekly analysis for {week_id}")
         self.logger.info(f"   Total conversations: {len(conversations)}")
+        
+        # Preprocess: Extract customer messages from raw Intercom data
+        conversations = self._extract_customer_messages(conversations)
         
         # Create context
         context = AgentContext(

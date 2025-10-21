@@ -214,7 +214,13 @@ Selection criteria:
         # Recency (prefer recent conversations)
         created_at = conv.get('created_at')
         if created_at:
-            days_ago = (datetime.now() - created_at).days
+            # Convert unix timestamp to datetime if needed
+            if isinstance(created_at, (int, float)):
+                created_dt = datetime.fromtimestamp(created_at)
+            else:
+                created_dt = created_at
+            
+            days_ago = (datetime.now() - created_dt).days
             if days_ago <= 3:
                 score += 1.5
             elif days_ago <= 7:
