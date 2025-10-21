@@ -322,12 +322,9 @@ if HAS_FASTAPI:
                 </div>
             </div>
             
-            <div class="input-container">
-                <input type="text" id="queryInput" placeholder="Ask me to generate an analysis report..." onkeypress="handleKeyPress(event)">
-                <button onclick="sendMessage()" id="sendButton">Send</button>
-            </div>
+            <!-- Old chat input removed - use form wizard above -->
             
-            <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3);">
+            <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3); display:none;">
                 <div style="margin-bottom: 12px;">
                     <label style="display: block; color: #e5e7eb; font-weight: 500; margin-bottom: 8px;">🤖 Multi-Agent Analysis Mode:</label>
                     <select id="analysisMode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 6px; color: #e5e7eb; font-size: 14px;">
