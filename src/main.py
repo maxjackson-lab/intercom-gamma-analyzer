@@ -2748,6 +2748,111 @@ def canny_analysis(
     ))
 
 
+@cli.command(name='test-mode')
+@click.option('--test-type', type=click.Choice(['topic-based', 'api', 'horatio']), default='topic-based',
+              help='Type of test to run')
+@click.option('--num-conversations', type=int, default=50, help='Number of test conversations (default: 50)')
+def test_mode(test_type: str, num_conversations: int):
+    """TEST MODE: Run with minimal fake data for debugging"""
+    import json
+    
+    console.print(f"[bold yellow]🧪 TEST MODE[/bold yellow]")
+    console.print(f"Test type: {test_type}")
+    console.print(f"Fake conversations: {num_conversations}")
+    console.print("="*80)
+    
+    # Create minimal fake data
+    fake_conversations = []
+    topics = ['Billing', 'Bug', 'Credits', 'Account', 'Product Question']
+    
+    for i in range(num_conversations):
+        topic = topics[i % len(topics)]
+        conv = {
+            'id': f'test_{i}',
+            'created_at': int((datetime.now() - timedelta(hours=i)).timestamp()),
+            'updated_at': int(datetime.now().timestamp()),
+            'state': 'closed',
+            'count_reopens': 0 if i % 3 == 0 else 1,
+            'admin_assignee_id': '12345',
+            'custom_attributes': {topic: True},
+            'tags': {'tags': [{'name': topic}]},
+            'full_text': f"Customer says: This is about {topic.lower()}. Agent responds: Got it.",
+            'customer_messages': [f"This is about {topic.lower()}"],
+            'conversation_parts': {
+                'conversation_parts': [
+                    {'author': {'type': 'user'}, 'body': f"This is about {topic.lower()}"},
+                    {'author': {'type': 'admin'}, 'body': "Got it."}
+                ]
+            },
+            'source': {'author': {'type': 'user'}, 'body': f"This is about {topic.lower()}"}
+        }
+        fake_conversations.append(conv)
+    
+    console.print(f"✅ Created {len(fake_conversations)} fake conversations")
+    
+    # Save test data
+    test_file = Path("outputs/test_data.json")
+    test_file.parent.mkdir(exist_ok=True)
+    with open(test_file, 'w') as f:
+        json.dump(fake_conversations, f, indent=2)
+    console.print(f"📁 Test data saved to: {test_file}")
+    
+    # Run appropriate test
+    if test_type == 'topic-based':
+        console.print("\n🤖 Running topic-based analysis with test data...")
+        asyncio.run(run_test_topic_based(fake_conversations))
+    elif test_type == 'api':
+        console.print("\n⚙️  Running API analysis with test data...")
+        console.print("[yellow]API test not yet implemented[/yellow]")
+    elif test_type == 'horatio':
+        console.print("\n👤 Running Horatio performance with test data...")
+        console.print("[yellow]Horatio test not yet implemented[/yellow]")
+
+
+async def run_test_topic_based(conversations):
+    """Run topic-based analysis with test data"""
+    from src.agents.topic_orchestrator import TopicOrchestrator
+    
+    orchestrator = TopicOrchestrator()
+    
+    try:
+        results = await orchestrator.execute_weekly_analysis(
+            conversations=conversations,
+            week_id="TEST",
+            start_date=datetime.now() - timedelta(days=1),
+            end_date=datetime.now()
+        )
+        
+        console.print("\n" + "="*80)
+        console.print("[bold green]✅ TEST PASSED[/bold green]")
+        console.print("="*80)
+        
+        # Show summary
+        summary = results.get('summary', {})
+        console.print(f"\n📊 Summary:")
+        console.print(f"   Total: {summary.get('total_conversations')}")
+        console.print(f"   Topics: {summary.get('topics_analyzed')}")
+        console.print(f"   Agents: {summary.get('agents_completed')}")
+        console.print(f"   Time: {summary.get('total_execution_time')}s")
+        
+        # Show report preview
+        report = results.get('formatted_report', '')
+        if report:
+            console.print(f"\n📝 Report preview (first 500 chars):")
+            console.print(report[:500])
+        
+        # Save test output
+        test_output = Path("outputs/test_output.md")
+        with open(test_output, 'w') as f:
+            f.write(report)
+        console.print(f"\n📁 Test output: {test_output}")
+        
+    except Exception as e:
+        console.print(f"\n[red]❌ TEST FAILED: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+
+
 @cli.command(name='voice-of-customer')
 @click.option('--time-period', type=click.Choice(['week', 'month', 'quarter', 'year', 'yesterday']),
               help='Time period for analysis (overrides start/end dates if provided)')
