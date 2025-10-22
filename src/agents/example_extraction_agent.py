@@ -8,6 +8,7 @@ Purpose:
 - Prioritize recent, clear examples
 """
 
+import json
 import logging
 from typing import Dict, Any, List
 from datetime import datetime
@@ -252,9 +253,16 @@ Selection criteria:
         if not customer_msgs:
             return None
         
-        # Get preview (first 80 chars)
-        preview = customer_msgs[0][:80]
-        if len(customer_msgs[0]) > 80:
+        # Get preview (first 80 chars) with type validation
+        first_msg = customer_msgs[0]
+        if isinstance(first_msg, str):
+            safe_msg = first_msg
+        else:
+            # Coerce non-string values to string, default to empty string
+            safe_msg = str(first_msg) if first_msg is not None else ""
+        
+        preview = safe_msg[:80]
+        if len(safe_msg) > 80:
             preview += "..."
         
         # Build Intercom URL
@@ -328,7 +336,6 @@ Selected example numbers:"""
             response = await self.openai_client.generate_analysis(prompt)
             
             # Parse JSON from response
-            import json
             if '[' in response and ']' in response:
                 start = response.index('[')
                 end = response.rindex(']') + 1

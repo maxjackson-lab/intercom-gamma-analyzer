@@ -202,7 +202,7 @@ For each conversation:
             
             # LLM Enhancement: Discover additional semantic topics
             self.logger.info("Enhancing with LLM for semantic topic discovery...")
-            llm_topics = await self._enhance_with_llm(conversations, topic_distribution)
+            llm_topics, llm_token_count = await self._enhance_with_llm(conversations, topic_distribution)
             if llm_topics:
                 for topic_name, topic_info in llm_topics.items():
                     if topic_name not in topic_distribution:
@@ -250,7 +250,7 @@ For each conversation:
                 limitations=[f"{result_data['conversations_without_topics']} conversations had no detected topics"] if result_data['conversations_without_topics'] > 0 else [],
                 sources=["Intercom conversation attributes", "Keyword pattern matching"],
                 execution_time=execution_time,
-                token_count=0
+                token_count=llm_token_count
             )
             
         except Exception as e:
@@ -306,7 +306,7 @@ For each conversation:
         
         return detected
     
-    async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Dict:
+    async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Tuple[Dict, int]:
         """
         Use LLM to discover additional semantic topics not caught by keywords
         
@@ -315,8 +315,10 @@ For each conversation:
             initial_topics: Topics already detected by rules
             
         Returns:
-            Additional topics discovered by LLM
+            Tuple of (additional topics discovered by LLM, token count)
         """
+        token_count = 0
+        
         # Sample 20 conversations for LLM analysis
         sample = conversations[:20]
         
@@ -328,7 +330,7 @@ For each conversation:
                 conv_summaries.append(f"{i}. {customer_msgs[0][:200]}")
         
         if not conv_summaries:
-            return {}
+            return {}, token_count
         
         prompt = f"""
 Analyze these customer support conversations and identify ANY additional topics not in the predefined list.
@@ -347,20 +349,44 @@ Instructions:
 Additional topics:"""
         
         try:
-            response = await self.openai_client.generate_analysis(prompt)
+            # Make the LLM call directly to get the full response object with usage stats
+            response = await self.openai_client.client.chat.completions.create(
+                model=self.openai_client.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=self.openai_client.max_tokens,
+                temperature=self.openai_client.temperature
+            )
+            
+            # Extract token usage defensively
+            if hasattr(response, 'usage') and response.usage:
+                token_count = getattr(response.usage, 'total_tokens', 0)
+                self.logger.info(f"LLM topic enhancement used {token_count} tokens")
+            
+            # Extract the response content
+            response_text = response.choices[0].message.content
+            
             # Parse JSON from response
             import json
             # Try to extract JSON array from response
-            if '[' in response and ']' in response:
-                start = response.index('[')
-                end = response.rindex(']') + 1
-                topics_json = response[start:end]
+            if '[' in response_text and ']' in response_text:
+                start = response_text.index('[')
+                end = response_text.rindex(']') + 1
+                topics_json = response_text[start:end]
                 new_topics = json.loads(topics_json)
                 
                 self.logger.info(f"LLM discovered {len(new_topics)} additional topics: {new_topics}")
-                return {topic: {'method': 'llm_semantic', 'confidence': 0.7} for topic in new_topics}
+                return {topic: {'method': 'llm_semantic', 'confidence': 0.7} for topic in new_topics}, token_count
         except Exception as e:
             self.logger.warning(f"LLM topic enhancement failed: {e}")
         
-        return {}
+        return {}, token_count
 

@@ -10,7 +10,7 @@
 
 Based on comprehensive research, we're implementing a **ChurnCorrelationAgent** that joins Intercom support data with Snowflake customer analytics to quantify the relationship between support quality and business outcomes.
 
-### Key Design Decisions (From Research):
+### Key Design Decisions (From Research)
 
 1. **Join Key**: Customer email address (universal identifier)
 2. **Statistical Framework**: Point-biserial correlation + Propensity Score Matching for causal claims
@@ -25,7 +25,7 @@ Based on comprehensive research, we're implementing a **ChurnCorrelationAgent** 
 
 ### 1.1 Snowflake → Intercom Data Flow
 
-```
+```text
 Daily ETL Pipeline:
 ┌─────────────┐
 │  Snowflake  │ ─────────┐
@@ -45,6 +45,7 @@ Storage: DuckDB (local) + Snowflake (warehouse)
 ### 1.2 Schema Design
 
 **New Table: `customer_support_outcomes`**
+
 ```sql
 CREATE TABLE customer_support_outcomes (
     customer_id VARCHAR(50) PRIMARY KEY,
@@ -796,6 +797,7 @@ class CorrelationAnalyzer:
 ### Phase 1: Foundation (Week 1-2)
 
 **Deliverables:**
+
 1. ✅ Create `ChurnCorrelationAgent` class
 2. ✅ Implement Snowflake connector/MCP integration
 3. ✅ Build email-based join logic
@@ -803,6 +805,7 @@ class CorrelationAnalyzer:
 5. ✅ Test with sample data
 
 **Success Criteria:**
+
 - Can successfully query Snowflake
 - Email join works (>80% match rate)
 - Correlation calculations run without errors
@@ -810,6 +813,7 @@ class CorrelationAnalyzer:
 ### Phase 2: Statistical Analysis (Week 3-4)
 
 **Deliverables:**
+
 1. ✅ Implement all correlation tests (point-biserial, Spearman)
 2. ✅ Add confidence interval calculations
 3. ✅ Implement group comparisons (FCR quartiles)
@@ -817,6 +821,7 @@ class CorrelationAnalyzer:
 5. ✅ Build statistical power assessment
 
 **Success Criteria:**
+
 - All p-values calculated correctly
 - Confidence intervals validate with manual checks
 - Power analysis matches statsmodels results
@@ -824,12 +829,14 @@ class CorrelationAnalyzer:
 ### Phase 3: Causal Inference (Week 5-6)
 
 **Deliverables:**
+
 1. ✅ Implement Propensity Score Matching
 2. ✅ Add balance checking
 3. ✅ Calculate ATT (Average Treatment Effect on Treated)
 4. ✅ Sensitivity analysis for unmeasured confounders
 
 **Success Criteria:**
+
 - PSM matches validate (standardized differences < 0.1)
 - ATT confidence intervals don't include zero (if effect exists)
 - Sensitivity analysis shows robustness
@@ -837,6 +844,7 @@ class CorrelationAnalyzer:
 ### Phase 4: Integration & UI (Week 7-8)
 
 **Deliverables:**
+
 1. ✅ Add `--correlate-churn` flag to CLI
 2. ✅ Integrate ChurnCorrelationAgent into orchestrator
 3. ✅ Add churn correlation checkbox to web UI
@@ -844,6 +852,7 @@ class CorrelationAnalyzer:
 5. ✅ Write documentation
 
 **Success Criteria:**
+
 - End-to-end workflow works
 - Results display in Gamma presentations
 - Non-technical users can interpret findings
@@ -936,7 +945,7 @@ class CorrelationAnalyzer:
 
 The PresentationAgent will include a new slide:
 
-**"Support Quality Impact on Business Outcomes"**
+#### "Support Quality Impact on Business Outcomes"
 
 ```markdown
 # The Support-Churn Connection: What the Data Reveals
@@ -1054,7 +1063,7 @@ churn_correlation:
 
 Every churn correlation report must include:
 
-```
+```text
 STATISTICAL DISCLAIMERS:
 
 - Correlation does not prove causation: While we control for observable confounders 
@@ -1115,4 +1124,3 @@ STATISTICAL DISCLAIMERS:
 **This feature will answer definitively**: "Does improving support quality reduce churn?"
 
 With rigorous statistics, honest limitations, and actionable insights.
-
