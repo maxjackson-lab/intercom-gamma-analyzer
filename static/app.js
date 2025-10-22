@@ -769,6 +769,12 @@ function runAnalysis() {
     } else if (analysisType === 'voice-of-customer-complete') {
         command = 'voice-of-customer';
         args.push('--multi-agent', '--analysis-type', 'complete');
+    } else if (analysisType === 'agent-performance-horatio') {
+        command = 'agent-performance';
+        args.push('--agent', 'horatio');
+    } else if (analysisType === 'agent-performance-boldr') {
+        command = 'agent-performance';
+        args.push('--agent', 'boldr');
     } else {
         command = analysisType;
     }

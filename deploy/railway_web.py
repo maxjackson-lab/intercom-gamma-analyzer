@@ -242,6 +242,10 @@ if HAS_FASTAPI:
                     <optgroup label="Combined Analysis">
                         <option value="analyze-all-categories">All Categories</option>
                     </optgroup>
+                    <optgroup label="Agent Performance">
+                        <option value="agent-performance-horatio">Horatio Performance Review</option>
+                        <option value="agent-performance-boldr">Boldr Performance Review</option>
+                    </optgroup>
                     <optgroup label="Other Sources">
                         <option value="canny-analysis">Canny Feedback</option>
                     </optgroup>

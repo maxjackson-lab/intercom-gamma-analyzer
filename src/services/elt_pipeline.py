@@ -11,9 +11,9 @@ from pathlib import Path
 import json
 import pandas as pd
 
-from services.intercom_service import IntercomService
-from services.duckdb_storage import DuckDBStorage
-from services.data_exporter import DataExporter
+from src.services.intercom_service import IntercomService
+from src.services.duckdb_storage import DuckDBStorage
+from src.services.data_exporter import DataExporter
 
 logger = logging.getLogger(__name__)
 
