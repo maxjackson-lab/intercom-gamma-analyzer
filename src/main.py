@@ -2964,45 +2964,58 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
     if generate_gamma:
         console.print("\n🎨 Generating Gamma presentation...")
         try:
-            gamma_gen = GammaGenerator()
+            from src.services.gamma_client import GammaClient
             
-            # Convert topic-based results to category_results structure for Gamma
-            topic_dist = results.get('agent_results', {}).get('TopicDetectionAgent', {}).get('data', {}).get('topic_distribution', {})
-            category_results = {}
+            gamma_client = GammaClient()
             
-            for topic_name, topic_stats in topic_dist.items():
-                category_results[topic_name] = {
-                    'volume': topic_stats.get('volume', 0),
-                    'percentage': topic_stats.get('percentage', 0),
-                    'sentiment': 'mixed'  # Could extract from results if needed
-                }
+            # Send our multi-agent markdown report directly to Gamma
+            # Don't use PresentationBuilder - it throws away our work and uses generic templates
+            markdown_report = results.get('formatted_report', '')
             
-            # Prepare analysis results for Gamma
-            gamma_input = {
-                'analysis_text': results.get('formatted_report', ''),
-                'conversations': conversations[:50],  # Sample for context
-                'category_results': category_results,
-                'results': category_results,  # Also add as 'results' for compatibility
-                'metadata': {
-                    'week_id': week_id,
-                    'start_date': start_date.isoformat(),
-                    'end_date': end_date.isoformat(),
-                    'total_conversations': len(conversations),
-                    'analysis_type': 'Topic-Based VoC (Hilary Format)'
-                }
-            }
+            console.print(f"   Sending {len(markdown_report)} characters to Gamma API...")
             
-            gamma_result = await gamma_gen.generate_from_analysis(
-                analysis_results=gamma_input,
-                style="executive",
-                output_dir=output_dir
+            generation_id = await gamma_client.generate_presentation(
+                input_text=markdown_report,
+                format="presentation",
+                num_cards=15,  # Gamma will auto-break into slides
+                theme="professional"
             )
             
-            gamma_url = gamma_result.get('gamma_url')
-            if gamma_url:
-                console.print(f"✅ Gamma URL: {gamma_url}")
-            else:
-                console.print("[yellow]⚠️  Gamma generation completed but no URL returned[/yellow]")
+            console.print(f"   Generation ID: {generation_id}")
+            console.print("   Waiting for Gamma to process...")
+            
+            # Poll for completion (max 2 minutes)
+            import time
+            max_attempts = 24  # 2 minutes at 5 second intervals
+            attempt = 0
+            
+            while attempt < max_attempts:
+                await asyncio.sleep(5)
+                status = await gamma_client.get_generation_status(generation_id)
+                
+                if status.get('status') == 'completed':
+                    gamma_url = status.get('url')
+                    if gamma_url:
+                        console.print(f"✅ Gamma URL: {gamma_url}")
+                        
+                        # Save URL to file
+                        url_file = output_dir / f"gamma_url_{timestamp}.txt"
+                        with open(url_file, 'w') as f:
+                            f.write(gamma_url)
+                        console.print(f"📁 URL saved to: {url_file}")
+                    else:
+                        console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
+                    break
+                elif status.get('status') == 'failed':
+                    console.print(f"[red]❌ Gamma generation failed: {status.get('error')}[/red]")
+                    break
+                
+                attempt += 1
+                console.print(f"   Still processing... ({attempt}/{max_attempts})")
+            
+            if attempt >= max_attempts:
+                console.print("[yellow]⚠️  Gamma generation timed out - check Gamma dashboard[/yellow]")
+                
         except Exception as e:
             console.print(f"[red]❌ Gamma generation failed: {e}[/red]")
             import traceback
