@@ -262,11 +262,21 @@ Selection criteria:
         # Note: workspace_id would come from settings in real implementation
         intercom_url = f"https://app.intercom.com/a/inbox/inbox/{conv_id}"
         
+        # Handle created_at - could be datetime or timestamp
+        created_at = conv.get('created_at')
+        if created_at:
+            if isinstance(created_at, (int, float)):
+                created_at_str = datetime.fromtimestamp(created_at).isoformat()
+            else:
+                created_at_str = created_at.isoformat()
+        else:
+            created_at_str = None
+        
         return {
             'preview': preview,
             'intercom_url': intercom_url,
             'conversation_id': conv_id,
-            'created_at': conv.get('created_at').isoformat() if conv.get('created_at') else None
+            'created_at': created_at_str
         }
     
     async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 7) -> List[Dict]:

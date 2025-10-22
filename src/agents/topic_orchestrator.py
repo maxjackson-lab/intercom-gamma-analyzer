@@ -146,8 +146,9 @@ class TopicOrchestrator:
                         conversations_by_topic_full[topic_name] = []
                     conversations_by_topic_full[topic_name].append(conv)
             
-            for topic_name, topic_stats in topic_dist.items():
-                # Get conversations for this topic
+            # Process all topics in parallel for efficiency
+            async def process_topic(topic_name: str, topic_stats: Dict):
+                """Process a single topic with sentiment + examples"""
                 topic_convs = conversations_by_topic_full.get(topic_name, [])
                 
                 self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
@@ -157,18 +158,33 @@ class TopicOrchestrator:
                 topic_context.metadata = {
                     'current_topic': topic_name,
                     'topic_conversations': topic_convs,
-                    'sentiment_insight': ''  # Will be filled
+                    'sentiment_insight': ''
                 }
                 
                 sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
-                topic_sentiments[topic_name] = sentiment_result.dict()
                 
                 # Examples for this topic
                 topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
                 examples_result = await self.example_extraction_agent.execute(topic_context)
-                topic_examples[topic_name] = examples_result.dict()
                 
                 self.logger.info(f"   ✅ {topic_name}: Sentiment + {len(examples_result.data.get('examples', []))} examples")
+                
+                return topic_name, sentiment_result, examples_result
+            
+            # Process all topics in parallel
+            self.logger.info(f"   Processing {len(topic_dist)} topics in parallel...")
+            topic_tasks = [process_topic(name, stats) for name, stats in topic_dist.items()]
+            topic_results = await asyncio.gather(*topic_tasks, return_exceptions=True)
+            
+            # Collect results
+            for result in topic_results:
+                if isinstance(result, Exception):
+                    self.logger.error(f"Topic processing failed: {result}")
+                    continue
+                
+                topic_name, sentiment_result, examples_result = result
+                topic_sentiments[topic_name] = sentiment_result.dict()
+                topic_examples[topic_name] = examples_result.dict()
             
             # PHASE 4: Fin Analysis (on free conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")

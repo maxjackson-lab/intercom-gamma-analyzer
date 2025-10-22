@@ -2966,10 +2966,23 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
         try:
             gamma_gen = GammaGenerator()
             
+            # Convert topic-based results to category_results structure for Gamma
+            topic_dist = results.get('agent_results', {}).get('TopicDetectionAgent', {}).get('data', {}).get('topic_distribution', {})
+            category_results = {}
+            
+            for topic_name, topic_stats in topic_dist.items():
+                category_results[topic_name] = {
+                    'volume': topic_stats.get('volume', 0),
+                    'percentage': topic_stats.get('percentage', 0),
+                    'sentiment': 'mixed'  # Could extract from results if needed
+                }
+            
             # Prepare analysis results for Gamma
             gamma_input = {
                 'analysis_text': results.get('formatted_report', ''),
                 'conversations': conversations[:50],  # Sample for context
+                'category_results': category_results,
+                'results': category_results,  # Also add as 'results' for compatibility
                 'metadata': {
                     'week_id': week_id,
                     'start_date': start_date.isoformat(),
