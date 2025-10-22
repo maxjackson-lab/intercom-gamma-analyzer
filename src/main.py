@@ -2887,6 +2887,51 @@ def voice_of_customer_analysis(
         asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma))
 
 
+@cli.command(name='agent-performance')
+@click.option('--agent', type=click.Choice(['horatio', 'boldr', 'escalated']), required=True,
+              help='Agent to analyze (horatio, boldr, or escalated to senior staff)')
+@click.option('--time-period', type=click.Choice(['week', 'month', '6-weeks', 'quarter']),
+              help='Time period for analysis')
+@click.option('--start-date', help='Start date (YYYY-MM-DD) - overrides time-period')
+@click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
+@click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+def agent_performance(agent: str, time_period: Optional[str], start_date: Optional[str], 
+                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool):
+    """Analyze support agent/team performance with operational metrics"""
+    from datetime import timedelta
+    
+    # Calculate dates
+    if time_period:
+        end_dt = datetime.now()
+        if time_period == 'week':
+            start_dt = end_dt - timedelta(weeks=1)
+        elif time_period == 'month':
+            start_dt = end_dt - timedelta(days=30)
+        elif time_period == '6-weeks':
+            start_dt = end_dt - timedelta(weeks=6)
+        elif time_period == 'quarter':
+            start_dt = end_dt - timedelta(days=90)
+        
+        start_date = start_dt.strftime('%Y-%m-%d')
+        end_date = end_dt.strftime('%Y-%m-%d')
+    else:
+        if not start_date or not end_date:
+            console.print("[red]Error: Provide either --time-period or both --start-date and --end-date[/red]")
+            return
+    
+    agent_name = {'horatio': 'Horatio', 'boldr': 'Boldr', 'escalated': 'Senior Staff'}.get(agent, agent)
+    
+    console.print(f"[bold green]{agent_name} Performance Analysis[/bold green]")
+    console.print(f"Date Range: {start_date} to {end_date}")
+    if focus_categories:
+        console.print(f"Focus: {focus_categories}")
+    
+    asyncio.run(run_agent_performance_analysis(
+        agent, start_date, end_date, focus_categories, generate_gamma
+    ))
+
+
 @cli.command()
 @click.option('--model', default='gpt-4o-mini', help='AI model to use for chat')
 @click.option('--enable-cache', is_flag=True, help='Enable semantic caching')
@@ -2978,7 +3023,7 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
                 input_text=markdown_report,
                 format="presentation",
                 num_cards=15,  # Gamma will auto-break into slides
-                theme="professional"
+                text_mode="preserve"  # Preserve our markdown structure
             )
             
             console.print(f"   Generation ID: {generation_id}")
