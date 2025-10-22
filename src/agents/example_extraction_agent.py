@@ -127,7 +127,7 @@ Selection criteria:
             if len(candidates) < 10:
                 candidates = [conv for score, conv in scored_conversations[:15]]
             
-            # Use LLM to select the most dramatic, representative examples
+            # Use LLM to select the most representative examples
             self.logger.info(f"Using LLM to select best examples from {len(candidates)} candidates...")
             selected = await self._llm_select_examples(candidates, topic, sentiment, target_count=7)
             
@@ -281,7 +281,7 @@ Selection criteria:
     
     async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 7) -> List[Dict]:
         """
-        Use LLM to select the most dramatic and representative examples
+        Use LLM to select the most representative and informative examples
         
         Args:
             candidates: Top-scored conversations
@@ -304,7 +304,7 @@ Selection criteria:
                 candidate_summaries.append(f"{i+1}. \"{msg}\"")
         
         prompt = f"""
-You are selecting the MOST DRAMATIC and REPRESENTATIVE examples for this topic analysis.
+Select the most representative and informative examples for this topic analysis.
 
 Topic: {topic}
 Sentiment Insight: {sentiment}
@@ -314,10 +314,10 @@ Candidate conversations (ranked by quality):
 
 Instructions:
 1. Select {target_count} examples that are:
-   - Most dramatic/emotional (capture the sentiment strongly)
-   - Most representative (show different aspects of the issue)
-   - Most specific (clear, actionable feedback)
-   - Most quotable (would make Hilary sit up and take notice)
+   - Most representative (clearly demonstrate the sentiment)
+   - Show different aspects/facets of the issue
+   - Specific and actionable (provide clear feedback)
+   - Professional and informative (suitable for executive reports)
 
 2. Return ONLY the numbers (1-{len(candidates)}) as a JSON array
 3. Example: [1, 3, 7, 12, 15, 18, 20]

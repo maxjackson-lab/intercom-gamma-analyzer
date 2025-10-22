@@ -240,10 +240,11 @@ Struggling topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t i
 
 Instructions:
 1. Provide 2-3 specific insights about Fin's performance
-2. Be dramatic and specific, not generic
+2. Be analytical and data-driven, not generic
 3. Identify patterns in what Fin does well vs struggles with
 4. Suggest WHY Fin might be struggling (knowledge gaps, complex topics, etc.)
-5. Keep it under 150 words, conversational tone
+5. Keep it under 150 words, professional executive tone
+6. Focus on actionable insights for improving AI performance
 
 Insights:"""
         
