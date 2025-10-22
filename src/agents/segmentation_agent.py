@@ -195,12 +195,31 @@ Output: Segmented conversations with agent type labels
         assignee = str(conv.get('admin_assignee_id', '')).lower()
         ai_participated = conv.get('ai_agent_participated', False)
         
+        # Extract admin emails from conversation parts
+        admin_emails = []
+        for part in conv.get('conversation_parts', {}).get('conversation_parts', []):
+            if part.get('author', {}).get('type') == 'admin':
+                email = part.get('author', {}).get('email', '')
+                if email:
+                    admin_emails.append(email.lower())
+        
         # Check for escalation (senior staff)
         for name in self.escalation_names:
             if name in text or name in assignee:
                 return 'paid', 'escalated'
+            # Also check admin emails
+            for email in admin_emails:
+                if name.replace(' ', '.') in email or name.replace(' ', '') in email:
+                    return 'paid', 'escalated'
         
-        # Check for Tier 1 agents
+        # Check for Tier 1 agents via email domains
+        for email in admin_emails:
+            if 'hirehoratio.co' in email or 'horatio.com' in email:
+                return 'paid', 'horatio'
+            if 'boldrimpact.com' in email or 'boldr' in email:
+                return 'paid', 'boldr'
+        
+        # Fallback to text patterns
         if re.search(self.tier1_patterns['horatio'], text) or 'horatio' in assignee:
             return 'paid', 'horatio'
         
@@ -208,7 +227,7 @@ Output: Segmented conversations with agent type labels
             return 'paid', 'boldr'
         
         # Check for human admin (generic)
-        if conv.get('admin_assignee_id'):
+        if conv.get('admin_assignee_id') or admin_emails:
             return 'paid', 'unknown'  # Has human but can't identify which
         
         # AI-only conversation

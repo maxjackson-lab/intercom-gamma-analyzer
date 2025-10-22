@@ -151,6 +151,11 @@ class TopicOrchestrator:
                 """Process a single topic with sentiment + examples"""
                 topic_convs = conversations_by_topic_full.get(topic_name, [])
                 
+                # Skip topics with no conversations
+                if len(topic_convs) == 0:
+                    self.logger.info(f"   Skipping {topic_name}: 0 conversations")
+                    return topic_name, None, None
+                
                 self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
                 
                 # Sentiment for this topic
@@ -183,6 +188,11 @@ class TopicOrchestrator:
                     continue
                 
                 topic_name, sentiment_result, examples_result = result
+                
+                # Skip if topic was empty
+                if sentiment_result is None or examples_result is None:
+                    continue
+                
                 topic_sentiments[topic_name] = sentiment_result.dict()
                 topic_examples[topic_name] = examples_result.dict()
             

@@ -36,7 +36,7 @@ from services.query_builder import QueryBuilder, GeneralQueryService
 from services.chunked_fetcher import ChunkedFetcher
 from services.data_preprocessor import DataPreprocessor
 from services.category_filters import CategoryFilters
-from services.gamma_generator import GammaGenerator
+from src.services.gamma_generator import GammaGenerator
 from services.orchestrator import AnalysisOrchestrator
 from analyzers.voice_analyzer import VoiceAnalyzer
 from analyzers.trend_analyzer import TrendAnalyzer
@@ -2119,7 +2119,7 @@ def generate_gamma(analysis_file, style, export_pdf, export_pptx, export_docs, o
     """Generate Gamma presentation from existing analysis JSON file."""
     try:
         import json
-        from services.gamma_generator import GammaGenerator
+        from src.services.gamma_generator import GammaGenerator
         from services.google_docs_exporter import GoogleDocsExporter
         from pathlib import Path
         
@@ -2199,7 +2199,7 @@ def generate_all_gamma(analysis_file, export_pdf, export_pptx, export_docs, outp
     """Generate all Gamma presentation styles from existing analysis JSON file."""
     try:
         import json
-        from services.gamma_generator import GammaGenerator
+        from src.services.gamma_generator import GammaGenerator
         from services.google_docs_exporter import GoogleDocsExporter
         from pathlib import Path
         
@@ -2460,7 +2460,7 @@ async def run_canny_analysis(
         if generate_gamma:
             console.print(f"[yellow]Generating Gamma presentation...[/yellow]")
             
-            from services.gamma_generator import GammaGenerator
+            from src.services.gamma_generator import GammaGenerator
             gamma_generator = GammaGenerator()
             
             try:
@@ -2642,7 +2642,7 @@ async def run_voc_analysis(
         if generate_gamma:
             console.print(f"[yellow]Generating Gamma presentation...[/yellow]")
             
-            from services.gamma_generator import GammaGenerator
+            from src.services.gamma_generator import GammaGenerator
             gamma_generator = GammaGenerator()
             
             try:
