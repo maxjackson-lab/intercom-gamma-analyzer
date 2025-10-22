@@ -68,6 +68,7 @@ class GammaClient:
         format: str = "presentation",
         num_cards: int = 10,
         text_mode: str = "generate",
+        theme_name: Optional[str] = None,
         export_as: Optional[str] = None,
         additional_instructions: Optional[str] = None,
         image_options: Optional[Dict] = None
@@ -114,6 +115,9 @@ class GammaClient:
             "numCards": num_cards,
             "textMode": text_mode
         }
+        
+        if theme_name:
+            payload["themeName"] = theme_name
         
         if export_as:
             payload["exportAs"] = export_as
