@@ -235,6 +235,7 @@ if HAS_FASTAPI:
                     <optgroup label="Category Deep Dives">
                         <option value="analyze-billing">Billing Analysis</option>
                         <option value="analyze-product">Product Feedback</option>
+                        <option value="analyze-api">API Issues & Integration</option>
                         <option value="analyze-escalations">Escalations</option>
                         <option value="tech-analysis">Technical Troubleshooting</option>
                     </optgroup>
