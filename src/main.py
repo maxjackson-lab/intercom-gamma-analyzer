@@ -3022,8 +3022,13 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
             generation_id = await gamma_client.generate_presentation(
                 input_text=markdown_report,
                 format="presentation",
-                num_cards=15,  # Gamma will auto-break into slides
-                text_mode="preserve"  # Preserve our markdown structure
+                text_mode="preserve",  # Preserve our markdown text
+                card_split="inputTextBreaks",  # Use our --- breaks for slides
+                theme_name="Night Sky",  # Professional dark theme
+                text_options={
+                    "tone": "professional, analytical",
+                    "audience": "executives, leadership team"
+                }
             )
             
             console.print(f"   Generation ID: {generation_id}")

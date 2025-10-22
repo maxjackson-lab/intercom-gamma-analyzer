@@ -68,10 +68,14 @@ class GammaClient:
         format: str = "presentation",
         num_cards: int = 10,
         text_mode: str = "generate",
+        card_split: str = "auto",
         theme_name: Optional[str] = None,
         export_as: Optional[str] = None,
         additional_instructions: Optional[str] = None,
-        image_options: Optional[Dict] = None
+        image_options: Optional[Dict] = None,
+        text_options: Optional[Dict] = None,
+        card_options: Optional[Dict] = None,
+        sharing_options: Optional[Dict] = None
     ) -> str:
         """
         Generate a Gamma presentation and return generation ID for polling.
@@ -108,12 +112,13 @@ class GammaClient:
         
         start_time = time.time()
         
-        # Build request payload
+        # Build request payload according to Gamma API v0.2 spec
         payload = {
             "inputText": input_text,
             "format": format,
             "numCards": num_cards,
-            "textMode": text_mode
+            "textMode": text_mode,
+            "cardSplit": card_split
         }
         
         if theme_name:
@@ -125,8 +130,17 @@ class GammaClient:
         if additional_instructions:
             payload["additionalInstructions"] = additional_instructions[:500]
         
+        if text_options:
+            payload["textOptions"] = text_options
+        
         if image_options:
             payload["imageOptions"] = image_options
+        
+        if card_options:
+            payload["cardOptions"] = card_options
+        
+        if sharing_options:
+            payload["sharingOptions"] = sharing_options
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
