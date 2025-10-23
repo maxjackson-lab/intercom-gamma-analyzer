@@ -336,7 +336,7 @@ class AnalysisOrchestrator:
             canny_posts = []
             if options.get('include_canny_data', True):
                 try:
-                    from services.canny_client import CannyClient
+                    from src.services.canny_client import CannyClient
                     canny_client = CannyClient()
                     canny_posts = await canny_client.get_posts(
                         start_date=start_date,
@@ -573,7 +573,7 @@ class AnalysisOrchestrator:
             
             # Generate Google Docs export if requested
             if export_docs:
-                from services.google_docs_exporter import GoogleDocsExporter
+                from src.services.google_docs_exporter import GoogleDocsExporter
                 from pathlib import Path
                 
                 docs_exporter = GoogleDocsExporter()

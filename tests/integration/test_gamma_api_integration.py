@@ -364,7 +364,7 @@ This should generate a PDF export link.
     async def test_end_to_end_comprehensive_analysis_with_gamma(self, sample_analysis_results):
         """Full end-to-end test: Analysis → Gamma generation."""
         try:
-            from services.orchestrator import AnalysisOrchestrator
+            from src.services.orchestrator import AnalysisOrchestrator
             
             # Create a mock comprehensive report
             comprehensive_report = {

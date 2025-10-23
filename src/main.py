@@ -1289,7 +1289,7 @@ async def run_category_analysis(category: str, start_date: datetime, end_date: d
             )
             
             # Use CategoryFilters to filter by category
-            from services.category_filters import CategoryFilters
+            from src.services.category_filters import CategoryFilters
             category_filters = CategoryFilters()
             filtered_conversations = category_filters.filter_by_category(
                 all_conversations, category, include_subcategories=True
@@ -2120,7 +2120,7 @@ def generate_gamma(analysis_file, style, export_pdf, export_pptx, export_docs, o
     try:
         import json
         from src.services.gamma_generator import GammaGenerator
-        from services.google_docs_exporter import GoogleDocsExporter
+        from src.services.google_docs_exporter import GoogleDocsExporter
         from pathlib import Path
         
         # Load analysis results
@@ -2200,7 +2200,7 @@ def generate_all_gamma(analysis_file, export_pdf, export_pptx, export_docs, outp
     try:
         import json
         from src.services.gamma_generator import GammaGenerator
-        from services.google_docs_exporter import GoogleDocsExporter
+        from src.services.google_docs_exporter import GoogleDocsExporter
         from pathlib import Path
         
         # Load analysis results
