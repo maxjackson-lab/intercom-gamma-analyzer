@@ -1246,9 +1246,25 @@ async def run_fin_analysis(start_date: datetime, end_date: datetime, detailed: b
 
 
 async def run_agent_analysis(agent: str, start_date: datetime, end_date: datetime):
-    """Run agent performance analysis."""
-    console.print(f"[yellow]Agent analysis not yet implemented[/yellow]")
+    """Run agent performance analysis (legacy version)."""
+    # Call the full version with default parameters
+    await run_agent_performance_analysis(agent, start_date, end_date, None, False)
+
+
+async def run_agent_performance_analysis(
+    agent: str, 
+    start_date: datetime, 
+    end_date: datetime, 
+    focus_categories: Optional[str] = None,
+    generate_gamma: bool = False
+):
+    """Run comprehensive agent performance analysis with optional Gamma generation."""
+    console.print(f"[yellow]Agent performance analysis not yet implemented[/yellow]")
     console.print(f"Would analyze {agent} performance from {start_date.date()} to {end_date.date()}")
+    if focus_categories:
+        console.print(f"Focus categories: {focus_categories}")
+    if generate_gamma:
+        console.print(f"Would generate Gamma presentation: {generate_gamma}")
 
 
 async def run_category_analysis(category: str, start_date: datetime, end_date: datetime, output_format: str):
@@ -3032,8 +3048,12 @@ def agent_performance(agent: str, time_period: Optional[str], start_date: Option
     if focus_categories:
         console.print(f"Focus: {focus_categories}")
     
+    # Convert string dates to datetime objects
+    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    
     asyncio.run(run_agent_performance_analysis(
-        agent, start_date, end_date, focus_categories, generate_gamma
+        agent, start_dt, end_dt, focus_categories, generate_gamma
     ))
 
 
