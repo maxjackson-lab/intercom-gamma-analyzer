@@ -260,7 +260,9 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         if gap_examples:
             card += "\nExamples:\n"
             for ex in gap_examples[:3]:
-                card += f"- \"{ex['preview']}...\"\n"
+                preview = ex.get('preview', 'No preview available')
+                url = ex.get('intercom_url', '#')
+                card += f"- \"{preview}...\" - [View conversation]({url})\n"
         
         # Struggling topics
         struggling = fin_data.get('struggling_topics', [])

@@ -148,7 +148,8 @@ Calculate:
                     'knowledge_gap_examples': [
                         {
                             'id': c.get('id'),
-                            'preview': c.get('customer_messages', [''])[0][:100]
+                            'preview': c.get('customer_messages', [''])[0][:100],
+                            'intercom_url': self._build_intercom_url(c.get('id'))
                         }
                         for c in knowledge_gaps[:5]
                     ],
@@ -254,4 +255,13 @@ Insights:"""
         except Exception as e:
             self.logger.warning(f"LLM insights generation failed: {e}")
             return f"Fin resolved {resolution_rate:.1%} of conversations with {knowledge_gaps} knowledge gaps detected."
+    
+    def _build_intercom_url(self, conversation_id: str) -> str:
+        """Build Intercom conversation URL with workspace ID"""
+        from src.config.settings import settings
+        workspace_id = settings.intercom_workspace_id
+        
+        if not workspace_id or workspace_id == "your-workspace-id-here":
+            return f"https://app.intercom.com/a/apps/[WORKSPACE_ID]/inbox/inbox/{conversation_id}"
+        return f"https://app.intercom.com/a/apps/{workspace_id}/inbox/inbox/{conversation_id}"
 

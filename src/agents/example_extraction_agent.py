@@ -346,8 +346,14 @@ Selection criteria:
         if not conv_id:
             return None  # Cannot build link without ID
         
-        # Note: workspace_id would come from settings in real implementation
-        intercom_url = f"https://app.intercom.com/a/inbox/inbox/{conv_id}"
+        # Build proper Intercom URL with workspace_id
+        from src.config.settings import settings
+        workspace_id = settings.intercom_workspace_id
+        
+        if not workspace_id or workspace_id == "your-workspace-id-here":
+            intercom_url = f"https://app.intercom.com/a/apps/[WORKSPACE_ID]/inbox/inbox/{conv_id}"
+        else:
+            intercom_url = f"https://app.intercom.com/a/apps/{workspace_id}/inbox/inbox/{conv_id}"
         
         # Handle created_at - use helper to convert to ISO UTC string
         created_at = conv.get('created_at')
