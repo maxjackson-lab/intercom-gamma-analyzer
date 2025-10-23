@@ -9,6 +9,7 @@ from datetime import datetime
 from src.analyzers.base_analyzer import BaseAnalyzer
 from src.models.analysis_models import AnalysisRequest, TrendAnalysisResults
 from src.config.prompts import PromptTemplates
+from src.utils.time_utils import to_utc_datetime, ensure_date, calculate_time_delta_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +118,11 @@ class TrendAnalyzer(BaseAnalyzer):
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                dt = datetime.fromtimestamp(created_at)
-                daily_volumes[dt.date()] += 1
-                hourly_volumes[dt.hour] += 1
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    daily_volumes[dt.date()] += 1
+                    hourly_volumes[dt.hour] += 1
         
         # Calculate trends
         daily_values = list(daily_volumes.values())
@@ -148,11 +151,14 @@ class TrendAnalyzer(BaseAnalyzer):
             parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
             for part in parts:
                 if part.get('author', {}).get('type') == 'admin':
-                    response_time = part.get('created_at') - created_at
-                    response_times.append(response_time)
-                    
-                    dt = datetime.fromtimestamp(created_at)
-                    response_times_by_day[dt.date()].append(response_time)
+                    # Use helper to calculate time delta in seconds
+                    delta_seconds = calculate_time_delta_seconds(created_at, part.get('created_at'))
+                    if delta_seconds is not None:
+                        response_times.append(delta_seconds)
+                        
+                        dt = to_utc_datetime(created_at)
+                        if dt:
+                            response_times_by_day[dt.date()].append(delta_seconds)
                     break
         
         # Calculate trends
@@ -182,8 +188,10 @@ class TrendAnalyzer(BaseAnalyzer):
                 
                 created_at = conv.get('created_at')
                 if created_at:
-                    dt = datetime.fromtimestamp(created_at)
-                    ratings_by_day[dt.date()].append(rating)
+                    # Use helper to handle both datetime and numeric types
+                    dt = to_utc_datetime(created_at)
+                    if dt:
+                        ratings_by_day[dt.date()].append(rating)
         
         # Calculate trends
         avg_ratings_by_day = {
@@ -213,9 +221,11 @@ class TrendAnalyzer(BaseAnalyzer):
             text = self._extract_conversation_text(conv)
             topics = self._extract_topics(text)
             
-            dt = datetime.fromtimestamp(created_at)
-            for topic in topics:
-                topics_by_day[dt.date()][topic] += 1
+            # Use helper to handle both datetime and numeric types
+            dt = to_utc_datetime(created_at)
+            if dt:
+                for topic in topics:
+                    topics_by_day[dt.date()][topic] += 1
         
         # Calculate trending topics
         all_topics = Counter()
@@ -247,9 +257,11 @@ class TrendAnalyzer(BaseAnalyzer):
             
             all_keywords.extend(keywords)
             
-            dt = datetime.fromtimestamp(created_at)
-            for keyword in keywords:
-                keywords_by_day[dt.date()][keyword] += 1
+            # Use helper to handle both datetime and numeric types
+            dt = to_utc_datetime(created_at)
+            if dt:
+                for keyword in keywords:
+                    keywords_by_day[dt.date()][keyword] += 1
         
         # Calculate keyword frequency
         keyword_freq = Counter(all_keywords)
@@ -276,8 +288,10 @@ class TrendAnalyzer(BaseAnalyzer):
             text = self._extract_conversation_text(conv)
             sentiment = self._analyze_sentiment(text)
             
-            dt = datetime.fromtimestamp(created_at)
-            sentiment_by_day[dt.date()][sentiment] += 1
+            # Use helper to handle both datetime and numeric types
+            dt = to_utc_datetime(created_at)
+            if dt:
+                sentiment_by_day[dt.date()][sentiment] += 1
         
         # Calculate sentiment trends
         total_sentiment = {"positive": 0, "negative": 0, "neutral": 0}

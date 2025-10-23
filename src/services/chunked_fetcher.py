@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 
 from src.services.intercom_service_v2 import IntercomServiceV2
+from src.utils.time_utils import to_utc_datetime, ensure_date
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,22 @@ class ChunkedFetcher:
                 start_date, end_date, max_pages
             )
             
+            # Standardized progress callback: (fetched_count, processed_days, total_days)
             if progress_callback:
-                progress_callback(len(conversations), len(conversations))
+                total_days = (end_date - start_date).days + 1
+                progress_callback(len(conversations), total_days, total_days)
             
             # Debug: Check actual date range of fetched conversations
             if conversations:
-                actual_dates = [datetime.fromtimestamp(c.get('created_at')) for c in conversations if c.get('created_at')]
+                # Convert created_at to datetime, handling both datetime and numeric types
+                actual_dates = []
+                for c in conversations:
+                    created_at = c.get('created_at')
+                    if created_at:
+                        dt = to_utc_datetime(created_at)
+                        if dt:
+                            actual_dates.append(dt)
+                
                 if actual_dates:
                     min_date = min(actual_dates)
                     max_date = max(actual_dates)
@@ -148,7 +159,15 @@ class ChunkedFetcher:
                 
                 # Debug: Check actual date range of fetched chunk
                 if chunk_conversations:
-                    actual_dates = [datetime.fromtimestamp(c.get('created_at')) for c in chunk_conversations if c.get('created_at')]
+                    # Convert created_at to datetime, handling both datetime and numeric types
+                    actual_dates = []
+                    for c in chunk_conversations:
+                        created_at = c.get('created_at')
+                        if created_at:
+                            dt = to_utc_datetime(created_at)
+                            if dt:
+                                actual_dates.append(dt)
+                    
                     if actual_dates:
                         min_date = min(actual_dates)
                         max_date = max(actual_dates)
@@ -190,7 +209,15 @@ class ChunkedFetcher:
         
         # Final verification of all fetched data
         if all_conversations:
-            all_dates = [datetime.fromtimestamp(c.get('created_at')) for c in all_conversations if c.get('created_at')]
+            # Convert created_at to datetime, handling both datetime and numeric types
+            all_dates = []
+            for c in all_conversations:
+                created_at = c.get('created_at')
+                if created_at:
+                    dt = to_utc_datetime(created_at)
+                    if dt:
+                        all_dates.append(dt)
+            
             if all_dates:
                 final_min = min(all_dates)
                 final_max = max(all_dates)
@@ -412,11 +439,18 @@ class ChunkedFetcher:
         if not conversations:
             return {"total_conversations": 0}
         
-        # Calculate date range
-        dates = [conv.get('created_at') for conv in conversations if conv.get('created_at')]
-        if dates:
-            min_date = min(dates)
-            max_date = max(dates)
+        # Calculate date range - normalize all timestamps to UTC datetime
+        datetimes = []
+        for conv in conversations:
+            created_at = conv.get('created_at')
+            if created_at:
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    datetimes.append(dt)
+        
+        if datetimes:
+            min_date = min(datetimes)
+            max_date = max(datetimes)
         else:
             min_date = max_date = None
         
@@ -432,15 +466,21 @@ class ChunkedFetcher:
             lang = conv.get('custom_attributes', {}).get('Language', 'unknown')
             languages[lang] = languages.get(lang, 0) + 1
         
+        # Calculate average per day using date differences
+        avg_per_day = 0
+        if min_date and max_date:
+            days_diff = (max_date.date() - min_date.date()).days + 1
+            avg_per_day = len(conversations) / max(1, days_diff)
+        
         stats = {
             "total_conversations": len(conversations),
             "date_range": {
-                "start": min_date,
-                "end": max_date
+                "start": min_date.isoformat() if min_date else None,
+                "end": max_date.isoformat() if max_date else None
             },
             "conversation_states": states,
             "languages": languages,
-            "avg_conversations_per_day": len(conversations) / max(1, (max_date - min_date).days + 1) if min_date and max_date else 0
+            "avg_conversations_per_day": round(avg_per_day, 2)
         }
         
         self.logger.info(f"Fetch statistics: {stats}")

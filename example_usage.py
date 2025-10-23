@@ -15,6 +15,7 @@ from intercom_client import IntercomClient
 from text_analyzer import TextAnalyzer
 from trend_analyzer import TrendAnalyzer
 from report_generator import ReportGenerator
+from utils.time_utils import format_datetime_for_display
 
 def example_basic_analysis():
     """Example: Basic conversation analysis for last 30 days."""
@@ -95,8 +96,9 @@ def example_text_search():
         print("\nFirst 5 conversation IDs:")
         for i, conv in enumerate(conversations[:5], 1):
             conv_id = conv.get('id', 'unknown')
-            created_at = conv.get('created_at', 0)
-            date_str = datetime.fromtimestamp(created_at).strftime('%Y-%m-%d') if created_at else 'unknown'
+            created_at = conv.get('created_at')
+            # Use helper to format datetime (handles both datetime and numeric types)
+            date_str = format_datetime_for_display(created_at, '%Y-%m-%d') if created_at else 'unknown'
             print(f"  {i}. {conv_id} (created: {date_str})")
 
 def example_custom_analysis():

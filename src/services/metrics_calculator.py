@@ -14,6 +14,7 @@ from src.models.analysis_models import (
     VolumeMetrics, EfficiencyMetrics, SatisfactionMetrics, 
     TopicMetrics, GeographicMetrics, FrictionMetrics, ChannelMetrics
 )
+from src.utils.time_utils import to_utc_datetime, calculate_time_delta_seconds, format_datetime_for_display
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +83,11 @@ class MetricsCalculator:
                     break
             
             if first_agent_response:
-                response_time = first_agent_response - created_at
-                response_times.append(response_time)
-                response_times_by_channel[source_type].append(response_time)
+                # Use helper to calculate time delta in seconds
+                delta_seconds = calculate_time_delta_seconds(created_at, first_agent_response)
+                if delta_seconds is not None:
+                    response_times.append(delta_seconds)
+                    response_times_by_channel[source_type].append(delta_seconds)
             
             # Handling time (time between first and last agent response)
             agent_responses = [
@@ -93,19 +96,23 @@ class MetricsCalculator:
             ]
             
             if len(agent_responses) > 1:
-                handling_time = max(agent_responses) - min(agent_responses)
-                handling_times.append(handling_time)
-                
-                # Agent handling time
-                for part in parts:
-                    if part.get('author', {}).get('type') == 'admin':
-                        agent_email = part.get('author', {}).get('email', 'unknown')
-                        handling_times_by_agent[agent_email].append(handling_time)
+                # Use helper to calculate time delta in seconds
+                delta_seconds = calculate_time_delta_seconds(min(agent_responses), max(agent_responses))
+                if delta_seconds is not None:
+                    handling_times.append(delta_seconds)
+                    
+                    # Agent handling time
+                    for part in parts:
+                        if part.get('author', {}).get('type') == 'admin':
+                            agent_email = part.get('author', {}).get('email', 'unknown')
+                            handling_times_by_agent[agent_email].append(delta_seconds)
             
             # Resolution time (time to close)
             if conv.get('state') == 'closed' and conv.get('closed_at'):
-                resolution_time = conv.get('closed_at') - created_at
-                resolution_times.append(resolution_time)
+                # Use helper to calculate time delta in seconds
+                delta_seconds = calculate_time_delta_seconds(created_at, conv.get('closed_at'))
+                if delta_seconds is not None:
+                    resolution_times.append(delta_seconds)
         
         # Calculate medians
         median_response_time = int(np.median(response_times)) if response_times else None
@@ -375,8 +382,10 @@ class MetricsCalculator:
                         break
                 
                 if first_agent_response:
-                    response_time = first_agent_response - created_at
-                    channel_response_times[source_type].append(response_time)
+                    # Use helper to calculate time delta in seconds
+                    delta_seconds = calculate_time_delta_seconds(created_at, first_agent_response)
+                    if delta_seconds is not None:
+                        channel_response_times[source_type].append(delta_seconds)
         
         # Channel performance
         channel_performance = {}
@@ -414,8 +423,11 @@ class MetricsCalculator:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                date_str = datetime.fromtimestamp(created_at).strftime('%Y-%m-%d')
-                daily_counts[date_str] += 1
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    date_str = dt.strftime('%Y-%m-%d')
+                    daily_counts[date_str] += 1
         return dict(daily_counts)
     
     def _calculate_hourly_breakdown(self, conversations: List[Dict]) -> Dict[int, int]:
@@ -424,8 +436,10 @@ class MetricsCalculator:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                hour = datetime.fromtimestamp(created_at).hour
-                hourly_counts[hour] += 1
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    hourly_counts[dt.hour] += 1
         return dict(hourly_counts)
     
     def _calculate_weekly_breakdown(self, conversations: List[Dict]) -> Dict[str, int]:
@@ -434,10 +448,12 @@ class MetricsCalculator:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                dt = datetime.fromtimestamp(created_at)
-                week_start = dt - timedelta(days=dt.weekday())
-                week_str = week_start.strftime('%Y-W%U')
-                weekly_counts[week_str] += 1
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    week_start = dt - timedelta(days=dt.weekday())
+                    week_str = week_start.strftime('%Y-W%U')
+                    weekly_counts[week_str] += 1
         return dict(weekly_counts)
     
     def _extract_conversation_text(self, conversation: Dict) -> str:
@@ -545,7 +561,13 @@ class MetricsCalculator:
         if not created_at:
             return False
         
-        age_days = (datetime.now().timestamp() - created_at) / (24 * 3600)
+        # Use helper to calculate time delta
+        created_dt = to_utc_datetime(created_at)
+        if not created_dt:
+            return False
+        
+        now = datetime.now().astimezone()
+        age_days = (now - created_dt).total_seconds() / (24 * 3600)
         return age_days > 7
     
     def _calculate_conversation_age(self, conversation: Dict) -> int:
@@ -554,6 +576,12 @@ class MetricsCalculator:
         if not created_at:
             return 0
         
-        age_days = (datetime.now().timestamp() - created_at) / (24 * 3600)
+        # Use helper to calculate time delta
+        created_dt = to_utc_datetime(created_at)
+        if not created_dt:
+            return 0
+        
+        now = datetime.now().astimezone()
+        age_days = (now - created_dt).total_seconds() / (24 * 3600)
         return int(age_days)
 

@@ -14,6 +14,7 @@ from src.services.openai_client import OpenAIClient
 from src.services.data_preprocessor import DataPreprocessor
 from src.services.category_filters import CategoryFilters
 from src.config.prompts import PromptTemplates
+from src.utils.time_utils import to_utc_datetime, calculate_time_delta_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -457,10 +458,10 @@ class BaseCategoryAnalyzer:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                if isinstance(created_at, datetime):
-                    dates.append(created_at)
-                elif isinstance(created_at, (int, float)):
-                    dates.append(datetime.fromtimestamp(created_at))
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    dates.append(dt)
         
         if not dates:
             return None
@@ -480,13 +481,11 @@ class BaseCategoryAnalyzer:
             
             if created_at and first_response:
                 try:
-                    if isinstance(created_at, (int, float)):
-                        created_at = datetime.fromtimestamp(created_at)
-                    if isinstance(first_response, (int, float)):
-                        first_response = datetime.fromtimestamp(first_response)
-                    
-                    response_time = (first_response - created_at).total_seconds() / 3600  # hours
-                    response_times.append(response_time)
+                    # Use helper to calculate time delta in seconds
+                    delta_seconds = calculate_time_delta_seconds(created_at, first_response)
+                    if delta_seconds is not None:
+                        response_time = delta_seconds / 3600  # Convert to hours
+                        response_times.append(response_time)
                 except Exception as e:
                     self.logger.warning(f"Error calculating response time: {e}")
                     continue

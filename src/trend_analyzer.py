@@ -9,6 +9,8 @@ from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
 
+from src.utils.time_utils import to_utc_datetime, ensure_date, calculate_time_delta_seconds
+
 logger = logging.getLogger(__name__)
 
 class TrendAnalyzer:
@@ -30,12 +32,12 @@ class TrendAnalyzer:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                try:
-                    date = datetime.fromtimestamp(created_at).date()
-                    dates.append(date)
-                except (ValueError, OSError) as e:
-                    logger.warning(f"Invalid timestamp {created_at}: {e}")
-                    continue
+                # Use helper to handle both datetime and numeric types
+                date_obj = ensure_date(created_at)
+                if date_obj:
+                    dates.append(date_obj)
+                else:
+                    logger.warning(f"Could not convert created_at to date: {created_at}")
                     
         if not dates:
             logger.warning("No valid dates found in conversations")
@@ -67,12 +69,12 @@ class TrendAnalyzer:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                try:
-                    hour = datetime.fromtimestamp(created_at).hour
-                    hours.append(hour)
-                except (ValueError, OSError) as e:
-                    logger.warning(f"Invalid timestamp {created_at}: {e}")
-                    continue
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
+                    hours.append(dt.hour)
+                else:
+                    logger.warning(f"Could not convert created_at to datetime: {created_at}")
                     
         if not hours:
             logger.warning("No valid timestamps found in conversations")
@@ -290,12 +292,10 @@ class TrendAnalyzer:
                 if author.get('type') == 'admin':
                     part_created_at = part.get('created_at')
                     if part_created_at:
-                        try:
-                            response_time = part_created_at - created_at
-                            if response_time > 0:  # Only positive response times
-                                response_times.append(response_time / 3600)  # Convert to hours
-                        except (ValueError, OSError):
-                            continue
+                        # Use helper to calculate time delta in seconds
+                        delta_seconds = calculate_time_delta_seconds(created_at, part_created_at)
+                        if delta_seconds and delta_seconds > 0:  # Only positive response times
+                            response_times.append(delta_seconds / 3600)  # Convert to hours
                             
         if not response_times:
             return {
@@ -331,13 +331,12 @@ class TrendAnalyzer:
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                try:
-                    dt = datetime.fromtimestamp(created_at)
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if dt:
                     week_start = dt - timedelta(days=dt.weekday())
                     week_key = week_start.strftime('%Y-%W')
                     weekly_data[week_key].append(dt)
-                except (ValueError, OSError):
-                    continue
                     
         if not weekly_data:
             return pd.DataFrame(columns=['week', 'count', 'week_start'])

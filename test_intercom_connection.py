@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
+from utils.time_utils import format_datetime_for_display
+
 def test_basic_connection():
     """Test basic connection to Intercom API."""
     print("🔌 Testing basic connection to Intercom API...")
@@ -73,7 +75,9 @@ def test_fetch_sample_conversations(client):
             print(f"\n📋 Sample conversation:")
             print(f"   ID: {sample.get('id', 'unknown')}")
             print(f"   State: {sample.get('state', 'unknown')}")
-            print(f"   Created: {datetime.fromtimestamp(sample.get('created_at', 0)).strftime('%Y-%m-%d %H:%M')}")
+            # Use helper to format datetime (handles both datetime and numeric types)
+            created_str = format_datetime_for_display(sample.get('created_at'), '%Y-%m-%d %H:%M')
+            print(f"   Created: {created_str}")
             
             # Show source info
             source = sample.get('source', {})
@@ -108,8 +112,9 @@ def test_text_search(client):
             print("   Sample search results:")
             for i, conv in enumerate(conversations[:3], 1):
                 conv_id = conv.get('id', 'unknown')
-                created_at = conv.get('created_at', 0)
-                date_str = datetime.fromtimestamp(created_at).strftime('%Y-%m-%d') if created_at else 'unknown'
+                created_at = conv.get('created_at')
+                # Use helper to format datetime (handles both datetime and numeric types)
+                date_str = format_datetime_for_display(created_at, '%Y-%m-%d') if created_at else 'unknown'
                 print(f"   {i}. {conv_id} (created: {date_str})")
         
         return True

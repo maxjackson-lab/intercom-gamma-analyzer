@@ -11,6 +11,7 @@ from collections import Counter
 
 from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer, AnalysisError
 from src.config.prompts import PromptTemplates
+from src.utils.time_utils import to_utc_datetime, ensure_date, calculate_time_delta_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -495,10 +496,12 @@ class ProductAnalyzer(BaseCategoryAnalyzer):
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                if isinstance(created_at, (int, float)):
-                    created_at = datetime.fromtimestamp(created_at)
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if not dt:
+                    continue
                 
-                date_key = created_at.date().isoformat()
+                date_key = dt.date().isoformat()
                 daily_counts[date_key] = daily_counts.get(date_key, 0) + 1
                 
                 product_type = conv.get('product_type', 'other')
@@ -668,13 +671,10 @@ class ProductAnalyzer(BaseCategoryAnalyzer):
         
         if created_at and closed_at:
             try:
-                if isinstance(created_at, (int, float)):
-                    created_at = datetime.fromtimestamp(created_at)
-                if isinstance(closed_at, (int, float)):
-                    closed_at = datetime.fromtimestamp(closed_at)
-                
-                resolution_time = (closed_at - created_at).total_seconds() / 3600  # hours
-                return resolution_time
+                # Use helper to calculate time delta in seconds
+                delta_seconds = calculate_time_delta_seconds(created_at, closed_at)
+                if delta_seconds is not None:
+                    return delta_seconds / 3600  # Convert to hours
             except Exception as e:
                 self.logger.warning(f"Error calculating resolution time: {e}")
                 return None

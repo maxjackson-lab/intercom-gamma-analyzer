@@ -11,6 +11,7 @@ from collections import Counter
 
 from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer, AnalysisError
 from src.config.prompts import PromptTemplates
+from src.utils.time_utils import to_utc_datetime, ensure_date, calculate_time_delta_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -466,10 +467,12 @@ class SitesAnalyzer(BaseCategoryAnalyzer):
         for conv in conversations:
             created_at = conv.get('created_at')
             if created_at:
-                if isinstance(created_at, (int, float)):
-                    created_at = datetime.fromtimestamp(created_at)
+                # Use helper to handle both datetime and numeric types
+                dt = to_utc_datetime(created_at)
+                if not dt:
+                    continue
                 
-                date_key = created_at.date().isoformat()
+                date_key = dt.date().isoformat()
                 daily_counts[date_key] = daily_counts.get(date_key, 0) + 1
                 
                 sites_type = conv.get('sites_type', 'other')
