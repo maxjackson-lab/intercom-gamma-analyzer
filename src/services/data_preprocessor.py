@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 
 from src.config.settings import settings
+from src.models.analysis_models import ConversationSchema
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,12 @@ class DataPreprocessor:
         conversations: List[Dict[str, Any]], 
         stats: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Validate conversation data and normalize fields."""
+        """
+        Validate conversation data and normalize fields.
+        
+        Uses ConversationSchema for validation and adds customer_messages field.
+        Drops conversations without valid ID or usable text.
+        """
         validated = []
         
         for i, conv in enumerate(conversations):
@@ -153,17 +159,35 @@ class DataPreprocessor:
                     stats["validation_errors"].append(f"Conversation {i}: Missing ID")
                     continue
                 
-                # Normalize timestamps
-                conv = self._normalize_timestamps(conv)
+                # Extract customer messages before schema validation
+                customer_messages = self._extract_customer_messages(conv)
+                conv['customer_messages'] = customer_messages
                 
-                # Normalize custom attributes
-                conv = self._normalize_custom_attributes(conv)
-                
-                # Validate required fields
-                if self._validate_required_fields(conv):
-                    validated.append(conv)
-                else:
-                    stats["validation_errors"].append(f"Conversation {i}: Missing required fields")
+                # Validate with ConversationSchema
+                try:
+                    validated_conv = ConversationSchema(**conv)
+                    
+                    # Check for usable text content
+                    if not validated_conv.has_usable_text():
+                        stats["validation_errors"].append(
+                            f"Conversation {conv.get('id')}: No usable text content (no customer messages)"
+                        )
+                        continue
+                    
+                    # Convert back to dict for downstream processing
+                    conv_dict = validated_conv.dict()
+                    # Preserve extra fields that were in original conv
+                    for key, value in conv.items():
+                        if key not in conv_dict:
+                            conv_dict[key] = value
+                    
+                    validated.append(conv_dict)
+                    
+                except Exception as schema_error:
+                    stats["validation_errors"].append(
+                        f"Conversation {conv.get('id')}: Schema validation failed - {schema_error}"
+                    )
+                    continue
                     
             except Exception as e:
                 self.logger.warning(f"Validation error for conversation {i}: {e}")
@@ -171,6 +195,39 @@ class DataPreprocessor:
                 continue
         
         return validated
+    
+    def _extract_customer_messages(self, conv: Dict[str, Any]) -> List[str]:
+        """
+        Extract customer messages from raw Intercom conversation data.
+        
+        This method extracts all messages sent by customers (users) from both
+        the initial message (source) and subsequent conversation parts.
+        
+        Args:
+            conv: Raw Intercom conversation dictionary
+            
+        Returns:
+            List of customer message texts
+        """
+        customer_msgs = []
+        
+        # Extract from conversation_parts
+        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        for part in parts:
+            author = part.get('author', {})
+            if author.get('type') == 'user':  # Customer message
+                body = part.get('body', '').strip()
+                if body:
+                    customer_msgs.append(body)
+        
+        # Extract from source (initial message)
+        source = conv.get('source', {})
+        if source.get('author', {}).get('type') == 'user':
+            body = source.get('body', '').strip()
+            if body:
+                customer_msgs.insert(0, body)  # Add at beginning
+        
+        return customer_msgs
     
     def _normalize_timestamps(self, conv: Dict[str, Any]) -> Dict[str, Any]:
         """Normalize timestamp fields to datetime objects."""

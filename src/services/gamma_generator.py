@@ -812,6 +812,14 @@ class GammaGenerator:
         elif len(input_text) > 750000:
             validation_errors.append(f"Input text too long: {len(input_text)} chars (max 750,000)")
         
+        # Detect if this is topic-based orchestrator output (preformatted markdown)
+        # Topic-based output has a different structure with agent_results, formatted_report, etc.
+        is_topic_based = (
+            'formatted_report' in analysis_results or
+            'agent_results' in analysis_results or
+            ('summary' in analysis_results and 'topics_analyzed' in analysis_results.get('summary', {}))
+        )
+        
         # Check 2: Required sections (flexible matching)
         required_sections = ["Executive Summary"]
         optional_sections = ["Analysis", "Recommendations", "Immediate Actions", "Next Steps", "Critical Insights"]
@@ -846,6 +854,12 @@ class GammaGenerator:
             total_conversations = analysis_results['metadata']['total_conversations']
             if total_conversations == 0:
                 validation_errors.append("No conversations found in metadata")
+        elif is_topic_based:
+            # Topic-based orchestrator output - check summary for conversation counts
+            summary = analysis_results.get('summary', {})
+            total_conversations = summary.get('total_conversations', 0)
+            if total_conversations == 0:
+                validation_errors.append("No conversations found in topic-based summary")
         else:
             # Skip validation if we can't determine the structure
             pass
@@ -858,9 +872,11 @@ class GammaGenerator:
                 validation_errors.append("Intercom URLs may be malformed")
         
         # Check 5: Category data presence
-        category_results = analysis_results.get('category_results', {})
-        if not category_results:
-            validation_errors.append("No category analysis results available")
+        # Skip this check for topic-based orchestrator output (preformatted markdown)
+        if not is_topic_based:
+            category_results = analysis_results.get('category_results', {})
+            if not category_results:
+                validation_errors.append("No category analysis results available")
         
         # Check 6: Minimum content quality
         if len(input_text) < 200:

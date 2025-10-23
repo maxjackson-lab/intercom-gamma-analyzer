@@ -32,6 +32,57 @@ class SourceType(str, Enum):
     CUSTOM = "custom"
 
 
+class ConversationSchema(BaseModel):
+    """
+    Schema for validating and normalizing Intercom conversations.
+    
+    This schema ensures conversations have the minimum required fields
+    and usable text content before being processed by agents.
+    """
+    # Required fields
+    id: str = Field(..., description="Unique conversation ID")
+    created_at: Union[datetime, int, str] = Field(..., description="Conversation creation timestamp")
+    
+    # Optional but important fields
+    updated_at: Optional[Union[datetime, int, str]] = None
+    state: Optional[str] = None
+    conversation_parts: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    source: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    custom_attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    
+    # Extracted/normalized fields (added during preprocessing)
+    customer_messages: Optional[List[str]] = Field(default_factory=list, description="Extracted customer messages")
+    
+    @validator('created_at', 'updated_at', pre=True, always=True)
+    def normalize_timestamp(cls, v):
+        """Normalize timestamps to datetime objects"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, (int, float)):
+            from datetime import timezone
+            return datetime.fromtimestamp(v, tz=timezone.utc)
+        if isinstance(v, str):
+            return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        return v
+    
+    @validator('custom_attributes', pre=True, always=True)
+    def normalize_custom_attributes(cls, v):
+        """Ensure custom_attributes is a dict"""
+        if v is None or not isinstance(v, dict):
+            return {}
+        return v
+    
+    def has_usable_text(self) -> bool:
+        """Check if conversation has usable text content"""
+        return len(self.customer_messages or []) > 0
+    
+    class Config:
+        # Allow extra fields from Intercom API
+        extra = "allow"
+
+
 class AnalysisRequest(BaseModel):
     """Request model for analysis operations."""
     mode: AnalysisMode

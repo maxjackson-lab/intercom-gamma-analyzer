@@ -11,6 +11,7 @@ from pathlib import Path
 import json
 
 from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.data_preprocessor import DataPreprocessor
 from src.utils.time_utils import to_utc_datetime, ensure_date
 
 logger = logging.getLogger(__name__)
@@ -28,14 +29,17 @@ class ChunkedFetcher:
     - Memory-efficient processing
     """
     
-    def __init__(self, intercom_service: Optional[IntercomServiceV2] = None):
+    def __init__(self, intercom_service: Optional[IntercomServiceV2] = None, enable_preprocessing: bool = True):
         """
         Initialize chunked fetcher.
         
         Args:
             intercom_service: Intercom service instance (optional)
+            enable_preprocessing: Whether to preprocess conversations (default: True)
         """
         self.intercom_service = intercom_service or IntercomServiceV2()
+        self.preprocessor = DataPreprocessor() if enable_preprocessing else None
+        self.enable_preprocessing = enable_preprocessing
         self.logger = logging.getLogger(__name__)
         
         # Chunking configuration
@@ -43,7 +47,10 @@ class ChunkedFetcher:
         self.max_conversations_per_chunk = 1000  # Max conversations per chunk
         self.chunk_delay = 2.0  # Delay between chunks (seconds)
         
-        self.logger.info(f"Initialized ChunkedFetcher with max_days_per_chunk={self.max_days_per_chunk}")
+        self.logger.info(
+            f"Initialized ChunkedFetcher with max_days_per_chunk={self.max_days_per_chunk}, "
+            f"preprocessing={'enabled' if enable_preprocessing else 'disabled'}"
+        )
     
     async def fetch_conversations_chunked(
         self, 
@@ -95,6 +102,18 @@ class ChunkedFetcher:
             conversations = await self.intercom_service.fetch_conversations_by_date_range(
                 start_date, end_date, max_pages
             )
+            
+            # Preprocess conversations if enabled
+            if self.enable_preprocessing and self.preprocessor:
+                self.logger.info(f"Preprocessing {len(conversations)} conversations...")
+                conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                    conversations,
+                    options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+                )
+                self.logger.info(
+                    f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                    f"{len(preprocess_stats.get('validation_errors', []))} errors"
+                )
             
             # Standardized progress callback: (fetched_count, processed_days, total_days)
             if progress_callback:
@@ -227,6 +246,18 @@ class ChunkedFetcher:
         else:
             self.logger.info(f"Daily chunking completed: {len(all_conversations)} total conversations")
         
+        # Preprocess all conversations if enabled
+        if self.enable_preprocessing and self.preprocessor and all_conversations:
+            self.logger.info(f"Preprocessing {len(all_conversations)} conversations from daily chunks...")
+            all_conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                all_conversations,
+                options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+            )
+            self.logger.info(
+                f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                f"{len(preprocess_stats.get('validation_errors', []))} errors"
+            )
+        
         return all_conversations
     
     async def fetch_with_conversation_limit(
@@ -301,6 +332,19 @@ class ChunkedFetcher:
                     break
         
         self.logger.info(f"Fetch with limit completed: {len(all_conversations)} conversations")
+        
+        # Preprocess conversations if enabled
+        if self.enable_preprocessing and self.preprocessor and all_conversations:
+            self.logger.info(f"Preprocessing {len(all_conversations)} conversations with limit...")
+            all_conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                all_conversations,
+                options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+            )
+            self.logger.info(
+                f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                f"{len(preprocess_stats.get('validation_errors', []))} errors"
+            )
+        
         return all_conversations
     
     async def fetch_conversations_streaming(

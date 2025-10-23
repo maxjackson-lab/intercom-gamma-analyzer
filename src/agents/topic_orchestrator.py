@@ -39,31 +39,6 @@ class TopicOrchestrator:
         
         self.logger = logging.getLogger(__name__)
     
-    def _extract_customer_messages(self, conversations: List[Dict]) -> List[Dict]:
-        """Extract and add customer_messages to conversations from raw Intercom data"""
-        for conv in conversations:
-            # Extract customer messages from conversation_parts
-            customer_msgs = []
-            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-            
-            for part in parts:
-                author = part.get('author', {})
-                if author.get('type') == 'user':  # Customer message
-                    body = part.get('body', '').strip()
-                    if body:
-                        customer_msgs.append(body)
-            
-            # Also check source (initial message)
-            source = conv.get('source', {})
-            if source.get('author', {}).get('type') == 'user':
-                body = source.get('body', '').strip()
-                if body:
-                    customer_msgs.insert(0, body)  # Add at beginning
-            
-            conv['customer_messages'] = customer_msgs
-        
-        return conversations
-    
     async def execute_weekly_analysis(
         self,
         conversations: List[Dict],
@@ -90,8 +65,11 @@ class TopicOrchestrator:
         self.logger.info(f"🤖 TopicOrchestrator: Starting weekly analysis for {week_id}")
         self.logger.info(f"   Total conversations: {len(conversations)}")
         
-        # Preprocess: Extract customer messages from raw Intercom data
-        conversations = self._extract_customer_messages(conversations)
+        # Note: conversations should already have customer_messages from DataPreprocessor
+        # If not present, add empty list to avoid errors (for backward compatibility)
+        for conv in conversations:
+            if 'customer_messages' not in conv:
+                conv['customer_messages'] = []
         
         # Create context
         context = AgentContext(
@@ -148,33 +126,38 @@ class TopicOrchestrator:
             
             # Process all topics in parallel for efficiency
             async def process_topic(topic_name: str, topic_stats: Dict):
-                """Process a single topic with sentiment + examples"""
-                topic_convs = conversations_by_topic_full.get(topic_name, [])
-                
-                # Skip topics with no conversations
-                if len(topic_convs) == 0:
-                    self.logger.info(f"   Skipping {topic_name}: 0 conversations")
-                    return topic_name, None, None
-                
-                self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
-                
-                # Sentiment for this topic
-                topic_context = context.model_copy()
-                topic_context.metadata = {
-                    'current_topic': topic_name,
-                    'topic_conversations': topic_convs,
-                    'sentiment_insight': ''
-                }
-                
-                sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
-                
-                # Examples for this topic
-                topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
-                examples_result = await self.example_extraction_agent.execute(topic_context)
-                
-                self.logger.info(f"   ✅ {topic_name}: Sentiment + {len(examples_result.data.get('examples', []))} examples")
-                
-                return topic_name, sentiment_result, examples_result
+                """Process a single topic with sentiment + examples. Always returns (topic_name, result, result) or (topic_name, exception, None)."""
+                try:
+                    topic_convs = conversations_by_topic_full.get(topic_name, [])
+                    
+                    # Skip topics with no conversations
+                    if len(topic_convs) == 0:
+                        self.logger.info(f"   Skipping {topic_name}: 0 conversations")
+                        return topic_name, None, None
+                    
+                    self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
+                    
+                    # Sentiment for this topic
+                    topic_context = context.model_copy()
+                    topic_context.metadata = {
+                        'current_topic': topic_name,
+                        'topic_conversations': topic_convs,
+                        'sentiment_insight': ''
+                    }
+                    
+                    sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
+                    
+                    # Examples for this topic
+                    topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
+                    examples_result = await self.example_extraction_agent.execute(topic_context)
+                    
+                    self.logger.info(f"   ✅ {topic_name}: Sentiment + {len(examples_result.data.get('examples', []))} examples")
+                    
+                    return topic_name, sentiment_result, examples_result
+                except Exception as e:
+                    # Wrap exception to preserve topic_name
+                    self.logger.error(f"   ❌ {topic_name}: Processing failed - {e}", exc_info=True)
+                    return topic_name, e, None
             
             # Process all topics in parallel (skip zero-volume topics)
             self.logger.info(f"   Processing {len(topic_dist)} topics in parallel...")
@@ -187,35 +170,33 @@ class TopicOrchestrator:
                 topic_tasks.append(process_topic(name, stats))
             
             self.logger.info(f"   Created {len(topic_tasks)} topic processing tasks")
-            topic_results = await asyncio.gather(*topic_tasks, return_exceptions=True)
+            topic_results = await asyncio.gather(*topic_tasks)
             
             # Initialize per-topic tracking
             if 'TopicProcessing' not in workflow_results:
                 workflow_results['TopicProcessing'] = {}
             
             # Collect results with per-topic error handling
-            topic_names_to_process = [name for name, stats in topic_dist.items() if stats.get('volume', 0) > 0]
-            
-            for idx, result in enumerate(topic_results):
-                # Determine topic name from task index
-                topic_name = topic_names_to_process[idx] if idx < len(topic_names_to_process) else f"unknown_topic_{idx}"
+            # Note: process_topic now always returns (topic_name, sentiment_result, examples_result)
+            # even on exceptions, where sentiment_result is the exception and examples_result is None
+            for result in topic_results:
+                # Unpack result - topic_name is always first element
+                result_topic_name, sentiment_result, examples_result = result
                 
-                if isinstance(result, Exception):
-                    error_msg = str(result)
-                    self.logger.error(f"Topic '{topic_name}' processing failed: {error_msg}", exc_info=result)
+                # Check if sentiment_result is an exception
+                if isinstance(sentiment_result, Exception):
+                    error_msg = str(sentiment_result)
+                    self.logger.error(f"Topic '{result_topic_name}' processing failed: {error_msg}", exc_info=sentiment_result)
                     # Add structured error entry
-                    workflow_results['TopicProcessing'][topic_name] = {
+                    workflow_results['TopicProcessing'][result_topic_name] = {
                         'success': False,
                         'error_message': error_msg,
-                        'error_type': type(result).__name__
+                        'error_type': type(sentiment_result).__name__
                     }
                     continue
                 
-                # Unpack successful result
-                result_topic_name, sentiment_result, examples_result = result
-                
-                # Skip if topic was empty
-                if sentiment_result is None or examples_result is None:
+                # Skip if topic was empty (both None)
+                if sentiment_result is None and examples_result is None:
                     workflow_results['TopicProcessing'][result_topic_name] = {
                         'success': False,
                         'error_message': 'Empty topic - no conversations matched'
