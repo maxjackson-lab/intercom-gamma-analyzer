@@ -44,7 +44,9 @@ class TopicOrchestrator:
         conversations: List[Dict],
         week_id: str = None,
         start_date: datetime = None,
-        end_date: datetime = None
+        end_date: datetime = None,
+        period_type: str = None,
+        period_label: str = None
     ) -> Dict[str, Any]:
         """
         Execute complete weekly VoC analysis
@@ -54,6 +56,8 @@ class TopicOrchestrator:
             week_id: Week identifier (e.g., '2024-W42')
             start_date: Week start date
             end_date: Week end date
+            period_type: Period type (e.g., 'week', 'month', 'custom')
+            period_label: Human-readable period label
         
         Returns:
             Complete analysis in Hilary's format
@@ -78,7 +82,11 @@ class TopicOrchestrator:
             start_date=start_date or datetime.now(),
             end_date=end_date or datetime.now(),
             conversations=conversations,
-            metadata={'week_id': week_id}
+            metadata={
+                'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label
+            }
         )
         
         workflow_results = {}
@@ -247,7 +255,11 @@ class TopicOrchestrator:
                 'FinPerformanceAgent': fin_result.dict(),
                 'TrendAgent': trend_result.dict()
             }
-            output_context.metadata = {'week_id': week_id}
+            output_context.metadata = {
+                'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label
+            }
             
             formatter_result = await self.output_formatter_agent.execute(output_context)
             workflow_results['OutputFormatterAgent'] = formatter_result.dict()
@@ -262,6 +274,8 @@ class TopicOrchestrator:
             
             final_output = {
                 'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label,
                 'formatted_report': formatter_result.data.get('formatted_output', ''),
                 'summary': {
                     'total_conversations': len(conversations),
