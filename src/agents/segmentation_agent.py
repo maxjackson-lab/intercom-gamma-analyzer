@@ -13,6 +13,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.models.analysis_models import CustomerTier
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,77 @@ class SegmentationAgent(BaseAgent):
             'horatio': r'horatio|@horatio\.com|@hirehoratio\.co',
             'boldr': r'\bboldr\b|@boldrimpact\.com'
         }
-    
+
+    def _extract_customer_tier(self, conv: Dict) -> CustomerTier:
+        """
+        Extract and validate customer tier from conversation data.
+
+        Checks validated tier first, then falls back to manual extraction.
+        Defaults to FREE if tier is missing or invalid.
+
+        Args:
+            conv: Conversation dictionary
+
+        Returns:
+            CustomerTier enum instance (FREE, PRO, PLUS, or ULTRA)
+        """
+        conv_id = conv.get('id', 'unknown')
+
+        # Primary source: Pre-validated tier from ConversationSchema
+        tier = conv.get('tier')
+        if isinstance(tier, CustomerTier):
+            self.logger.debug(f"Extracted tier {tier.value} for conversation {conv_id}")
+            return tier
+
+        # Handle top-level string tier before falling back to custom attributes
+        if tier and isinstance(tier, str) and tier.strip():
+            try:
+                tier_string_lower = tier.strip().lower()
+                for tier_enum in CustomerTier:
+                    if tier_enum.value.lower() == tier_string_lower:
+                        self.logger.debug(f"Extracted tier {tier_enum.value} from top-level string for conversation {conv_id}")
+                        return tier_enum
+                # If no match found, log and continue to fallback
+                self.logger.debug(f"Top-level tier string '{tier}' did not match any CustomerTier enum for conversation {conv_id}")
+            except Exception as e:
+                self.logger.debug(f"Error processing top-level tier string for conversation {conv_id}: {e}")
+
+        # Fallback: Manual extraction for backward compatibility
+        tier_string = None
+
+        # Check contact-level custom attributes (prioritized)
+        contacts_data = conv.get('contacts', {})
+        if contacts_data and isinstance(contacts_data, dict):
+            contacts_list = contacts_data.get('contacts', [])
+            if contacts_list and len(contacts_list) > 0:
+                contact = contacts_list[0]
+                custom_attrs = contact.get('custom_attributes', {})
+                tier_string = custom_attrs.get('tier')
+
+        # Fallback to conversation-level custom attributes
+        if not tier_string:
+            custom_attrs = conv.get('custom_attributes', {})
+            tier_string = custom_attrs.get('tier')
+
+        # Try to match tier string to enum
+        if tier_string:
+            try:
+                tier_string_lower = str(tier_string).lower()
+                for tier_enum in CustomerTier:
+                    if tier_enum.value.lower() == tier_string_lower:
+                        self.logger.debug(f"Extracted tier {tier_enum.value} for conversation {conv_id}")
+                        return tier_enum
+
+                # Unknown tier value
+                self.logger.debug(f"Unknown tier value '{tier_string}' for conversation {conv_id}, defaulting to FREE")
+            except Exception as e:
+                self.logger.debug(f"Error matching tier for conversation {conv_id}: {e}, defaulting to FREE")
+        else:
+            self.logger.warning(f"No tier found for conversation {conv_id}, defaulting to FREE")
+
+        # Default to FREE
+        return CustomerTier.FREE
+
     def get_agent_specific_instructions(self) -> str:
         """Segmentation agent specific instructions"""
         return """
@@ -109,21 +180,58 @@ Output: Segmented conversations with agent type labels
                 'horatio': [],
                 'boldr': [],
                 'fin_ai': [],
+                'fin_resolved': [],  # Paid customers resolved by Fin only
                 'unknown': []
             }
             
             for conv in conversations:
                 segment, agent_type = self._classify_conversation(conv)
-                
+
                 if segment == 'paid':
                     paid_customers.append(conv)
                 elif segment == 'free':
                     free_customers.append(conv)
                 else:
                     unknown.append(conv)
+
+                # Guard against unexpected agent_type keys
+                if agent_type not in agent_distribution:
+                    self.logger.warning(f"Unknown agent_type '{agent_type}' for conversation {conv.get('id')}, defaulting to 'unknown' bucket")
+                    agent_type = 'unknown'
                 
                 agent_distribution[agent_type].append(conv)
-            
+
+            # Tier distribution tracking
+            tier_distribution = {'free': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
+            for conv in conversations:
+                tier = self._extract_customer_tier(conv)
+                if tier == CustomerTier.FREE:
+                    tier_distribution['free'] += 1
+                elif tier == CustomerTier.PRO:
+                    tier_distribution['pro'] += 1
+                elif tier == CustomerTier.PLUS:
+                    tier_distribution['plus'] += 1
+                elif tier == CustomerTier.ULTRA:
+                    tier_distribution['ultra'] += 1
+                else:
+                    tier_distribution['unknown'] += 1
+
+            # Log tier distribution
+            total = len(conversations)
+            if total > 0:
+                free_pct = round(tier_distribution['free'] / total * 100, 1)
+                pro_pct = round(tier_distribution['pro'] / total * 100, 1)
+                plus_pct = round(tier_distribution['plus'] / total * 100, 1)
+                ultra_pct = round(tier_distribution['ultra'] / total * 100, 1)
+
+                self.logger.info(f"Tier distribution: {tier_distribution}")
+                self.logger.info(
+                    f"   Free: {tier_distribution['free']} ({free_pct}%), "
+                    f"Pro: {tier_distribution['pro']} ({pro_pct}%), "
+                    f"Plus: {tier_distribution['plus']} ({plus_pct}%), "
+                    f"Ultra: {tier_distribution['ultra']} ({ultra_pct}%)"
+                )
+
             # Prepare result
             result_data = {
                 'paid_customer_conversations': paid_customers,
@@ -184,21 +292,45 @@ Output: Segmented conversations with agent type labels
     
     def _classify_conversation(self, conv: Dict) -> tuple[str, str]:
         """
-        Classify conversation by tier and agent type
-        
+        Classify conversation by customer tier and agent type.
+
+        Tier-first classification:
+        1. Extract customer tier (Free/Pro/Plus/Ultra)
+        2. Free tier → always ('free', 'fin_ai') regardless of admin assignment
+        3. Paid tier → check for admin involvement:
+           - Has admin reply → ('paid', <agent_type>)
+           - AI-only → ('paid', 'fin_resolved')
+
         Returns:
             (segment, agent_type) where:
             segment: 'paid', 'free', 'unknown'
-            agent_type: 'escalated', 'horatio', 'boldr', 'fin_ai', 'unknown'
+            agent_type: 'escalated', 'horatio', 'boldr', 'fin_ai', 'fin_resolved', 'unknown'
         """
-        text = conv.get('full_text', '').lower()
-        assignee = str(conv.get('admin_assignee_id', '')).lower()
-        ai_participated = conv.get('ai_agent_participated', False)
-        
-        # Log conversation data for debugging
         conv_id = conv.get('id', 'unknown')
+
+        # Step 1: Extract tier FIRST (tier-first classification)
+        tier = self._extract_customer_tier(conv)
+        self.logger.debug(f"Conversation {conv_id} tier: {tier.value}")
+
+        # Step 2: Free tier early return
+        # Free tier customers can ONLY interact with Fin AI (no human escalation possible)
+        if tier == CustomerTier.FREE:
+            # Edge case: Free tier with admin assignment (abuse/trust & safety)
+            admin_assignee_id = conv.get('admin_assignee_id')
+            if admin_assignee_id:
+                self.logger.warning(
+                    f"Free tier customer {conv_id} has admin_assignee_id={admin_assignee_id} "
+                    f"- likely abuse/trust & safety case"
+                )
+            return ('free', 'fin_ai')
+
+        # Step 3: Paid tier classification (only reached for PRO/PLUS/ULTRA)
+        text = conv.get('full_text', '').lower()
+        ai_participated = conv.get('ai_agent_participated', False)
+
+        # Log conversation data for debugging
         self.logger.debug(
-            f"Classifying conversation {conv_id}: "
+            f"Classifying paid tier conversation {conv_id}: "
             f"admin_assignee_id={conv.get('admin_assignee_id')}, "
             f"ai_participated={ai_participated}"
         )
@@ -239,7 +371,7 @@ Output: Segmented conversations with agent type labels
         
         # Check for escalation (senior staff)
         for name in self.escalation_names:
-            if name in text or name in assignee:
+            if name in text:
                 return 'paid', 'escalated'
             # Also check admin emails
             for email in admin_emails:
@@ -256,11 +388,11 @@ Output: Segmented conversations with agent type labels
                 return 'paid', 'boldr'
         
         # Fallback to text patterns
-        if re.search(self.tier1_patterns['horatio'], text) or 'horatio' in assignee:
+        if re.search(self.tier1_patterns['horatio'], text):
             self.logger.debug(f"Horatio agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'horatio'
         
-        if re.search(self.tier1_patterns['boldr'], text) or 'boldr' in assignee:
+        if re.search(self.tier1_patterns['boldr'], text):
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'boldr'
         
@@ -268,12 +400,12 @@ Output: Segmented conversations with agent type labels
         if conv.get('admin_assignee_id') or admin_emails:
             self.logger.debug(f"Generic paid customer detected (unknown agent type) in conversation {conv_id}")
             return 'paid', 'unknown'  # Has human but can't identify which
-        
-        # AI-only conversation
-        if ai_participated and not conv.get('admin_assignee_id'):
-            self.logger.debug(f"Fin AI-only conversation detected: {conv_id}")
-            return 'free', 'fin_ai'
-        
+
+        # AI-only conversation (paid tier)
+        if ai_participated:
+            self.logger.debug(f"Paid tier customer {conv_id} resolved by Fin AI only (no human escalation)")
+            return 'paid', 'fin_resolved'
+
         # Cannot determine
         self.logger.debug(f"Unable to classify conversation {conv_id} - insufficient data")
         return 'unknown', 'unknown'

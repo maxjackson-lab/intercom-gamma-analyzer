@@ -4,7 +4,7 @@ Pydantic data models for analysis results and configurations.
 
 from typing import Dict, List, Optional, Any, Union
 from datetime import datetime, date
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, root_validator
 from enum import Enum
 
 
@@ -32,6 +32,14 @@ class SourceType(str, Enum):
     CUSTOM = "custom"
 
 
+class CustomerTier(str, Enum):
+    """Customer subscription tiers."""
+    FREE = "free"
+    PRO = "pro"
+    PLUS = "plus"
+    ULTRA = "ultra"
+
+
 class ConversationSchema(BaseModel):
     """
     Schema for validating and normalizing Intercom conversations.
@@ -49,6 +57,8 @@ class ConversationSchema(BaseModel):
     conversation_parts: Optional[Dict[str, Any]] = Field(default_factory=dict)
     source: Optional[Dict[str, Any]] = Field(default_factory=dict)
     custom_attributes: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    contacts: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    tier: Optional[CustomerTier] = Field(None, description="Customer subscription tier extracted from contact or conversation custom attributes")
     
     # Extracted/normalized fields (added during preprocessing)
     customer_messages: Optional[List[str]] = Field(default_factory=list, description="Extracted customer messages")
@@ -73,6 +83,57 @@ class ConversationSchema(BaseModel):
         if v is None or not isinstance(v, dict):
             return {}
         return v
+
+    @validator('contacts', pre=True, always=True)
+    def normalize_contacts(cls, v):
+        """Ensure contacts is a dict"""
+        if v is None or not isinstance(v, dict):
+            return {}
+        return v
+
+    @validator('tier', pre=True, always=True)
+    def extract_tier(cls, v, values):
+        """Extract tier from contact or conversation custom attributes"""
+        # If tier is already a CustomerTier instance, return it
+        if isinstance(v, CustomerTier):
+            return v
+        
+        # Extract tier string from contact-level (priority) or conversation-level
+        tier_string = None
+        
+        # Try contact-level tier first
+        contacts_data = values.get('contacts', {})
+        if isinstance(contacts_data, dict):
+            contacts_list = contacts_data.get('contacts', [])
+            if isinstance(contacts_list, list) and len(contacts_list) > 0:
+                contact_custom_attrs = contacts_list[0].get('custom_attributes', {})
+                if isinstance(contact_custom_attrs, dict):
+                    tier_string = contact_custom_attrs.get('tier')
+        
+        # Fallback to conversation-level tier if contact-level not found
+        if not tier_string:
+            custom_attrs = values.get('custom_attributes', {})
+            if isinstance(custom_attrs, dict):
+                tier_string = custom_attrs.get('tier')
+        
+        # If no tier string found, return None
+        if not tier_string:
+            return None
+        
+        # Normalize and match to CustomerTier enum
+        try:
+            normalized_tier = tier_string.lower() if isinstance(tier_string, str) else None
+            if normalized_tier:
+                # Try to match against CustomerTier enum values
+                for tier_enum in CustomerTier:
+                    if tier_enum.value == normalized_tier:
+                        return tier_enum
+            # If no match found, log debug and return None
+            import logging
+            logging.getLogger(__name__).debug(f"Unknown tier value: {tier_string}")
+            return None
+        except (ValueError, AttributeError):
+            return None
     
     def has_usable_text(self) -> bool:
         """Check if conversation has usable text content"""
@@ -109,7 +170,12 @@ class AnalysisRequest(BaseModel):
 
 
 class ConversationMetrics(BaseModel):
-    """Metrics for a single conversation."""
+    """
+    Metrics for a single conversation.
+    
+    Note: `tier` is the canonical field for customer subscription tier.
+    `user_tier` mirrors it for backward compatibility and is deprecated.
+    """
     conversation_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -125,9 +191,73 @@ class ConversationMetrics(BaseModel):
     agent_count: int = 0
     customer_count: int = 0
     country: Optional[str] = None
-    user_tier: Optional[str] = None
+    tier: Optional[CustomerTier] = None
+    user_tier: Optional[CustomerTier] = None  # Deprecated: use tier instead
     tags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
+
+    @validator('tier', pre=True, always=True)
+    def normalize_tier(cls, v):
+        """Accept strings (case-insensitive) and coerce to CustomerTier"""
+        if v is None:
+            return None
+        if isinstance(v, CustomerTier):
+            return v
+        if isinstance(v, str):
+            normalized = v.lower()
+            try:
+                for tier_enum in CustomerTier:
+                    if tier_enum.value == normalized:
+                        return tier_enum
+            except (ValueError, AttributeError):
+                pass
+        return None
+
+    @validator('user_tier', pre=True, always=True)
+    def normalize_and_backfill_user_tier(cls, v, values):
+        """Accept strings (case-insensitive), coerce to CustomerTier, and backfill from tier"""
+        # If user_tier is not provided but tier is, backfill from tier
+        if v is None and 'tier' in values and values['tier'] is not None:
+            return values['tier']
+
+        # If user_tier is provided, normalize it
+        if v is None:
+            return None
+        if isinstance(v, CustomerTier):
+            return v
+        if isinstance(v, str):
+            normalized = v.lower()
+            try:
+                for tier_enum in CustomerTier:
+                    if tier_enum.value == normalized:
+                        return tier_enum
+            except (ValueError, AttributeError):
+                pass
+        return None
+
+    @root_validator(pre=False, skip_on_failure=True)
+    def sync_tier_fields(cls, values):
+        """
+        Ensure tier and user_tier remain fully synchronized after normalization.
+        
+        - If only one field is provided, mirror it to the other.
+        - If both are provided and differ, prefer tier (canonical field) and overwrite user_tier.
+        - Runs post-validation (pre=False) to ensure normalization happens first.
+        """
+        tier = values.get('tier')
+        user_tier = values.get('user_tier')
+        
+        # If only tier is set, mirror to user_tier
+        if tier is not None and user_tier is None:
+            values['user_tier'] = tier
+        # If only user_tier is set, mirror to tier
+        elif user_tier is not None and tier is None:
+            values['tier'] = user_tier
+        # If both are set and different, prefer tier (canonical field)
+        elif tier is not None and user_tier is not None and tier != user_tier:
+            values['user_tier'] = tier
+        
+        return values
 
 
 class VolumeMetrics(BaseModel):
