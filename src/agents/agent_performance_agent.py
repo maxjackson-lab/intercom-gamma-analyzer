@@ -319,6 +319,8 @@ Focus areas:
     
     def _extract_performance_examples(self, conversations: List[Dict], metrics: Dict, category_perf: Dict) -> Dict[str, List[Dict]]:
         """Extract example conversations showing strengths and development areas"""
+        from src.config.settings import settings
+        
         examples = {
             'high_fcr_examples': [],
             'escalation_examples': [],
@@ -335,7 +337,8 @@ Focus areas:
                 {
                     'id': c.get('id'),
                     'category': self._get_category(c),
-                    'resolution_hours': self._get_resolution_hours(c)
+                    'resolution_hours': self._get_resolution_hours(c),
+                    'intercom_url': self._build_intercom_url(c.get('id'))
                 }
                 for c in fcr_convs[:3]
             ]
@@ -351,12 +354,22 @@ Focus areas:
                 {
                     'id': c.get('id'),
                     'category': self._get_category(c),
-                    'why_escalated': 'Complex issue requiring senior expertise'
+                    'why_escalated': 'Complex issue requiring senior expertise',
+                    'intercom_url': self._build_intercom_url(c.get('id'))
                 }
                 for c in escalated[:3]
             ]
         
         return examples
+    
+    def _build_intercom_url(self, conversation_id: str) -> str:
+        """Build Intercom conversation URL with workspace ID"""
+        from src.config.settings import settings
+        workspace_id = settings.intercom_workspace_id
+        
+        if not workspace_id or workspace_id == "your-workspace-id-here":
+            return f"https://app.intercom.com/a/apps/[WORKSPACE_ID]/inbox/inbox/{conversation_id}"
+        return f"https://app.intercom.com/a/apps/{workspace_id}/inbox/inbox/{conversation_id}"
     
     def _get_category(self, conv: Dict) -> str:
         """Get category for a conversation"""

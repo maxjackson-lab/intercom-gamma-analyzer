@@ -171,7 +171,11 @@ We analyzed {total_conversations:,} customer conversations and identified critic
 • Date range: {start_date} to {end_date}
 • Analysis period type: {period_type if period_type else 'custom'}
 • Analysis methodology: AI-powered categorization and sentiment analysis
-• Data source: Intercom conversation data"""
+• Data source: Intercom conversation data
+
+---
+
+{self._build_notable_examples_appendix(conversations, category_results)}"""
         
         return narrative
     
@@ -258,6 +262,10 @@ We analyzed **{total_conversations:,} customer conversations** with stratified s
         
         # Add recommendations
         narrative += self._build_recommendations_section(category_results)
+        
+        # Add notable examples appendix
+        narrative += "\n---\n\n"
+        narrative += self._build_notable_examples_appendix(conversations, category_results)
         
         return narrative
     
@@ -348,7 +356,11 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
 • Analysis period: {start_date} to {end_date}
 • Analysis period type: {period_type if period_type else 'custom'}
 • Total conversations reviewed: {total_conversations:,}
-• Categories covered: {len(training_categories)}"""
+• Categories covered: {len(training_categories)}
+
+---
+
+{self._build_notable_examples_appendix(conversations, category_results)}"""
         
         return narrative
     
@@ -855,6 +867,118 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
         section += "---\n\n"
         
         return section
+    
+    def _build_notable_examples_appendix(
+        self,
+        conversations: List[Dict],
+        category_results: Dict
+    ) -> str:
+        """
+        Build an appendix with notable conversation examples from all categories.
+        Aggregates examples with Intercom links for easy reference.
+        """
+        section = """# Appendix: Notable Conversation Examples
+
+## Representative Conversations by Category
+
+This section provides direct links to notable conversations that exemplify key patterns and issues identified in each category.
+
+"""
+        
+        # Get stratified examples from each category
+        for category, results in sorted(
+            category_results.items(),
+            key=lambda x: x[1].get('conversation_count', 0),
+            reverse=True
+        ):
+            count = results.get('conversation_count', 0)
+            if count == 0:
+                continue
+            
+            section += f"### {category} ({count} conversations)\n\n"
+            
+            # Get examples for this category
+            category_examples = self._get_category_examples(conversations, category, max_examples=5)
+            
+            if category_examples:
+                section += "**Notable Examples:**\n\n"
+                for i, example in enumerate(category_examples, 1):
+                    preview = example.get('preview', 'No preview available')
+                    url = example.get('intercom_url', '#')
+                    section += f"{i}. \"{preview}\" - [View in Intercom]({url})\n"
+                section += "\n"
+            else:
+                section += "_No examples available for this category_\n\n"
+        
+        section += "---\n\n"
+        section += "**Note:** All conversation links require appropriate Intercom workspace access.\n"
+        
+        return section
+    
+    def _get_category_examples(
+        self,
+        conversations: List[Dict],
+        category: str,
+        max_examples: int = 5
+    ) -> List[Dict]:
+        """
+        Extract example conversations for a specific category with Intercom URLs.
+        
+        Args:
+            conversations: List of all conversations
+            category: Category name to filter by
+            max_examples: Maximum number of examples to return
+            
+        Returns:
+            List of example dictionaries with preview and intercom_url
+        """
+        # Filter conversations by category using tags
+        category_convs = []
+        category_keywords = {
+            'Billing': ['billing', 'refund', 'invoice', 'payment'],
+            'Product Question': ['product', 'bug', 'feature', 'export'],
+            'Workspace': ['workspace', 'sites', 'domain', 'publishing'],
+            'API': ['api', 'integration', 'authentication', 'endpoint']
+        }
+        
+        keywords = category_keywords.get(category, [category.lower()])
+        
+        for conv in conversations:
+            tags = conv.get('tags', {}).get('tags', [])
+            tag_names = [tag.get('name', '').lower() if isinstance(tag, dict) else str(tag).lower() 
+                        for tag in tags]
+            
+            # Check if any keyword matches
+            if any(kw in ' '.join(tag_names) for kw in keywords):
+                category_convs.append(conv)
+        
+        # Sort by recency and quality
+        category_convs.sort(key=lambda c: c.get('created_at', 0), reverse=True)
+        
+        # Format examples with Intercom URLs
+        examples = []
+        for conv in category_convs[:max_examples]:
+            # Get customer message preview
+            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+            customer_parts = [p for p in parts if p.get('author', {}).get('type') == 'user']
+            
+            if customer_parts:
+                preview = customer_parts[0].get('body', '')[:80]
+                if len(customer_parts[0].get('body', '')) > 80:
+                    preview += "..."
+            else:
+                # Fallback to source body
+                preview = conv.get('source', {}).get('body', 'No preview available')[:80]
+                if len(conv.get('source', {}).get('body', '')) > 80:
+                    preview += "..."
+            
+            examples.append({
+                'preview': preview,
+                'intercom_url': self._build_intercom_url(conv['id']),
+                'conversation_id': conv['id']
+            })
+        
+        return examples
 
     def build_voc_narrative_content(
         self, 

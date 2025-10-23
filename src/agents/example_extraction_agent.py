@@ -1,5 +1,5 @@
 """
-ExampleExtractionAgent: Selects 3-10 best representative conversations per topic.
+ExampleExtractionAgent: Selects 5-15 best representative conversations per topic.
 
 Purpose:
 - Score conversations by relevance to sentiment
@@ -97,7 +97,7 @@ class ExampleExtractionAgent(BaseAgent):
         return """
 EXAMPLE EXTRACTION AGENT SPECIFIC RULES:
 
-1. Select 3-10 BEST conversations that demonstrate the topic sentiment
+1. Select 5-15 BEST conversations that demonstrate the topic sentiment
 2. Prioritize conversations that:
    - Have clear, readable customer messages
    - Demonstrate the sentiment described
@@ -121,7 +121,7 @@ EXAMPLE EXTRACTION AGENT SPECIFIC RULES:
         count = len(context.metadata.get('topic_conversations', []))
         
         return f"""
-Select 3-10 best conversation examples for topic: {topic}
+Select 5-15 best conversation examples for topic: {topic}
 
 Sentiment to demonstrate: "{sentiment}"
 
@@ -151,7 +151,7 @@ Selection criteria:
             return False
         
         examples = result['examples']
-        if len(examples) < 1 or len(examples) > 10:
+        if len(examples) < 1 or len(examples) > 15:
             self.logger.warning(f"Unusual number of examples: {len(examples)}")
         
         return True
@@ -192,12 +192,12 @@ Selection criteria:
             
             # Use LLM to select the most representative examples
             self.logger.info(f"Using LLM to select best examples from {len(candidates)} candidates...")
-            selected = await self._llm_select_examples(candidates, topic, sentiment, target_count=7)
+            selected = await self._llm_select_examples(candidates, topic, sentiment, target_count=10)
             
             # Fallback to rule-based if LLM fails
             if not selected:
                 self.logger.warning("LLM selection failed, using top scored examples")
-                selected = [conv for score, conv in scored_conversations[:7]]
+                selected = [conv for score, conv in scored_conversations[:10]]
             
             # Format examples
             examples = []
@@ -216,9 +216,9 @@ Selection criteria:
             
             self.validate_output(result_data)
             
-            confidence = min(1.0, len(examples) / 7)  # 7 is ideal count
-            confidence_level = (ConfidenceLevel.HIGH if len(examples) >= 5
-                              else ConfidenceLevel.MEDIUM if len(examples) >= 3
+            confidence = min(1.0, len(examples) / 10)  # 10 is ideal count
+            confidence_level = (ConfidenceLevel.HIGH if len(examples) >= 8
+                              else ConfidenceLevel.MEDIUM if len(examples) >= 5
                               else ConfidenceLevel.LOW)
             
             execution_time = (datetime.now() - start_time).total_seconds()
@@ -231,7 +231,7 @@ Selection criteria:
                 data=result_data,
                 confidence=confidence,
                 confidence_level=confidence_level,
-                limitations=[f"Only {len(examples)} quality examples found"] if len(examples) < 5 else [],
+                limitations=[f"Only {len(examples)} quality examples found"] if len(examples) < 8 else [],
                 sources=[f"{len(conversations)} conversations about {topic}"],
                 execution_time=execution_time,
                 token_count=0
@@ -362,7 +362,7 @@ Selection criteria:
             'created_at': created_at_str
         }
     
-    async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 7) -> List[Dict]:
+    async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 10) -> List[Dict]:
         """
         Use LLM to select the most representative and informative examples
         
