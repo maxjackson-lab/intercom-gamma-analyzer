@@ -35,7 +35,8 @@ class PresentationBuilder:
     def build_narrative_content(
         self, 
         analysis_results: Dict, 
-        style: str = "executive"
+        style: str = "executive",
+        period_type: Optional[str] = None
     ) -> str:
         """
         Convert analysis JSON to narrative inputText for Gamma.
@@ -43,6 +44,7 @@ class PresentationBuilder:
         Args:
             analysis_results: Analysis results dictionary
             style: Presentation style ("executive", "detailed", "training")
+            period_type: Period type ('daily', 'weekly', 'monthly', etc.)
             
         Returns:
             Formatted narrative text for Gamma API
@@ -64,15 +66,15 @@ class PresentationBuilder:
             # Build narrative based on style
             if style == "executive":
                 narrative = self._build_executive_narrative(
-                    conversations, category_results, start_date, end_date
+                    conversations, category_results, start_date, end_date, period_type
                 )
             elif style == "detailed":
                 narrative = self._build_detailed_narrative(
-                    conversations, category_results, start_date, end_date
+                    conversations, category_results, start_date, end_date, period_type
                 )
             elif style == "training":
                 narrative = self._build_training_narrative(
-                    conversations, category_results, start_date, end_date
+                    conversations, category_results, start_date, end_date, period_type
                 )
             else:
                 raise ValueError(f"Unknown presentation style: {style}")
@@ -100,7 +102,8 @@ class PresentationBuilder:
         conversations: List[Dict], 
         category_results: Dict, 
         start_date: str, 
-        end_date: str
+        end_date: str,
+        period_type: Optional[str] = None
     ) -> str:
         """Build executive-style narrative (8-12 slides)."""
         
@@ -166,6 +169,7 @@ We analyzed {total_conversations:,} customer conversations and identified critic
 
 • Total conversations analyzed: {total_conversations:,}
 • Date range: {start_date} to {end_date}
+• Analysis period type: {period_type if period_type else 'custom'}
 • Analysis methodology: AI-powered categorization and sentiment analysis
 • Data source: Intercom conversation data"""
         
@@ -176,7 +180,8 @@ We analyzed {total_conversations:,} customer conversations and identified critic
         conversations: List[Dict], 
         category_results: Dict, 
         start_date: str, 
-        end_date: str
+        end_date: str,
+        period_type: Optional[str] = None
     ) -> str:
         """Build detailed-style narrative with stratified quotes."""
         
@@ -261,7 +266,8 @@ We analyzed **{total_conversations:,} customer conversations** with stratified s
         conversations: List[Dict], 
         category_results: Dict, 
         start_date: str, 
-        end_date: str
+        end_date: str,
+        period_type: Optional[str] = None
     ) -> str:
         """Build training-focused narrative (10-15 slides)."""
         
@@ -340,6 +346,7 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
 
 • Intercom conversation examples: {len(customer_quotes)} featured
 • Analysis period: {start_date} to {end_date}
+• Analysis period type: {period_type if period_type else 'custom'}
 • Total conversations reviewed: {total_conversations:,}
 • Categories covered: {len(training_categories)}"""
         
@@ -852,7 +859,8 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
     def build_voc_narrative_content(
         self, 
         voc_results: Dict, 
-        style: str = "executive"
+        style: str = "executive",
+        period_type: Optional[str] = None
     ) -> str:
         """
         Build narrative specifically for Voice of Customer analysis results.
@@ -865,6 +873,7 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
                 - historical_trends: Optional[Dict]
                 - metadata: Dict with analysis info
             style: Presentation style ("executive", "detailed", "training")
+            period_type: Period type ('daily', 'weekly', 'monthly', etc.)
             
         Returns:
             Formatted narrative for Gamma API
@@ -887,15 +896,15 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
             # Build narrative based on style
             if style == "executive":
                 narrative = self._build_voc_executive_narrative(
-                    results, insights, agent_feedback, metadata, historical_trends
+                    results, insights, agent_feedback, metadata, historical_trends, period_type
                 )
             elif style == "detailed":
                 narrative = self._build_voc_detailed_narrative(
-                    results, insights, agent_feedback, metadata, historical_trends
+                    results, insights, agent_feedback, metadata, historical_trends, period_type
                 )
             elif style == "training":
                 narrative = self._build_voc_training_narrative(
-                    results, insights, agent_feedback, metadata, historical_trends
+                    results, insights, agent_feedback, metadata, historical_trends, period_type
                 )
             else:
                 raise ValueError(f"Unknown presentation style: {style}")
@@ -924,7 +933,8 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
         insights: List[str],
         agent_feedback: Dict,
         metadata: Dict,
-        historical_trends: Optional[Dict]
+        historical_trends: Optional[Dict],
+        period_type: Optional[str] = None
     ) -> str:
         """Build executive-style narrative for VoC analysis (8-12 slides)."""
         
@@ -1334,6 +1344,7 @@ This is the first analysis period. Future reports will include:
         categories_analyzed = len(results)
         
         section = f"""**Analysis Period:** {metadata.get('start_date', 'Unknown')} to {metadata.get('end_date', 'Unknown')}
+**Analysis Period Type:** {period_type if period_type else 'custom'}
 **Total Conversations:** {total_conversations:,}
 **Categories Identified:** {categories_analyzed}
 **AI Model:** {ai_model.upper()}
@@ -1397,7 +1408,8 @@ This is the first analysis period. Future reports will include:
         insights: List[str],
         agent_feedback: Dict,
         metadata: Dict,
-        historical_trends: Optional[Dict]
+        historical_trends: Optional[Dict],
+        period_type: Optional[str] = None
     ) -> str:
         """Build detailed-style narrative for VoC analysis (15-20 slides)."""
         
@@ -1486,7 +1498,8 @@ This is the first analysis period. Future reports will include:
         insights: List[str],
         agent_feedback: Dict,
         metadata: Dict,
-        historical_trends: Optional[Dict]
+        historical_trends: Optional[Dict],
+        period_type: Optional[str] = None
     ) -> str:
         """Build training-style narrative for VoC analysis (12-15 slides)."""
         
@@ -1728,7 +1741,8 @@ This is the first analysis period. Future reports will include:
     def build_canny_narrative_content(
         self, 
         canny_results: Dict, 
-        style: str = "executive"
+        style: str = "executive",
+        period_type: Optional[str] = None
     ) -> str:
         """
         Build narrative specifically for Canny analysis results.
@@ -1746,6 +1760,7 @@ This is the first analysis period. Future reports will include:
                 - insights: List of actionable insights
                 - metadata: Dict with analysis info
             style: Presentation style ("executive", "detailed", "training")
+            period_type: Period type ('daily', 'weekly', 'monthly', etc.)
             
         Returns:
             Formatted narrative for Gamma API
@@ -1775,19 +1790,19 @@ This is the first analysis period. Future reports will include:
                 narrative = self._build_canny_executive_narrative(
                     posts_analyzed, sentiment_summary, top_requests, status_breakdown,
                     category_breakdown, vote_analysis, engagement_metrics, 
-                    trending_posts, insights, metadata
+                    trending_posts, insights, metadata, period_type
                 )
             elif style == "detailed":
                 narrative = self._build_canny_detailed_narrative(
                     posts_analyzed, sentiment_summary, top_requests, status_breakdown,
                     category_breakdown, vote_analysis, engagement_metrics, 
-                    trending_posts, insights, metadata
+                    trending_posts, insights, metadata, period_type
                 )
             elif style == "training":
                 narrative = self._build_canny_training_narrative(
                     posts_analyzed, sentiment_summary, top_requests, status_breakdown,
                     category_breakdown, vote_analysis, engagement_metrics, 
-                    trending_posts, insights, metadata
+                    trending_posts, insights, metadata, period_type
                 )
             else:
                 raise ValueError(f"Unknown presentation style: {style}")
@@ -1820,7 +1835,8 @@ This is the first analysis period. Future reports will include:
         engagement_metrics: Dict,
         trending_posts: List[Dict],
         insights: List[str],
-        metadata: Dict
+        metadata: Dict,
+        period_type: Optional[str] = None
     ) -> str:
         """Build executive summary narrative for Canny analysis."""
         narrative_parts = []
@@ -1896,7 +1912,8 @@ This is the first analysis period. Future reports will include:
         engagement_metrics: Dict,
         trending_posts: List[Dict],
         insights: List[str],
-        metadata: Dict
+        metadata: Dict,
+        period_type: Optional[str] = None
     ) -> str:
         """Build detailed narrative for Canny analysis."""
         narrative_parts = []
@@ -2001,7 +2018,8 @@ This is the first analysis period. Future reports will include:
         engagement_metrics: Dict,
         trending_posts: List[Dict],
         insights: List[str],
-        metadata: Dict
+        metadata: Dict,
+        period_type: Optional[str] = None
     ) -> str:
         """Build training narrative for Canny analysis."""
         narrative_parts = []

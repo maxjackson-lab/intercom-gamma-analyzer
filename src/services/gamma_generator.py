@@ -13,6 +13,7 @@ import json
 from src.services.gamma_client import GammaClient, GammaAPIError
 from src.services.presentation_builder import PresentationBuilder
 from src.config.gamma_prompts import GammaPrompts
+from src.utils.time_utils import detect_period_type
 
 logger = structlog.get_logger()
 
@@ -80,8 +81,13 @@ class GammaGenerator:
         start_time = time.time()
         
         try:
+            # Detect period type from date range
+            start_date = analysis_results.get('start_date')
+            end_date = analysis_results.get('end_date')
+            period_type, period_label = detect_period_type(start_date, end_date) if start_date and end_date else ('custom', 'Custom')
+            
             # Build narrative content
-            input_text = self.builder.build_narrative_content(analysis_results, style)
+            input_text = self.builder.build_narrative_content(analysis_results, style, period_type)
             
             # Validate input before sending to Gamma
             validation_errors = self._validate_gamma_input(input_text, analysis_results)
@@ -117,7 +123,9 @@ class GammaGenerator:
                 'generation_time_seconds': elapsed,
                 'style': style,
                 'export_format': export_format,
-                'slide_count': num_cards
+                'slide_count': num_cards,
+                'period_type': period_type,
+                'period_label': period_label
             }
             
             # Generate markdown summary
@@ -130,7 +138,7 @@ class GammaGenerator:
                 markdown_output_dir.mkdir(parents=True, exist_ok=True)
                 
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                markdown_filename = f"analysis_{style}_{timestamp}.md"
+                markdown_filename = f"analysis_{period_type}_{style}_{timestamp}.md"
                 markdown_path = markdown_output_dir / markdown_filename
                 
                 docs_exporter.export_to_markdown(
@@ -445,8 +453,14 @@ class GammaGenerator:
         self.logger.info("generating_gamma_from_voc", style=style)
         
         try:
+            # Detect period type from metadata
+            metadata = voc_results.get('metadata', {})
+            start_date = metadata.get('start_date')
+            end_date = metadata.get('end_date')
+            period_type, period_label = detect_period_type(start_date, end_date) if start_date and end_date else ('custom', 'Custom')
+            
             # Use VoC-specific narrative builder
-            input_text = self.builder.build_voc_narrative_content(voc_results, style)
+            input_text = self.builder.build_voc_narrative_content(voc_results, style, period_type)
             
             # Validate input before sending to Gamma
             validation_errors = self._validate_gamma_input(input_text, voc_results)
@@ -482,7 +496,9 @@ class GammaGenerator:
                 'style': style,
                 'export_format': export_format,
                 'slide_count': num_cards,
-                'voc_analysis': True  # Flag to indicate this came from VoC
+                'voc_analysis': True,  # Flag to indicate this came from VoC
+                'period_type': period_type,
+                'period_label': period_label
             }
             
             # Generate markdown summary
@@ -495,7 +511,7 @@ class GammaGenerator:
                 markdown_output_dir.mkdir(parents=True, exist_ok=True)
                 
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                markdown_filename = f"voc_analysis_{style}_{timestamp}.md"
+                markdown_filename = f"voc_analysis_{period_type}_{style}_{timestamp}.md"
                 markdown_path = markdown_output_dir / markdown_filename
                 
                 docs_exporter.export_to_markdown(
@@ -582,8 +598,14 @@ class GammaGenerator:
         self.logger.info("generating_gamma_from_canny", style=style)
         
         try:
+            # Detect period type from metadata
+            metadata = canny_results.get('metadata', {})
+            start_date = metadata.get('start_date')
+            end_date = metadata.get('end_date')
+            period_type, period_label = detect_period_type(start_date, end_date) if start_date and end_date else ('custom', 'Custom')
+            
             # Use Canny-specific narrative builder
-            input_text = self.builder.build_canny_narrative_content(canny_results, style)
+            input_text = self.builder.build_canny_narrative_content(canny_results, style, period_type)
             
             # Validate input before sending to Gamma
             validation_errors = self._validate_gamma_input(input_text, canny_results)
@@ -619,7 +641,9 @@ class GammaGenerator:
                 'style': style,
                 'export_format': export_format,
                 'slide_count': num_cards,
-                'canny_analysis': True  # Flag to indicate this came from Canny
+                'canny_analysis': True,  # Flag to indicate this came from Canny
+                'period_type': period_type,
+                'period_label': period_label
             }
             
             # Generate markdown summary
@@ -632,7 +656,7 @@ class GammaGenerator:
                 markdown_output_dir.mkdir(parents=True, exist_ok=True)
                 
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                markdown_filename = f"canny_analysis_{style}_{timestamp}.md"
+                markdown_filename = f"canny_analysis_{period_type}_{style}_{timestamp}.md"
                 markdown_path = markdown_output_dir / markdown_filename
                 
                 docs_exporter.export_to_markdown(
@@ -713,7 +737,8 @@ class GammaGenerator:
                     'conversation_count': len(analysis_results.get('conversations', [])),
                     'start_date': analysis_results.get('start_date'),
                     'end_date': analysis_results.get('end_date'),
-                    'categories_analyzed': len(analysis_results.get('category_results', {}))
+                    'categories_analyzed': len(analysis_results.get('category_results', {})),
+                    'period_type': generation_result.get('period_type', 'custom')
                 },
                 'generated_at': datetime.now().isoformat(),
                 'style': style

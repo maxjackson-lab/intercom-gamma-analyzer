@@ -95,6 +95,10 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             # Build output
             output_sections = []
             
+            # Get period type from metadata
+            period_type = context.metadata.get('period_type', 'weekly')
+            period_label = context.metadata.get('period_label', 'Weekly')
+            
             # Header
             week_id = context.metadata.get('week_id', datetime.now().strftime('%Y-W%W'))
             output_sections.append(f"# Voice of Customer Analysis - Week {week_id}")
@@ -139,7 +143,8 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     sentiment,
                     examples,
                     trend_indicator,
-                    trend_explanation
+                    trend_explanation,
+                    period_label
                 )
                 output_sections.append(card)
             
@@ -194,12 +199,12 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 execution_time=execution_time
             )
     
-    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "") -> str:
+    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly") -> str:
         """Format a single topic card"""
         method_label = "Intercom conversation attribute" if stats['detection_method'] == 'attribute' else "Keyword detection"
         
         card = f"""### {topic_name}{trend}
-**{stats['volume']} tickets / {stats['percentage']}% of weekly volume**  
+**{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**  
 **Detection Method**: {method_label}
 
 **Sentiment**: {sentiment}

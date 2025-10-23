@@ -53,6 +53,7 @@ from src.services.historical_data_manager import HistoricalDataManager
 from src.services.canny_client import CannyClient
 from src.services.canny_preprocessor import CannyPreprocessor
 from src.models.analysis_models import AnalysisRequest, AnalysisMode
+from src.utils.time_utils import detect_period_type
 from utils.logger import setup_logging
 from utils.cli_help import help_system
 
@@ -2736,6 +2737,9 @@ async def run_canny_analysis(
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(end_date, '%Y-%m-%d')
         
+        # Detect period type from date range
+        period_type, period_label = detect_period_type(start_dt, end_dt)
+        
         # Fetch Canny data
         console.print(f"[yellow]Fetching Canny posts...[/yellow]")
         if board_id:
@@ -2788,6 +2792,8 @@ async def run_canny_analysis(
                 'metadata': {
                     'start_date': start_date,
                     'end_date': end_date,
+                    'period_type': period_type,
+                    'period_label': period_label,
                     'board_id': board_id,
                     'ai_model': ai_model,
                     'total_posts': len(posts),
@@ -2949,6 +2955,9 @@ async def run_voc_analysis(
         # Generate insights
         insights = voc_analyzer.generate_insights(analysis_results)
         
+        # Detect period type from date range
+        period_type, period_label = detect_period_type(start_date, end_date)
+        
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = Path(output_dir) / f"voc_analysis_{timestamp}.json"
@@ -2962,6 +2971,8 @@ async def run_voc_analysis(
                 'metadata': {
                     'start_date': start_date,
                     'end_date': end_date,
+                    'period_type': period_type,
+                    'period_label': period_label,
                     'ai_model': ai_model,
                     'total_conversations': len(conversations),
                     'include_canny': include_canny,
@@ -3434,6 +3445,9 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
     conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
     console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
     
+    # Detect period type from date range
+    period_type, period_label = detect_period_type(start_date, end_date)
+    
     orchestrator = TopicOrchestrator()
     week_id = start_date.strftime('%Y-W%W')
     
@@ -3441,7 +3455,9 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
         conversations=conversations,
         week_id=week_id,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        period_type=period_type,
+        period_label=period_label
     )
     
     # Save output
@@ -3567,6 +3583,9 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
         
         console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
         
+        # Detect period type from date range
+        period_type, period_label = detect_period_type(start_date, end_date)
+        
         # Initialize topic-based orchestrator
         orchestrator = TopicOrchestrator()
         
@@ -3576,7 +3595,9 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
             conversations=conversations,
             week_id=week_id,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            period_type=period_type,
+            period_label=period_label
         )
         
         # Display results

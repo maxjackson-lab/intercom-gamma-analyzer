@@ -269,3 +269,76 @@ def format_datetime_for_display(value: Union[datetime, int, float, None], fmt: s
         logger.warning(f"Failed to format datetime: {e}")
         return "unknown"
 
+
+def detect_period_type(
+    start_date: Union[datetime, date, int, float, str],
+    end_date: Union[datetime, date, int, float, str]
+) -> tuple[str, str]:
+    """
+    Detect the period type based on the time delta between start and end dates.
+    
+    Args:
+        start_date: Start date (datetime, date, int, float, or str)
+        end_date: End date (datetime, date, int, float, or str)
+        
+    Returns:
+        Tuple of (period_type, period_label) where:
+        - period_type: 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', or 'custom'
+        - period_label: Human-readable version ('Daily', 'Weekly', 'Monthly', etc.)
+        
+    Examples:
+        >>> detect_period_type("2023-10-17", "2023-10-18")
+        ('daily', 'Daily')
+        
+        >>> detect_period_type("2023-10-01", "2023-10-08")
+        ('weekly', 'Weekly')
+        
+        >>> detect_period_type("2023-10-01", "2023-10-31")
+        ('monthly', 'Monthly')
+        
+        >>> detect_period_type("2023-01-01", "2023-03-31")
+        ('quarterly', 'Quarterly')
+        
+        >>> detect_period_type("2023-01-01", "2023-12-31")
+        ('yearly', 'Yearly')
+        
+        >>> detect_period_type("2023-10-01", "2023-10-15")
+        ('custom', 'Custom')
+    """
+    try:
+        # Convert both dates to datetime objects
+        start_dt = to_utc_datetime(start_date)
+        end_dt = to_utc_datetime(end_date)
+        
+        if start_dt is None or end_dt is None:
+            logger.warning("Could not convert dates for period detection, defaulting to 'custom'")
+            return ('custom', 'Custom')
+        
+        # Calculate time delta in seconds
+        delta_seconds = calculate_time_delta_seconds(start_dt, end_dt)
+        
+        if delta_seconds is None:
+            logger.warning("Could not calculate time delta, defaulting to 'custom'")
+            return ('custom', 'Custom')
+        
+        # Convert to days for easier comparison
+        delta_days = delta_seconds / (24 * 3600)
+        
+        # Classify period type with tolerances
+        if abs(delta_days - 1) <= 0.5:  # 1 day ± 12 hours
+            return ('daily', 'Daily')
+        elif abs(delta_days - 7) <= 2:  # 7 days ± 2 days
+            return ('weekly', 'Weekly')
+        elif 28 <= delta_days <= 31:  # 28-31 days (monthly)
+            return ('monthly', 'Monthly')
+        elif 89 <= delta_days <= 92:  # 89-92 days (quarterly)
+            return ('quarterly', 'Quarterly')
+        elif 365 <= delta_days <= 366:  # 365-366 days (yearly)
+            return ('yearly', 'Yearly')
+        else:
+            return ('custom', 'Custom')
+            
+    except Exception as e:
+        logger.warning(f"Failed to detect period type: {e}, defaulting to 'custom'")
+        return ('custom', 'Custom')
+
