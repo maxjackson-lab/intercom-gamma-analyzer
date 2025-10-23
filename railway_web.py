@@ -526,6 +526,58 @@ if HAS_FASTAPI:
                 background: #fef3c7;
                 color: #92400e;
             }
+            
+            /* Gamma URL display styles */
+            .gamma-panel {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 12px;
+                padding: 20px;
+                margin: 20px 0;
+                color: white;
+                box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+                display: none;
+            }
+            .gamma-panel h3 {
+                margin: 0 0 15px 0;
+                font-size: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .gamma-url-link {
+                background: white;
+                color: #667eea;
+                padding: 15px 25px;
+                border-radius: 8px;
+                text-decoration: none;
+                display: inline-block;
+                font-weight: 600;
+                margin: 10px 0;
+                transition: all 0.2s;
+            }
+            .gamma-url-link:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+            .gamma-copy-btn {
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: 1px solid white;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                margin-left: 10px;
+                transition: all 0.2s;
+            }
+            .gamma-copy-btn:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+            .gamma-metadata {
+                font-size: 14px;
+                opacity: 0.9;
+                margin-top: 10px;
+            }
         </style>
     </head>
     <body>
@@ -564,6 +616,18 @@ if HAS_FASTAPI:
                 <div id="executionResults" style="padding: 15px; background: #2d2d2d; display: none;">
                     <div id="downloadLinks"></div>
                 </div>
+            </div>
+            
+            <!-- Gamma URL panel -->
+            <div class="gamma-panel" id="gammaPanel">
+                <h3>
+                    🎨 Gamma Presentation Generated!
+                </h3>
+                <a href="#" id="gammaUrlLink" class="gamma-url-link" target="_blank" rel="noopener">
+                    📊 Open Presentation
+                </a>
+                <button class="gamma-copy-btn" onclick="copyGammaUrl()">Copy URL</button>
+                <div class="gamma-metadata" id="gammaMetadata"></div>
             </div>
             
             <div class="examples">
@@ -738,10 +802,18 @@ if HAS_FASTAPI:
                     const eventSource = new EventSource(`/execute?command=${encodeURIComponent(command)}&args=${encodeURIComponent(JSON.stringify(args))}&execution_id=${currentExecutionId}`);
                     currentEventSource = eventSource;
                     
-                    eventSource.onmessage = function(event) {
-                        const data = JSON.parse(event.data);
-                        appendTerminalOutput(data);
-                    };
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    appendTerminalOutput(data);
+                };
+                
+                // Listen for gamma_url events
+                eventSource.addEventListener('gamma_url', function(event) {
+                    const data = JSON.parse(event.data);
+                    if (data.url) {
+                        displayGammaUrl(data.url);
+                    }
+                });
                     
                     eventSource.addEventListener('error', function(event) {
                         console.error('SSE Error:', event);
@@ -878,6 +950,100 @@ if HAS_FASTAPI:
                     status.className = 'status';
                 }, 3000);
             }
+            
+            // Gamma URL handling
+            let currentGammaUrl = null;
+            
+            function detectGammaUrl(text) {
+                // Detect Gamma URL in terminal output
+                const urlPattern = /Gamma URL:\s*(https:\/\/gamma\.app\/[^\s]+)/;
+                const match = text.match(urlPattern);
+                if (match) {
+                    return match[1];
+                }
+                return null;
+            }
+            
+            function displayGammaUrl(url) {
+                currentGammaUrl = url;
+                const gammaPanel = document.getElementById('gammaPanel');
+                const gammaUrlLink = document.getElementById('gammaUrlLink');
+                
+                gammaUrlLink.href = url;
+                gammaPanel.style.display = 'block';
+                
+                // Scroll to Gamma panel
+                gammaPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            
+            function extractGammaMetadata(text) {
+                // Extract credits and generation time from output
+                const metadata = {};
+                
+                const creditsMatch = text.match(/Credits used:\s*(\d+)/);
+                if (creditsMatch) {
+                    metadata.credits = creditsMatch[1];
+                }
+                
+                const timeMatch = text.match(/Generation time:\s*([\d.]+)s/);
+                if (timeMatch) {
+                    metadata.time = timeMatch[1];
+                }
+                
+                return metadata;
+            }
+            
+            function updateGammaMetadata(metadata) {
+                const gammaMetadata = document.getElementById('gammaMetadata');
+                let metadataHtml = '';
+                
+                if (metadata.credits) {
+                    metadataHtml += `💳 Credits used: ${metadata.credits} &nbsp;&nbsp;`;
+                }
+                if (metadata.time) {
+                    metadataHtml += `⏱️ Generation time: ${metadata.time}s`;
+                }
+                
+                gammaMetadata.innerHTML = metadataHtml;
+            }
+            
+            function copyGammaUrl() {
+                if (!currentGammaUrl) return;
+                
+                navigator.clipboard.writeText(currentGammaUrl).then(() => {
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy URL:', err);
+                });
+            }
+            
+            // Override appendTerminalOutput to detect Gamma URLs
+            const originalAppendTerminalOutput = appendTerminalOutput;
+            appendTerminalOutput = function(data) {
+                // Call original function
+                originalAppendTerminalOutput(data);
+                
+                // Check for Gamma URL in the output
+                if (data.type === 'stdout' || data.type === 'status') {
+                    const text = data.data;
+                    const gammaUrl = detectGammaUrl(text);
+                    
+                    if (gammaUrl) {
+                        displayGammaUrl(gammaUrl);
+                        
+                        // Extract and display metadata
+                        const metadata = extractGammaMetadata(text);
+                        if (Object.keys(metadata).length > 0) {
+                            updateGammaMetadata(metadata);
+                        }
+                    }
+                }
+            };
         </script>
     </body>
     </html>
@@ -1009,6 +1175,26 @@ if HAS_FASTAPI:
                 ):
                     # Update state manager with output
                     await state_manager.add_output(execution_id, output)
+                    
+                    # Check for Gamma URL in output and send special event
+                    if output.get("type") in ("stdout", "status"):
+                        output_text = output.get("data", "")
+                        if "Gamma URL:" in output_text:
+                            # Extract Gamma URL
+                            import re
+                            url_match = re.search(r'Gamma URL:\s*(https://gamma\.app/[^\s]+)', output_text)
+                            if url_match:
+                                gamma_url = url_match.group(1)
+                                
+                                # Send special gamma_url event
+                                yield {
+                                    "event": "gamma_url",
+                                    "data": json.dumps({
+                                        "type": "gamma_url",
+                                        "url": gamma_url,
+                                        "timestamp": output.get("timestamp")
+                                    })
+                                }
                     
                     # Update status in state manager
                     if output.get("type") == "status":

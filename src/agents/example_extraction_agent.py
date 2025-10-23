@@ -10,8 +10,8 @@ Purpose:
 
 import json
 import logging
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.openai_client import OpenAIClient
@@ -29,6 +29,68 @@ class ExampleExtractionAgent(BaseAgent):
             temperature=0.3
         )
         self.openai_client = OpenAIClient()
+    
+    def _to_datetime_utc(self, value: Any) -> Optional[datetime]:
+        """
+        Convert various timestamp formats to UTC-aware datetime.
+        
+        Args:
+            value: Can be int, float, datetime, or ISO string
+            
+        Returns:
+            UTC-aware datetime or None if conversion fails
+        """
+        if value is None:
+            return None
+        
+        try:
+            # Handle Unix timestamp (int or float)
+            if isinstance(value, (int, float)):
+                return datetime.fromtimestamp(value, tz=timezone.utc)
+            
+            # Handle datetime object
+            elif isinstance(value, datetime):
+                if value.tzinfo is None:
+                    return value.replace(tzinfo=timezone.utc)
+                else:
+                    return value.astimezone(timezone.utc)
+            
+            # Handle ISO string
+            elif isinstance(value, str):
+                # Replace 'Z' with '+00:00' for fromisoformat compatibility
+                if value.endswith('Z'):
+                    value = value[:-1] + '+00:00'
+                dt = datetime.fromisoformat(value)
+                # Ensure UTC timezone
+                if dt.tzinfo is None:
+                    return dt.replace(tzinfo=timezone.utc)
+                else:
+                    return dt.astimezone(timezone.utc)
+            
+            else:
+                self.logger.warning(f"Unknown timestamp type: {type(value)}")
+                return None
+                
+        except (ValueError, OSError, OverflowError) as e:
+            self.logger.warning(f"Failed to convert timestamp {value}: {e}")
+            return None
+    
+    def _to_iso_utc(self, value: Any) -> Optional[str]:
+        """
+        Convert various timestamp formats to ISO UTC string.
+        
+        Args:
+            value: Can be int, float, datetime, or ISO string
+            
+        Returns:
+            ISO format string or None if conversion fails
+        """
+        try:
+            dt = self._to_datetime_utc(value)
+            return dt.isoformat() if dt else None
+        except Exception as e:
+            self.logger.warning(f"Failed to convert to ISO string {value}: {e}")
+            return None
     
     def get_agent_specific_instructions(self) -> str:
         """Example extraction agent specific instructions"""
@@ -228,24 +290,30 @@ Selection criteria:
         
         # Recency (prefer recent conversations)
         created_at = conv.get('created_at')
-        if created_at:
-            # Convert unix timestamp to datetime if needed
-            if isinstance(created_at, (int, float)):
-                created_dt = datetime.fromtimestamp(created_at)
-            else:
-                created_dt = created_at
-            
-            days_ago = (datetime.now() - created_dt).days
-            if days_ago <= 3:
-                score += 1.5
-            elif days_ago <= 7:
-                score += 1.0
-            elif days_ago <= 14:
-                score += 0.5
+        if created_at is not None:
+            try:
+                # Use helper to convert to UTC-aware datetime
+                created_dt = self._to_datetime_utc(created_at)
+                
+                if created_dt:
+                    now_utc = datetime.now(timezone.utc)
+                    days_ago = (now_utc - created_dt).days
+                    if days_ago <= 3:
+                        score += 1.5
+                    elif days_ago <= 7:
+                        score += 1.0
+                    elif days_ago <= 14:
+                        score += 0.5
+            except Exception as e:
+                # Skip recency scoring on failure
+                self.logger.debug(f"Skipping recency score for conv {conv.get('id')}: {e}")
         
         # Readability (not too long, not too short)
         if customer_msgs:
-            msg_length = len(customer_msgs[0])
+            # Coerce to string if not already a string
+            first_msg = customer_msgs[0]
+            safe_msg = first_msg if isinstance(first_msg, str) else str(first_msg) if first_msg is not None else ''
+            msg_length = len(safe_msg)
             if 50 <= msg_length <= 200:
                 score += 1.0
         
@@ -281,21 +349,11 @@ Selection criteria:
         # Note: workspace_id would come from settings in real implementation
         intercom_url = f"https://app.intercom.com/a/inbox/inbox/{conv_id}"
         
-        # Handle created_at - could be datetime or timestamp (safely convert)
+        # Handle created_at - use helper to convert to ISO UTC string
         created_at = conv.get('created_at')
         created_at_str = None
-        if created_at:
-            try:
-                if isinstance(created_at, (int, float)):
-                    created_at_str = datetime.fromtimestamp(created_at).isoformat()
-                elif hasattr(created_at, 'isoformat'):
-                    created_at_str = created_at.isoformat()
-                else:
-                    # Fallback: convert to string
-                    created_at_str = str(created_at)
-            except (ValueError, OSError) as e:
-                self.logger.warning(f"Failed to convert timestamp {created_at}: {e}")
-                created_at_str = None
+        if created_at is not None:  # Explicitly check for None to handle epoch 0
+            created_at_str = self._to_iso_utc(created_at)
         
         return {
             'preview': preview,

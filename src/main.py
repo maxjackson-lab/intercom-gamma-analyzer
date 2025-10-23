@@ -3271,6 +3271,68 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
         console.print(f"\n📁 Report saved: {report_file}")
         console.print(f"📁 Full results: {results_file}")
         
+        # Generate Gamma presentation if requested
+        if generate_gamma and formatted_report:
+            try:
+                from src.services.gamma_generator import GammaGenerator
+                from src.services.gamma_client import GammaAPIError
+                
+                console.print(f"\n🎨 [bold cyan]Generating Gamma presentation...[/bold cyan]")
+                
+                gamma_generator = GammaGenerator()
+                
+                # Calculate number of cards based on topics
+                num_cards = min(summary.get('topics_analyzed', 5) + 3, 20)
+                
+                gamma_result = await gamma_generator.generate_from_markdown(
+                    input_text=formatted_report,
+                    title=f"Voice of Customer Analysis - Week {week_id}",
+                    num_cards=num_cards,
+                    theme_name=None,
+                    export_format=None,
+                    output_dir=output_dir
+                )
+                
+                # Display Gamma URL
+                gamma_url = gamma_result.get('gamma_url')
+                if gamma_url:
+                    console.print(f"\n🎨 [bold green]Gamma presentation generated![/bold green]")
+                    console.print(f"📊 Gamma URL: {gamma_url}")
+                    console.print(f"💳 Credits used: {gamma_result.get('credits_used', 0)}")
+                    console.print(f"⏱️  Generation time: {gamma_result.get('generation_time_seconds', 0):.1f}s")
+                    
+                    # Save Gamma URL to separate file
+                    gamma_url_file = output_dir / f"gamma_url_{week_id}_{timestamp}.txt"
+                    with open(gamma_url_file, 'w') as f:
+                        f.write(f"Gamma Presentation URL\n")
+                        f.write(f"=====================\n\n")
+                        f.write(f"Analysis: Voice of Customer - Week {week_id}\n")
+                        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                        f.write(f"URL: {gamma_url}\n")
+                    
+                    console.print(f"📁 Gamma URL saved: {gamma_url_file}")
+                    
+                    # Add Gamma metadata to results
+                    results['gamma_presentation'] = {
+                        'gamma_url': gamma_url,
+                        'generation_id': gamma_result.get('generation_id'),
+                        'credits_used': gamma_result.get('credits_used'),
+                        'generation_time_seconds': gamma_result.get('generation_time_seconds'),
+                        'theme': gamma_result.get('theme'),
+                        'slide_count': gamma_result.get('slide_count')
+                    }
+                    
+                    # Re-save JSON with Gamma metadata
+                    with open(results_file, 'w') as f:
+                        json.dump(results, f, indent=2, default=str)
+                
+            except GammaAPIError as e:
+                console.print(f"[yellow]Warning: Gamma generation failed: {e}[/yellow]")
+                console.print("[yellow]Continuing without Gamma presentation...[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Warning: Unexpected error during Gamma generation: {e}[/yellow]")
+                console.print("[yellow]Continuing without Gamma presentation...[/yellow]")
+        
     except Exception as e:
         console.print(f"[red]Error in topic-based analysis: {e}[/red]")
         raise

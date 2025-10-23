@@ -140,6 +140,154 @@ def sample_conversations(sample_conversation):
 
 
 @pytest.fixture
+def sample_conversation_with_int_timestamp():
+    """Sample conversation with integer Unix timestamp for testing timestamp conversion."""
+    return {
+        'id': 'test_conv_int_123',
+        'created_at': 1699123456,  # Integer Unix timestamp (2023-11-04)
+        'updated_at': 1699125456,
+        'state': 'closed',
+        'admin_assignee_id': 'admin_123',
+        'ai_agent_participated': False,
+        'customer_messages': ['I am having issues with billing charges on my account'],
+        'full_text': 'Customer: I am having issues with billing charges on my account. Agent: I can help with that.',
+        'conversation_rating': 4,
+        'tags': {'tags': [{'name': 'billing'}]},
+        'topics': {'topics': [{'name': 'Billing'}]}
+    }
+
+
+@pytest.fixture
+def sample_conversation_with_datetime_timestamp():
+    """Sample conversation with datetime timestamp for testing timestamp conversion."""
+    from datetime import timezone
+    return {
+        'id': 'test_conv_datetime_456',
+        'created_at': datetime(2023, 11, 4, 12, 0, 0, tzinfo=timezone.utc),
+        'updated_at': datetime(2023, 11, 4, 13, 0, 0, tzinfo=timezone.utc),
+        'state': 'closed',
+        'admin_assignee_id': 'admin_456',
+        'ai_agent_participated': False,
+        'customer_messages': ['The export feature is not working properly for our team'],
+        'full_text': 'Customer: The export feature is not working properly for our team. Agent: Let me investigate.',
+        'conversation_rating': 3,
+        'tags': {'tags': [{'name': 'export'}, {'name': 'bug'}]},
+        'topics': {'topics': [{'name': 'Export'}, {'name': 'Bug'}]}
+    }
+
+
+@pytest.fixture
+def sample_conversation_with_float_timestamp():
+    """Sample conversation with float Unix timestamp for testing timestamp conversion."""
+    return {
+        'id': 'test_conv_float_789',
+        'created_at': 1699123456.789,  # Float with fractional seconds
+        'updated_at': 1699125456.123,
+        'state': 'closed',
+        'admin_assignee_id': 'admin_789',
+        'ai_agent_participated': True,
+        'customer_messages': ['I love the new dashboard design but have questions about features'],
+        'full_text': 'Customer: I love the new dashboard design but have questions about features.',
+        'conversation_rating': 5,
+        'tags': {'tags': [{'name': 'feedback'}, {'name': 'dashboard'}]},
+        'topics': {'topics': [{'name': 'Dashboard'}, {'name': 'Feedback'}]}
+    }
+
+
+@pytest.fixture
+def sample_conversations_for_example_extraction():
+    """List of conversations with varied characteristics for example extraction testing."""
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
+    conversations = []
+    
+    # 10 conversations with integer timestamps (most common)
+    for i in range(10):
+        conversations.append({
+            'id': f'conv_int_{i}',
+            'created_at': int((now - timedelta(days=i)).timestamp()),
+            'updated_at': int((now - timedelta(days=i) + timedelta(hours=1)).timestamp()),
+            'state': 'closed',
+            'customer_messages': [
+                f'I hate this feature because it keeps crashing and losing data. Message {i}.'
+            ],
+            'full_text': f'Customer message about frustration {i}',
+            'conversation_rating': 4 if i % 2 == 0 else None,
+            'tags': {'tags': [{'name': 'bug'}, {'name': 'crash'}]},
+            'topics': {'topics': [{'name': 'Bug'}, {'name': 'Crash'}]}
+        })
+    
+    # 5 conversations with datetime timestamps
+    for i in range(10, 15):
+        conversations.append({
+            'id': f'conv_datetime_{i}',
+            'created_at': now - timedelta(days=i % 7),
+            'updated_at': now - timedelta(days=i % 7) + timedelta(hours=2),
+            'state': 'closed',
+            'customer_messages': [
+                f'I love the improvements but confused about the new interface. Message {i}.'
+            ],
+            'full_text': f'Customer feedback message {i}',
+            'conversation_rating': 5,
+            'tags': {'tags': [{'name': 'feedback'}, {'name': 'ui'}]},
+            'topics': {'topics': [{'name': 'Feedback'}, {'name': 'UI'}]}
+        })
+    
+    # 3 conversations with float timestamps
+    for i in range(15, 18):
+        conversations.append({
+            'id': f'conv_float_{i}',
+            'created_at': (now - timedelta(days=i % 10)).timestamp(),
+            'updated_at': (now - timedelta(days=i % 10) + timedelta(hours=1)).timestamp(),
+            'state': 'closed',
+            'customer_messages': [
+                f'I appreciate the quick response time from support. Message {i}.'
+            ],
+            'full_text': f'Customer appreciation message {i}',
+            'conversation_rating': 5,
+            'tags': {'tags': [{'name': 'support'}, {'name': 'positive'}]},
+            'topics': {'topics': [{'name': 'Support'}, {'name': 'Positive'}]}
+        })
+    
+    # 2 conversations with None timestamps (edge case)
+    for i in range(18, 20):
+        conversations.append({
+            'id': f'conv_none_{i}',
+            'created_at': None,
+            'updated_at': None,
+            'state': 'open',
+            'customer_messages': [
+                f'I am frustrated with the billing issues we have been experiencing. Message {i}.'
+            ],
+            'full_text': f'Customer billing issue message {i}',
+            'conversation_rating': None,
+            'tags': {'tags': [{'name': 'billing'}, {'name': 'issue'}]},
+            'topics': {'topics': [{'name': 'Billing'}, {'name': 'Issue'}]}
+        })
+    
+    return conversations
+
+
+@pytest.fixture
+def mock_openai_client_for_examples():
+    """Mock OpenAI client for example extraction testing."""
+    
+    class MockOpenAIClientForExamples:
+        def __init__(self):
+            self.call_count = 0
+            self.last_prompt = None
+        
+        async def generate_analysis(self, prompt: str, **kwargs) -> str:
+            """Return mock example selection indices."""
+            self.call_count += 1
+            self.last_prompt = prompt
+            # Return JSON array of example indices (1-indexed)
+            return '[1, 3, 5, 7]'
+    
+    return MockOpenAIClientForExamples()
+
+
+@pytest.fixture
 def duckdb_storage(temp_dir):
     """Create a DuckDB storage instance for testing."""
     db_path = temp_dir / "test_conversations.duckdb"
