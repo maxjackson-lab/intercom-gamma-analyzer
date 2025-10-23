@@ -30,8 +30,8 @@ class SegmentationAgent(BaseAgent):
         # Agent patterns
         self.escalation_names = ['dae-ho', 'max jackson', 'hilary']
         self.tier1_patterns = {
-            'horatio': r'horatio|@horatio\.com',
-            'boldr': r'boldr|@boldr'
+            'horatio': r'horatio|@horatio\.com|@hirehoratio\.co',
+            'boldr': r'\bboldr\b|@boldrimpact\.com'
         }
     
     def get_agent_specific_instructions(self) -> str:
@@ -195,11 +195,22 @@ Output: Segmented conversations with agent type labels
         assignee = str(conv.get('admin_assignee_id', '')).lower()
         ai_participated = conv.get('ai_agent_participated', False)
         
+        # Log conversation data for debugging
+        conv_id = conv.get('id', 'unknown')
+        self.logger.debug(
+            f"Classifying conversation {conv_id}: "
+            f"admin_assignee_id={conv.get('admin_assignee_id')}, "
+            f"ai_participated={ai_participated}"
+        )
+        
         # Extract admin emails from conversation parts and any assignee fields
         admin_emails = []
         
-        # Check conversation parts for admin emails
-        conv_parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        # Check conversation parts for admin emails (handle None case)
+        conversation_parts_data = conv.get('conversation_parts', {})
+        if conversation_parts_data is None:
+            conversation_parts_data = {}
+        conv_parts = conversation_parts_data.get('conversation_parts', [])
         for part in conv_parts:
             author = part.get('author', {})
             if author.get('type') == 'admin':
@@ -215,9 +226,16 @@ Output: Segmented conversations with agent type labels
                 admin_emails.append(email.lower())
         
         # Check top-level assignee email if available
-        assignee_email = conv.get('assignee', {}).get('email', '')
+        assignee_data = conv.get('assignee') or {}
+        assignee_email = assignee_data.get('email', '')
         if assignee_email:
             admin_emails.append(assignee_email.lower())
+        
+        # Log extracted admin emails for debugging
+        if admin_emails:
+            self.logger.debug(f"Found {len(admin_emails)} admin emails: {admin_emails}")
+        else:
+            self.logger.debug("No admin emails found in conversation")
         
         # Check for escalation (senior staff)
         for name in self.escalation_names:
@@ -231,25 +249,32 @@ Output: Segmented conversations with agent type labels
         # Check for Tier 1 agents via email domains (use endswith for exact matching)
         for email in admin_emails:
             if email.endswith('@hirehoratio.co'):
+                self.logger.debug(f"Horatio agent detected via email: {email}")
                 return 'paid', 'horatio'
             if email.endswith('@boldrimpact.com'):
+                self.logger.debug(f"Boldr agent detected via email: {email}")
                 return 'paid', 'boldr'
         
         # Fallback to text patterns
         if re.search(self.tier1_patterns['horatio'], text) or 'horatio' in assignee:
+            self.logger.debug(f"Horatio agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'horatio'
         
         if re.search(self.tier1_patterns['boldr'], text) or 'boldr' in assignee:
+            self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'boldr'
         
         # Check for human admin (generic)
         if conv.get('admin_assignee_id') or admin_emails:
+            self.logger.debug(f"Generic paid customer detected (unknown agent type) in conversation {conv_id}")
             return 'paid', 'unknown'  # Has human but can't identify which
         
         # AI-only conversation
         if ai_participated and not conv.get('admin_assignee_id'):
+            self.logger.debug(f"Fin AI-only conversation detected: {conv_id}")
             return 'free', 'fin_ai'
         
         # Cannot determine
+        self.logger.debug(f"Unable to classify conversation {conv_id} - insufficient data")
         return 'unknown', 'unknown'
 
