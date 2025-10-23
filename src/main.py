@@ -1259,12 +1259,282 @@ async def run_agent_performance_analysis(
     generate_gamma: bool = False
 ):
     """Run comprehensive agent performance analysis with optional Gamma generation."""
-    console.print(f"[yellow]Agent performance analysis not yet implemented[/yellow]")
-    console.print(f"Would analyze {agent} performance from {start_date.date()} to {end_date.date()}")
-    if focus_categories:
-        console.print(f"Focus categories: {focus_categories}")
-    if generate_gamma:
-        console.print(f"Would generate Gamma presentation: {generate_gamma}")
+    try:
+        from src.services.chunked_fetcher import ChunkedFetcher
+        from src.agents.agent_performance_agent import AgentPerformanceAgent
+        from src.agents.base_agent import AgentContext
+        from src.services.gamma_generator import GammaGenerator
+        from src.services.gamma_client import GammaAPIError
+        from pathlib import Path
+        import json
+        
+        agent_name = {'horatio': 'Horatio', 'boldr': 'Boldr', 'escalated': 'Senior Staff'}.get(agent, agent)
+        
+        console.print(f"\n📊 [bold cyan]{agent_name} Performance Analysis[/bold cyan]")
+        console.print(f"Date Range: {start_date.date()} to {end_date.date()}")
+        if focus_categories:
+            console.print(f"Focus: {focus_categories}\n")
+        
+        # Fetch conversations
+        console.print("📥 Fetching conversations...")
+        fetcher = ChunkedFetcher()
+        all_conversations = await fetcher.fetch_conversations_chunked(
+            start_date=start_date,
+            end_date=end_date
+        )
+        
+        console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
+        
+        # Filter by agent email domain
+        console.print(f"🔍 Filtering conversations for {agent_name}...")
+        agent_conversations = []
+        
+        # Agent email domain patterns
+        agent_patterns = {
+            'horatio': ['@hirehoratio.co', '@horatio.com'],
+            'boldr': ['@boldrimpact.com', '@boldr'],
+            'escalated': ['dae-ho', 'max jackson', 'max.jackson', 'hilary']
+        }
+        
+        patterns = agent_patterns.get(agent, [])
+        
+        for conv in all_conversations:
+            # Extract admin emails
+            admin_emails = []
+            
+            # From conversation_parts
+            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+            for part in parts:
+                author = part.get('author', {})
+                if author.get('type') == 'admin':
+                    email = author.get('email', '')
+                    if email:
+                        admin_emails.append(email.lower())
+            
+            # From source
+            source = conv.get('source', {})
+            if source:
+                author = source.get('author', {})
+                if author.get('type') == 'admin':
+                    email = author.get('email', '')
+                    if email:
+                        admin_emails.append(email.lower())
+            
+            # From assignee
+            assignee = conv.get('admin_assignee', {})
+            if assignee:
+                email = assignee.get('email', '')
+                if email:
+                    admin_emails.append(email.lower())
+            
+            # Check if any email matches agent patterns
+            matched = False
+            for email in admin_emails:
+                if agent == 'escalated':
+                    # Check for escalated staff names in email
+                    if any(pattern.replace(' ', '.') in email or pattern.replace(' ', '') in email 
+                          for pattern in patterns):
+                        matched = True
+                        break
+                else:
+                    # Check for domain match
+                    if any(pattern in email for pattern in patterns):
+                        matched = True
+                        break
+            
+            # Also check text for escalated agents
+            if not matched and agent == 'escalated':
+                text = str(conv.get('conversation_parts', '')).lower()
+                if any(pattern.lower() in text for pattern in patterns):
+                    matched = True
+            
+            if matched:
+                agent_conversations.append(conv)
+        
+        console.print(f"   ✅ Found {len(agent_conversations)} {agent_name} conversations ({len(agent_conversations)/len(all_conversations)*100:.1f}% of total)\n")
+        
+        if len(agent_conversations) == 0:
+            console.print(f"[yellow]⚠ No conversations found for {agent_name}[/yellow]")
+            console.print(f"[yellow]   This may indicate:[/yellow]")
+            console.print(f"[yellow]   - Agent email domains not in conversation data[/yellow]")
+            console.print(f"[yellow]   - Date range has no {agent_name} activity[/yellow]")
+            console.print(f"[yellow]   - Email patterns need updating[/yellow]")
+            return
+        
+        # Filter by focus categories if specified
+        if focus_categories:
+            console.print(f"🎯 Filtering by categories: {focus_categories}...")
+            categories = [c.strip().lower() for c in focus_categories.split(',')]
+            filtered_conversations = []
+            
+            for conv in agent_conversations:
+                tags = [str(t).lower() for t in conv.get('tags', {}).get('tags', [])]
+                if any(cat in tag for cat in categories for tag in tags):
+                    filtered_conversations.append(conv)
+            
+            console.print(f"   ✅ {len(filtered_conversations)} conversations match focus categories\n")
+            agent_conversations = filtered_conversations
+        
+        # Create agent context
+        context = AgentContext(
+            conversations=agent_conversations,
+            start_date=start_date,
+            end_date=end_date,
+            metadata={'agent_filter': agent, 'agent_name': agent_name}
+        )
+        
+        # Run agent performance analysis
+        console.print(f"🤖 [bold cyan]Analyzing {agent_name} Performance...[/bold cyan]\n")
+        performance_agent = AgentPerformanceAgent(agent_filter=agent)
+        result = await performance_agent.execute(context)
+        
+        if not result.success:
+            console.print(f"[red]❌ Analysis failed: {result.error_message}[/red]")
+            return
+        
+        # Display results
+        data = result.data
+        console.print("="*80)
+        console.print(f"[bold green]🎉 {agent_name} Performance Analysis Complete![/bold green]")
+        console.print("="*80 + "\n")
+        
+        console.print(f"[bold]📊 Overall Metrics:[/bold]")
+        console.print(f"   Total Conversations: {data['total_conversations']}")
+        console.print(f"   First Contact Resolution: {data['fcr_rate']:.1%}")
+        console.print(f"   Median Resolution Time: {data['median_resolution_hours']:.1f} hours")
+        console.print(f"   Escalation Rate: {data['escalation_rate']:.1%}")
+        console.print(f"   Confidence: {result.confidence_level.value}\n")
+        
+        if data.get('performance_by_category'):
+            console.print(f"[bold]📋 Performance by Category:[/bold]")
+            for category, metrics in sorted(data['performance_by_category'].items(), 
+                                          key=lambda x: x[1]['volume'], reverse=True):
+                console.print(f"   {category}: {metrics['volume']} conversations")
+                console.print(f"      FCR: {metrics['fcr_rate']:.1%}, Escalation: {metrics['escalation_rate']:.1%}, Avg Resolution: {metrics['median_resolution_hours']:.1f}h")
+            console.print()
+        
+        if data.get('llm_insights'):
+            console.print(f"[bold]💡 Performance Insights:[/bold]")
+            console.print(data['llm_insights'])
+            console.print()
+        
+        # Save results
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = output_dir / f"agent_performance_{agent}_{timestamp}.json"
+        
+        with open(results_file, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+        
+        console.print(f"📁 Results saved: {results_file}\n")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma:
+            try:
+                console.print(f"🎨 [bold cyan]Generating Gamma presentation...[/bold cyan]")
+                
+                # Create markdown report
+                markdown_report = f"""# {agent_name} Performance Analysis
+                
+## Analysis Period
+{start_date.date()} to {end_date.date()}
+
+---
+
+## Overall Performance
+
+**Total Conversations**: {data['total_conversations']}
+
+**Key Metrics**:
+- First Contact Resolution: {data['fcr_rate']:.1%}
+- Median Resolution Time: {data['median_resolution_hours']:.1f} hours
+- Escalation Rate: {data['escalation_rate']:.1%}
+
+---
+
+## Performance by Category
+
+"""
+                
+                if data.get('performance_by_category'):
+                    for category, metrics in sorted(data['performance_by_category'].items(), 
+                                                  key=lambda x: x[1]['volume'], reverse=True):
+                        markdown_report += f"""### {category}
+
+**Volume**: {metrics['volume']} conversations
+
+**Metrics**:
+- FCR Rate: {metrics['fcr_rate']:.1%}
+- Escalation Rate: {metrics['escalation_rate']:.1%}
+- Median Resolution: {metrics['median_resolution_hours']:.1f} hours
+
+---
+
+"""
+                
+                if data.get('llm_insights'):
+                    markdown_report += f"""## Performance Insights
+
+{data['llm_insights']}
+
+---
+"""
+                
+                # Generate Gamma presentation
+                gamma_generator = GammaGenerator()
+                num_cards = min(len(data.get('performance_by_category', {})) + 3, 15)
+                
+                gamma_result = await gamma_generator.generate_from_markdown(
+                    input_text=markdown_report,
+                    title=f"{agent_name} Performance Analysis - {start_date.strftime('%b %Y')}",
+                    num_cards=num_cards,
+                    theme_name=None,
+                    export_format=None,
+                    output_dir=output_dir
+                )
+                
+                gamma_url = gamma_result.get('gamma_url')
+                if gamma_url:
+                    console.print(f"\n🎨 [bold green]Gamma presentation generated![/bold green]")
+                    console.print(f"📊 Gamma URL: {gamma_url}")
+                    console.print(f"💳 Credits used: {gamma_result.get('credits_used', 0)}")
+                    console.print(f"⏱️  Generation time: {gamma_result.get('generation_time_seconds', 0):.1f}s\n")
+                    
+                    # Save Gamma URL
+                    gamma_url_file = output_dir / f"gamma_url_agent_{agent}_{timestamp}.txt"
+                    with open(gamma_url_file, 'w') as f:
+                        f.write(f"{agent_name} Performance Analysis\n")
+                        f.write(f"===========================\n\n")
+                        f.write(f"Analysis Period: {start_date.date()} to {end_date.date()}\n")
+                        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+                        f.write(f"Gamma URL: {gamma_url}\n")
+                    
+                    console.print(f"📁 Gamma URL saved: {gamma_url_file}")
+                    
+                    # Update results with Gamma metadata
+                    data['gamma_presentation'] = {
+                        'gamma_url': gamma_url,
+                        'generation_id': gamma_result.get('generation_id'),
+                        'credits_used': gamma_result.get('credits_used'),
+                        'generation_time_seconds': gamma_result.get('generation_time_seconds')
+                    }
+                    
+                    # Re-save with Gamma data
+                    with open(results_file, 'w') as f:
+                        json.dump(data, f, indent=2, default=str)
+                
+            except GammaAPIError as e:
+                console.print(f"[yellow]Warning: Gamma generation failed: {e}[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Warning: Unexpected error during Gamma generation: {e}[/yellow]")
+        
+    except Exception as e:
+        console.print(f"[red]Error in agent performance analysis: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 async def run_category_analysis(category: str, start_date: datetime, end_date: datetime, output_format: str):
