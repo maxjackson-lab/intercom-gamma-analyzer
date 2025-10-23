@@ -284,12 +284,38 @@ class GammaClient:
                 
                 if status == 'completed':
                     total_poll_time = poll_count * poll_interval
+                    
+                    # Validate Gamma URL from API response
+                    gamma_url = status_result.get('gammaUrl')
+                    if gamma_url:
+                        # Ensure URL is from API response, not manually constructed
+                        if not gamma_url.startswith('https://gamma.app/'):
+                            self.logger.warning(
+                                "gamma_url_invalid_pattern",
+                                generation_id=generation_id,
+                                gamma_url=gamma_url
+                            )
+                        # Verify it's not just generation_id appended
+                        if gamma_url == f"https://gamma.app/{generation_id}":
+                            self.logger.warning(
+                                "gamma_url_appears_constructed",
+                                generation_id=generation_id,
+                                gamma_url=gamma_url,
+                                message="URL may be manually constructed instead of from API"
+                            )
+                        # Log full URL for debugging
+                        self.logger.debug(
+                            "gamma_url_received",
+                            generation_id=generation_id,
+                            full_url=gamma_url
+                        )
+                    
                     self.logger.info(
                         "gamma_generation_completed",
                         generation_id=generation_id,
                         poll_attempts=poll_count + 1,
                         total_poll_time_seconds=total_poll_time,
-                        gamma_url=status_result.get('gammaUrl'),
+                        gamma_url=gamma_url,
                         credits_used=status_result.get('credits', {}).get('deducted', 0)
                     )
                     return status_result

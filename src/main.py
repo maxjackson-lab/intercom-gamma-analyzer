@@ -1816,13 +1816,27 @@ async def run_billing_analysis(start_date: datetime, end_date: datetime, generat
             ) as progress:
                 task = progress.add_task("Generating Gamma presentation...", total=None)
                 
-                presentation_results = await gamma_generator.generate_presentation(
-                    analysis_results, "executive_summary", output_dir
+                gamma_result = await gamma_generator.generate_from_analysis(
+                    analysis_results=analysis_results,
+                    style="executive",
+                    output_dir=output_dir
                 )
                 
                 progress.update(task, description="✅ Gamma presentation generated")
             
-            console.print(f"Gamma presentation saved to: {output_dir}")
+            # Print in consistent format for web UI parsing
+            console.print(f"Gamma URL: {gamma_result['gamma_url']}")
+            console.print(f"Credits used: {gamma_result['credits_used']}")
+            console.print(f"Generation time: {gamma_result['generation_time_seconds']:.1f}s")
+            if gamma_result.get('markdown_summary_path'):
+                console.print(f"Markdown summary: {gamma_result['markdown_summary_path']}")
+            
+            # Save Gamma metadata
+            metadata_file = output_dir / f"billing_gamma_metadata_{timestamp}.json"
+            with open(metadata_file, 'w') as f:
+                import json
+                json.dump(gamma_result, f, indent=2, default=str)
+            console.print(f"Gamma metadata saved to: {metadata_file}")
         
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -1913,13 +1927,27 @@ async def run_product_analysis(start_date: datetime, end_date: datetime, generat
             ) as progress:
                 task = progress.add_task("Generating Gamma presentation...", total=None)
                 
-                presentation_results = await gamma_generator.generate_presentation(
-                    analysis_results, "executive_summary", output_dir
+                gamma_result = await gamma_generator.generate_from_analysis(
+                    analysis_results=analysis_results,
+                    style="executive",
+                    output_dir=output_dir
                 )
                 
                 progress.update(task, description="✅ Gamma presentation generated")
             
-            console.print(f"Gamma presentation saved to: {output_dir}")
+            # Print in consistent format for web UI parsing
+            console.print(f"Gamma URL: {gamma_result['gamma_url']}")
+            console.print(f"Credits used: {gamma_result['credits_used']}")
+            console.print(f"Generation time: {gamma_result['generation_time_seconds']:.1f}s")
+            if gamma_result.get('markdown_summary_path'):
+                console.print(f"Markdown summary: {gamma_result['markdown_summary_path']}")
+            
+            # Save Gamma metadata
+            metadata_file = output_dir / f"product_gamma_metadata_{timestamp}.json"
+            with open(metadata_file, 'w') as f:
+                import json
+                json.dump(gamma_result, f, indent=2, default=str)
+            console.print(f"Gamma metadata saved to: {metadata_file}")
         
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -2010,13 +2038,27 @@ async def run_sites_analysis(start_date: datetime, end_date: datetime, generate_
             ) as progress:
                 task = progress.add_task("Generating Gamma presentation...", total=None)
                 
-                presentation_results = await gamma_generator.generate_presentation(
-                    analysis_results, "executive_summary", output_dir
+                gamma_result = await gamma_generator.generate_from_analysis(
+                    analysis_results=analysis_results,
+                    style="executive",
+                    output_dir=output_dir
                 )
                 
                 progress.update(task, description="✅ Gamma presentation generated")
             
-            console.print(f"Gamma presentation saved to: {output_dir}")
+            # Print in consistent format for web UI parsing
+            console.print(f"Gamma URL: {gamma_result['gamma_url']}")
+            console.print(f"Credits used: {gamma_result['credits_used']}")
+            console.print(f"Generation time: {gamma_result['generation_time_seconds']:.1f}s")
+            if gamma_result.get('markdown_summary_path'):
+                console.print(f"Markdown summary: {gamma_result['markdown_summary_path']}")
+            
+            # Save Gamma metadata
+            metadata_file = output_dir / f"sites_gamma_metadata_{timestamp}.json"
+            with open(metadata_file, 'w') as f:
+                import json
+                json.dump(gamma_result, f, indent=2, default=str)
+            console.print(f"Gamma metadata saved to: {metadata_file}")
         
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -2107,13 +2149,27 @@ async def run_api_analysis(start_date: datetime, end_date: datetime, generate_ga
             ) as progress:
                 task = progress.add_task("Generating Gamma presentation...", total=None)
                 
-                presentation_results = await gamma_generator.generate_presentation(
-                    analysis_results, "executive_summary", output_dir
+                gamma_result = await gamma_generator.generate_from_analysis(
+                    analysis_results=analysis_results,
+                    style="executive",
+                    output_dir=output_dir
                 )
                 
                 progress.update(task, description="✅ Gamma presentation generated")
             
-            console.print(f"Gamma presentation saved to: {output_dir}")
+            # Print in consistent format for web UI parsing
+            console.print(f"Gamma URL: {gamma_result['gamma_url']}")
+            console.print(f"Credits used: {gamma_result['credits_used']}")
+            console.print(f"Generation time: {gamma_result['generation_time_seconds']:.1f}s")
+            if gamma_result.get('markdown_summary_path'):
+                console.print(f"Markdown summary: {gamma_result['markdown_summary_path']}")
+            
+            # Save Gamma metadata
+            metadata_file = output_dir / f"api_gamma_metadata_{timestamp}.json"
+            with open(metadata_file, 'w') as f:
+                import json
+                json.dump(gamma_result, f, indent=2, default=str)
+            console.print(f"Gamma metadata saved to: {metadata_file}")
         
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

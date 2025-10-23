@@ -436,8 +436,20 @@ class WebCommandExecutor:
             if execution_id in self.active_processes:
                 del self.active_processes[execution_id]
             
-            # Update final state with timezone-aware timestamp
+            # Extract and store Gamma metadata if present
             if execution_id in self.execution_states:
+                output_buffer = self.execution_states[execution_id].get("output_buffer")
+                if output_buffer:
+                    gamma_metadata = self._extract_gamma_metadata(output_buffer)
+                    if gamma_metadata:
+                        self.execution_states[execution_id]["gamma_metadata"] = gamma_metadata
+                        self.logger.info(
+                            "gamma_metadata_extracted",
+                            execution_id=execution_id,
+                            metadata_keys=list(gamma_metadata.keys())
+                        )
+                
+                # Update final state with timezone-aware timestamp
                 self.execution_states[execution_id]["end_time"] = datetime.now(timezone.utc)
     
     async def cancel_execution(self, execution_id: str) -> bool:
@@ -562,3 +574,45 @@ class WebCommandExecutor:
             "active_executions": active,
             "status_breakdown": status_counts
         }
+    
+    def _extract_gamma_metadata(self, output_buffer: deque) -> Optional[Dict[str, Any]]:
+        """
+        Extract Gamma metadata from output buffer.
+        
+        Args:
+            output_buffer: Deque of output entries
+            
+        Returns:
+            Dictionary with extracted metadata or None if not found
+        """
+        import re
+        
+        metadata = {}
+        
+        # Convert buffer to text
+        output_text = ""
+        for entry in output_buffer:
+            if isinstance(entry, dict) and entry.get('type') in ('stdout', 'status'):
+                output_text += entry.get('data', '') + "\n"
+        
+        # Extract Gamma URL
+        url_match = re.search(r'Gamma URL:\s*(https://gamma\.app/[^\s]+)', output_text)
+        if url_match:
+            metadata['gamma_url'] = url_match.group(1)
+        
+        # Extract credits used
+        credits_match = re.search(r'Credits used:\s*(\d+)', output_text)
+        if credits_match:
+            metadata['credits_used'] = int(credits_match.group(1))
+        
+        # Extract generation time
+        time_match = re.search(r'Generation time:\s*([\d.]+)s', output_text)
+        if time_match:
+            metadata['generation_time'] = float(time_match.group(1))
+        
+        # Extract markdown path
+        markdown_match = re.search(r'Markdown summary:\s*([^\s]+)', output_text)
+        if markdown_match:
+            metadata['markdown_path'] = markdown_match.group(1)
+        
+        return metadata if metadata else None

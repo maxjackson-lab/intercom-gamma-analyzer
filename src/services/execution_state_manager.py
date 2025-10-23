@@ -41,6 +41,7 @@ class ExecutionState:
     error_message: Optional[str] = None
     return_code: Optional[int] = None
     queue_position: Optional[int] = None
+    gamma_metadata: Optional[Dict[str, Any]] = None  # Store Gamma generation metadata
     max_output_buffer_size: int = 1000  # Maximum number of output entries to keep
     
     def __post_init__(self):
@@ -331,6 +332,7 @@ class ExecutionStateManager:
                 "error_message": execution.error_message,
                 "return_code": execution.return_code,
                 "queue_position": execution.queue_position,
+                "gamma_metadata": execution.gamma_metadata,  # Include Gamma metadata
                 "output_count": len(list(execution.output_buffer)) if execution.output_buffer else 0
             }
             
@@ -369,7 +371,8 @@ class ExecutionStateManager:
                         output_buffer=deque(maxlen=1000),  # Empty buffer on reload
                         error_message=data.get("error_message"),
                         return_code=data.get("return_code"),
-                        queue_position=data.get("queue_position")
+                        queue_position=data.get("queue_position"),
+                        gamma_metadata=data.get("gamma_metadata")  # Load Gamma metadata
                     )
                     
                     self._executions[execution.execution_id] = execution
@@ -383,3 +386,41 @@ class ExecutionStateManager:
                 
         except Exception as e:
             self.logger.error(f"Failed to load executions from disk: {e}")
+    
+    async def update_gamma_metadata(self, execution_id: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Update Gamma metadata for an execution.
+        
+        Args:
+            execution_id: The execution ID to update
+            metadata: Gamma metadata dictionary
+            
+        Returns:
+            True if updated successfully, False otherwise
+        """
+        try:
+            async with self._lock:
+                execution = self._executions.get(execution_id)
+                if not execution:
+                    self.logger.warning(f"Execution {execution_id} not found for gamma metadata update")
+                    return False
+                
+                # Validate metadata structure
+                if not isinstance(metadata, dict):
+                    self.logger.error(f"Invalid gamma metadata type: {type(metadata)}")
+                    return False
+                
+                execution.gamma_metadata = metadata
+                self._save_to_disk(execution_id)
+                
+                self.logger.info(
+                    "gamma_metadata_updated",
+                    execution_id=execution_id,
+                    metadata_keys=list(metadata.keys())
+                )
+                
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Failed to update gamma metadata for {execution_id}: {e}")
+            return False

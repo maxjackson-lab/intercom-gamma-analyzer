@@ -678,6 +678,240 @@ Recommended in 30 days to track implementation progress
 
 """
 
+    def export_voc_to_markdown(
+        self,
+        voc_results: Dict,
+        output_path: Path,
+        style: str = "detailed"
+    ) -> Path:
+        """
+        Export VoC-specific analysis to markdown.
+        
+        Args:
+            voc_results: VoC analysis results with 'results', 'agent_feedback_summary', 'insights'
+            output_path: Output file path
+            style: Export style
+            
+        Returns:
+            Path to exported markdown file
+        """
+        self.logger.info("exporting_voc_to_markdown", output_path=str(output_path), style=style)
+        
+        try:
+            # Build VoC-specific markdown
+            markdown_content = self._build_voc_markdown(voc_results, style)
+            
+            # Write to file
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            self.logger.info("voc_markdown_exported", output_path=str(output_path))
+            return output_path
+            
+        except Exception as e:
+            self.logger.error("voc_markdown_export_failed", error=str(e), exc_info=True)
+            raise
+    
+    def export_canny_to_markdown(
+        self,
+        canny_results: Dict,
+        output_path: Path,
+        style: str = "detailed"
+    ) -> Path:
+        """
+        Export Canny-specific analysis to markdown.
+        
+        Args:
+            canny_results: Canny analysis results with posts, sentiment, top requests
+            output_path: Output file path
+            style: Export style
+            
+        Returns:
+            Path to exported markdown file
+        """
+        self.logger.info("exporting_canny_to_markdown", output_path=str(output_path), style=style)
+        
+        try:
+            # Build Canny-specific markdown
+            markdown_content = self._build_canny_markdown(canny_results, style)
+            
+            # Write to file
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            self.logger.info("canny_markdown_exported", output_path=str(output_path))
+            return output_path
+            
+        except Exception as e:
+            self.logger.error("canny_markdown_export_failed", error=str(e), exc_info=True)
+            raise
+    
+    def export_category_to_markdown(
+        self,
+        category_results: Dict,
+        category_name: str,
+        output_path: Path,
+        style: str = "detailed"
+    ) -> Path:
+        """
+        Export category-specific analysis to markdown (Billing, Product, Sites, API).
+        
+        Args:
+            category_results: Category analysis results
+            category_name: Name of category (e.g., "Billing", "Product")
+            output_path: Output file path
+            style: Export style
+            
+        Returns:
+            Path to exported markdown file
+        """
+        self.logger.info(
+            "exporting_category_to_markdown",
+            category=category_name,
+            output_path=str(output_path),
+            style=style
+        )
+        
+        try:
+            # Build category-specific markdown
+            markdown_content = self._build_category_markdown(category_results, category_name, style)
+            
+            # Write to file
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+            
+            self.logger.info("category_markdown_exported", output_path=str(output_path))
+            return output_path
+            
+        except Exception as e:
+            self.logger.error("category_markdown_export_failed", error=str(e), exc_info=True)
+            raise
+    
+    def _build_voc_markdown(self, voc_results: Dict, style: str) -> str:
+        """Build markdown for VoC analysis."""
+        total_conversations = voc_results.get('metadata', {}).get('total_conversations', 0)
+        date_range = voc_results.get('metadata', {}).get('date_range', 'Unknown')
+        
+        content = f"""# Voice of Customer Analysis
+
+## Analysis Summary
+
+**Period:** {date_range}  
+**Total Conversations:** {total_conversations:,}
+
+## Category Results
+
+"""
+        
+        # Add category results
+        results = voc_results.get('results', {})
+        for category, data in results.items():
+            if isinstance(data, dict):
+                volume = data.get('volume', 0)
+                content += f"### {category.title()}\n\n"
+                content += f"- **Volume:** {volume} conversations\n"
+                content += f"- **Sentiment:** {data.get('sentiment_breakdown', {})}\n"
+                content += f"- **Examples:** {len(data.get('examples', []))}\n\n"
+        
+        # Add insights
+        insights = voc_results.get('insights', [])
+        if insights:
+            content += "## Key Insights\n\n"
+            for i, insight in enumerate(insights, 1):
+                content += f"{i}. {insight}\n"
+            content += "\n"
+        
+        content += f"\n---\n\n*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n"
+        return content
+    
+    def _build_canny_markdown(self, canny_results: Dict, style: str) -> str:
+        """Build markdown for Canny analysis."""
+        posts_analyzed = canny_results.get('posts_analyzed', 0)
+        
+        content = f"""# Canny Feature Request Analysis
+
+## Analysis Summary
+
+**Posts Analyzed:** {posts_analyzed:,}
+
+## Sentiment Overview
+
+"""
+        
+        # Add sentiment summary
+        sentiment = canny_results.get('sentiment_summary', {})
+        if sentiment:
+            content += f"- **Overall:** {sentiment.get('overall', 'Unknown').title()}\n"
+            content += f"- **Positive:** {sentiment.get('positive', 0)}\n"
+            content += f"- **Neutral:** {sentiment.get('neutral', 0)}\n"
+            content += f"- **Negative:** {sentiment.get('negative', 0)}\n\n"
+        
+        # Add top requests
+        top_requests = canny_results.get('top_requests', [])
+        if top_requests:
+            content += "## Top Feature Requests\n\n"
+            for i, request in enumerate(top_requests[:10], 1):
+                title = request.get('title', 'Untitled')
+                votes = request.get('votes', 0)
+                content += f"{i}. **{title}** - {votes} votes\n"
+            content += "\n"
+        
+        # Add insights
+        insights = canny_results.get('insights', [])
+        if insights:
+            content += "## Key Insights\n\n"
+            for i, insight in enumerate(insights, 1):
+                content += f"{i}. {insight}\n"
+            content += "\n"
+        
+        content += f"\n---\n\n*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n"
+        return content
+    
+    def _build_category_markdown(self, category_results: Dict, category_name: str, style: str) -> str:
+        """Build markdown for category-specific analysis."""
+        data_summary = category_results.get('data_summary', {})
+        filtered_conversations = data_summary.get('filtered_conversations', 0)
+        
+        content = f"""# {category_name.title()} Analysis
+
+## Analysis Summary
+
+**Conversations Analyzed:** {filtered_conversations:,}
+
+"""
+        
+        # Add analysis results
+        analysis_results = category_results.get('analysis_results', {})
+        if analysis_results:
+            # Volume analysis
+            volume_analysis = analysis_results.get('volume_analysis', {})
+            if volume_analysis:
+                content += "## Volume Analysis\n\n"
+                for key, value in volume_analysis.items():
+                    content += f"- **{key.replace('_', ' ').title()}:** {value}\n"
+                content += "\n"
+            
+            # Escalation analysis
+            escalation_analysis = analysis_results.get('escalation_analysis', {})
+            if escalation_analysis:
+                content += "## Escalation Analysis\n\n"
+                escalation_rate = escalation_analysis.get('escalation_rate', 0)
+                content += f"- **Escalation Rate:** {escalation_rate:.1f}%\n\n"
+        
+        # Add AI insights
+        ai_insights = category_results.get('ai_insights', [])
+        if ai_insights:
+            content += "## AI-Generated Insights\n\n"
+            for i, insight in enumerate(ai_insights, 1):
+                content += f"{i}. {insight}\n"
+            content += "\n"
+        
+        content += f"\n---\n\n*Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n"
+        return content
+
 
 
 

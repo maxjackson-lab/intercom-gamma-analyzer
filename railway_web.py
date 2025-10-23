@@ -628,6 +628,13 @@ if HAS_FASTAPI:
                 </a>
                 <button class="gamma-copy-btn" onclick="copyGammaUrl()">Copy URL</button>
                 <div class="gamma-metadata" id="gammaMetadata"></div>
+                <div class="markdown-summary" id="markdownSummary" style="display:none; margin-top: 15px;">
+                    <h4>📄 Markdown Summary</h4>
+                    <a href="#" id="markdownLink" class="markdown-download-link" download>
+                        📥 Download Markdown
+                    </a>
+                    <button class="gamma-copy-btn" onclick="copyMarkdownPath()">Copy Path</button>
+                </div>
             </div>
             
             <div class="examples">
@@ -953,6 +960,7 @@ if HAS_FASTAPI:
             
             // Gamma URL handling
             let currentGammaUrl = null;
+            let currentMarkdownPath = null;
             
             function detectGammaUrl(text) {
                 // Detect Gamma URL in terminal output
@@ -977,7 +985,7 @@ if HAS_FASTAPI:
             }
             
             function extractGammaMetadata(text) {
-                // Extract credits and generation time from output
+                // Extract credits, generation time, and markdown path from output
                 const metadata = {};
                 
                 const creditsMatch = text.match(/Credits used:\s*(\d+)/);
@@ -988,6 +996,11 @@ if HAS_FASTAPI:
                 const timeMatch = text.match(/Generation time:\s*([\d.]+)s/);
                 if (timeMatch) {
                     metadata.time = timeMatch[1];
+                }
+                
+                const markdownMatch = text.match(/Markdown summary:\s*([^\s]+)/);
+                if (markdownMatch) {
+                    metadata.markdownPath = markdownMatch[1];
                 }
                 
                 return metadata;
@@ -1005,6 +1018,23 @@ if HAS_FASTAPI:
                 }
                 
                 gammaMetadata.innerHTML = metadataHtml;
+                
+                // Display markdown summary if available
+                if (metadata.markdownPath) {
+                    displayMarkdownSummary(metadata.markdownPath);
+                }
+            }
+            
+            function displayMarkdownSummary(markdownPath) {
+                currentMarkdownPath = markdownPath;
+                const markdownSummary = document.getElementById('markdownSummary');
+                const markdownLink = document.getElementById('markdownLink');
+                
+                // Extract filename from path
+                const filename = markdownPath.split('/').pop();
+                markdownLink.textContent = `📥 Download ${filename}`;
+                markdownLink.href = `/download/${filename}`;
+                markdownSummary.style.display = 'block';
             }
             
             function copyGammaUrl() {
@@ -1019,6 +1049,21 @@ if HAS_FASTAPI:
                     }, 2000);
                 }).catch(err => {
                     console.error('Failed to copy URL:', err);
+                });
+            }
+            
+            function copyMarkdownPath() {
+                if (!currentMarkdownPath) return;
+                
+                navigator.clipboard.writeText(currentMarkdownPath).then(() => {
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy path:', err);
                 });
             }
             
@@ -1180,20 +1225,34 @@ if HAS_FASTAPI:
                     if output.get("type") in ("stdout", "status"):
                         output_text = output.get("data", "")
                         if "Gamma URL:" in output_text:
-                            # Extract Gamma URL
+                            # Extract Gamma URL and metadata
                             import re
                             url_match = re.search(r'Gamma URL:\s*(https://gamma\.app/[^\s]+)', output_text)
                             if url_match:
                                 gamma_url = url_match.group(1)
                                 
-                                # Send special gamma_url event
+                                # Extract additional metadata
+                                credits_match = re.search(r'Credits used:\s*(\d+)', output_text)
+                                time_match = re.search(r'Generation time:\s*([\d.]+)s', output_text)
+                                markdown_match = re.search(r'Markdown summary:\s*([^\s]+)', output_text)
+                                
+                                gamma_metadata = {
+                                    "type": "gamma_url",
+                                    "url": gamma_url,
+                                    "timestamp": output.get("timestamp")
+                                }
+                                
+                                if credits_match:
+                                    gamma_metadata["credits_used"] = int(credits_match.group(1))
+                                if time_match:
+                                    gamma_metadata["generation_time"] = float(time_match.group(1))
+                                if markdown_match:
+                                    gamma_metadata["markdown_path"] = markdown_match.group(1)
+                                
+                                # Send special gamma_url event with metadata
                                 yield {
                                     "event": "gamma_url",
-                                    "data": json.dumps({
-                                        "type": "gamma_url",
-                                        "url": gamma_url,
-                                        "timestamp": output.get("timestamp")
-                                    })
+                                    "data": json.dumps(gamma_metadata)
                                 }
                     
                     # Update status in state manager

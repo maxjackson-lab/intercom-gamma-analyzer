@@ -564,33 +564,52 @@ class AnalysisOrchestrator:
                 'specialized_results': comprehensive_report.get('specialized_results', {})
             }
             
-            # Generate Gamma presentation
+            # Set output directory for Gamma generation
+            output_dir = Path(options.get('output_directory', 'outputs'))
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate Gamma presentation (will generate markdown automatically)
             gamma_result = await self.gamma_generator.generate_from_analysis(
                 analysis_results=analysis_results,
                 style=style,
-                export_format=export_format
+                export_format=export_format,
+                output_dir=output_dir
             )
             
-            # Generate Google Docs export if requested
-            if export_docs:
-                from src.services.google_docs_exporter import GoogleDocsExporter
-                from pathlib import Path
-                
-                docs_exporter = GoogleDocsExporter()
-                output_dir = Path(options.get('output_directory', 'outputs'))
-                output_dir.mkdir(exist_ok=True)
-                
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                docs_filename = f"comprehensive_analysis_{style}_{timestamp}.md"
-                docs_path = output_dir / docs_filename
-                
-                docs_exporter.export_to_markdown(
-                    analysis_results=analysis_results,
-                    output_path=docs_path,
-                    style=style
-                )
-                
-                gamma_result['google_docs_export'] = str(docs_path)
+            # Markdown summary is now generated automatically in generate_from_analysis
+            # Add flags to indicate status
+            gamma_result['markdown_generated'] = bool(gamma_result.get('markdown_summary_path'))
+            
+            # Generate additional Google Docs export if requested
+            if export_docs and not gamma_result.get('markdown_summary_path'):
+                # Only generate if not already created by Gamma generator
+                try:
+                    from src.services.google_docs_exporter import GoogleDocsExporter
+                    
+                    docs_exporter = GoogleDocsExporter()
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    docs_filename = f"comprehensive_analysis_{style}_{timestamp}.md"
+                    docs_path = output_dir / docs_filename
+                    
+                    docs_exporter.export_to_markdown(
+                        analysis_results=analysis_results,
+                        output_path=docs_path,
+                        style=style
+                    )
+                    
+                    gamma_result['markdown_summary_path'] = str(docs_path)
+                    gamma_result['markdown_generated'] = True
+                    
+                    self.logger.info(
+                        "additional_markdown_generated",
+                        markdown_path=str(docs_path)
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "additional_markdown_generation_failed",
+                        error=str(e),
+                        exc_info=True
+                    )
             
             return gamma_result
             

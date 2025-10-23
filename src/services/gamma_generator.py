@@ -120,6 +120,50 @@ class GammaGenerator:
                 'slide_count': num_cards
             }
             
+            # Generate markdown summary
+            try:
+                from src.services.google_docs_exporter import GoogleDocsExporter
+                from pathlib import Path
+                
+                docs_exporter = GoogleDocsExporter()
+                markdown_output_dir = output_dir if output_dir else Path("outputs")
+                markdown_output_dir.mkdir(parents=True, exist_ok=True)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                markdown_filename = f"analysis_{style}_{timestamp}.md"
+                markdown_path = markdown_output_dir / markdown_filename
+                
+                docs_exporter.export_to_markdown(
+                    analysis_results=analysis_results,
+                    output_path=markdown_path,
+                    style=style
+                )
+                
+                # Read preview
+                with open(markdown_path, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                    markdown_preview = markdown_content[:500] if len(markdown_content) > 500 else markdown_content
+                
+                # Add to response
+                response['markdown_summary_path'] = str(markdown_path)
+                response['markdown_preview'] = markdown_preview
+                response['markdown_size_bytes'] = len(markdown_content)
+                
+                self.logger.info(
+                    "markdown_summary_generated",
+                    markdown_path=str(markdown_path),
+                    size_bytes=len(markdown_content)
+                )
+                
+            except Exception as e:
+                self.logger.warning(
+                    "markdown_summary_generation_failed",
+                    error=str(e),
+                    exc_info=True
+                )
+                # Don't fail the entire Gamma generation for markdown issues
+                response['markdown_summary_path'] = None
+            
             # Save metadata if output directory provided
             if output_dir:
                 await self._save_generation_metadata(response, analysis_results, output_dir)
@@ -441,6 +485,49 @@ class GammaGenerator:
                 'voc_analysis': True  # Flag to indicate this came from VoC
             }
             
+            # Generate markdown summary
+            try:
+                from src.services.google_docs_exporter import GoogleDocsExporter
+                from pathlib import Path
+                
+                docs_exporter = GoogleDocsExporter()
+                markdown_output_dir = output_dir if output_dir else Path("outputs")
+                markdown_output_dir.mkdir(parents=True, exist_ok=True)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                markdown_filename = f"voc_analysis_{style}_{timestamp}.md"
+                markdown_path = markdown_output_dir / markdown_filename
+                
+                docs_exporter.export_to_markdown(
+                    analysis_results=voc_results,
+                    output_path=markdown_path,
+                    style=style
+                )
+                
+                # Read preview
+                with open(markdown_path, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                    markdown_preview = markdown_content[:500] if len(markdown_content) > 500 else markdown_content
+                
+                # Add to response
+                response['markdown_summary_path'] = str(markdown_path)
+                response['markdown_preview'] = markdown_preview
+                response['markdown_size_bytes'] = len(markdown_content)
+                
+                self.logger.info(
+                    "voc_markdown_summary_generated",
+                    markdown_path=str(markdown_path),
+                    size_bytes=len(markdown_content)
+                )
+                
+            except Exception as e:
+                self.logger.warning(
+                    "voc_markdown_summary_generation_failed",
+                    error=str(e),
+                    exc_info=True
+                )
+                response['markdown_summary_path'] = None
+            
             # Save metadata if output directory provided
             if output_dir:
                 await self._save_generation_metadata(response, voc_results, output_dir)
@@ -534,6 +621,49 @@ class GammaGenerator:
                 'slide_count': num_cards,
                 'canny_analysis': True  # Flag to indicate this came from Canny
             }
+            
+            # Generate markdown summary
+            try:
+                from src.services.google_docs_exporter import GoogleDocsExporter
+                from pathlib import Path
+                
+                docs_exporter = GoogleDocsExporter()
+                markdown_output_dir = output_dir if output_dir else Path("outputs")
+                markdown_output_dir.mkdir(parents=True, exist_ok=True)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                markdown_filename = f"canny_analysis_{style}_{timestamp}.md"
+                markdown_path = markdown_output_dir / markdown_filename
+                
+                docs_exporter.export_to_markdown(
+                    analysis_results=canny_results,
+                    output_path=markdown_path,
+                    style=style
+                )
+                
+                # Read preview
+                with open(markdown_path, 'r', encoding='utf-8') as f:
+                    markdown_content = f.read()
+                    markdown_preview = markdown_content[:500] if len(markdown_content) > 500 else markdown_content
+                
+                # Add to response
+                response['markdown_summary_path'] = str(markdown_path)
+                response['markdown_preview'] = markdown_preview
+                response['markdown_size_bytes'] = len(markdown_content)
+                
+                self.logger.info(
+                    "canny_markdown_summary_generated",
+                    markdown_path=str(markdown_path),
+                    size_bytes=len(markdown_content)
+                )
+                
+            except Exception as e:
+                self.logger.warning(
+                    "canny_markdown_summary_generation_failed",
+                    error=str(e),
+                    exc_info=True
+                )
+                response['markdown_summary_path'] = None
             
             # Save metadata if output directory provided
             if output_dir:
