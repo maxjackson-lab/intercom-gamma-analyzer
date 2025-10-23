@@ -11,7 +11,7 @@ restartPolicyMaxRetries = 3
 [environments.production]
 [environments.production.variables]
 PYTHON_VERSION = "3.11"
-PYTHONPATH = "/app"
+PYTHONPATH = "/app:/app/src"
 DEPLOYMENT_MODE = "web"
 # CANNY_API_KEY = "set-via-railway-dashboard"  # Optional: For Canny feedback analysis
 # CANNY_BASE_URL = "https://canny.io/api/v1"
@@ -19,7 +19,7 @@ DEPLOYMENT_MODE = "web"
 [environments.cron]
 [environments.cron.variables]
 PYTHON_VERSION = "3.11"
-PYTHONPATH = "/app"
+PYTHONPATH = "/app:/app/src"
 DEPLOYMENT_MODE = "cron"
 ANALYSIS_TYPE = "weekly"
 

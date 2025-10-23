@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch, AsyncMock
 import httpx
 import asyncio
 
-from services.gamma_client import GammaClient, GammaAPIError
+from src.services.gamma_client import GammaClient, GammaAPIError
 
 
 class TestGammaClient:

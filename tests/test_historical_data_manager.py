@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-from services.historical_data_manager import HistoricalDataManager
+from src.services.historical_data_manager import HistoricalDataManager
 
 
 class TestHistoricalDataManager:

@@ -176,25 +176,60 @@ class TopicOrchestrator:
                 
                 return topic_name, sentiment_result, examples_result
             
-            # Process all topics in parallel
+            # Process all topics in parallel (skip zero-volume topics)
             self.logger.info(f"   Processing {len(topic_dist)} topics in parallel...")
-            topic_tasks = [process_topic(name, stats) for name, stats in topic_dist.items()]
+            topic_tasks = []
+            for name, stats in topic_dist.items():
+                volume = stats.get('volume', 0)
+                if volume == 0:
+                    self.logger.info(f"   ⏭️  Skipping topic '{name}': zero volume (LLM-discovered with no matches)")
+                    continue
+                topic_tasks.append(process_topic(name, stats))
+            
+            self.logger.info(f"   Created {len(topic_tasks)} topic processing tasks")
             topic_results = await asyncio.gather(*topic_tasks, return_exceptions=True)
             
-            # Collect results
-            for result in topic_results:
+            # Initialize per-topic tracking
+            if 'TopicProcessing' not in workflow_results:
+                workflow_results['TopicProcessing'] = {}
+            
+            # Collect results with per-topic error handling
+            topic_names_to_process = [name for name, stats in topic_dist.items() if stats.get('volume', 0) > 0]
+            
+            for idx, result in enumerate(topic_results):
+                # Determine topic name from task index
+                topic_name = topic_names_to_process[idx] if idx < len(topic_names_to_process) else f"unknown_topic_{idx}"
+                
                 if isinstance(result, Exception):
-                    self.logger.error(f"Topic processing failed: {result}")
+                    error_msg = str(result)
+                    self.logger.error(f"Topic '{topic_name}' processing failed: {error_msg}", exc_info=result)
+                    # Add structured error entry
+                    workflow_results['TopicProcessing'][topic_name] = {
+                        'success': False,
+                        'error_message': error_msg,
+                        'error_type': type(result).__name__
+                    }
                     continue
                 
-                topic_name, sentiment_result, examples_result = result
+                # Unpack successful result
+                result_topic_name, sentiment_result, examples_result = result
                 
                 # Skip if topic was empty
                 if sentiment_result is None or examples_result is None:
+                    workflow_results['TopicProcessing'][result_topic_name] = {
+                        'success': False,
+                        'error_message': 'Empty topic - no conversations matched'
+                    }
                     continue
                 
-                topic_sentiments[topic_name] = sentiment_result.dict()
-                topic_examples[topic_name] = examples_result.dict()
+                # Success case
+                topic_sentiments[result_topic_name] = sentiment_result.dict()
+                topic_examples[result_topic_name] = examples_result.dict()
+                workflow_results['TopicProcessing'][result_topic_name] = {
+                    'success': True,
+                    'sentiment_confidence': sentiment_result.confidence,
+                    'examples_count': len(examples_result.data.get('examples', []))
+                }
             
             # PHASE 4: Fin Analysis (on free conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
@@ -238,8 +273,11 @@ class TopicOrchestrator:
             
             self.logger.info(f"   ✅ Output formatted")
             
-            # Calculate summary
+            # Calculate summary and aggregate metrics
             total_time = (datetime.now() - start_time).total_seconds()
+            
+            # Aggregate metrics from all agents
+            metrics = self._aggregate_metrics(workflow_results, topic_sentiments, topic_examples, total_time)
             
             final_output = {
                 'week_id': week_id,
@@ -252,6 +290,7 @@ class TopicOrchestrator:
                     'total_execution_time': total_time,
                     'agents_completed': len(workflow_results)
                 },
+                'metrics': metrics,
                 'agent_results': workflow_results
             }
             
@@ -263,4 +302,96 @@ class TopicOrchestrator:
         except Exception as e:
             self.logger.error(f"TopicOrchestrator error: {e}")
             raise
+    
+    def _aggregate_metrics(
+        self,
+        workflow_results: Dict,
+        topic_sentiments: Dict,
+        topic_examples: Dict,
+        total_time: float
+    ) -> Dict[str, Any]:
+        """
+        Aggregate metrics from all agents for dashboard reporting.
+        
+        Returns structured metrics with per-agent timing, LLM calls, and counts.
+        """
+        metrics = {
+            'total_execution_time': total_time,
+            'agent_timings': {},
+            'llm_stats': {
+                'total_calls': 0,
+                'total_tokens': 0
+            },
+            'per_topic_metrics': {},
+            'overall_stats': {
+                'topics_processed': 0,
+                'examples_selected': 0,
+                'errors': 0
+            }
+        }
+        
+        # Aggregate from main workflow agents
+        for agent_name, result_data in workflow_results.items():
+            if agent_name == 'TopicProcessing':
+                continue  # Handle separately
+                
+            execution_time = result_data.get('execution_time', 0)
+            token_count = result_data.get('token_count', 0)
+            
+            metrics['agent_timings'][agent_name] = {
+                'execution_time': execution_time,
+                'success': result_data.get('success', False)
+            }
+            
+            if token_count > 0:
+                metrics['llm_stats']['total_calls'] += 1
+                metrics['llm_stats']['total_tokens'] += token_count
+        
+        # Aggregate per-topic metrics
+        for topic_name, sentiment_result in topic_sentiments.items():
+            examples_result = topic_examples.get(topic_name, {})
+            
+            topic_metrics = {
+                'sentiment_execution_time': sentiment_result.get('execution_time', 0),
+                'sentiment_confidence': sentiment_result.get('confidence', 0),
+                'examples_count': len(examples_result.get('data', {}).get('examples', [])),
+                'examples_execution_time': examples_result.get('execution_time', 0),
+                'total_time': sentiment_result.get('execution_time', 0) + examples_result.get('execution_time', 0)
+            }
+            
+            # Count LLM calls for this topic
+            if sentiment_result.get('token_count', 0) > 0:
+                topic_metrics['llm_calls'] = 1
+                metrics['llm_stats']['total_tokens'] += sentiment_result.get('token_count', 0)
+            else:
+                topic_metrics['llm_calls'] = 0
+            
+            metrics['per_topic_metrics'][topic_name] = topic_metrics
+            metrics['overall_stats']['topics_processed'] += 1
+            metrics['overall_stats']['examples_selected'] += topic_metrics['examples_count']
+        
+        # Count errors from TopicProcessing
+        topic_processing = workflow_results.get('TopicProcessing', {})
+        for topic_name, status in topic_processing.items():
+            if not status.get('success', True):
+                metrics['overall_stats']['errors'] += 1
+        
+        # Add phase breakdown
+        metrics['phase_breakdown'] = {
+            'segmentation': metrics['agent_timings'].get('SegmentationAgent', {}).get('execution_time', 0),
+            'topic_detection': metrics['agent_timings'].get('TopicDetectionAgent', {}).get('execution_time', 0),
+            'per_topic_analysis': sum(m['total_time'] for m in metrics['per_topic_metrics'].values()),
+            'fin_analysis': metrics['agent_timings'].get('FinPerformanceAgent', {}).get('execution_time', 0),
+            'trend_analysis': metrics['agent_timings'].get('TrendAgent', {}).get('execution_time', 0),
+            'output_formatting': metrics['agent_timings'].get('OutputFormatterAgent', {}).get('execution_time', 0)
+        }
+        
+        self.logger.info(f"📊 Metrics Summary:")
+        self.logger.info(f"   Total LLM calls: {metrics['llm_stats']['total_calls']}")
+        self.logger.info(f"   Total tokens: {metrics['llm_stats']['total_tokens']}")
+        self.logger.info(f"   Topics processed: {metrics['overall_stats']['topics_processed']}")
+        self.logger.info(f"   Examples selected: {metrics['overall_stats']['examples_selected']}")
+        self.logger.info(f"   Errors: {metrics['overall_stats']['errors']}")
+        
+        return metrics
 

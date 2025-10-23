@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from collections import Counter, defaultdict
 
-from services.ai_model_factory import AIModelFactory, AIModel
-from services.agent_feedback_separator import AgentFeedbackSeparator
-from services.historical_data_manager import HistoricalDataManager
+from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.agent_feedback_separator import AgentFeedbackSeparator
+from src.services.historical_data_manager import HistoricalDataManager
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +218,7 @@ class VoiceOfCustomerAnalyzer:
     
     async def _get_top_categories_by_volume(self, conversations: List[Dict], ai_model: AIModel) -> Dict[str, List[Dict]]:
         """Get top categories by conversation volume using taxonomy system."""
-        from config.taxonomy import taxonomy_manager
+        from src.config.taxonomy import taxonomy_manager
         
         category_counts = defaultdict(list)
         unclassified = []
@@ -487,7 +487,7 @@ Return ONLY valid JSON in this exact format:
     
     def _generate_intercom_url(self, conversation_id: str) -> str:
         """Generate Intercom conversation URL."""
-        from config.settings import settings
+        from src.config.settings import settings
         workspace_id = settings.intercom_workspace_id
         
         if not workspace_id or not conversation_id:

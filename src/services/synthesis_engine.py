@@ -11,8 +11,8 @@ from collections import defaultdict, Counter
 from datetime import datetime
 import json
 
-from services.openai_client import OpenAIClient
-from config.prompts import PromptTemplates
+from src.services.openai_client import OpenAIClient
+from src.config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 

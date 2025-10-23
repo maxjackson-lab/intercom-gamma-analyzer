@@ -4,7 +4,7 @@ Tests for stratified sampling functionality in presentation builder.
 
 import pytest
 from unittest.mock import Mock, patch
-from services.presentation_builder import PresentationBuilder
+from src.services.presentation_builder import PresentationBuilder
 
 
 class TestStratifiedSampling:

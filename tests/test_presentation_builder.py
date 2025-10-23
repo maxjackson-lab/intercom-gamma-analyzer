@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-from services.presentation_builder import PresentationBuilder
+from src.services.presentation_builder import PresentationBuilder
 
 
 class TestPresentationBuilder:

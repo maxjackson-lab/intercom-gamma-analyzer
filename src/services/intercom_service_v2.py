@@ -5,10 +5,10 @@ Improved Intercom API service with better rate limiting and chunking.
 import logging
 import asyncio
 from typing import Dict, List, Optional, Generator
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +175,91 @@ class IntercomServiceV2:
                     break
         
         self.logger.info(f"Total conversations fetched: {len(all_conversations)}")
-        return all_conversations
+        
+        # Normalize timestamps to UTC and filter conversations to requested window
+        filtered_conversations = self._normalize_and_filter_by_date(
+            all_conversations, 
+            start_date, 
+            end_date
+        )
+        
+        filtered_out_count = len(all_conversations) - len(filtered_conversations)
+        if filtered_out_count > 0:
+            self.logger.info(
+                f"Filtered out {filtered_out_count} conversations that were outside the date window "
+                f"(likely timezone-related)"
+            )
+        
+        return filtered_conversations
+    
+    def _normalize_and_filter_by_date(
+        self,
+        conversations: List[Dict],
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[Dict]:
+        """
+        Normalize timestamps to UTC and filter to the requested date window.
+        
+        Args:
+            conversations: List of conversation dictionaries
+            start_date: Start of date range (inclusive)
+            end_date: End of date range (inclusive)
+            
+        Returns:
+            Filtered list of conversations within the date range
+        """
+        # Ensure start_date and end_date are timezone-aware UTC
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
+        else:
+            start_date = start_date.astimezone(timezone.utc)
+        
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+        else:
+            end_date = end_date.astimezone(timezone.utc)
+        
+        filtered = []
+        
+        for conv in conversations:
+            # Normalize created_at
+            created_at = conv.get('created_at')
+            if created_at:
+                if isinstance(created_at, (int, float)):
+                    # Unix timestamp - convert to UTC datetime
+                    created_dt = datetime.fromtimestamp(created_at, tz=timezone.utc)
+                    conv['created_at'] = created_dt
+                elif isinstance(created_at, datetime):
+                    # Already datetime - ensure UTC
+                    if created_at.tzinfo is None:
+                        created_dt = created_at.replace(tzinfo=timezone.utc)
+                    else:
+                        created_dt = created_at.astimezone(timezone.utc)
+                    conv['created_at'] = created_dt
+                else:
+                    # Unknown format - skip this conversation
+                    self.logger.warning(f"Unknown created_at format for conversation {conv.get('id')}: {type(created_at)}")
+                    continue
+                
+                # Filter: only include if within the date range (inclusive)
+                if created_dt < start_date or created_dt > end_date:
+                    continue
+            
+            # Normalize updated_at if present
+            updated_at = conv.get('updated_at')
+            if updated_at:
+                if isinstance(updated_at, (int, float)):
+                    conv['updated_at'] = datetime.fromtimestamp(updated_at, tz=timezone.utc)
+                elif isinstance(updated_at, datetime):
+                    if updated_at.tzinfo is None:
+                        conv['updated_at'] = updated_at.replace(tzinfo=timezone.utc)
+                    else:
+                        conv['updated_at'] = updated_at.astimezone(timezone.utc)
+            
+            filtered.append(conv)
+        
+        return filtered
     
     async def fetch_conversations_by_query(
         self,

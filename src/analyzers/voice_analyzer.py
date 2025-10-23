@@ -6,9 +6,9 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from analyzers.base_analyzer import BaseAnalyzer
-from models.analysis_models import AnalysisRequest, VoiceOfCustomerResults
-from config.prompts import PromptTemplates
+from src.analyzers.base_analyzer import BaseAnalyzer
+from src.models.analysis_models import AnalysisRequest, VoiceOfCustomerResults
+from src.config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 

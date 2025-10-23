@@ -15,10 +15,10 @@ import json
 import sys
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from config.settings import Settings
-from services.duckdb_storage import DuckDBStorage
-from services.elt_pipeline import ELTPipeline
-from config.taxonomy import TaxonomyManager, Category, Subcategory
+from src.config.settings import Settings
+from src.services.duckdb_storage import DuckDBStorage
+from src.services.elt_pipeline import ELTPipeline
+from src.config.taxonomy import TaxonomyManager, Category, Subcategory
 
 
 @pytest.fixture(scope="session")

@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from services.data_exporter import DataExporter
+from src.services.data_exporter import DataExporter
 
 
 class TestDataExporter:

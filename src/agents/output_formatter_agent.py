@@ -109,9 +109,15 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             sorted_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
             
             for topic_name, topic_stats in sorted_topics:
-                # Get sentiment and examples for this topic
+                # Get sentiment and examples for this topic (defensive reads)
                 sentiment = topic_sentiments.get(topic_name, {}).get('data', {}).get('sentiment_insight', 'No sentiment analysis available')
-                examples = topic_examples.get(topic_name, {}).get('data', {}).get('examples', [])
+                examples_data = topic_examples.get(topic_name, {}).get('data', {})
+                examples = examples_data.get('examples', []) if examples_data else []
+                
+                # Validate examples is a list
+                if not isinstance(examples, list):
+                    self.logger.warning(f"Topic '{topic_name}' has invalid examples format, skipping examples")
+                    examples = []
                 
                 # Get trend if available
                 trend = trends.get(topic_name, {})
@@ -205,12 +211,15 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         
         card += "\n**Examples**:\n"
         
-        # Add examples
-        for i, example in enumerate(examples, 1):
-            card += f"{i}. \"{example['preview']}\" - [View conversation]({example['intercom_url']})\n"
-        
-        if not examples:
-            card += "_No examples extracted_\n"
+        # Add examples with validation
+        if examples and len(examples) > 0:
+            for i, example in enumerate(examples, 1):
+                # Defensive read of example fields
+                preview = example.get('preview', 'No preview available') if isinstance(example, dict) else 'Invalid example format'
+                url = example.get('intercom_url', '#') if isinstance(example, dict) else '#'
+                card += f"{i}. \"{preview}\" - [View conversation]({url})\n"
+        else:
+            card += "_No examples available - topic may have low volume or quality conversations_\n"
         
         card += "\n---\n"
         

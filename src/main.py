@@ -23,36 +23,36 @@ from rich.panel import Panel
 # Add src to path for imports
 sys.path.append(str(Path(__file__).parent))
 
-from config.settings import settings
-from services.intercom_service import IntercomService
-from services.intercom_service_v2 import IntercomServiceV2
-from services.elt_pipeline import ELTPipeline
-from config.taxonomy import taxonomy_manager
-from services.metrics_calculator import MetricsCalculator
-from services.openai_client import OpenAIClient
-from services.gamma_client import GammaClient
-from services.data_exporter import DataExporter
-from services.query_builder import QueryBuilder, GeneralQueryService
-from services.chunked_fetcher import ChunkedFetcher
-from services.data_preprocessor import DataPreprocessor
-from services.category_filters import CategoryFilters
+from src.config.settings import settings
+from src.services.intercom_service import IntercomService
+from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.elt_pipeline import ELTPipeline
+from src.config.taxonomy import taxonomy_manager
+from src.services.metrics_calculator import MetricsCalculator
+from src.services.openai_client import OpenAIClient
+from src.services.gamma_client import GammaClient
+from src.services.data_exporter import DataExporter
+from src.services.query_builder import QueryBuilder, GeneralQueryService
+from src.services.chunked_fetcher import ChunkedFetcher
+from src.services.data_preprocessor import DataPreprocessor
+from src.services.category_filters import CategoryFilters
 from src.services.gamma_generator import GammaGenerator
-from services.orchestrator import AnalysisOrchestrator
-from analyzers.voice_analyzer import VoiceAnalyzer
-from analyzers.trend_analyzer import TrendAnalyzer
-from analyzers.base_category_analyzer import BaseCategoryAnalyzer
-from analyzers.billing_analyzer import BillingAnalyzer
-from analyzers.product_analyzer import ProductAnalyzer
-from analyzers.sites_analyzer import SitesAnalyzer
-from analyzers.api_analyzer import ApiAnalyzer
-from analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
-from analyzers.canny_analyzer import CannyAnalyzer
-from services.ai_model_factory import AIModelFactory, AIModel
-from services.agent_feedback_separator import AgentFeedbackSeparator
-from services.historical_data_manager import HistoricalDataManager
-from services.canny_client import CannyClient
-from services.canny_preprocessor import CannyPreprocessor
-from models.analysis_models import AnalysisRequest, AnalysisMode
+from src.services.orchestrator import AnalysisOrchestrator
+from src.analyzers.voice_analyzer import VoiceAnalyzer
+from src.analyzers.trend_analyzer import TrendAnalyzer
+from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer
+from src.analyzers.billing_analyzer import BillingAnalyzer
+from src.analyzers.product_analyzer import ProductAnalyzer
+from src.analyzers.sites_analyzer import SitesAnalyzer
+from src.analyzers.api_analyzer import ApiAnalyzer
+from src.analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
+from src.analyzers.canny_analyzer import CannyAnalyzer
+from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.agent_feedback_separator import AgentFeedbackSeparator
+from src.services.historical_data_manager import HistoricalDataManager
+from src.services.canny_client import CannyClient
+from src.services.canny_preprocessor import CannyPreprocessor
+from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from utils.logger import setup_logging
 from utils.cli_help import help_system
 
@@ -3139,37 +3139,26 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
             console.print(f"   Generation ID: {generation_id}")
             console.print("   Waiting for Gamma to process...")
             
-            # Poll for completion (max 2 minutes)
-            import time
-            max_attempts = 24  # 2 minutes at 5 second intervals
-            attempt = 0
+            # Use GammaClient.poll_generation() with backoff
+            status = await gamma_client.poll_generation(generation_id, max_polls=30, poll_interval=2.0)
             
-            while attempt < max_attempts:
-                await asyncio.sleep(5)
-                status = await gamma_client.get_generation_status(generation_id)
-                
-                if status.get('status') == 'completed':
-                    gamma_url = status.get('url')
-                    if gamma_url:
-                        console.print(f"✅ Gamma URL: {gamma_url}")
-                        
-                        # Save URL to file
-                        url_file = output_dir / f"gamma_url_{timestamp}.txt"
-                        with open(url_file, 'w') as f:
-                            f.write(gamma_url)
-                        console.print(f"📁 URL saved to: {url_file}")
-                    else:
-                        console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
-                    break
-                elif status.get('status') == 'failed':
-                    console.print(f"[red]❌ Gamma generation failed: {status.get('error')}[/red]")
-                    break
-                
-                attempt += 1
-                console.print(f"   Still processing... ({attempt}/{max_attempts})")
-            
-            if attempt >= max_attempts:
-                console.print("[yellow]⚠️  Gamma generation timed out - check Gamma dashboard[/yellow]")
+            if status.get('status') == 'completed':
+                gamma_url = status.get('gammaUrl')  # Use v0.2 field name
+                if gamma_url:
+                    console.print(f"✅ Gamma URL: {gamma_url}")
+                    
+                    # Save URL to file
+                    url_file = output_dir / f"gamma_url_{timestamp}.txt"
+                    with open(url_file, 'w') as f:
+                        f.write(gamma_url)
+                    console.print(f"📁 URL saved to: {url_file}")
+                    
+                    # Return URL for CLI output
+                    return {'gamma_url': gamma_url, 'url_file': str(url_file)}
+                else:
+                    console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
+            elif status.get('status') == 'failed':
+                console.print(f"[red]❌ Gamma generation failed: {status.get('error')}[/red]")
                 
         except Exception as e:
             console.print(f"[red]❌ Gamma generation failed: {e}[/red]")

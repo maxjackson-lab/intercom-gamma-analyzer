@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 import httpx
 
-from services.chunked_fetcher import ChunkedFetcher
+from src.services.chunked_fetcher import ChunkedFetcher
 
 
 class TestChunkedFetcher:

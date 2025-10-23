@@ -7,8 +7,8 @@ from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
 import json
 
-from services.gamma_generator import GammaGenerator
-from services.gamma_client import GammaAPIError
+from src.services.gamma_generator import GammaGenerator
+from src.services.gamma_client import GammaAPIError
 
 
 class TestGammaGenerator:

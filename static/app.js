@@ -22,26 +22,25 @@ async function checkSystemStatus() {
         const response = await fetch('/health');
         const data = await response.json();
         
+        console.log('System status:', data);
+        
+        // Status checking is optional - only update UI if elements exist
         const statusMessage = document.getElementById('statusMessage');
         const statusText = document.getElementById('statusText');
         
-        // Guard against missing elements (new form-based interface)
         if (!statusMessage || !statusText) {
-            console.log('Status elements not found (using form-based interface)');
+            console.log('Status elements not found - skipping status UI update');
             return;
         }
         
         if (!data.chat_interface) {
-            statusText.innerHTML = '⚠️ Chat interface is not available due to missing dependencies. You can still execute CLI commands directly below.';
+            statusText.innerHTML = '⚠️ Chat interface is not available due to missing dependencies. You can still execute CLI commands.';
             statusMessage.style.display = 'block';
             statusMessage.style.background = 'rgba(245, 158, 11, 0.1)';
             statusMessage.style.border = '1px solid rgba(245, 158, 11, 0.3)';
             statusMessage.style.color = '#fbbf24';
-            
-            // Show direct CLI input when chat is not available
-            showDirectCLIInput();
         } else {
-            statusText.innerHTML = '✅ Chat interface is ready! You can start asking questions.';
+            statusText.innerHTML = '✅ System ready';
             statusMessage.style.display = 'block';
             statusMessage.style.background = 'rgba(34, 197, 94, 0.1)';
             statusMessage.style.border = '1px solid rgba(34, 197, 94, 0.3)';
@@ -57,12 +56,18 @@ async function loadRecentJobs() {
         const response = await fetch('/execute/list?limit=10');
         const data = await response.json();
         
+        const recentJobs = document.getElementById('recentJobs');
+        const jobsList = document.getElementById('jobsList');
+        
+        // Validate elements exist before updating
+        if (!recentJobs || !jobsList) {
+            console.log('Recent jobs elements not found - skipping recent jobs UI');
+            return;
+        }
+        
         if (data.executions && data.executions.length > 0) {
-            const recentJobs = document.getElementById('recentJobs');
-            const jobsList = document.getElementById('jobsList');
-            
             jobsList.innerHTML = data.executions.map(job => `
-                <div class="example" onclick="resumeJob('${job.execution_id}')" style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="example" onclick="resumeJob('${job.execution_id}')" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                     <div>
                         <div style="font-weight: 600;">${job.command} ${job.args.slice(0, 3).join(' ')}...</div>
                         <div style="font-size: 12px; color: #666; margin-top: 4px;">
@@ -74,6 +79,8 @@ async function loadRecentJobs() {
             `).join('');
             
             recentJobs.style.display = 'block';
+        } else {
+            jobsList.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 20px;">No recent jobs</div>';
         }
     } catch (error) {
         console.error('Failed to load recent jobs:', error);
@@ -81,18 +88,25 @@ async function loadRecentJobs() {
 }
 
 async function resumeJob(executionId) {
+    if (!executionId) {
+        console.error('resumeJob called without execution ID');
+        return;
+    }
+    
     try {
         currentExecutionId = executionId;
         
         // Fetch current status
         const response = await fetch(`/execute/status/${executionId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch job status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         console.log('Resume job data:', data);
-        console.log('Output array:', data.output);
-        console.log('Output length:', data.output_length);
         
-        // Show terminal
+        // Validate required elements exist
         const terminalContainer = document.getElementById('terminalContainer');
         const terminalOutput = document.getElementById('terminalOutput');
         const terminalTitle = document.getElementById('terminalTitle');
@@ -100,31 +114,37 @@ async function resumeJob(executionId) {
         const executionSpinner = document.getElementById('executionSpinner');
         const cancelButton = document.getElementById('cancelButton');
         
+        if (!terminalContainer || !terminalOutput || !terminalTitle) {
+            console.error('Required terminal elements not found in DOM');
+            return;
+        }
+        
         terminalContainer.style.display = 'block';
         terminalOutput.innerHTML = '';
         terminalTitle.textContent = `Job: ${data.command} (ID: ${executionId.substring(0, 8)}...)`;
-        executionStatus.style.display = 'inline-block';
-        executionStatus.className = `status-badge ${data.status}`;
-        executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        
+        if (executionStatus) {
+            executionStatus.style.display = 'inline-block';
+            executionStatus.className = `status-badge ${data.status}`;
+            executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        }
         
         // Display all output
         outputIndex = 0;
         if (data.output && data.output.length > 0) {
             console.log(`Displaying ${data.output.length} output items`);
             data.output.forEach((outputItem, index) => {
-                console.log(`Output item ${index}:`, outputItem);
                 appendTerminalOutput(outputItem);
             });
-            outputIndex = data.output_length;
+            outputIndex = data.output_length || data.output.length;
         } else {
-            console.log('No output available yet');
-            terminalOutput.innerHTML = '<div style="color: #666; padding: 20px;">No output available yet. Job may still be starting...</div>';
+            terminalOutput.innerHTML = '<div style="color: #666; padding: 20px;">No output available yet...</div>';
         }
         
         // If still running, start polling
         if (data.status === 'running' || data.status === 'starting' || data.status === 'queued') {
-            executionSpinner.style.display = 'inline-block';
-            cancelButton.style.display = 'inline-block';
+            if (executionSpinner) executionSpinner.style.display = 'inline-block';
+            if (cancelButton) cancelButton.style.display = 'inline-block';
             startPolling();
         } else if (data.status === 'completed') {
             showDownloadLinks();
@@ -139,84 +159,10 @@ function setQuery(query) {
     document.getElementById('queryInput').value = query;
 }
 
+// Legacy function - no longer used with form-based interface
+// Kept for backwards compatibility if needed
 function showDirectCLIInput() {
-    // Hide the chat interface and show direct CLI input
-    const chatContainer = document.getElementById('chatContainer');
-    const inputContainer = document.querySelector('.input-container');
-    const queryInput = document.getElementById('queryInput');
-    const sendButton = document.getElementById('sendButton');
-    
-    // Update the interface for direct CLI commands
-    chatContainer.innerHTML = `
-        <div class="message bot-message">
-            <strong>System:</strong> Chat interface is not available, but you can execute CLI commands directly. Try commands like:
-            <br>• <code>voice-of-customer --generate-gamma</code>
-            <br>• <code>billing-analysis --generate-gamma</code>
-            <br>• <code>canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31</code>
-            <br>• <code>tech-analysis --days 7</code>
-            <br>• <code>api-analysis --generate-gamma</code>
-        </div>
-    `;
-    
-    queryInput.placeholder = "Enter CLI command (e.g., voice-of-customer --generate-gamma)";
-    sendButton.textContent = "Execute";
-    
-    // Update the examples section for CLI commands
-    const examplesSection = document.getElementById('examplesSection');
-    examplesSection.innerHTML = `
-        <h3>💡 Example CLI Commands</h3>
-        <div class="example" onclick="setQuery('voice-of-customer --generate-gamma')">
-            voice-of-customer --generate-gamma
-        </div>
-        <div class="example" onclick="setQuery('billing-analysis --generate-gamma')">
-            billing-analysis --generate-gamma
-        </div>
-        <div class="example" onclick="setQuery('canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31')">
-            canny-analysis --generate-gamma
-        </div>
-        <div class="example" onclick="setQuery('tech-analysis --days 7')">
-            tech-analysis --days 7
-        </div>
-        <div class="example" onclick="setQuery('api-analysis --generate-gamma')">
-            api-analysis --generate-gamma
-        </div>
-    `;
-    
-    // Update the sendMessage function to handle direct CLI commands
-    window.sendMessage = async function() {
-        const input = document.getElementById('queryInput');
-        const button = document.getElementById('sendButton');
-        const chatContainer = document.getElementById('chatContainer');
-        
-        const command = input.value.trim();
-        if (!command) return;
-        
-        // Disable input and show loading
-        input.disabled = true;
-        button.disabled = true;
-        button.textContent = 'Executing...';
-        
-        // Add user message
-        addMessage('user', `CLI Command: <code>${command}</code>`);
-        input.value = '';
-        
-        // Parse command and args
-        const parts = command.split(' ');
-        const cmd = parts[0];
-        const args = parts.slice(1);
-        
-        try {
-            // Execute the command directly
-            await executeCommand(cmd, args);
-        } catch (error) {
-            addMessage('bot', `Error: ${error.message}`);
-        } finally {
-            // Re-enable input
-            input.disabled = false;
-            button.disabled = false;
-            button.textContent = 'Execute';
-        }
-    };
+    console.log('showDirectCLIInput() called - this function is deprecated in form-based interface');
 }
 
 function handleKeyPress(event) {
@@ -361,25 +307,42 @@ let pollingInterval = null;
 let outputIndex = 0;
 
 async function executeCommand(command, args) {
+    if (!command) {
+        console.error('executeCommand called without command');
+        return;
+    }
+    
+    // Validate args is an array
+    if (!Array.isArray(args)) {
+        console.error('executeCommand args must be an array');
+        args = [];
+    }
+    
     try {
         // Convert CLI command to full python execution
-        // voice-of-customer → python src/main.py voice-of-customer
         const fullCommand = 'python';
         let fullArgs = ['src/main.py', command, ...args];
         
-        // Note: --multi-agent and --analysis-type are already added by runAnalysis()
-        // Don't add them again here to avoid duplicates
+        // Validate fullArgs before sending
+        if (fullArgs.some(arg => typeof arg !== 'string')) {
+            throw new Error('All arguments must be strings');
+        }
         
         // Start execution and get execution ID
         const startResponse = await fetch(`/execute/start?command=${encodeURIComponent(fullCommand)}&args=${encodeURIComponent(JSON.stringify(fullArgs))}`, {
             method: 'POST'
         });
         
+        if (!startResponse.ok) {
+            const errorData = await startResponse.json();
+            throw new Error(errorData.detail || `Start execution failed: ${startResponse.status}`);
+        }
+        
         const startData = await startResponse.json();
         currentExecutionId = startData.execution_id;
         outputIndex = 0;
         
-        // Show terminal container
+        // Validate required elements
         const terminalContainer = document.getElementById('terminalContainer');
         const terminalOutput = document.getElementById('terminalOutput');
         const terminalTitle = document.getElementById('terminalTitle');
@@ -387,21 +350,36 @@ async function executeCommand(command, args) {
         const executionStatus = document.getElementById('executionStatus');
         const cancelButton = document.getElementById('cancelButton');
         
+        if (!terminalContainer || !terminalOutput || !terminalTitle) {
+            console.error('Required terminal elements not found');
+            return;
+        }
+        
         terminalContainer.style.display = 'block';
         terminalOutput.innerHTML = '';
         terminalTitle.textContent = `Executing: ${command}`;
-        executionSpinner.style.display = 'inline-block';
-        executionStatus.style.display = 'inline-block';
-        executionStatus.className = 'status-badge running';
-        executionStatus.textContent = 'Running';
-        cancelButton.style.display = 'inline-block';
+        
+        if (executionSpinner) executionSpinner.style.display = 'inline-block';
+        if (executionStatus) {
+            executionStatus.style.display = 'inline-block';
+            executionStatus.className = 'status-badge running';
+            executionStatus.textContent = 'Running';
+        }
+        if (cancelButton) cancelButton.style.display = 'inline-block';
         
         // Start polling for updates
         startPolling();
         
     } catch (error) {
         console.error('Execution error:', error);
-        addMessage('bot', `Failed to start execution: ${error.message}`);
+        
+        // Try to show error in chat if available
+        const chatContainer = document.getElementById('chatContainer');
+        if (chatContainer && typeof addMessage === 'function') {
+            addMessage('bot', `Failed to start execution: ${error.message}`);
+        } else {
+            alert(`Failed to start execution: ${error.message}`);
+        }
     }
 }
 
@@ -746,72 +724,89 @@ function showStatus(type, message) {
 }
 
 
-// Simple dropdown form handler for new UI
+// Form-based analysis execution handler
 function runAnalysis() {
-    // Get form values
-    const analysisType = document.getElementById('analysisType').value;
-    const timePeriod = document.getElementById('timePeriod').value;
-    const dataSource = document.getElementById('dataSource').value;
-    const taxonomyFilter = document.getElementById('taxonomyFilter').value;
-    const outputFormat = document.getElementById('outputFormat').value;
+    // Get form values with validation
+    const analysisType = document.getElementById('analysisType');
+    const timePeriod = document.getElementById('timePeriod');
+    const dataSource = document.getElementById('dataSource');
+    const taxonomyFilter = document.getElementById('taxonomyFilter');
+    const outputFormat = document.getElementById('outputFormat');
+    
+    if (!analysisType || !timePeriod || !dataSource || !outputFormat) {
+        console.error('Missing required form elements');
+        alert('Form elements not found. Please refresh the page.');
+        return;
+    }
+    
+    const analysisValue = analysisType.value;
+    const timeValue = timePeriod.value;
+    const sourceValue = dataSource.value;
+    const filterValue = taxonomyFilter ? taxonomyFilter.value : '';
+    const formatValue = outputFormat.value;
     
     // Build command based on analysis type
     let command = '';
     let args = [];
     
     // Map analysis type to command
-    if (analysisType === 'voice-of-customer-hilary') {
+    if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
         args.push('--multi-agent', '--analysis-type', 'topic-based');
-    } else if (analysisType === 'voice-of-customer-synthesis') {
+    } else if (analysisValue === 'voice-of-customer-synthesis') {
         command = 'voice-of-customer';
         args.push('--multi-agent', '--analysis-type', 'synthesis');
-    } else if (analysisType === 'voice-of-customer-complete') {
+    } else if (analysisValue === 'voice-of-customer-complete') {
         command = 'voice-of-customer';
         args.push('--multi-agent', '--analysis-type', 'complete');
-    } else if (analysisType === 'agent-performance-horatio') {
+    } else if (analysisValue === 'agent-performance-horatio') {
         command = 'agent-performance';
         args.push('--agent', 'horatio');
-    } else if (analysisType === 'agent-performance-boldr') {
+    } else if (analysisValue === 'agent-performance-boldr') {
         command = 'agent-performance';
         args.push('--agent', 'boldr');
     } else {
-        command = analysisType;
+        command = analysisValue;
     }
     
     // Add time period or custom dates
-    if (timePeriod === 'custom') {
-        const start = document.getElementById('startDate').value;
-        const end = document.getElementById('endDate').value;
-        if (!start || !end) {
+    if (timeValue === 'custom') {
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        
+        if (!startDate || !endDate || !startDate.value || !endDate.value) {
             alert('Please select both start and end dates');
             return;
         }
-        args.push('--start-date', start, '--end-date', end);
+        
+        args.push('--start-date', startDate.value, '--end-date', endDate.value);
     } else {
-        args.push('--time-period', timePeriod);
+        args.push('--time-period', timeValue);
     }
     
     // Add data source flags
-    if (dataSource === 'canny') {
+    if (sourceValue === 'canny') {
         command = 'canny-analysis';
-    } else if (dataSource === 'both') {
+    } else if (sourceValue === 'both') {
         args.push('--include-canny');
     }
     
     // Add taxonomy filter if selected
-    if (taxonomyFilter) {
-        args.push('--focus-areas', taxonomyFilter);
+    if (filterValue) {
+        args.push('--focus-areas', filterValue);
     }
     
     // Add output format
-    if (outputFormat === 'gamma') {
+    if (formatValue === 'gamma') {
         args.push('--generate-gamma');
     }
     
     // Show terminal container and execute
-    document.getElementById('terminalContainer').style.display = 'block';
-    document.getElementById('tabNavigation').style.display = 'flex';
+    const terminalContainer = document.getElementById('terminalContainer');
+    const tabNavigation = document.getElementById('tabNavigation');
+    
+    if (terminalContainer) terminalContainer.style.display = 'block';
+    if (tabNavigation) tabNavigation.style.display = 'flex';
     
     // Execute the command using the existing executeCommand function
     executeCommand(command, args);

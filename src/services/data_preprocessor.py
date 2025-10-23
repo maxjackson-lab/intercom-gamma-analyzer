@@ -10,7 +10,7 @@ from typing import List, Dict, Optional, Any, Tuple, Set
 from pathlib import Path
 import json
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

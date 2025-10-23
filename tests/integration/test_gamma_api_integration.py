@@ -9,10 +9,10 @@ import asyncio
 from pathlib import Path
 import json
 
-from services.gamma_client import GammaClient, GammaAPIError
-from services.gamma_generator import GammaGenerator
-from services.presentation_builder import PresentationBuilder
-from services.google_docs_exporter import GoogleDocsExporter
+from src.services.gamma_client import GammaClient, GammaAPIError
+from src.services.gamma_generator import GammaGenerator
+from src.services.presentation_builder import PresentationBuilder
+from src.services.google_docs_exporter import GoogleDocsExporter
 
 
 class TestGammaAPIIntegration:

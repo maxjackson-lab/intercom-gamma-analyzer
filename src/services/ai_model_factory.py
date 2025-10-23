@@ -136,3 +136,99 @@ class AIModelFactory:
         
         self.logger.info(f"Connection test results: {results}")
         return results
+    
+    async def analyze_with_fallback(
+        self,
+        task: str,
+        inputs: Dict[str, Any],
+        model: AIModel = AIModel.OPENAI_GPT4,
+        method_name: str = "generate_analysis"
+    ) -> Dict[str, Any]:
+        """
+        Execute any analysis task with automatic fallback to alternative model.
+        
+        This is a general-purpose fallback wrapper that can be used by agents
+        to get resilience without changing their business logic.
+        
+        Args:
+            task: Description of the analysis task (for logging)
+            inputs: Dictionary of inputs to pass to the client method
+            model: Primary AI model to use
+            method_name: Name of the client method to call (default: generate_analysis)
+        
+        Returns:
+            Analysis result with model attribution and fallback flag
+        
+        Raises:
+            Exception: If both primary and fallback models fail
+        
+        Example:
+            result = await ai_factory.analyze_with_fallback(
+                task="sentiment analysis",
+                inputs={"prompt": "Analyze this: ..."},
+                model=AIModel.OPENAI_GPT4
+            )
+        """
+        self.logger.info(f"Executing task '{task}' with {model.value} (fallback enabled)")
+        
+        try:
+            # Try primary model
+            client = self.get_client(model)
+            method = getattr(client, method_name)
+            
+            # Handle both dict and direct prompt inputs
+            if isinstance(inputs, dict) and 'prompt' in inputs:
+                result = await method(inputs['prompt'])
+            elif isinstance(inputs, str):
+                result = await method(inputs)
+            else:
+                result = await method(**inputs)
+            
+            # Ensure result is a dict
+            if isinstance(result, str):
+                result = {'response': result}
+            
+            result['model_used'] = model.value
+            result['fallback_used'] = False
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Primary model ({model.value}) failed for task '{task}': {e}")
+            
+            # Try fallback model
+            fallback_model = (AIModel.ANTHROPIC_CLAUDE if model == AIModel.OPENAI_GPT4 
+                             else AIModel.OPENAI_GPT4)
+            
+            self.logger.warning(f"Falling back to {fallback_model.value} for task '{task}'")
+            
+            try:
+                client = self.get_client(fallback_model)
+                method = getattr(client, method_name)
+                
+                # Handle both dict and direct prompt inputs
+                if isinstance(inputs, dict) and 'prompt' in inputs:
+                    result = await method(inputs['prompt'])
+                elif isinstance(inputs, str):
+                    result = await method(inputs)
+                else:
+                    result = await method(**inputs)
+                
+                # Ensure result is a dict
+                if isinstance(result, str):
+                    result = {'response': result}
+                
+                result['model_used'] = fallback_model.value
+                result['fallback_used'] = True
+                result['primary_model_error'] = str(e)
+                
+                self.logger.info(f"Fallback successful for task '{task}' using {fallback_model.value}")
+                
+                return result
+                
+            except Exception as fallback_error:
+                self.logger.error(f"Fallback model ({fallback_model.value}) also failed for task '{task}': {fallback_error}")
+                raise Exception(
+                    f"Both {model.value} and {fallback_model.value} failed. "
+                    f"Primary error: {e}. Fallback error: {fallback_error}"
+                )

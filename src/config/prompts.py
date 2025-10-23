@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 # Import story-driven prompts
-from config.story_driven_prompts import StoryDrivenPrompts
+from src.config.story_driven_prompts import StoryDrivenPrompts
 
 
 class PromptTemplates:

@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

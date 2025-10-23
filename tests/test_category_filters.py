@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 from typing import List, Dict, Any
 
-from services.category_filters import CategoryFilters
+from src.services.category_filters import CategoryFilters
 
 
 class TestCategoryFilters:

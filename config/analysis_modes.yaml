@@ -1,0 +1,53 @@
+# Analysis Mode Configuration
+# Controls whether to use standard or multi-agent analysis by default
+
+# Default analysis mode
+# Options: 'standard' | 'multi-agent' | 'auto'
+# - standard: Traditional single-pass analysis (faster, lower cost)
+# - multi-agent: Premium multi-agent workflow (3-5x cost, higher quality)
+# - auto: Automatically choose based on conversation volume
+default_mode: 'standard'
+
+# Auto-selection thresholds (when default_mode='auto')
+auto_thresholds:
+  # Use multi-agent when conversation count >= this threshold
+  multi_agent_min_conversations: 100
+  # Use multi-agent for specific analysis types regardless of volume
+  force_multi_agent_for_types:
+    - 'topic-based'
+    - 'synthesis'
+
+# Feature flags for analysis components
+features:
+  # Enable/disable topic-based multi-agent analysis
+  enable_topic_based: true
+  
+  # Enable/disable synthesis multi-agent analysis
+  enable_synthesis: true
+  
+  # Enable/disable trend analysis
+  enable_trends: true
+  
+  # Enable/disable Gamma generation
+  enable_gamma: true
+  
+  # Enable/disable Canny integration
+  enable_canny: true
+  
+  # Enable/disable historical data tracking
+  enable_historical: true
+
+# Multi-agent workflow settings
+multi_agent:
+  # Maximum parallel topic processing
+  max_parallel_topics: 10
+  
+  # Enable LLM topic discovery
+  enable_llm_topic_discovery: true
+  
+  # Enable per-topic metrics collection
+  enable_topic_metrics: true
+
+# Override settings (can be set via environment variables)
+# Environment variables take precedence: ANALYSIS_MODE, FORCE_MULTI_AGENT, FORCE_STANDARD
+

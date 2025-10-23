@@ -204,16 +204,47 @@ For each conversation:
             self.logger.info("Enhancing with LLM for semantic topic discovery...")
             llm_topics, llm_token_count = await self._enhance_with_llm(conversations, topic_distribution)
             if llm_topics:
+                self.logger.info(f"Rescanning conversations for {len(llm_topics)} LLM-discovered topics...")
+                # Rescan conversations to assign matches to LLM-discovered topics
                 for topic_name, topic_info in llm_topics.items():
                     if topic_name not in topic_distribution:
+                        # Add to topic definitions for keyword matching
+                        topic_keywords = topic_info.get('keywords', [topic_name.lower()])
+                        
+                        # Scan all conversations for this new topic
+                        matched_count = 0
+                        for conv in conversations:
+                            conv_id = conv.get('id', 'unknown')
+                            text = conv.get('full_text', '').lower()
+                            
+                            # Check if any keyword matches
+                            if any(keyword in text for keyword in topic_keywords):
+                                matched_count += 1
+                                # Add to topics_by_conversation
+                                if conv_id not in topics_by_conversation:
+                                    topics_by_conversation[conv_id] = []
+                                topics_by_conversation[conv_id].append({
+                                    'topic': topic_name,
+                                    'method': 'llm_semantic',
+                                    'confidence': 0.7
+                                })
+                                
+                                # Add to conversations_by_topic
+                                if topic_name not in conversations_by_topic:
+                                    conversations_by_topic[topic_name] = []
+                                conversations_by_topic[topic_name].append(conv)
+                        
+                        # Update topic distribution with actual counts
                         topic_distribution[topic_name] = {
-                            'volume': 0,  # Would need re-scan to get actual count
-                            'percentage': 0,
+                            'volume': matched_count,
+                            'percentage': round(matched_count / total_conversations * 100, 1) if total_conversations > 0 else 0,
                             'detection_method': topic_info['method'],
                             'attribute_count': 0,
-                            'keyword_count': 0,
+                            'keyword_count': matched_count,
                             'llm_discovered': True
                         }
+                        
+                        self.logger.info(f"   LLM topic '{topic_name}': matched {matched_count} conversations")
             
             # Prepare result
             result_data = {
@@ -343,8 +374,8 @@ Sample conversations:
 Instructions:
 1. Look for semantic themes, not just keywords
 2. Only suggest topics that appear in 3+ conversations
-3. Return topics as a JSON array: ["Topic Name 1", "Topic Name 2"]
-4. If no new topics, return empty array: []
+3. Return topics as a JSON object with topic names and keywords: {{"Topic Name": ["keyword1", "keyword2"]}}
+4. If no new topics, return empty object: {{}}
 
 Additional topics:"""
         
@@ -376,15 +407,22 @@ Additional topics:"""
             
             # Parse JSON from response
             import json
-            # Try to extract JSON array from response
-            if '[' in response_text and ']' in response_text:
-                start = response_text.index('[')
-                end = response_text.rindex(']') + 1
+            # Try to extract JSON object from response
+            if '{' in response_text and '}' in response_text:
+                start = response_text.index('{')
+                end = response_text.rindex('}') + 1
                 topics_json = response_text[start:end]
                 new_topics = json.loads(topics_json)
                 
-                self.logger.info(f"LLM discovered {len(new_topics)} additional topics: {new_topics}")
-                return {topic: {'method': 'llm_semantic', 'confidence': 0.7} for topic in new_topics}, token_count
+                self.logger.info(f"LLM discovered {len(new_topics)} additional topics: {list(new_topics.keys())}")
+                return {
+                    topic: {
+                        'method': 'llm_semantic', 
+                        'confidence': 0.7,
+                        'keywords': keywords if isinstance(keywords, list) else [topic.lower()]
+                    } 
+                    for topic, keywords in new_topics.items()
+                }, token_count
         except Exception as e:
             self.logger.warning(f"LLM topic enhancement failed: {e}")
         

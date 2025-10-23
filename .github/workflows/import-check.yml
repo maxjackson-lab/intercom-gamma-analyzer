@@ -1,0 +1,19 @@
+name: Import Consistency Check
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check-imports:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check Import Consistency
+      run: |
+        bash scripts/check_imports.sh
+

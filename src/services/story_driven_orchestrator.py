@@ -8,11 +8,11 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 import asyncio
 
-from services.story_driven_preprocessor import StoryDrivenPreprocessor
-from services.synthesis_engine import SynthesisEngine
-from services.gamma_generator import GammaGenerator
-from services.openai_client import OpenAIClient
-from config.story_driven_prompts import StoryDrivenPrompts
+from src.services.story_driven_preprocessor import StoryDrivenPreprocessor
+from src.services.synthesis_engine import SynthesisEngine
+from src.services.gamma_generator import GammaGenerator
+from src.services.openai_client import OpenAIClient
+from src.config.story_driven_prompts import StoryDrivenPrompts
 
 logger = logging.getLogger(__name__)
 

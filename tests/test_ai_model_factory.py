@@ -6,9 +6,9 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Any
 
-from services.ai_model_factory import AIModelFactory, AIModel
-from services.openai_client import OpenAIClient
-from services.claude_client import ClaudeClient
+from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.openai_client import OpenAIClient
+from src.services.claude_client import ClaudeClient
 
 
 class TestAIModelFactory:

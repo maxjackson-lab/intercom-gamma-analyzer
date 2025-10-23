@@ -7,10 +7,10 @@ from unittest.mock import Mock, AsyncMock, patch
 from datetime import datetime
 from typing import Dict, List, Any
 
-from analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
-from services.ai_model_factory import AIModelFactory, AIModel
-from services.agent_feedback_separator import AgentFeedbackSeparator
-from services.historical_data_manager import HistoricalDataManager
+from src.analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
+from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.agent_feedback_separator import AgentFeedbackSeparator
+from src.services.historical_data_manager import HistoricalDataManager
 
 
 class TestVoiceOfCustomerAnalyzer:

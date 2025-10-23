@@ -7,7 +7,7 @@ import structlog
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -1229,7 +1229,7 @@ This is the first analysis period. Future reports will include:
     
     def _build_category_deep_dive_section(self, top_categories: List, results: Dict) -> str:
         """Build category deep dive with conversation links."""
-        from config.settings import settings
+        from src.config.settings import settings
         workspace_id = settings.intercom_workspace_id
         
         section = ""

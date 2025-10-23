@@ -7,7 +7,7 @@ import tempfile
 import yaml
 from pathlib import Path
 
-from config.taxonomy import TaxonomyManager, Category, Subcategory
+from src.config.taxonomy import TaxonomyManager, Category, Subcategory
 
 
 class TestTaxonomyManager:

@@ -193,10 +193,13 @@ Selection criteria:
         """Score conversation for example quality"""
         score = 0.0
         
-        # Has clear customer message
+        # Has clear customer message (with type validation)
         customer_msgs = conv.get('customer_messages', [])
-        if customer_msgs:
-            msg_length = len(customer_msgs[0])
+        if not isinstance(customer_msgs, list):
+            return 0.0  # Invalid format
+        
+        if customer_msgs and customer_msgs[0]:
+            msg_length = len(str(customer_msgs[0]))
             if msg_length >= 50:
                 score += 2.0
             elif msg_length >= 20:
@@ -204,8 +207,9 @@ Selection criteria:
         else:
             return 0.0  # No customer message = not usable
         
-        # Matches sentiment keywords
-        text = conv.get('full_text', '').lower()
+        # Matches sentiment keywords (with None check)
+        text = conv.get('full_text') or ''
+        text = text.lower()
         
         if 'hate' in sentiment.lower() and 'hate' in text:
             score += 2.0
@@ -249,8 +253,9 @@ Selection criteria:
     
     def _format_example(self, conv: Dict) -> Dict[str, str]:
         """Format conversation into example with preview and link"""
+        # Validate customer_messages with type check
         customer_msgs = conv.get('customer_messages', [])
-        if not customer_msgs:
+        if not isinstance(customer_msgs, list) or not customer_msgs or not customer_msgs[0]:
             return None
         
         # Get preview (first 80 chars) with type validation
@@ -261,29 +266,41 @@ Selection criteria:
             # Coerce non-string values to string, default to empty string
             safe_msg = str(first_msg) if first_msg is not None else ""
         
+        if not safe_msg.strip():  # Skip empty messages
+            return None
+        
         preview = safe_msg[:80]
         if len(safe_msg) > 80:
             preview += "..."
         
-        # Build Intercom URL
-        conv_id = conv.get('id', 'unknown')
+        # Build Intercom URL with validation
+        conv_id = conv.get('id')
+        if not conv_id:
+            return None  # Cannot build link without ID
+        
         # Note: workspace_id would come from settings in real implementation
         intercom_url = f"https://app.intercom.com/a/inbox/inbox/{conv_id}"
         
-        # Handle created_at - could be datetime or timestamp
+        # Handle created_at - could be datetime or timestamp (safely convert)
         created_at = conv.get('created_at')
+        created_at_str = None
         if created_at:
-            if isinstance(created_at, (int, float)):
-                created_at_str = datetime.fromtimestamp(created_at).isoformat()
-            else:
-                created_at_str = created_at.isoformat()
-        else:
-            created_at_str = None
+            try:
+                if isinstance(created_at, (int, float)):
+                    created_at_str = datetime.fromtimestamp(created_at).isoformat()
+                elif hasattr(created_at, 'isoformat'):
+                    created_at_str = created_at.isoformat()
+                else:
+                    # Fallback: convert to string
+                    created_at_str = str(created_at)
+            except (ValueError, OSError) as e:
+                self.logger.warning(f"Failed to convert timestamp {created_at}: {e}")
+                created_at_str = None
         
         return {
             'preview': preview,
             'intercom_url': intercom_url,
-            'conversation_id': conv_id,
+            'conversation_id': str(conv_id),
             'created_at': created_at_str
         }
     

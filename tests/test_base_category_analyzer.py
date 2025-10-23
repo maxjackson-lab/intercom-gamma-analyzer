@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 
-from analyzers.base_category_analyzer import BaseCategoryAnalyzer
+from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer
 
 
 class TestBaseCategoryAnalyzer:

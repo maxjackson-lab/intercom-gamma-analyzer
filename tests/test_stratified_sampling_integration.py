@@ -6,7 +6,7 @@ Tests the full pipeline with mock data to ensure stratified sampling works end-t
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timedelta
-from services.presentation_builder import PresentationBuilder
+from src.services.presentation_builder import PresentationBuilder
 
 
 class TestStratifiedSamplingIntegration:

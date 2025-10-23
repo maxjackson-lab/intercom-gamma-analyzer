@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 
-from analyzers.sites_analyzer import SitesAnalyzer
+from src.analyzers.sites_analyzer import SitesAnalyzer
 
 
 class TestSitesAnalyzer:

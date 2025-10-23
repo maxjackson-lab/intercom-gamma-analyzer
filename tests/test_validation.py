@@ -5,8 +5,8 @@ Tests for data validation functionality.
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
-from services.orchestrator import AnalysisOrchestrator
-from services.gamma_generator import GammaGenerator
+from src.services.orchestrator import AnalysisOrchestrator
+from src.services.gamma_generator import GammaGenerator
 
 
 class TestDataValidation:

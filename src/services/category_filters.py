@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any, Set, Tuple
 from pathlib import Path
 import yaml
 
-from config.taxonomy import taxonomy_manager
+from src.config.taxonomy import taxonomy_manager
 
 logger = logging.getLogger(__name__)
 

@@ -11,20 +11,20 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from services.chunked_fetcher import ChunkedFetcher
-from services.data_preprocessor import DataPreprocessor
-from services.category_filters import CategoryFilters
-from services.synthesis_engine import SynthesisEngine
-from services.gamma_generator import GammaGenerator
-from services.fin_escalation_analyzer import FinEscalationAnalyzer
-from services.technical_pattern_detector import TechnicalPatternDetector
-from services.macro_opportunity_finder import MacroOpportunityFinder
-from services.story_driven_orchestrator import StoryDrivenOrchestrator
+from src.services.chunked_fetcher import ChunkedFetcher
+from src.services.data_preprocessor import DataPreprocessor
+from src.services.category_filters import CategoryFilters
+from src.services.synthesis_engine import SynthesisEngine
+from src.services.gamma_generator import GammaGenerator
+from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
+from src.services.technical_pattern_detector import TechnicalPatternDetector
+from src.services.macro_opportunity_finder import MacroOpportunityFinder
+from src.services.story_driven_orchestrator import StoryDrivenOrchestrator
 
-from analyzers.billing_analyzer import BillingAnalyzer
-from analyzers.product_analyzer import ProductAnalyzer
-from analyzers.sites_analyzer import SitesAnalyzer
-from analyzers.api_analyzer import ApiAnalyzer
+from src.analyzers.billing_analyzer import BillingAnalyzer
+from src.analyzers.product_analyzer import ProductAnalyzer
+from src.analyzers.sites_analyzer import SitesAnalyzer
+from src.analyzers.api_analyzer import ApiAnalyzer
 
 logger = logging.getLogger(__name__)
 

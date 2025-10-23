@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 import re
 import json
 
-from services.openai_client import OpenAIClient
-from config.story_driven_prompts import StoryDrivenPrompts
+from src.services.openai_client import OpenAIClient
+from src.config.story_driven_prompts import StoryDrivenPrompts
 
 logger = logging.getLogger(__name__)
 
@@ -611,7 +611,7 @@ Focus on the customer's perspective and needs."""
     
     def _generate_intercom_url(self, conversation_id: str) -> str:
         """Generate Intercom conversation URL."""
-        from config.settings import settings
+        from src.config.settings import settings
         workspace_id = settings.intercom_workspace_id
         
         if not workspace_id or not conversation_id:

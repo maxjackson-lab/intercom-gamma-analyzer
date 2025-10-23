@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from services.elt_pipeline import ELTPipeline
+from src.services.elt_pipeline import ELTPipeline
 
 
 class TestELTPipeline:

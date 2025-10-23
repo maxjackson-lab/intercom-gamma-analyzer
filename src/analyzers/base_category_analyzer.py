@@ -10,10 +10,10 @@ from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 import json
 
-from services.openai_client import OpenAIClient
-from services.data_preprocessor import DataPreprocessor
-from services.category_filters import CategoryFilters
-from config.prompts import PromptTemplates
+from src.services.openai_client import OpenAIClient
+from src.services.data_preprocessor import DataPreprocessor
+from src.services.category_filters import CategoryFilters
+from src.config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 

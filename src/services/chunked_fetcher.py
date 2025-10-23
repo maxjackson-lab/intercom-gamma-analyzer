@@ -10,7 +10,7 @@ from typing import List, Dict, Optional, Any, AsyncGenerator
 from pathlib import Path
 import json
 
-from services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_service_v2 import IntercomServiceV2
 
 logger = logging.getLogger(__name__)
 

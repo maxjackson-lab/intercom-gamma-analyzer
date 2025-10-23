@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Generator
 from datetime import datetime, timedelta
 import httpx
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

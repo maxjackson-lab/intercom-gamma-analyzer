@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import os
 
-from services.google_docs_exporter import GoogleDocsExporter
+from src.services.google_docs_exporter import GoogleDocsExporter
 
 
 class TestGoogleDocsExporter:

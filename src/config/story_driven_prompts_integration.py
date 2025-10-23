@@ -4,7 +4,7 @@ Integration of story-driven prompts with the main prompt system.
 
 from typing import Dict, List, Optional
 from datetime import datetime
-from config.story_driven_prompts import StoryDrivenPrompts
+from src.config.story_driven_prompts import StoryDrivenPrompts
 
 
 class StoryDrivenPromptIntegration:

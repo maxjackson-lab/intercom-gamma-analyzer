@@ -39,6 +39,20 @@ class AgentContext(BaseModel):
         arbitrary_types_allowed = True
 
 
+class AgentMetrics(BaseModel):
+    """Structured metrics for agent execution"""
+    execution_time: float = 0.0
+    input_count: int = 0
+    output_count: int = 0
+    llm_calls: int = 0
+    token_count: int = 0
+    selected_examples_count: int = 0
+    error_count: int = 0
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+
 class AgentResult(BaseModel):
     """Standardized output from agents with quality metadata"""
     agent_name: str
@@ -52,6 +66,7 @@ class AgentResult(BaseModel):
     execution_time: float = 0.0
     token_count: int = 0
     error_message: Optional[str] = None
+    metrics: Optional[AgentMetrics] = None
     
     class Config:
         use_enum_values = True

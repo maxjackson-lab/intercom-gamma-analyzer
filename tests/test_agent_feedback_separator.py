@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import Dict, List
 
-from services.agent_feedback_separator import AgentFeedbackSeparator
+from src.services.agent_feedback_separator import AgentFeedbackSeparator
 
 
 class TestAgentFeedbackSeparator:

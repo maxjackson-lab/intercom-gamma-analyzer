@@ -628,8 +628,19 @@ if HAS_FASTAPI:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
         try:
-            # Parse args
+            # Parse and validate args
             args_list = json.loads(args) if args else []
+            
+            # Validate args is a list
+            if not isinstance(args_list, list):
+                raise HTTPException(status_code=400, detail="Args must be a JSON array")
+            
+            # Validate each arg is a string and within reasonable bounds
+            for i, arg in enumerate(args_list):
+                if not isinstance(arg, str):
+                    raise HTTPException(status_code=400, detail=f"Argument {i} must be a string")
+                if len(arg) > 1024:  # Match MAX_ARG_LENGTH
+                    raise HTTPException(status_code=400, detail=f"Argument {i} exceeds maximum length")
             
             # Generate execution ID
             execution_id = command_executor.generate_execution_id()

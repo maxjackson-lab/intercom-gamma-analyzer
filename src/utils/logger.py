@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from config.settings import settings
+from src.config.settings import settings
 
 
 def setup_logging(verbose: bool = False) -> None:

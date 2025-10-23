@@ -195,13 +195,29 @@ Output: Segmented conversations with agent type labels
         assignee = str(conv.get('admin_assignee_id', '')).lower()
         ai_participated = conv.get('ai_agent_participated', False)
         
-        # Extract admin emails from conversation parts
+        # Extract admin emails from conversation parts and any assignee fields
         admin_emails = []
-        for part in conv.get('conversation_parts', {}).get('conversation_parts', []):
-            if part.get('author', {}).get('type') == 'admin':
-                email = part.get('author', {}).get('email', '')
+        
+        # Check conversation parts for admin emails
+        conv_parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        for part in conv_parts:
+            author = part.get('author', {})
+            if author.get('type') == 'admin':
+                email = author.get('email', '')
                 if email:
                     admin_emails.append(email.lower())
+        
+        # Check source/initial message for admin email
+        source = conv.get('source', {})
+        if source.get('author', {}).get('type') == 'admin':
+            email = source.get('author', {}).get('email', '')
+            if email:
+                admin_emails.append(email.lower())
+        
+        # Check top-level assignee email if available
+        assignee_email = conv.get('assignee', {}).get('email', '')
+        if assignee_email:
+            admin_emails.append(assignee_email.lower())
         
         # Check for escalation (senior staff)
         for name in self.escalation_names:
@@ -212,11 +228,11 @@ Output: Segmented conversations with agent type labels
                 if name.replace(' ', '.') in email or name.replace(' ', '') in email:
                     return 'paid', 'escalated'
         
-        # Check for Tier 1 agents via email domains
+        # Check for Tier 1 agents via email domains (use endswith for exact matching)
         for email in admin_emails:
-            if 'hirehoratio.co' in email or 'horatio.com' in email:
+            if email.endswith('@hirehoratio.co'):
                 return 'paid', 'horatio'
-            if 'boldrimpact.com' in email or 'boldr' in email:
+            if email.endswith('@boldrimpact.com'):
                 return 'paid', 'boldr'
         
         # Fallback to text patterns

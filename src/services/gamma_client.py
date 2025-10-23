@@ -8,7 +8,7 @@ import structlog
 from typing import Dict, List, Any, Optional
 import httpx
 
-from config.settings import settings
+from src.config.settings import settings
 
 logger = structlog.get_logger()
 
@@ -157,12 +157,14 @@ class GammaClient:
                 if not generation_id:
                     raise GammaAPIError("No generationId returned from API")
                 
-                elapsed_time = (time.time() - start_time) * 1000
+                elapsed_time_ms = (time.time() - start_time) * 1000
                 
                 self.logger.info(
                     "gamma_generate_request_success",
                     generation_id=generation_id,
-                    response_time_ms=elapsed_time
+                    response_time_ms=elapsed_time_ms,
+                    input_length=len(input_text),
+                    num_cards=num_cards
                 )
                 
                 return generation_id
@@ -281,11 +283,14 @@ class GammaClient:
                 )
                 
                 if status == 'completed':
+                    total_poll_time = poll_count * poll_interval
                     self.logger.info(
                         "gamma_generation_completed",
                         generation_id=generation_id,
                         poll_attempts=poll_count + 1,
-                        gamma_url=status_result.get('gammaUrl')
+                        total_poll_time_seconds=total_poll_time,
+                        gamma_url=status_result.get('gammaUrl'),
+                        credits_used=status_result.get('credits', {}).get('deducted', 0)
                     )
                     return status_result
                 

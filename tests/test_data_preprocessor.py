@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 from typing import List, Dict, Any, Tuple
 
-from services.data_preprocessor import DataPreprocessor
+from src.services.data_preprocessor import DataPreprocessor
 
 
 class TestDataPreprocessor:

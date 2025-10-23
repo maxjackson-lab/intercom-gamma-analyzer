@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Any
 
-from services.claude_client import ClaudeClient
+from src.services.claude_client import ClaudeClient
 
 
 class TestClaudeClient:

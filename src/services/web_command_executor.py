@@ -45,8 +45,30 @@ class WebCommandExecutor:
         "python", "python3", "python3.9", "python3.10", "python3.11", "python3.12"
     }
     
+    # Command argument schemas - defines allowed patterns for specific commands
+    COMMAND_SCHEMAS = {
+        "python": {
+            "allowed_modules": {"src.main", "-m"},
+            "allowed_flags": {
+                "--help", "-h", "--version", "-v", "--verbose", 
+                "--output-dir", "--output-format", "--multi-agent",
+                "--start-date", "--end-date", "--month", "--year",
+                "--analysis-type", "--generate-gamma", "--tier1-countries",
+                "--focus-areas", "--custom-prompt", "--prompt-file",
+                "--board-id", "--ai-model", "--enable-fallback",
+                "--include-comments", "--include-votes", "--include-trends",
+                "--include-canny", "--canny-board-id", "--separate-agent-feedback"
+            }
+        }
+    }
+    
     # Shell metacharacters that are not allowed in arguments
     SHELL_METACHARACTERS = re.compile(r'[;|&$><`*?~\n\x00]')
+    
+    # Allowed argument patterns (for dates, numbers, etc.)
+    DATE_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    NUMBER_PATTERN = re.compile(r'^\d+$')
+    IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9_\-]+$')
     
     def __init__(self, max_output_lines: int = MAX_OUTPUT_LINES):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -94,6 +116,8 @@ class WebCommandExecutor:
         
         # Validate each argument
         validated_args = []
+        schema = self.COMMAND_SCHEMAS.get(command, {})
+        
         for i, arg in enumerate(args):
             # Must be a string
             if not isinstance(arg, str):
@@ -110,6 +134,31 @@ class WebCommandExecutor:
                 raise ValueError(
                     f"Argument {i} contains disallowed shell metacharacters"
                 )
+            
+            # Schema-based validation for recognized commands
+            if schema:
+                # If arg starts with --, check if it's an allowed flag
+                if arg.startswith('--') or arg.startswith('-'):
+                    allowed_flags = schema.get('allowed_flags', set())
+                    # Extract just the flag part (before =)
+                    flag_name = arg.split('=')[0]
+                    if allowed_flags and flag_name not in allowed_flags:
+                        raise ValueError(
+                            f"Argument {i}: flag '{flag_name}' is not allowed for command '{command}'"
+                        )
+                # If previous arg was a flag expecting a value, validate the value format
+                elif i > 0:
+                    prev_arg = validated_args[-1] if validated_args else None
+                    if prev_arg in {'--start-date', '--end-date'}:
+                        if not self.DATE_PATTERN.match(arg):
+                            raise ValueError(
+                                f"Argument {i}: expected date format YYYY-MM-DD, got '{arg}'"
+                            )
+                    elif prev_arg in {'--month', '--year'}:
+                        if not self.NUMBER_PATTERN.match(arg):
+                            raise ValueError(
+                                f"Argument {i}: expected numeric value for {prev_arg}, got '{arg}'"
+                            )
             
             validated_args.append(arg)
         

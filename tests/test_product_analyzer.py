@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 
-from analyzers.product_analyzer import ProductAnalyzer
+from src.analyzers.product_analyzer import ProductAnalyzer
 
 
 class TestProductAnalyzer:

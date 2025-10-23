@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any, Tuple
 from collections import Counter
 
-from analyzers.base_category_analyzer import BaseCategoryAnalyzer, AnalysisError
-from config.prompts import PromptTemplates
+from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer, AnalysisError
+from src.config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 

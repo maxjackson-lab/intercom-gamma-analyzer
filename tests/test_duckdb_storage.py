@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
-from services.duckdb_storage import DuckDBStorage
+from src.services.duckdb_storage import DuckDBStorage
 
 
 class TestDuckDBStorage:

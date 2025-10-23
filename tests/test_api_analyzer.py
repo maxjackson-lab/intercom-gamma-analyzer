@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 
-from analyzers.api_analyzer import ApiAnalyzer
+from src.analyzers.api_analyzer import ApiAnalyzer
 
 
 class TestApiAnalyzer:

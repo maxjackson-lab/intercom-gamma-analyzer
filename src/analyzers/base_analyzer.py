@@ -7,11 +7,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from models.analysis_models import AnalysisRequest, AnalysisResults
-from services.intercom_service import IntercomService
-from services.metrics_calculator import MetricsCalculator
-from services.openai_client import OpenAIClient
-from config.prompts import PromptTemplates
+from src.models.analysis_models import AnalysisRequest, AnalysisResults
+from src.services.intercom_service import IntercomService
+from src.services.metrics_calculator import MetricsCalculator
+from src.services.openai_client import OpenAIClient
+from src.config.prompts import PromptTemplates
 
 logger = logging.getLogger(__name__)
 

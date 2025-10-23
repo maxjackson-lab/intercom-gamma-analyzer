@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_service_v2 import IntercomServiceV2
 
 
 class TestIntercomServiceV2:

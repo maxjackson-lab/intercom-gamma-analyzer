@@ -7,7 +7,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from typing import List, Dict, Any
 
-from analyzers.billing_analyzer import BillingAnalyzer
+from src.analyzers.billing_analyzer import BillingAnalyzer
 
 
 class TestBillingAnalyzer:

@@ -10,9 +10,9 @@ from typing import List, Dict, Optional, Any
 from pathlib import Path
 import json
 
-from services.gamma_client import GammaClient, GammaAPIError
-from services.presentation_builder import PresentationBuilder
-from config.gamma_prompts import GammaPrompts
+from src.services.gamma_client import GammaClient, GammaAPIError
+from src.services.presentation_builder import PresentationBuilder
+from src.config.gamma_prompts import GammaPrompts
 
 logger = structlog.get_logger()
 
@@ -138,6 +138,112 @@ class GammaGenerator:
             self.logger.error(
                 "gamma_generation_failed",
                 style=style,
+                error=str(e),
+                elapsed_seconds=time.time() - start_time,
+                exc_info=True
+            )
+            raise
+    
+    async def generate_from_markdown(
+        self,
+        input_text: str,
+        title: Optional[str] = None,
+        num_cards: int = 10,
+        theme_name: Optional[str] = None,
+        export_format: Optional[str] = None,
+        output_dir: Optional[Path] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a Gamma presentation from markdown text, preserving formatting.
+        
+        This method bypasses category_results validation and uses:
+        - textMode="preserve" to keep markdown formatting
+        - cardSplit="inputTextBreaks" to respect --- breaks
+        
+        Ideal for topic-based Hilary format output.
+        
+        Args:
+            input_text: Markdown text (1-750,000 characters)
+            title: Optional presentation title
+            num_cards: Number of slides (default 10)
+            theme_name: Gamma theme name (e.g., "Night Sky")
+            export_format: Export format ("pdf" or "pptx")
+            output_dir: Output directory for saving results
+            
+        Returns:
+            Dictionary with gamma_url, generation_id, and metadata
+            
+        Raises:
+            GammaAPIError: If generation fails
+        """
+        self.logger.info(
+            "gamma_markdown_generation_start",
+            input_length=len(input_text),
+            num_cards=num_cards,
+            theme=theme_name,
+            export_format=export_format
+        )
+        
+        start_time = time.time()
+        
+        try:
+            # Validate input text length
+            if len(input_text) < 1 or len(input_text) > 750000:
+                raise ValueError(f"Input text must be 1-750,000 characters, got {len(input_text)}")
+            
+            # Add title if provided
+            if title and not input_text.startswith(f"# {title}"):
+                input_text = f"# {title}\n\n{input_text}"
+            
+            # Generate presentation with markdown preservation
+            generation_id = await self.client.generate_presentation(
+                input_text=input_text,
+                format="presentation",
+                num_cards=num_cards,
+                text_mode="preserve",  # Preserve markdown formatting
+                card_split="inputTextBreaks",  # Use --- for slide breaks
+                theme_name=theme_name,
+                export_as=export_format
+            )
+            
+            # Poll for completion
+            result = await self.client.poll_generation(generation_id)
+            
+            elapsed = time.time() - start_time
+            
+            # Prepare response
+            response = {
+                'gamma_url': result.get('gammaUrl'),
+                'generation_id': generation_id,
+                'export_url': result.get('exportUrl'),
+                'credits_used': result.get('credits', {}).get('deducted', 0),
+                'generation_time_seconds': elapsed,
+                'theme': theme_name,
+                'export_format': export_format,
+                'slide_count': num_cards
+            }
+            
+            # Save metadata if output directory provided
+            if output_dir:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                metadata_file = output_dir / f"gamma_markdown_{timestamp}.json"
+                with open(metadata_file, 'w') as f:
+                    json.dump(response, f, indent=2)
+                self.logger.info(f"Saved metadata to {metadata_file}")
+            
+            self.logger.info(
+                "gamma_markdown_generation_complete",
+                generation_id=generation_id,
+                gamma_url=result.get('gammaUrl'),
+                credits_used=result.get('credits', {}).get('deducted', 0),
+                total_time_seconds=elapsed
+            )
+            
+            return response
+            
+        except Exception as e:
+            self.logger.error(
+                "gamma_markdown_generation_failed",
                 error=str(e),
                 elapsed_seconds=time.time() - start_time,
                 exc_info=True
