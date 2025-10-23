@@ -50,14 +50,25 @@ class WebCommandExecutor:
         "python": {
             "allowed_modules": {"src.main", "-m"},
             "allowed_flags": {
-                "--help", "-h", "--version", "-v", "--verbose", 
-                "--output-dir", "--output-format", "--multi-agent",
-                "--start-date", "--end-date", "--month", "--year",
-                "--analysis-type", "--generate-gamma", "--tier1-countries",
+                # Help and info
+                "--help", "-h", "--version", "-v", "--verbose",
+                # Output options
+                "--output-dir", "--output-format", "--generate-gamma",
+                # Date/time options
+                "--start-date", "--end-date", "--month", "--year", "--time-period", "--days",
+                # Analysis options
+                "--multi-agent", "--analysis-type", "--tier1-countries",
                 "--focus-areas", "--custom-prompt", "--prompt-file",
-                "--board-id", "--ai-model", "--enable-fallback",
+                # Agent options
+                "--agent", "--agent-type",
+                # AI model options
+                "--ai-model", "--enable-fallback", "--force-standard", "--force-multi-agent",
+                # Data source options
+                "--board-id", "--canny-board-id", "--include-canny",
                 "--include-comments", "--include-votes", "--include-trends",
-                "--include-canny", "--canny-board-id", "--separate-agent-feedback"
+                "--separate-agent-feedback",
+                # Other options
+                "--export-format", "--limit", "--category", "--subcategory"
             }
         }
     }
