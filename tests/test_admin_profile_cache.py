@@ -145,6 +145,44 @@ class TestAdminProfileCache:
         
         assert cache._identify_vendor('agent@random.com') == 'unknown'
         assert cache._identify_vendor('') == 'unknown'
+        assert cache._identify_vendor(None) == 'unknown'
+    
+    def test_identify_vendor_edge_cases(self, mock_intercom_service):
+        """Test vendor identification edge cases and domain parsing"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Mixed case - should normalize
+        assert cache._identify_vendor('Agent@HireHoratio.Co') == 'horatio'
+        assert cache._identify_vendor('SUPPORT@BOLDRIMPACT.COM') == 'boldr'
+        
+        # Whitespace - should trim
+        assert cache._identify_vendor('  agent@gamma.app  ') == 'gamma'
+        
+        # Substring that should NOT match (no more loose @boldr matching)
+        assert cache._identify_vendor('agent@myboldr.net') == 'unknown'
+        assert cache._identify_vendor('agent@boldrexample.org') == 'unknown'
+        
+        # Invalid formats
+        assert cache._identify_vendor('not-an-email') == 'unknown'
+        assert cache._identify_vendor('@horatio.com') == 'unknown'
+    
+    def test_validate_email(self, mock_intercom_service):
+        """Test email validation"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Valid emails
+        assert cache._validate_email('test@example.com') is True
+        assert cache._validate_email('user.name+tag@domain.co.uk') is True
+        assert cache._validate_email('test_123@test-domain.com') is True
+        
+        # Invalid emails
+        assert cache._validate_email('') is False
+        assert cache._validate_email('not-an-email') is False
+        assert cache._validate_email('@example.com') is False
+        assert cache._validate_email('test@') is False
+        assert cache._validate_email('test') is False
+        assert cache._validate_email(None) is False
+        assert cache._validate_email(123) is False
     
     def test_cache_stats(self, mock_intercom_service):
         """Test cache statistics"""

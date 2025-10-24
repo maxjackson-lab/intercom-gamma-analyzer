@@ -129,7 +129,7 @@ class AgentOutputDisplay:
         self, 
         markdown_content: str, 
         title: str = "Formatted Report Preview",
-        max_lines: Optional[int] = 50
+        max_lines: Optional[int] = None
     ):
         """
         Display a preview of the formatted markdown report.
@@ -137,12 +137,32 @@ class AgentOutputDisplay:
         Args:
             markdown_content: The markdown content to display
             title: Title for the preview panel
-            max_lines: Maximum number of lines to display (None for all)
+            max_lines: Maximum number of lines to display (None uses config default)
         """
         if not self.enabled:
             return
         
         try:
+            # Get default max_lines from environment-aware config if not provided
+            if max_lines is None:
+                import os
+                is_web = os.getenv('WEB_EXECUTION', '').lower() in ('1', 'true', 'yes')
+                
+                try:
+                    from src.config.modes import get_analysis_mode_config
+                    config = get_analysis_mode_config()
+                    if is_web:
+                        max_lines = config.get_visibility_setting('markdown_preview_max_lines_web', 30)
+                    else:
+                        max_lines = config.get_visibility_setting('markdown_preview_max_lines', 50)
+                except Exception as e:
+                    logger.warning(f"Failed to read markdown preview config: {e}")
+                    max_lines = 30 if is_web else 50
+            
+            # Clamp to reasonable limits to avoid TTY performance issues
+            if max_lines:
+                max_lines = min(max_lines, 100)  # Hard cap at 100 lines
+            
             # Truncate if needed
             lines = markdown_content.split('\n')
             if max_lines and len(lines) > max_lines:
@@ -261,6 +281,8 @@ class AgentOutputDisplay:
         """
         Display a summary of all agent results in a table.
         
+        Filters out TopicProcessing entries which have nested structure.
+        
         Args:
             agent_results: Dictionary of agent name to result
             title: Title for the summary
@@ -278,6 +300,20 @@ class AgentOutputDisplay:
             table.add_column("Tokens", justify="right")
             
             for agent_name, result in agent_results.items():
+                # Skip TopicProcessing entries which have nested dict structure
+                if agent_name == 'TopicProcessing':
+                    continue
+                
+                # Skip if result is not the expected dict structure
+                if not isinstance(result, dict):
+                    logger.warning(f"Skipping {agent_name}: result is not a dict")
+                    continue
+                
+                # Check if this looks like a nested topic map (all values are dicts)
+                if result and all(isinstance(v, dict) for v in result.values() if not k.startswith('_')):
+                    # This is likely a nested structure, skip it
+                    continue
+                
                 success = result.get('success', False)
                 confidence = result.get('confidence', 0.0)
                 execution_time = result.get('execution_time', 0.0)
@@ -340,10 +376,64 @@ class AgentOutputDisplay:
             sent_dist = data['sentiment_distribution']
             summary_parts.append(f"  • Sentiment distribution: {sent_dist}")
         
+        # SubTopicDetectionAgent specific
+        elif 'subtopics_by_tier1_topic' in data:
+            subtopics_by_tier1 = data['subtopics_by_tier1_topic']
+            total_tier2 = 0
+            total_tier3 = 0
+            
+            # Calculate totals
+            for topic_name, topic_data in subtopics_by_tier1.items():
+                tier2_subtopics = topic_data.get('tier2', {})
+                tier3_themes = topic_data.get('tier3', {})
+                total_tier2 += len(tier2_subtopics)
+                total_tier3 += len(tier3_themes)
+            
+            summary_parts.append(f"  • Tier 1 topics analyzed: {len(subtopics_by_tier1)}")
+            summary_parts.append(f"  • Tier 2 sub-topics found: {total_tier2}")
+            summary_parts.append(f"  • Tier 3 themes discovered: {total_tier3}")
+            
+            # Show top 3 Tier 1 topics with most sub-topics
+            if subtopics_by_tier1:
+                topic_subtopic_counts = []
+                for topic_name, topic_data in subtopics_by_tier1.items():
+                    tier2_count = len(topic_data.get('tier2', {}))
+                    tier3_count = len(topic_data.get('tier3', {}))
+                    total_count = tier2_count + tier3_count
+                    topic_subtopic_counts.append((topic_name, tier2_count, tier3_count, total_count))
+                
+                # Sort by total count
+                topic_subtopic_counts.sort(key=lambda x: x[3], reverse=True)
+                
+                summary_parts.append(f"  • Top topics by sub-topic volume:")
+                for topic_name, tier2_count, tier3_count, _ in topic_subtopic_counts[:3]:
+                    summary_parts.append(f"    - {topic_name}: {tier2_count} Tier 2 + {tier3_count} Tier 3")
+        
         # ExampleExtractionAgent specific
         elif 'extracted_examples' in data:
             examples = data['extracted_examples']
             summary_parts.append(f"  • Extracted {len(examples)} examples")
+        
+        # FinPerformanceAgent specific
+        elif 'free_tier' in data or 'paid_tier' in data:
+            # Check for sub-topic performance tracking
+            has_subtopic_perf = False
+            if 'free_tier' in data:
+                free_tier = data['free_tier']
+                if isinstance(free_tier, dict):
+                    perf_by_subtopic = free_tier.get('performance_by_subtopic')
+                    if perf_by_subtopic and perf_by_subtopic is not None and len(perf_by_subtopic) > 0:
+                        has_subtopic_perf = True
+            
+            if not has_subtopic_perf and 'paid_tier' in data:
+                paid_tier = data['paid_tier']
+                if isinstance(paid_tier, dict):
+                    perf_by_subtopic = paid_tier.get('performance_by_subtopic')
+                    if perf_by_subtopic and perf_by_subtopic is not None and len(perf_by_subtopic) > 0:
+                        has_subtopic_perf = True
+            
+            if has_subtopic_perf:
+                summary_parts.append(f"  • Sub-topic performance tracked: Yes")
         
         # Generic fallback
         else:
@@ -359,25 +449,65 @@ class AgentOutputDisplay:
         return "\n".join(summary_parts) if summary_parts else "  No summary available"
 
 
-# Global display instance
+# Global display instance (thread-safe singleton)
 _display_instance: Optional[AgentOutputDisplay] = None
+_display_lock = None  # Will be initialized on first use
 
 
-def get_display() -> AgentOutputDisplay:
-    """Get the global display instance."""
+def _get_display_lock():
+    """Get or create the display lock."""
+    global _display_lock
+    if _display_lock is None:
+        import threading
+        _display_lock = threading.Lock()
+    return _display_lock
+
+
+def get_display(enabled: Optional[bool] = None) -> AgentOutputDisplay:
+    """
+    Get the global display instance.
+    
+    Args:
+        enabled: Optional override for enabled state. If provided on first call,
+                 creates the instance with this setting. If provided on subsequent
+                 calls, it is ignored (use set_display_enabled to modify).
+    
+    Returns:
+        AgentOutputDisplay instance (thread-safe singleton)
+    """
     global _display_instance
-    if _display_instance is None:
-        _display_instance = AgentOutputDisplay()
-    return _display_instance
+    
+    # Fast path: instance exists, no lock needed for read-only access
+    if _display_instance is not None:
+        return _display_instance
+    
+    # Slow path: need to create instance with lock
+    lock = _get_display_lock()
+    with lock:
+        # Double-check: another thread may have created it
+        if _display_instance is None:
+            _display_instance = AgentOutputDisplay(enabled=enabled if enabled is not None else True)
+        return _display_instance
 
 
 def set_display_enabled(enabled: bool):
-    """Enable or disable the display globally."""
+    """
+    Enable or disable the display globally.
+    
+    Note: This modifies global state and should be called once per process,
+    not per request, to avoid race conditions.
+    
+    Args:
+        enabled: Whether to enable display output
+    """
     global _display_instance
-    if _display_instance is None:
-        _display_instance = AgentOutputDisplay(enabled=enabled)
-    else:
-        _display_instance.enabled = enabled
+    lock = _get_display_lock()
+    
+    with lock:
+        if _display_instance is None:
+            _display_instance = AgentOutputDisplay(enabled=enabled)
+        else:
+            _display_instance.enabled = enabled
 
 
 def display_agent_result(agent_name: str, result: Dict[str, Any], show_full_data: bool = False):

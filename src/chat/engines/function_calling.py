@@ -582,25 +582,43 @@ class FunctionCallingEngine:
         command = command_map.get(func_name, func_name)
         args.append(command)
         
-        # Add flags and parameters
+        # Known parameter mappings (explicit handling for critical flags)
+        param_flag_map = {
+            'vendor': '--vendor',
+            'agent': '--agent',
+            'time_period': '--time-period',
+            'start_date': '--start-date',
+            'end_date': '--end-date',
+            'individual_breakdown': '--individual-breakdown',
+            'generate_gamma': '--generate-gamma',
+            'include_canny': '--include-canny',
+            'ai_model': '--ai-model',
+            'max_conversations': '--max-conversations',
+            'include_details': '--include-details',
+            'export_docs': '--export-docs',
+            'include_feedback': '--include-feedback',
+            'top_n': '--top-n',
+            'category': '--category',
+        }
+        
+        # Add flags and parameters with explicit handling
         for key, value in parameters.items():
             if value is None or value == "":
                 continue
             
+            # Get explicit flag name or generate from key
+            flag_name = param_flag_map.get(key, f"--{key.replace('_', '-')}")
+            
             if isinstance(value, bool):
+                # Only add flag if True
                 if value:
-                    args.append(f"--{key.replace('_', '-')}")
+                    args.append(flag_name)
             elif isinstance(value, str):
-                if key in ["start_date", "end_date"]:
-                    args.extend([f"--{key.replace('_', '-')}", value])
-                elif key == "time_period":
-                    args.extend(["--time-period", value])
-                elif key == "ai_model":
-                    args.extend(["--ai-model", value])
-                else:
-                    args.extend([f"--{key.replace('_', '-')}", value])
+                # Add flag with value
+                args.extend([flag_name, value])
             elif isinstance(value, int):
-                args.extend([f"--{key.replace('_', '-')}", str(value)])
+                # Add flag with stringified value
+                args.extend([flag_name, str(value)])
         
         return args
     

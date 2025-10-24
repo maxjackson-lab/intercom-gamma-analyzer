@@ -136,8 +136,8 @@ class IndividualAgentAnalyzer:
         fcr_convs = [c for c in closed_convs if c.get('count_reopens', 0) == 0]
         reopened_convs = [c for c in closed_convs if c.get('count_reopens', 0) > 0]
         
-        fcr_rate = len(fcr_convs) / len(closed_convs) if closed_convs else 0
-        reopen_rate = len(reopened_convs) / len(closed_convs) if closed_convs else 0
+        fcr_rate = len(fcr_convs) / len(closed_convs) if len(closed_convs) > 0 else 0.0
+        reopen_rate = len(reopened_convs) / len(closed_convs) if len(closed_convs) > 0 else 0.0
         
         # Escalations
         escalated = [
@@ -145,7 +145,7 @@ class IndividualAgentAnalyzer:
             if any(name in str(c.get('full_text', '')).lower() 
                   for name in ['dae-ho', 'max jackson', 'hilary'])
         ]
-        escalation_rate = len(escalated) / len(convs) if convs else 0
+        escalation_rate = len(escalated) / len(convs) if len(convs) > 0 else 0.0
         
         # Resolution times
         resolution_times = []
@@ -159,21 +159,21 @@ class IndividualAgentAnalyzer:
                     hours = (updated - created).total_seconds() / 3600
                 resolution_times.append(hours)
         
-        median_resolution = np.median(resolution_times) if resolution_times else 0
+        median_resolution = float(np.median(resolution_times)) if len(resolution_times) > 0 else 0.0
         over_48h = len([t for t in resolution_times if t > 48])
         
         # Response times
         response_times = [
-            c.get('time_to_admin_reply', 0) / 3600 
+            (c.get('time_to_admin_reply', 0) or 0) / 3600 
             for c in convs 
             if c.get('time_to_admin_reply')
         ]
-        median_response = np.median(response_times) if response_times else 0
+        median_response = float(np.median(response_times)) if len(response_times) > 0 else 0.0
         
         # Complexity
-        avg_complexity = np.mean([
+        avg_complexity = float(np.mean([
             c.get('count_conversation_parts', 0) for c in convs
-        ]) if convs else 0
+        ])) if len(convs) > 0 else 0.0
         
         # Taxonomy-based performance breakdown
         perf_by_category = self._analyze_category_performance(convs)
@@ -254,9 +254,9 @@ class IndividualAgentAnalyzer:
         result = {}
         for category, stats in category_stats.items():
             if stats['total'] >= 3:  # Minimum sample size
-                fcr_rate = stats['fcr_count'] / stats['total']
-                escalation_rate = stats['escalated_count'] / stats['total']
-                median_res = np.median(stats['resolution_times']) if stats['resolution_times'] else 0
+                fcr_rate = stats['fcr_count'] / stats['total'] if stats['total'] > 0 else 0.0
+                escalation_rate = stats['escalated_count'] / stats['total'] if stats['total'] > 0 else 0.0
+                median_res = float(np.median(stats['resolution_times'])) if len(stats['resolution_times']) > 0 else 0.0
                 
                 result[category] = CategoryPerformance(
                     primary_category=category,
@@ -314,9 +314,9 @@ class IndividualAgentAnalyzer:
         result = {}
         for key, stats in subcategory_stats.items():
             if stats['total'] >= 2:  # Lower threshold for subcategories
-                fcr_rate = stats['fcr_count'] / stats['total']
-                escalation_rate = stats['escalated_count'] / stats['total']
-                median_res = np.median(stats['resolution_times']) if stats['resolution_times'] else 0
+                fcr_rate = stats['fcr_count'] / stats['total'] if stats['total'] > 0 else 0.0
+                escalation_rate = stats['escalated_count'] / stats['total'] if stats['total'] > 0 else 0.0
+                median_res = float(np.median(stats['resolution_times'])) if len(stats['resolution_times']) > 0 else 0.0
                 
                 primary, subcat = key.split('>', 1)
                 
@@ -334,13 +334,25 @@ class IndividualAgentAnalyzer:
     
     def _extract_categories(self, conv: Dict) -> List[Dict]:
         """Extract categories from conversation using taxonomy"""
-        # Use taxonomy manager to classify
-        classifications = self.taxonomy.classify_conversation(conv)
+        # Use taxonomy manager to classify (with fallback)
+        try:
+            classifications = self.taxonomy.classify_conversation(conv) if self.taxonomy and hasattr(self.taxonomy, 'classify_conversation') else []
+        except Exception as e:
+            self.logger.warning(f"Taxonomy classification failed: {e}")
+            classifications = []
         
-        # Also check tags
+        # Also check tags (with defensive extraction)
+        tags_data = conv.get('tags', {})
+        if isinstance(tags_data, dict):
+            tags_list = tags_data.get('tags', [])
+        elif isinstance(tags_data, list):
+            tags_list = tags_data
+        else:
+            tags_list = []
+            
         tags = [
             t.get('name', t) if isinstance(t, dict) else t 
-            for t in conv.get('tags', {}).get('tags', [])
+            for t in tags_list
         ]
         
         # Simple mapping for common tags
@@ -508,10 +520,15 @@ class IndividualAgentAnalyzer:
         if not (created and updated):
             return float('inf')
         
-        if isinstance(created, (int, float)):
-            return (updated - created) / 3600
-        else:
-            return (updated - created).total_seconds() / 3600
+        try:
+            if isinstance(created, (int, float)) and isinstance(updated, (int, float)):
+                return float((updated - created) / 3600) if created > 0 else float('inf')
+            else:
+                delta = (updated - created).total_seconds()
+                return float(delta / 3600) if delta > 0 else float('inf')
+        except Exception as e:
+            self.logger.warning(f"Error calculating resolution hours: {e}")
+            return float('inf')
     
     def _build_intercom_url(self, conversation_id: Optional[str]) -> Optional[str]:
         """Build Intercom conversation URL"""

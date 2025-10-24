@@ -28,6 +28,49 @@ from src.config.modes import get_analysis_mode_config
 logger = logging.getLogger(__name__)
 
 
+def _normalize_agent_result(result: Any) -> Dict[str, Any]:
+    """
+    Normalize agent result to dictionary format.
+    
+    Handles both Pydantic models and plain dict returns safely.
+    
+    Args:
+        result: Agent result (either Pydantic AgentResult or dict)
+        
+    Returns:
+        Dictionary representation of the result
+    """
+    if result is None:
+        return {}
+    
+    # If it's already a dict, return as-is
+    if isinstance(result, dict):
+        return result
+    
+    # If it has a .dict() method (Pydantic), use it
+    if hasattr(result, 'dict') and callable(result.dict):
+        try:
+            return result.dict()
+        except Exception as e:
+            logger.warning(f"Failed to call .dict() on result: {e}")
+            return {}
+    
+    # If it has a model_dump method (Pydantic v2), use it
+    if hasattr(result, 'model_dump') and callable(result.model_dump):
+        try:
+            return result.model_dump()
+        except Exception as e:
+            logger.warning(f"Failed to call .model_dump() on result: {e}")
+            return {}
+    
+    # Fallback: try to convert to dict
+    try:
+        return dict(result)
+    except Exception as e:
+        logger.warning(f"Could not convert result to dict: {e}")
+        return {}
+
+
 class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
@@ -105,10 +148,13 @@ class TopicOrchestrator:
             # PHASE 1: Segment conversations (paid vs free)
             self.logger.info("📊 Phase 1: Segmentation (Paid vs Free)")
             segmentation_result = await self.segmentation_agent.execute(context)
-            workflow_results['SegmentationAgent'] = segmentation_result.dict()
+            workflow_results['SegmentationAgent'] = _normalize_agent_result(segmentation_result)
             
             # Display agent result
-            display.display_agent_result('SegmentationAgent', segmentation_result.dict(), show_full_data)
+            try:
+                display.display_agent_result('SegmentationAgent', _normalize_agent_result(segmentation_result), show_full_data)
+            except Exception as e:
+                logger.warning(f"Failed to display SegmentationAgent result: {e}")
             
             paid_conversations = segmentation_result.data.get('paid_customer_conversations', [])
             free_fin_only_conversations = segmentation_result.data.get('free_fin_only_conversations', [])
@@ -121,10 +167,13 @@ class TopicOrchestrator:
             self.logger.info("🏷️  Phase 2: Topic Detection")
             context.conversations = paid_conversations
             topic_detection_result = await self.topic_detection_agent.execute(context)
-            workflow_results['TopicDetectionAgent'] = topic_detection_result.dict()
+            workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
             
             # Display agent result
-            display.display_agent_result('TopicDetectionAgent', topic_detection_result.dict(), show_full_data)
+            try:
+                display.display_agent_result('TopicDetectionAgent', _normalize_agent_result(topic_detection_result), show_full_data)
+            except Exception as e:
+                logger.warning(f"Failed to display TopicDetectionAgent result: {e}")
             
             topic_dist = topic_detection_result.data.get('topic_distribution', {})
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics")
@@ -140,15 +189,18 @@ class TopicOrchestrator:
             try:
                 subtopic_context = context.model_copy()
                 subtopic_context.previous_results = {
-                    'TopicDetectionAgent': topic_detection_result.dict()
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
                 }
                 subtopic_context.conversations = paid_conversations
                 
                 subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
-                workflow_results['SubTopicDetectionAgent'] = subtopic_detection_result.dict()
+                workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
                 
                 # Display agent result
-                display.display_agent_result('SubTopicDetectionAgent', subtopic_detection_result.dict(), show_full_data)
+                try:
+                    display.display_agent_result('SubTopicDetectionAgent', _normalize_agent_result(subtopic_detection_result), show_full_data)
+                except Exception as e:
+                    logger.warning(f"Failed to display SubTopicDetectionAgent result: {e}")
                 
                 subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
                 self.logger.info(f"   ✅ Detected sub-topics for {len(subtopics_data)} Tier 1 topics")
@@ -267,8 +319,8 @@ class TopicOrchestrator:
                     continue
                 
                 # Success case
-                topic_sentiments[result_topic_name] = sentiment_result.dict()
-                topic_examples[result_topic_name] = examples_result.dict()
+                topic_sentiments[result_topic_name] = _normalize_agent_result(sentiment_result)
+                topic_examples[result_topic_name] = _normalize_agent_result(examples_result)
                 workflow_results['TopicProcessing'][result_topic_name] = {
                     'success': True,
                     'sentiment_confidence': sentiment_result.confidence,
@@ -286,14 +338,17 @@ class TopicOrchestrator:
             }
             # Pass sub-topic data via previous_results for compatibility
             fin_context.previous_results = {
-                'SubTopicDetectionAgent': subtopic_detection_result.dict() if subtopic_detection_result and subtopic_detection_result.success else {},
-                'TopicDetectionAgent': topic_detection_result.dict()
+                'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
+                'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
             }
             fin_result = await self.fin_performance_agent.execute(fin_context)
-            workflow_results['FinPerformanceAgent'] = fin_result.dict()
+            workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
             
             # Display agent result
-            display.display_agent_result('FinPerformanceAgent', fin_result.dict(), show_full_data)
+            try:
+                display.display_agent_result('FinPerformanceAgent', _normalize_agent_result(fin_result), show_full_data)
+            except Exception as e:
+                logger.warning(f"Failed to display FinPerformanceAgent result: {e}")
 
             self.logger.info(f"   ✅ Fin analysis complete")
             
@@ -308,10 +363,13 @@ class TopicOrchestrator:
                 'week_id': week_id
             }
             trend_result = await self.trend_agent.execute(trend_context)
-            workflow_results['TrendAgent'] = trend_result.dict()
+            workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
             
             # Display agent result
-            display.display_agent_result('TrendAgent', trend_result.dict(), show_full_data)
+            try:
+                display.display_agent_result('TrendAgent', _normalize_agent_result(trend_result), show_full_data)
+            except Exception as e:
+                logger.warning(f"Failed to display TrendAgent result: {e}")
             
             self.logger.info(f"   ✅ Trend analysis complete")
             
@@ -321,13 +379,13 @@ class TopicOrchestrator:
             # Ensure OutputFormatterAgent receives full conversation set
             output_context.conversations = conversations
             output_context.previous_results = {
-                'SegmentationAgent': segmentation_result.dict(),
-                'TopicDetectionAgent': topic_detection_result.dict(),
-                'SubTopicDetectionAgent': subtopic_detection_result.dict() if subtopic_detection_result and subtopic_detection_result.success else {},
-                'TopicSentiments': topic_sentiments,  # Already dict
-                'TopicExamples': topic_examples,  # Already dict
-                'FinPerformanceAgent': fin_result.dict(),
-                'TrendAgent': trend_result.dict()
+                'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
+                'TopicSentiments': topic_sentiments,  # Already normalized dicts
+                'TopicExamples': topic_examples,  # Already normalized dicts
+                'FinPerformanceAgent': _normalize_agent_result(fin_result),
+                'TrendAgent': _normalize_agent_result(trend_result)
             }
             output_context.metadata = {
                 'week_id': week_id,
@@ -336,10 +394,13 @@ class TopicOrchestrator:
             }
             
             formatter_result = await self.output_formatter_agent.execute(output_context)
-            workflow_results['OutputFormatterAgent'] = formatter_result.dict()
+            workflow_results['OutputFormatterAgent'] = _normalize_agent_result(formatter_result)
             
             # Display agent result
-            display.display_agent_result('OutputFormatterAgent', formatter_result.dict(), show_full_data)
+            try:
+                display.display_agent_result('OutputFormatterAgent', _normalize_agent_result(formatter_result), show_full_data)
+            except Exception as e:
+                logger.warning(f"Failed to display OutputFormatterAgent result: {e}")
             
             self.logger.info(f"   ✅ Output formatted")
             
@@ -371,17 +432,23 @@ class TopicOrchestrator:
             
             # Display summary table of all agent results
             if config.get_visibility_setting('show_agent_summary_table', True):
-                display.display_all_agent_results(workflow_results, f"Analysis Complete - {week_id}")
+                try:
+                    display.display_all_agent_results(workflow_results, f"Analysis Complete - {week_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to display all agent results: {e}")
             
             # Display markdown preview if enabled
             if config.get_visibility_setting('show_markdown_preview', True):
-                formatted_report = formatter_result.data.get('formatted_output', '')
-                max_lines = config.get_visibility_setting('markdown_preview_max_lines', 50)
-                display.display_markdown_preview(
-                    formatted_report,
-                    title=f"Formatted Report - {period_label or week_id}",
-                    max_lines=max_lines
-                )
+                try:
+                    formatted_report = formatter_result.data.get('formatted_output', '') if hasattr(formatter_result, 'data') else _normalize_agent_result(formatter_result).get('data', {}).get('formatted_output', '')
+                    max_lines = config.get_visibility_setting('markdown_preview_max_lines', 50)
+                    display.display_markdown_preview(
+                        formatted_report,
+                        title=f"Formatted Report - {period_label or week_id}",
+                        max_lines=max_lines
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to display markdown preview: {e}")
             
             self.logger.info(f"🎉 TopicOrchestrator: Complete in {total_time:.1f}s")
             self.logger.info(f"   Topics: {len(topic_dist)}, Paid: {len(paid_conversations)}, Free: {len(free_fin_only_conversations)}")

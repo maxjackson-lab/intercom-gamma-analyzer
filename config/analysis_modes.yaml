@@ -48,7 +48,9 @@ features:
   show_markdown_preview: true
   
   # Maximum lines to show in markdown preview (null for all)
+  # CLI default: 50 lines, Web default: 30 lines (overridden by WEB_EXECUTION env var)
   markdown_preview_max_lines: 50
+  markdown_preview_max_lines_web: 30
   
   # Show full input text in Gamma API call preview
   show_full_gamma_input: false

@@ -246,4 +246,88 @@ class TestIndividualAgentAnalyzer:
         # Agent1 should have better response time rank
         assert agent1.response_time_rank == 1
         assert agent2.response_time_rank == 2
+    
+    @pytest.mark.asyncio
+    async def test_empty_conversations_handling(self, mock_admin_cache):
+        """Test handling of empty conversation lists"""
+        analyzer = IndividualAgentAnalyzer('horatio', mock_admin_cache, None)
+        
+        # Empty conversations should not crash
+        agent_metrics = await analyzer.analyze_agents([], {})
+        assert len(agent_metrics) == 0
+    
+    @pytest.mark.asyncio
+    async def test_noisy_data_handling(self, mock_admin_cache):
+        """Test handling of noisy/incomplete data"""
+        analyzer = IndividualAgentAnalyzer('horatio', mock_admin_cache, None)
+        
+        # Conversations with missing fields
+        noisy_convs = [
+            {
+                'id': 'conv_noisy_1',
+                'state': 'closed',
+                '_admin_details': [{'id': 'agent1'}]
+                # Missing timestamps, tags, topics, etc.
+            },
+            {
+                'id': 'conv_noisy_2',
+                'created_at': None,  # None timestamp
+                'updated_at': None,
+                'state': 'open',
+                'tags': {},  # Empty tags
+                'topics': [],  # Wrong structure (list instead of dict)
+                '_admin_details': [{'id': 'agent1'}]
+            }
+        ]
+        
+        admin_details = {
+            'agent1': {
+                'id': 'agent1',
+                'name': 'Test Agent',
+                'email': 'test@test.com',
+                'vendor': 'horatio'
+            }
+        }
+        
+        # Should not crash
+        agent_metrics = await analyzer.analyze_agents(noisy_convs, admin_details)
+        
+        assert len(agent_metrics) == 1
+        assert agent_metrics[0].agent_id == 'agent1'
+        assert agent_metrics[0].total_conversations == 2
+        
+        # Metrics should have safe defaults
+        assert agent_metrics[0].fcr_rate >= 0.0
+        assert agent_metrics[0].median_resolution_hours >= 0.0
+        assert agent_metrics[0].median_response_hours >= 0.0
+    
+    def test_extract_categories_with_missing_tags(self, mock_admin_cache):
+        """Test category extraction with missing or malformed tags"""
+        analyzer = IndividualAgentAnalyzer('horatio', mock_admin_cache, None)
+        
+        # Missing tags field
+        conv1 = {'full_text': 'test'}
+        categories1 = analyzer._extract_categories(conv1)
+        assert isinstance(categories1, list)
+        assert len(categories1) > 0  # Should have default Unknown category
+        
+        # Empty tags dict
+        conv2 = {'tags': {}, 'full_text': 'test'}
+        categories2 = analyzer._extract_categories(conv2)
+        assert isinstance(categories2, list)
+        
+        # Tags as list instead of dict
+        conv3 = {'tags': ['billing'], 'full_text': 'test'}
+        categories3 = analyzer._extract_categories(conv3)
+        assert isinstance(categories3, list)
+    
+    def test_division_by_zero_guards(self, mock_admin_cache):
+        """Test that division operations are guarded"""
+        analyzer = IndividualAgentAnalyzer('horatio', mock_admin_cache, None)
+        
+        # Empty performance dicts should not cause division errors
+        empty_perf = {}
+        strong, weak = analyzer._identify_category_strengths_weaknesses(empty_perf)
+        assert isinstance(strong, list)
+        assert isinstance(weak, list)
 

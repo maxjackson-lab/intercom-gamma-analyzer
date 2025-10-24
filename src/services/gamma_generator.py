@@ -101,24 +101,29 @@ class GammaGenerator:
             num_cards = self.prompts.get_slide_count_for_style(style)
             additional_instructions = self.prompts.get_additional_instructions_for_style(style)
             
-            # Display Gamma API call preview if enabled
+            # Display Gamma API call preview if enabled (with error handling)
             config = get_analysis_mode_config()
-            if config.get_visibility_setting('enable_agent_output_display', True):
-                display = get_display()
-                show_full_text = config.get_visibility_setting('show_full_gamma_input', False)
-                display.display_gamma_api_call(
-                    input_text=input_text,
-                    parameters={
-                        'format': 'presentation',
-                        'num_cards': num_cards,
-                        'text_mode': 'generate',
-                        'card_split': 'auto',
-                        'theme_name': 'stockholm',
-                        'export_format': export_format,
-                        'additional_instructions': additional_instructions[:100] + '...' if additional_instructions and len(additional_instructions) > 100 else additional_instructions
-                    },
-                    show_full_text=show_full_text
-                )
+            enable_display = config.get_visibility_setting('enable_agent_output_display', True)
+            show_full_text = config.get_visibility_setting('show_full_gamma_input', False)
+            
+            if enable_display:
+                try:
+                    display = get_display()
+                    display.display_gamma_api_call(
+                        input_text=input_text,
+                        parameters={
+                            'format': 'presentation',
+                            'num_cards': num_cards,
+                            'text_mode': 'generate',
+                            'card_split': 'auto',
+                            'theme_name': 'stockholm',
+                            'export_format': export_format,
+                            'additional_instructions': additional_instructions[:100] + '...' if additional_instructions and len(additional_instructions) > 100 else additional_instructions
+                        },
+                        show_full_text=show_full_text
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to display Gamma API call preview: {e}")
             
             # Generate presentation
             generation_id = await self.client.generate_presentation(
@@ -149,10 +154,20 @@ class GammaGenerator:
                 'period_label': period_label
             }
             
-            # Generate markdown summary
+            # Generate markdown summary (non-blocking)
             try:
                 from src.services.google_docs_exporter import GoogleDocsExporter
                 from pathlib import Path
+                
+                # Check if we should display markdown preview
+                try:
+                    config = get_analysis_mode_config()
+                    show_markdown_preview = config.get_visibility_setting('show_markdown_preview', True)
+                    markdown_max_lines = config.get_visibility_setting('markdown_preview_max_lines', 50)
+                except Exception as e:
+                    logger.warning(f"Failed to read markdown preview config: {e}")
+                    show_markdown_preview = True
+                    markdown_max_lines = 50
                 
                 docs_exporter = GoogleDocsExporter()
                 markdown_output_dir = output_dir if output_dir else Path("outputs")
@@ -172,6 +187,18 @@ class GammaGenerator:
                 with open(markdown_path, 'r', encoding='utf-8') as f:
                     markdown_content = f.read()
                     markdown_preview = markdown_content[:500] if len(markdown_content) > 500 else markdown_content
+                
+                # Display preview if enabled
+                if show_markdown_preview:
+                    try:
+                        display = get_display()
+                        display.display_markdown_preview(
+                            markdown_content,
+                            title=f"Markdown Summary - {style.title()}",
+                            max_lines=markdown_max_lines
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to display markdown preview: {e}")
                 
                 # Add to response
                 response['markdown_summary_path'] = str(markdown_path)

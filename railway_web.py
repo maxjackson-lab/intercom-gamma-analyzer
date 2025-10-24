@@ -1465,6 +1465,42 @@ if HAS_FASTAPI:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     
+    @app.post("/api/preview-command")
+    async def preview_command(request: ChatRequest):
+        """
+        Preview the command that would be generated from a query without executing it.
+        
+        Returns the parsed command and arguments for verification.
+        """
+        if not chat_interface:
+            raise HTTPException(
+                status_code=500, 
+                detail="Chat interface not initialized"
+            )
+        
+        try:
+            result = chat_interface.process_query(request.query, request.context)
+            
+            if result.get("success") and result.get("data", {}).get("translation"):
+                translation = result["data"]["translation"]
+                if translation.get("translation"):
+                    cmd = translation["translation"]
+                    return {
+                        "success": True,
+                        "command": cmd.get("command"),
+                        "args": cmd.get("args", []),
+                        "full_command": f"{cmd.get('command')} {' '.join(cmd.get('args', []))}",
+                        "explanation": cmd.get("explanation"),
+                        "confidence": cmd.get("confidence", 0.0)
+                    }
+            
+            return {
+                "success": False,
+                "error": "Could not parse command from query"
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+    
     @app.get("/download")
     async def download_file(file: str):
         """

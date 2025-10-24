@@ -20,6 +20,7 @@ class DuckDBStorage:
     def __init__(self, db_path: str = "conversations.duckdb"):
         self.db_path = Path(db_path)
         self.conn = None
+        self._schema_initialized = False
         self._initialize_database()
     
     def _initialize_database(self):
@@ -27,10 +28,21 @@ class DuckDBStorage:
         try:
             self.conn = duckdb.connect(str(self.db_path))
             self._create_schema()
+            self._schema_initialized = True
             logger.info(f"DuckDB initialized at {self.db_path}")
         except Exception as e:
             logger.error(f"Failed to initialize DuckDB: {e}")
             raise
+    
+    def ensure_schema(self):
+        """
+        Ensure schema is initialized before any operations.
+        
+        This is called by services that depend on specific tables being present.
+        """
+        if not self._schema_initialized:
+            self._create_schema()
+            self._schema_initialized = True
     
     def _create_schema(self):
         """Create analytical schema for conversations."""

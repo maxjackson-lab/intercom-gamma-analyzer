@@ -33,6 +33,13 @@ class AdminProfileCache:
         self.cache_ttl_days = 7  # Refresh profiles older than 7 days
         self.logger = logging.getLogger(__name__)
         
+        # Ensure DuckDB schema is created if storage is provided
+        if self.storage:
+            try:
+                self.storage.ensure_schema()
+            except Exception as e:
+                self.logger.warning(f"Failed to ensure DuckDB schema: {e}")
+        
     async def get_admin_profile(
         self, 
         admin_id: str, 
@@ -89,7 +96,19 @@ class AdminProfileCache:
             response.raise_for_status()
             data = response.json()
             
-            work_email = data.get('email', '')
+            # Enhanced email extraction with fallback and validation
+            work_email = data.get('email', '').strip() if data.get('email') else ''
+            
+            # If no work email from API, fall back to public_email
+            if not work_email and public_email:
+                work_email = public_email.strip()
+                self.logger.info(f"Using public_email as fallback for admin {admin_id}")
+            
+            # Validate email with basic regex
+            if work_email and not self._validate_email(work_email):
+                self.logger.warning(f"Invalid email format for admin {admin_id}: {work_email}")
+                work_email = ''
+            
             name = data.get('name', 'Unknown')
             
             profile = AdminProfile(
@@ -117,29 +136,75 @@ class AdminProfileCache:
             return self._create_fallback_profile(admin_id, public_email)
     
     def _identify_vendor(self, email: str) -> str:
-        """Identify vendor from email domain"""
-        if not email:
+        """
+        Identify vendor from email domain using exact domain matching.
+        
+        Args:
+            email: Email address to classify
+            
+        Returns:
+            Vendor name: 'horatio', 'boldr', 'gamma', or 'unknown'
+        """
+        if not email or not isinstance(email, str):
             return "unknown"
         
-        email_lower = email.lower()
+        email_lower = email.lower().strip()
         
-        if email_lower.endswith('@hirehoratio.co') or email_lower.endswith('@horatio.com'):
-            return "horatio"
-        elif email_lower.endswith('@boldrimpact.com') or '@boldr' in email_lower:
-            return "boldr"
-        elif email_lower.endswith('@gamma.app'):
-            return "gamma"
-        else:
+        # Extract domain from email
+        if '@' not in email_lower:
             return "unknown"
+        
+        try:
+            domain = email_lower.split('@')[-1].strip()
+        except Exception as e:
+            self.logger.warning(f"Failed to parse domain from email {email}: {e}")
+            return "unknown"
+        
+        # Known vendor domains (exact match only)
+        vendor_domains = {
+            'hirehoratio.co': 'horatio',
+            'horatio.com': 'horatio',
+            'boldrimpact.com': 'boldr',
+            'boldr.com': 'boldr',
+            'gamma.app': 'gamma',
+        }
+        
+        return vendor_domains.get(domain, 'unknown')
+    
+    def _validate_email(self, email: str) -> bool:
+        """
+        Validate email format with basic regex.
+        
+        Args:
+            email: Email address to validate
+            
+        Returns:
+            True if valid format, False otherwise
+        """
+        if not email or not isinstance(email, str):
+            return False
+        
+        import re
+        # Basic email regex - checks for user@domain.tld pattern
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(email_pattern, email.strip()))
     
     def _create_fallback_profile(self, admin_id: str, public_email: Optional[str] = None) -> AdminProfile:
         """Create fallback profile when API fetch fails"""
+        # Validate and clean public_email if provided
+        clean_email = ""
+        if public_email:
+            clean_email = public_email.strip()
+            if not self._validate_email(clean_email):
+                self.logger.warning(f"Invalid public_email format for admin {admin_id}: {public_email}")
+                clean_email = ""
+        
         return AdminProfile(
             id=admin_id,
             name="Unknown",
-            email=public_email or "",
+            email=clean_email,
             public_email=public_email,
-            vendor=self._identify_vendor(public_email or ""),
+            vendor=self._identify_vendor(clean_email),
             active=True,
             cached_at=datetime.now()
         )
@@ -150,6 +215,9 @@ class AdminProfileCache:
             return None
         
         try:
+            # Ensure schema exists before reading
+            self.storage.ensure_schema()
+            
             result = self.storage.conn.execute(
                 """
                 SELECT admin_id, name, email, public_email, vendor, active, last_updated
@@ -182,6 +250,9 @@ class AdminProfileCache:
             return
         
         try:
+            # Ensure schema exists before writing
+            self.storage.ensure_schema()
+            
             now = datetime.now()
             
             # Use INSERT OR REPLACE pattern
