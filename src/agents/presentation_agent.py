@@ -16,6 +16,7 @@ from datetime import datetime
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.gamma_generator import GammaGenerator
 from src.config.gamma_prompts import GammaPrompts
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -166,9 +167,11 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             
             # Get insights from previous agent
             insight_data = context.previous_results['InsightAgent']['data']
-            
-            # Build presentation content using Gamma prompts
-            presentation_style = "executive"  # TODO: Make configurable
+
+            # Get presentation style from metadata with fallback to settings
+            presentation_style = context.metadata.get('gamma_style', 'executive')
+            if hasattr(settings, 'default_gamma_style'):
+                presentation_style = context.metadata.get('gamma_style', settings.default_gamma_style)
             
             # Use existing Gamma prompt builder with insights
             prompt = GammaPrompts.build_executive_presentation_prompt(

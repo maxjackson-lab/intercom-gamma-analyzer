@@ -15,13 +15,31 @@ logger = logging.getLogger(__name__)
 
 class HistoricalDataManager:
     """Manages historical data snapshots for trend analysis."""
-    
-    def __init__(self, storage_dir: str = None):
+
+    def __init__(self, storage_dir: str = None, retention_weeks: int = None):
+        """
+        Initialize Historical Data Manager.
+
+        Args:
+            storage_dir: Directory for storing snapshots
+            retention_weeks: Number of weeks to retain snapshots (default from settings or 52)
+        """
         self.storage_dir = Path(storage_dir or settings.output_directory) / "historical_data"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.logger = logging.getLogger(__name__)
-        
-        self.logger.info(f"HistoricalDataManager initialized with storage: {self.storage_dir}")
+
+        # Get retention period from parameter, settings, or default to 52 weeks
+        if retention_weeks is not None:
+            self.retention_weeks = retention_weeks
+        elif hasattr(settings, 'historical_data_retention_weeks'):
+            self.retention_weeks = settings.historical_data_retention_weeks
+        else:
+            self.retention_weeks = 52
+
+        self.logger.info(
+            f"HistoricalDataManager initialized with storage: {self.storage_dir}, "
+            f"retention: {self.retention_weeks} weeks"
+        )
     
     async def store_weekly_snapshot(
         self, 
@@ -277,18 +295,19 @@ class HistoricalDataManager:
         
         return insights
     
-    def cleanup_old_snapshots(self, keep_weeks: int = 52) -> int:
+    def cleanup_old_snapshots(self, keep_weeks: int = None) -> int:
         """
         Clean up old snapshots to save space.
-        
+
         Args:
-            keep_weeks: Number of weeks of data to keep
-        
+            keep_weeks: Number of weeks of data to keep (default: self.retention_weeks)
+
         Returns:
             Number of files deleted
         """
+        keep_weeks = keep_weeks or self.retention_weeks
         self.logger.info(f"Cleaning up snapshots older than {keep_weeks} weeks")
-        
+
         cutoff_date = datetime.now() - timedelta(weeks=keep_weeks)
         deleted_count = 0
         

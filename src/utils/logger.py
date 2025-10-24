@@ -10,11 +10,50 @@ from typing import Optional
 from src.config.settings import settings
 
 
+def get_log_level(verbose: bool = False, level_name: Optional[str] = None) -> int:
+    """
+    Get normalized and validated log level.
+
+    Args:
+        verbose: If True, return DEBUG level
+        level_name: Optional level name string (e.g., "INFO", "DEBUG")
+
+    Returns:
+        logging level integer (e.g., logging.INFO, logging.DEBUG)
+    """
+    # Priority 1: verbose flag
+    if verbose:
+        return logging.DEBUG
+
+    # Priority 2: explicit level_name parameter
+    if level_name:
+        level_upper = level_name.upper()
+        valid_levels = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR,
+            'CRITICAL': logging.CRITICAL
+        }
+        if level_upper in valid_levels:
+            return valid_levels[level_upper]
+        else:
+            logging.warning(f"Invalid log level '{level_name}', defaulting to INFO")
+            return logging.INFO
+
+    # Priority 3: settings.log_level
+    try:
+        return getattr(logging, settings.log_level.upper())
+    except (AttributeError, ValueError):
+        logging.warning(f"Invalid log level in settings: '{settings.log_level}', defaulting to INFO")
+        return logging.INFO
+
+
 def setup_logging(verbose: bool = False) -> None:
     """Setup logging configuration."""
-    
-    # Determine log level
-    log_level = logging.DEBUG if verbose else getattr(logging, settings.log_level)
+
+    # Determine log level using helper
+    log_level = get_log_level(verbose)
     
     # Create formatter
     formatter = logging.Formatter(
