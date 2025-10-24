@@ -5,6 +5,7 @@ Main CLI application for Intercom to Gamma analysis tool.
 import asyncio
 import json
 import logging
+import os
 import sys
 import warnings
 from datetime import datetime, date, timedelta
@@ -3236,8 +3237,6 @@ async def run_test_topic_based(conversations):
               help='Number of periods back to analyze (e.g., --time-period month --periods-back 3)')
 @click.option('--start-date', help='Start date (YYYY-MM-DD) - used if no time-period specified')
 @click.option('--end-date', help='End date (YYYY-MM-DD) - used if no time-period specified')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai', 
-              help='AI model to use for sentiment analysis')
 @click.option('--enable-fallback/--no-fallback', default=True,
               help='Enable fallback to other AI model if primary fails')
 @click.option('--include-trends', is_flag=True, default=False,
