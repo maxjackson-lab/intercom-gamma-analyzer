@@ -821,3 +821,245 @@ button:disabled {
 .run-button:active {
     transform: translateY(0);
 }
+
+/* Tab Content Styling */
+.tab-section {
+    padding: 30px;
+    background: #0a0a0a;
+    border-radius: 12px;
+    border: 1px solid #222;
+}
+
+.tab-section h3 {
+    color: #fff;
+    font-size: 20px;
+    margin-bottom: 24px;
+    font-weight: 600;
+}
+
+/* Gamma Link Large Button */
+.gamma-link-large {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+.gamma-link-large:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+}
+
+.gamma-link-large .gamma-icon {
+    font-size: 24px;
+    margin-right: 12px;
+}
+
+.gamma-link-large .arrow {
+    font-size: 24px;
+    margin-left: 12px;
+}
+
+/* Gamma Metadata */
+.gamma-meta {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #111;
+    border-radius: 8px;
+}
+
+.meta-item {
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+.meta-item strong {
+    color: #e5e7eb;
+    margin-right: 8px;
+}
+
+/* URL Copy Section */
+.url-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #111;
+    border-radius: 8px;
+}
+
+.url-copy code {
+    flex: 1;
+    padding: 8px 12px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #60a5fa;
+    font-size: 13px;
+    overflow-x: auto;
+}
+
+.copy-btn {
+    background: #374151;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.copy-btn:hover {
+    background: #4b5563;
+}
+
+/* File Primary Display */
+.file-primary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    background: #111;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.file-icon {
+    font-size: 48px;
+    line-height: 1;
+}
+
+.file-info {
+    flex: 1;
+}
+
+.file-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.file-path {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.file-path code {
+    background: #0a0a0a;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #222;
+}
+
+/* File Actions */
+.file-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.action-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.action-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.action-btn.secondary {
+    background: #374151;
+    color: #e5e7eb;
+}
+
+.action-btn.secondary:hover {
+    background: #4b5563;
+}
+
+/* File Groups */
+.file-group {
+    margin-bottom: 24px;
+}
+
+.file-group-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #222;
+}
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Download Item */
+.download-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #111;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.download-item:hover {
+    background: #1a1a1a;
+}
+
+.file-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.file-icon-small {
+    font-size: 20px;
+}
+
+.file-name-small {
+    color: #e5e7eb;
+    font-size: 14px;
+}
+
+.download-btn-small {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.download-btn-small:hover {
+    background: #059669;
+}

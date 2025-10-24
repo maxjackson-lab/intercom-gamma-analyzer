@@ -2782,7 +2782,12 @@ async def run_canny_analysis(
         
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = Path(output_dir) / f"canny_analysis_{timestamp}.json"
+        from src.utils.time_utils import generate_descriptive_filename
+        
+        output_filename = generate_descriptive_filename(
+            'Canny_Analysis', start_date, end_date, file_type='json'
+        )
+        output_file = Path(output_dir) / output_filename
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_file, 'w') as f:
@@ -2821,8 +2826,11 @@ async def run_canny_analysis(
                 
                 console.print(f"[green]✅ Gamma URL: {gamma_result['gamma_url']}[/green]")
                 
-                # Save Gamma metadata
-                gamma_output = output_file.parent / f"canny_gamma_{timestamp}.json"
+                # Save Gamma metadata with descriptive name
+                gamma_filename = generate_descriptive_filename(
+                    'Canny_Gamma_Metadata', start_date, end_date, file_type='json'
+                )
+                gamma_output = output_file.parent / gamma_filename
                 with open(gamma_output, 'w') as f:
                     json.dump(gamma_result, f, indent=2)
                 
@@ -2960,7 +2968,12 @@ async def run_voc_analysis(
         
         # Save results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = Path(output_dir) / f"voc_analysis_{timestamp}.json"
+        from src.utils.time_utils import generate_descriptive_filename
+        
+        output_filename = generate_descriptive_filename(
+            'VOC_Analysis', start_date, end_date, file_type='json'
+        )
+        output_file = Path(output_dir) / output_filename
         output_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(output_file, 'w') as f:
@@ -3025,8 +3038,11 @@ async def run_voc_analysis(
                 
                 console.print(f"[green]✅ Gamma URL: {gamma_result['gamma_url']}[/green]")
                 
-                # Save Gamma metadata
-                gamma_output = output_file.parent / f"voc_gamma_{timestamp}.json"
+                # Save Gamma metadata with descriptive name
+                gamma_filename = generate_descriptive_filename(
+                    'VOC_Gamma_Metadata', start_date, end_date, file_type='json'
+                )
+                gamma_output = output_file.parent / gamma_filename
                 with open(gamma_output, 'w') as f:
                     json.dump(gamma_result, f, indent=2)
                 
@@ -3509,8 +3525,13 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
                 if gamma_url:
                     console.print(f"✅ Gamma URL: {gamma_url}")
                     
-                    # Save URL to file
-                    url_file = output_dir / f"gamma_url_{timestamp}.txt"
+                    # Save URL to file with descriptive name
+                    from src.utils.time_utils import generate_descriptive_filename
+                    url_filename = generate_descriptive_filename(
+                        'Gamma_URL_Topic', start_date, end_date, file_type='txt', 
+                        period_label=results.get('period_label', 'Custom')
+                    )
+                    url_file = output_dir / url_filename
                     with open(url_file, 'w') as f:
                         f.write(gamma_url)
                     console.print(f"📁 URL saved to: {url_file}")
@@ -3625,13 +3646,23 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # Generate descriptive filenames
+        from src.utils.time_utils import generate_descriptive_filename
+        
+        report_filename = generate_descriptive_filename(
+            'VoC_Report', start_date, end_date, file_type='md', week_id=week_id
+        )
+        results_filename = generate_descriptive_filename(
+            'VoC_Analysis', start_date, end_date, file_type='json', week_id=week_id
+        )
+        
         # Save formatted report
-        report_file = output_dir / f"weekly_voc_{week_id}_{timestamp}.md"
+        report_file = output_dir / report_filename
         with open(report_file, 'w') as f:
             f.write(formatted_report)
         
         # Save full results JSON
-        results_file = output_dir / f"weekly_voc_{week_id}_{timestamp}.json"
+        results_file = output_dir / results_filename
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2, default=str)
         
@@ -3668,8 +3699,11 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
                     console.print(f"💳 Credits used: {gamma_result.get('credits_used', 0)}")
                     console.print(f"⏱️  Generation time: {gamma_result.get('generation_time_seconds', 0):.1f}s")
                     
-                    # Save Gamma URL to separate file
-                    gamma_url_file = output_dir / f"gamma_url_{week_id}_{timestamp}.txt"
+                    # Save Gamma URL to separate file with descriptive name
+                    gamma_url_filename = generate_descriptive_filename(
+                        'Gamma_URL_VoC', start_date, end_date, file_type='txt', week_id=week_id
+                    )
+                    gamma_url_file = output_dir / gamma_url_filename
                     with open(gamma_url_file, 'w') as f:
                         f.write(f"Gamma Presentation URL\n")
                         f.write(f"=====================\n\n")

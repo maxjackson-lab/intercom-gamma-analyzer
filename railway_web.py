@@ -1458,6 +1458,64 @@ if HAS_FASTAPI:
             return {"stats": stats}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.get("/download")
+    async def download_file(file: str):
+        """
+        Download a file from the outputs directory.
+        
+        Security: Only allows downloading from the outputs directory.
+        """
+        try:
+            from fastapi.responses import FileResponse
+            import os
+            
+            # Security: Validate the file path
+            file_path = Path(file)
+            
+            # Ensure the file is in the outputs directory
+            if not str(file_path).startswith('outputs/') and not str(file_path).startswith('./outputs/'):
+                # Try prepending outputs/
+                file_path = Path('outputs') / file_path.name
+            
+            # Resolve to absolute path and validate
+            abs_file_path = file_path.resolve()
+            outputs_dir = Path('outputs').resolve()
+            
+            # Security check: Ensure file is within outputs directory
+            try:
+                abs_file_path.relative_to(outputs_dir)
+            except ValueError:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: File must be in outputs directory"
+                )
+            
+            # Check if file exists
+            if not abs_file_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"File not found: {file_path.name}"
+                )
+            
+            # Check if it's a file (not a directory)
+            if not abs_file_path.is_file():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Path is not a file"
+                )
+            
+            # Return the file
+            return FileResponse(
+                path=abs_file_path,
+                filename=abs_file_path.name,
+                media_type='application/octet-stream'
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Download error: {str(e)}")
 
 def main():
     """Main entrypoint for Railway web server."""

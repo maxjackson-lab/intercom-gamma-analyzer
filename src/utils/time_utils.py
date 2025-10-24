@@ -342,3 +342,91 @@ def detect_period_type(
         logger.warning(f"Failed to detect period type: {e}, defaulting to 'custom'")
         return ('custom', 'Custom')
 
+
+def generate_descriptive_filename(
+    analysis_type: str,
+    start_date: Union[datetime, date, str, None],
+    end_date: Union[datetime, date, str, None],
+    file_type: str = "json",
+    include_timestamp: bool = False,
+    **kwargs
+) -> str:
+    """
+    Generate a descriptive filename for analysis outputs.
+    
+    Args:
+        analysis_type: Type of analysis ('voc', 'canny', 'topic', 'billing', etc.)
+        start_date: Analysis start date
+        end_date: Analysis end date
+        file_type: File extension (json, md, txt, etc.)
+        include_timestamp: Whether to append timestamp for uniqueness
+        **kwargs: Additional context (week_id, agent, category, etc.)
+        
+    Returns:
+        Descriptive filename string
+        
+    Examples:
+        >>> generate_descriptive_filename('voc', '2024-10-17', '2024-10-24', week_id='2024-W42')
+        'VoC_Week_2024-W42_Oct_17-24.json'
+        
+        >>> generate_descriptive_filename('canny', '2024-10-01', '2024-10-31')
+        'Canny_Analysis_Oct_01-31.json'
+    """
+    try:
+        # Convert dates
+        start_dt = to_utc_datetime(start_date) if start_date else None
+        end_dt = to_utc_datetime(end_date) if end_date else None
+        
+        # Format date parts
+        if start_dt and end_dt:
+            start_str = start_dt.strftime("%b_%d")
+            end_str = end_dt.strftime("%d")
+            date_range = f"{start_str}-{end_str}"
+            
+            # If different months, include both
+            if start_dt.month != end_dt.month:
+                end_str = end_dt.strftime("%b_%d")
+                date_range = f"{start_str}-{end_str}"
+        else:
+            date_range = datetime.now().strftime("%b_%d")
+        
+        # Build filename based on analysis type
+        analysis_type_upper = analysis_type.upper().replace('-', '_').replace(' ', '_')
+        
+        # Check for special context
+        week_id = kwargs.get('week_id')
+        agent = kwargs.get('agent')
+        category = kwargs.get('category')
+        period_label = kwargs.get('period_label')
+        
+        parts = [analysis_type_upper]
+        
+        # Add context-specific parts
+        if week_id:
+            parts.append(f"Week_{week_id}")
+        elif period_label:
+            parts.append(period_label.replace(' ', '_'))
+        
+        if agent:
+            parts.append(agent.title().replace(' ', '_'))
+        
+        if category:
+            parts.append(category.title().replace(' ', '_'))
+        
+        # Add date range
+        parts.append(date_range)
+        
+        # Add timestamp if requested
+        if include_timestamp:
+            parts.append(datetime.now().strftime("%H%M%S"))
+        
+        filename = "_".join(parts) + f".{file_type}"
+        
+        return filename
+        
+    except Exception as e:
+        logger.warning(f"Failed to generate descriptive filename: {e}, using fallback")
+        # Fallback to timestamp-based
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{analysis_type}_{timestamp}.{file_type}"
+

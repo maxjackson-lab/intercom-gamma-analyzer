@@ -685,6 +685,15 @@ VISUAL STYLE:
 - Professional but approachable color scheme
 - Use as many slides as needed to tell the complete story
 
+INTERCOM LINKS - CRITICAL FORMATTING:
+- Every conversation link MUST be visually prominent and clearly clickable
+- Format links as bold, standalone elements: **[📎 View in Intercom →](url)**
+- Place links on their own line, never embedded mid-sentence
+- Use action-oriented link text: "View conversation", "Open in Intercom", "See full thread"
+- Add visual indicators (→, 🔗, 📎) to make links stand out
+- Ensure links are blue/underlined in the final presentation
+- Group multiple links with clear visual separation
+
 AVOID:
 - Corporate jargon and formal language
 - Data dumps without interpretation
@@ -692,6 +701,7 @@ AVOID:
 - Artificial slide limits that cut off important insights
 - DO NOT invent or create fake Intercom conversation URLs
 - Only use conversation links that are explicitly provided in the input data
+- NEVER bury links in paragraphs - they must stand out
 
 GOAL: Create a presentation that executives will actually want to read and that drives meaningful action.""",
             "detailed": """Create a comprehensive operational analysis that helps teams understand what's really happening with customer support.
@@ -715,6 +725,14 @@ VISUAL STYLE:
 - Professional design that accommodates detailed information
 - Visual hierarchy that guides the reader through complex data
 
+INTERCOM LINKS - CRITICAL FORMATTING:
+- Every conversation link MUST be visually prominent and clearly clickable
+- Format links as bold, standalone elements: **[📎 View in Intercom →](url)**
+- Place links on their own line, never embedded mid-sentence
+- Use action-oriented link text: "View conversation", "Open in Intercom", "See full thread"
+- Add visual indicators (→, 🔗, 📎) to make links stand out
+- Ensure links are blue/underlined in the final presentation
+
 IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.""",
             "training": """Create an engaging learning experience that helps support teams improve their skills and understanding.
 
@@ -736,6 +754,14 @@ VISUAL STYLE:
 - Easy to follow learning progression
 - Clear examples and demonstrations
 - Professional but approachable design
+
+INTERCOM LINKS - CRITICAL FORMATTING:
+- Every conversation link MUST be visually prominent and clearly clickable
+- Format links as bold, standalone elements: **[📎 View in Intercom →](url)**
+- Place links on their own line, never embedded mid-sentence
+- Use action-oriented link text: "View conversation", "Open in Intercom", "See full thread"
+- Add visual indicators (→, 🔗, 📎) to make links stand out
+- Ensure links are blue/underlined in the final presentation
 
 IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs."""
         }

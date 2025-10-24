@@ -255,15 +255,18 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         if trend_explanation:
             card += f"\n**Trend Analysis**: {trend_explanation}\n"
         
-        card += "\n**Examples**:\n"
+        card += "\n**Examples**:\n\n"
         
-        # Add examples with validation
+        # Add examples with validation and enhanced link formatting
         if examples and len(examples) > 0:
             for i, example in enumerate(examples, 1):
                 # Defensive read of example fields
                 preview = example.get('preview', 'No preview available') if isinstance(example, dict) else 'Invalid example format'
                 url = example.get('intercom_url', '#') if isinstance(example, dict) else '#'
-                card += f"{i}. \"{preview}\" - [View conversation]({url})\n"
+                
+                # Enhanced format: Quote on one line, prominent link on next line
+                card += f"{i}. \"{preview}\"\n"
+                card += f"   **[📎 View in Intercom →]({url})**\n\n"
         else:
             card += "_No examples available - topic may have low volume or quality conversations_\n"
         

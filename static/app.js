@@ -432,6 +432,9 @@ function startPolling() {
                     const summary = parseAnalysisSummary(fullOutput);
                     showAnalysisSummary(summary);
                     
+                    // Parse and populate tabs
+                    updateAnalysisTabs(fullOutput);
+                    
                 } else {
                     executionStatus.className = 'status-badge failed';
                     executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -810,6 +813,200 @@ function runAnalysis() {
     
     // Execute the command using the existing executeCommand function
     executeCommand(command, args);
+}
+
+// Update analysis tabs with parsed content
+function updateAnalysisTabs(output) {
+    try {
+        // Parse Gamma URL
+        const gammaUrlMatch = output.match(/(?:Gamma URL|📊 Gamma URL):\s*(https:\/\/gamma\.app\/[^\s]+)/i);
+        if (gammaUrlMatch) {
+            const gammaUrl = gammaUrlMatch[1];
+            const gammaContent = document.getElementById('gamma-content');
+            if (gammaContent) {
+                // Parse additional Gamma metadata
+                const creditsMatch = output.match(/(?:Credits used|💳 Credits used):\s*(\d+)/i);
+                const timeMatch = output.match(/(?:Generation time|⏱️\s+Generation time):\s*([\d.]+)s/i);
+                
+                gammaContent.innerHTML = `
+                    <div class="tab-section">
+                        <h3>🎨 Gamma Presentation Generated</h3>
+                        <a href="${gammaUrl}" target="_blank" class="gamma-link-large">
+                            <span class="gamma-icon">📊</span>
+                            <span>Open Gamma Presentation</span>
+                            <span class="arrow">→</span>
+                        </a>
+                        <div class="gamma-meta">
+                            ${creditsMatch ? `<div class="meta-item"><strong>Credits used:</strong> ${creditsMatch[1]}</div>` : ''}
+                            ${timeMatch ? `<div class="meta-item"><strong>Generation time:</strong> ${timeMatch[1]}s</div>` : ''}
+                        </div>
+                        <div class="url-copy">
+                            <code>${gammaUrl}</code>
+                            <button onclick="copyToClipboard('${gammaUrl}')" class="copy-btn">📋 Copy</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Parse Output Files
+        const outputMatches = output.matchAll(/(?:📁|saved to|Report saved|Full results):\s*([^\n]+\.(json|md))/gi);
+        const outputFiles = [];
+        for (const match of outputMatches) {
+            const filePath = match[1].trim();
+            const fileType = match[2].toUpperCase();
+            outputFiles.push({ path: filePath, type: fileType });
+        }
+        
+        if (outputFiles.length > 0) {
+            const outputContent = document.getElementById('output-content');
+            if (outputContent) {
+                // Get the main JSON file (usually the first or most recent)
+                const mainFile = outputFiles.find(f => f.type === 'JSON') || outputFiles[0];
+                const fileName = mainFile.path.split('/').pop();
+                
+                outputContent.innerHTML = `
+                    <div class="tab-section">
+                        <h3>📄 Analysis Results</h3>
+                        <div class="file-primary">
+                            <div class="file-icon">${mainFile.type === 'JSON' ? '📊' : '📝'}</div>
+                            <div class="file-info">
+                                <div class="file-name">${fileName}</div>
+                                <div class="file-path"><code>${mainFile.path}</code></div>
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <button onclick="downloadFile('${mainFile.path}')" class="action-btn primary">
+                                📥 Download ${mainFile.type}
+                            </button>
+                            ${mainFile.type === 'JSON' ? `<button onclick="viewJSON('${mainFile.path}')" class="action-btn secondary">👁️ View Data</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Parse Download Links (all files)
+        const allFileMatches = output.matchAll(/(?:📁|saved|exported|generated).*?:\s*([^\n]+\.(json|md|txt|pdf|csv))/gi);
+        const allFiles = [];
+        for (const match of allFileMatches) {
+            const filePath = match[1].trim();
+            const ext = match[2].toUpperCase();
+            const fileName = filePath.split('/').pop();
+            allFiles.push({ path: filePath, type: ext, name: fileName });
+        }
+        
+        if (allFiles.length > 0) {
+            const downloadContent = document.getElementById('download-content');
+            if (downloadContent) {
+                // Group files by type
+                const filesByType = {
+                    'JSON': allFiles.filter(f => f.type === 'JSON'),
+                    'MD': allFiles.filter(f => f.type === 'MD'),
+                    'TXT': allFiles.filter(f => f.type === 'TXT'),
+                    'PDF': allFiles.filter(f => f.type === 'PDF'),
+                    'CSV': allFiles.filter(f => f.type === 'CSV')
+                };
+                
+                let html = '<div class="tab-section"><h3>📦 All Generated Files</h3>';
+                
+                for (const [type, files] of Object.entries(filesByType)) {
+                    if (files.length > 0) {
+                        html += `<div class="file-group">
+                            <h4 class="file-group-title">${type} Files (${files.length})</h4>
+                            <div class="file-list">`;
+                        
+                        files.forEach(file => {
+                            const icon = type === 'JSON' ? '📊' : type === 'MD' ? '📝' : type === 'TXT' ? '📄' : type === 'PDF' ? '📑' : '📎';
+                            html += `
+                                <div class="download-item">
+                                    <div class="file-details">
+                                        <span class="file-icon-small">${icon}</span>
+                                        <span class="file-name-small">${file.name}</span>
+                                    </div>
+                                    <button onclick="downloadFile('${file.path}')" class="download-btn-small">
+                                        📥 Download
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div></div>';
+                    }
+                }
+                
+                html += '</div>';
+                downloadContent.innerHTML = html;
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error updating analysis tabs:', error);
+    }
+}
+
+// Copy to clipboard helper
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('URL copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy URL');
+    });
+}
+
+// Download file function
+async function downloadFile(filePath) {
+    try {
+        const response = await fetch(`/download?file=${encodeURIComponent(filePath)}`);
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filePath.split('/').pop();
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            alert('Failed to download file');
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        alert('Error downloading file');
+    }
+}
+
+// View JSON file function
+async function viewJSON(filePath) {
+    try {
+        const response = await fetch(`/download?file=${encodeURIComponent(filePath)}`);
+        if (response.ok) {
+            const jsonText = await response.text();
+            const jsonData = JSON.parse(jsonText);
+            
+            // Create modal to display JSON
+            const modal = document.createElement('div');
+            modal.style = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10000;';
+            modal.innerHTML = `
+                <div style="background:#1a1a1a;padding:30px;border-radius:10px;max-width:90%;max-height:90%;overflow:auto;color:#fff;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;">📊 ${filePath.split('/').pop()}</h3>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background:#dc2626;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">Close</button>
+                    </div>
+                    <pre style="background:#0d0d0d;padding:20px;border-radius:6px;overflow:auto;max-height:70vh;"><code>${JSON.stringify(jsonData, null, 2)}</code></pre>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        } else {
+            alert('Failed to load JSON file');
+        }
+    } catch (error) {
+        console.error('View JSON error:', error);
+        alert('Error viewing JSON file');
+    }
 }
 
 // Event listener for custom date inputs
