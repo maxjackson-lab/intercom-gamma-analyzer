@@ -147,12 +147,17 @@ Calculate tier-specific metrics:
                 free_fin_conversations = legacy_conversations
                 self.logger.warning("Using legacy 'fin_conversations' format - consider updating to tier-based format")
 
-            # Check for sub-topic data
+            # Check for sub-topic data (supports both previous_results and metadata pathways)
             subtopics_data = None
             if 'SubTopicDetectionAgent' in context.previous_results:
                 subtopics_data = context.previous_results['SubTopicDetectionAgent'].get('data', {}).get('subtopics_by_tier1_topic')
                 if subtopics_data:
-                    self.logger.info(f"Sub-topic data available: {len(subtopics_data)} Tier 1 topics")
+                    self.logger.info(f"Sub-topic data available (from previous_results): {len(subtopics_data)} Tier 1 topics")
+            # Fallback to metadata if not found in previous_results
+            if not subtopics_data and 'subtopics_by_tier1_topic' in context.metadata:
+                subtopics_data = context.metadata.get('subtopics_by_tier1_topic')
+                if subtopics_data:
+                    self.logger.info(f"Sub-topic data available (from metadata): {len(subtopics_data)} Tier 1 topics")
 
             total_free = len(free_fin_conversations)
             total_paid = len(paid_fin_conversations)

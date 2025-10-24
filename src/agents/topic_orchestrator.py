@@ -16,6 +16,7 @@ from datetime import datetime
 from src.agents.base_agent import AgentContext
 from src.agents.segmentation_agent import SegmentationAgent
 from src.agents.topic_detection_agent import TopicDetectionAgent
+from src.agents.subtopic_detection_agent import SubTopicDetectionAgent
 from src.agents.topic_sentiment_agent import TopicSentimentAgent
 from src.agents.example_extraction_agent import ExampleExtractionAgent
 from src.agents.fin_performance_agent import FinPerformanceAgent
@@ -33,6 +34,7 @@ class TopicOrchestrator:
     def __init__(self):
         self.segmentation_agent = SegmentationAgent()
         self.topic_detection_agent = TopicDetectionAgent()
+        self.subtopic_detection_agent = SubTopicDetectionAgent()
         self.topic_sentiment_agent = TopicSentimentAgent()
         self.example_extraction_agent = ExampleExtractionAgent()
         self.fin_performance_agent = FinPerformanceAgent()
@@ -126,6 +128,43 @@ class TopicOrchestrator:
             
             topic_dist = topic_detection_result.data.get('topic_distribution', {})
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics")
+            
+            # Restore original conversation list for future phases
+            context.conversations = conversations
+            
+            # PHASE 2.5: Sub-Topic Detection
+            self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")
+            subtopics_data = {}
+            subtopic_detection_result = None
+            subtopic_start_time = datetime.now()
+            try:
+                subtopic_context = context.model_copy()
+                subtopic_context.previous_results = {
+                    'TopicDetectionAgent': topic_detection_result.dict()
+                }
+                subtopic_context.conversations = paid_conversations
+                
+                subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
+                workflow_results['SubTopicDetectionAgent'] = subtopic_detection_result.dict()
+                
+                # Display agent result
+                display.display_agent_result('SubTopicDetectionAgent', subtopic_detection_result.dict(), show_full_data)
+                
+                subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
+                self.logger.info(f"   ✅ Detected sub-topics for {len(subtopics_data)} Tier 1 topics")
+            except Exception as e:
+                self.logger.error(f"   ❌ SubTopicDetectionAgent failed: {e}", exc_info=True)
+                subtopics_data = {}
+                # Record failed result for metrics and visibility
+                subtopic_execution_time = (datetime.now() - subtopic_start_time).total_seconds()
+                workflow_results['SubTopicDetectionAgent'] = {
+                    'agent_name': 'SubTopicDetectionAgent',
+                    'success': False,
+                    'error_message': str(e),
+                    'execution_time': subtopic_execution_time,
+                    'confidence': 0.0,
+                    'data': {}
+                }
             
             # PHASE 3: Analyze each topic
             self.logger.info("💭 Phase 3: Per-Topic Analysis")
@@ -242,7 +281,13 @@ class TopicOrchestrator:
             fin_context.metadata = {
                 'free_fin_conversations': free_fin_only_conversations,
                 'paid_fin_conversations': paid_fin_resolved_conversations,
-                'week_id': week_id
+                'week_id': week_id,
+                'subtopics_by_tier1_topic': subtopics_data
+            }
+            # Pass sub-topic data via previous_results for compatibility
+            fin_context.previous_results = {
+                'SubTopicDetectionAgent': subtopic_detection_result.dict() if subtopic_detection_result and subtopic_detection_result.success else {},
+                'TopicDetectionAgent': topic_detection_result.dict()
             }
             fin_result = await self.fin_performance_agent.execute(fin_context)
             workflow_results['FinPerformanceAgent'] = fin_result.dict()
@@ -273,9 +318,12 @@ class TopicOrchestrator:
             # PHASE 6: Format Output
             self.logger.info("📝 Phase 6: Output Formatting")
             output_context = context.model_copy()
+            # Ensure OutputFormatterAgent receives full conversation set
+            output_context.conversations = conversations
             output_context.previous_results = {
                 'SegmentationAgent': segmentation_result.dict(),
                 'TopicDetectionAgent': topic_detection_result.dict(),
+                'SubTopicDetectionAgent': subtopic_detection_result.dict() if subtopic_detection_result and subtopic_detection_result.success else {},
                 'TopicSentiments': topic_sentiments,  # Already dict
                 'TopicExamples': topic_examples,  # Already dict
                 'FinPerformanceAgent': fin_result.dict(),
@@ -313,6 +361,7 @@ class TopicOrchestrator:
                     'paid_fin_resolved_conversations': len(paid_fin_resolved_conversations),
                     'free_fin_only_conversations': len(free_fin_only_conversations),
                     'topics_analyzed': len(topic_dist),
+                    'subtopics_analyzed': len(subtopics_data) if 'subtopics_data' in locals() else 0,
                     'total_execution_time': total_time,
                     'agents_completed': len(workflow_results)
                 },
@@ -387,6 +436,26 @@ class TopicOrchestrator:
                 metrics['llm_stats']['total_calls'] += 1
                 metrics['llm_stats']['total_tokens'] += token_count
         
+        # Aggregate sub-topic statistics if available
+        if 'SubTopicDetectionAgent' in workflow_results:
+            subtopic_result = workflow_results['SubTopicDetectionAgent']
+            if subtopic_result.get('success', False):
+                subtopics_by_tier1 = subtopic_result.get('data', {}).get('subtopics_by_tier1_topic', {})
+                
+                total_tier2 = 0
+                total_tier3 = 0
+                for topic_name, topic_data in subtopics_by_tier1.items():
+                    tier2_subtopics = topic_data.get('tier2', {})
+                    tier3_themes = topic_data.get('tier3', {})
+                    total_tier2 += len(tier2_subtopics)
+                    total_tier3 += len(tier3_themes)
+                
+                metrics['subtopic_stats'] = {
+                    'tier1_topics_analyzed': len(subtopics_by_tier1),
+                    'tier2_subtopics_found': total_tier2,
+                    'tier3_themes_discovered': total_tier3
+                }
+        
         # Aggregate per-topic metrics
         for topic_name, sentiment_result in topic_sentiments.items():
             examples_result = topic_examples.get(topic_name, {})
@@ -420,6 +489,7 @@ class TopicOrchestrator:
         metrics['phase_breakdown'] = {
             'segmentation': metrics['agent_timings'].get('SegmentationAgent', {}).get('execution_time', 0),
             'topic_detection': metrics['agent_timings'].get('TopicDetectionAgent', {}).get('execution_time', 0),
+            'subtopic_detection': metrics['agent_timings'].get('SubTopicDetectionAgent', {}).get('execution_time', 0),
             'per_topic_analysis': sum(m['total_time'] for m in metrics['per_topic_metrics'].values()),
             'fin_analysis': metrics['agent_timings'].get('FinPerformanceAgent', {}).get('execution_time', 0),
             'trend_analysis': metrics['agent_timings'].get('TrendAgent', {}).get('execution_time', 0),
@@ -432,6 +502,10 @@ class TopicOrchestrator:
         self.logger.info(f"   Topics processed: {metrics['overall_stats']['topics_processed']}")
         self.logger.info(f"   Examples selected: {metrics['overall_stats']['examples_selected']}")
         self.logger.info(f"   Errors: {metrics['overall_stats']['errors']}")
+        
+        # Log sub-topic stats if available
+        if 'subtopic_stats' in metrics:
+            self.logger.info(f"   Sub-topics: Tier 2={metrics['subtopic_stats']['tier2_subtopics_found']}, Tier 3={metrics['subtopic_stats']['tier3_themes_discovered']}")
         
         return metrics
 
