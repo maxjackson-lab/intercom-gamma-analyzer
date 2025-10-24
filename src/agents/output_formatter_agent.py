@@ -114,17 +114,47 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append(header_title)
             output_sections.append("")
             
+            # Executive Summary Section
+            output_sections.append("## Executive Summary")
+            output_sections.append("")
+            
+            # Get total counts from segmentation
+            seg_summary = segmentation.get('segmentation_summary', {})
+            total_convs = len(context.conversations) if context.conversations else 0
+            paid_count = seg_summary.get('paid_count', 0)
+            free_count = seg_summary.get('free_count', 0)
+            
+            output_sections.append(f"**Total Interactions**: {total_convs:,} conversations analyzed")
+            output_sections.append(f"**Customer Breakdown**:")
+            output_sections.append(f"- Paid Customers (Human Support): {paid_count:,} ({seg_summary.get('paid_percentage', 0):.1f}%)")
+            output_sections.append(f"- Free Customers (AI-Only): {free_count:,} ({seg_summary.get('free_percentage', 0):.1f}%)")
+            output_sections.append("")
+            
+            # Topics summary
+            output_sections.append(f"**Topics Identified**: {len(topic_dist)} categories")
+            if len(topic_dist) > 0:
+                top_3_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:3]
+                output_sections.append(f"**Top Issues**:")
+                for topic_name, topic_stats in top_3_topics:
+                    volume = topic_stats['volume']
+                    pct = topic_stats['percentage']
+                    output_sections.append(f"- {topic_name}: {volume:,} conversations ({pct:.1f}%)")
+            output_sections.append("")
+            
             # Add language breakdown if available
             lang_dist = segmentation.get('language_distribution', {})
             if lang_dist:
                 total_langs = segmentation.get('total_languages', len(lang_dist))
-                output_sections.append(f"**Languages Represented**: {total_langs} languages")
+                output_sections.append(f"**Languages**: {total_langs} languages represented")
                 
                 # Show top 5 languages
                 top_langs = list(lang_dist.items())[:5]
                 lang_summary = ", ".join([f"{lang} ({count})" for lang, count in top_langs])
-                output_sections.append(f"**Top Languages**: {lang_summary}")
+                output_sections.append(f"**Primary Languages**: {lang_summary}")
                 output_sections.append("")
+            
+            output_sections.append("---")
+            output_sections.append("")
             
             # Section 1: Voice of Customer (Paid Customers)
             output_sections.append("## Customer Topics (Paid Tier - Human Support)")
