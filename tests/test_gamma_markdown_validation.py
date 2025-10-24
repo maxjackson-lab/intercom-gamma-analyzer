@@ -192,7 +192,7 @@ More content
 
 class TestVoCSpecificValidation:
     """Test VoC-specific validation."""
-    
+
     def test_validate_voc_results_structure(self):
         """Test validation handles VoC results structure."""
         # VoC results with proper structure
@@ -203,26 +203,26 @@ class TestVoCSpecificValidation:
                 'topics_analyzed': 5
             }
         }
-        
+
         assert 'formatted_report' in voc_results
         assert 'summary' in voc_results
-        
+
         # Standard analysis results (different structure)
         standard_results = {
             'conversations': [],
             'analysis': {}
         }
-        
+
         assert 'conversations' in standard_results
-        
+
         # Invalid results (missing both)
         invalid_results = {
             'data': []
         }
-        
+
         assert 'formatted_report' not in invalid_results
         assert 'conversations' not in invalid_results
-    
+
     def test_validate_voc_metadata(self):
         """Test validation uses VoC metadata."""
         results_with_metadata = {
@@ -231,19 +231,156 @@ class TestVoCSpecificValidation:
                 'date_range': '2024-10-01 to 2024-10-31'
             }
         }
-        
+
         assert 'metadata' in results_with_metadata
         assert results_with_metadata['metadata']['total_conversations'] == 150
-        
+
         # Results without metadata should still work
         results_without_metadata = {
             'summary': {
                 'total_conversations': 150
             }
         }
-        
+
         assert 'metadata' not in results_without_metadata
         assert 'summary' in results_without_metadata
+
+    def test_voc_validation_missing_results_dict(self):
+        """Test VoC validation rejects missing results dictionary."""
+        gamma_generator = GammaGenerator()
+
+        # VoC results missing 'results' key
+        voc_results = {
+            'metadata': {'total_conversations': 100}
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, voc_results, mode='voc')
+
+        assert any("results" in error.lower() for error in errors)
+
+    def test_voc_validation_zero_volume(self):
+        """Test VoC validation rejects zero conversation volume."""
+        gamma_generator = GammaGenerator()
+
+        # VoC results with zero volume
+        voc_results = {
+            'results': {
+                'billing': {'volume': 0},
+                'support': {'volume': 0}
+            },
+            'metadata': {'total_conversations': 0}
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, voc_results, mode='voc')
+
+        assert any("zero" in error.lower() and "volume" in error.lower() for error in errors)
+
+    def test_voc_validation_valid_structure(self):
+        """Test VoC validation passes for valid structure."""
+        gamma_generator = GammaGenerator()
+
+        # Valid VoC results
+        voc_results = {
+            'results': {
+                'billing': {'volume': 50, 'sentiment_breakdown': {}},
+                'support': {'volume': 30, 'sentiment_breakdown': {}}
+            },
+            'metadata': {'total_conversations': 80}
+        }
+
+        input_text = "# Executive Summary\n\n## Analysis\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, voc_results, mode='voc')
+
+        # Should have no critical errors
+        assert len(errors) == 0
+
+
+class TestCannySpecificValidation:
+    """Test Canny-specific validation."""
+
+    def test_canny_validation_zero_posts(self):
+        """Test Canny validation rejects zero posts analyzed."""
+        gamma_generator = GammaGenerator()
+
+        canny_results = {
+            'posts_analyzed': 0,
+            'sentiment_summary': {},
+            'status_breakdown': {},
+            'top_requests': []
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, canny_results, mode='canny')
+
+        assert any("zero posts" in error.lower() for error in errors)
+
+    def test_canny_validation_missing_sentiment(self):
+        """Test Canny validation rejects missing sentiment_summary."""
+        gamma_generator = GammaGenerator()
+
+        canny_results = {
+            'posts_analyzed': 50,
+            'status_breakdown': {},
+            'top_requests': [{'title': 'Feature X', 'votes': 100}]
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, canny_results, mode='canny')
+
+        assert any("sentiment_summary" in error for error in errors)
+
+    def test_canny_validation_missing_status_breakdown(self):
+        """Test Canny validation rejects missing status_breakdown."""
+        gamma_generator = GammaGenerator()
+
+        canny_results = {
+            'posts_analyzed': 50,
+            'sentiment_summary': {'positive': 30},
+            'top_requests': [{'title': 'Feature X', 'votes': 100}]
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, canny_results, mode='canny')
+
+        assert any("status_breakdown" in error for error in errors)
+
+    def test_canny_validation_posts_but_no_top_requests(self):
+        """Test Canny validation rejects posts without top_requests."""
+        gamma_generator = GammaGenerator()
+
+        canny_results = {
+            'posts_analyzed': 50,
+            'sentiment_summary': {'positive': 30},
+            'status_breakdown': {'open': 20, 'in_progress': 10},
+            'top_requests': []
+        }
+
+        input_text = "# Executive Summary\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, canny_results, mode='canny')
+
+        assert any("top_requests" in error for error in errors)
+
+    def test_canny_validation_valid_structure(self):
+        """Test Canny validation passes for valid structure."""
+        gamma_generator = GammaGenerator()
+
+        canny_results = {
+            'posts_analyzed': 50,
+            'sentiment_summary': {'positive': 30, 'neutral': 15, 'negative': 5},
+            'status_breakdown': {'open': 20, 'in_progress': 15, 'closed': 15},
+            'top_requests': [
+                {'title': 'Feature X', 'votes': 100},
+                {'title': 'Feature Y', 'votes': 80}
+            ]
+        }
+
+        input_text = "# Executive Summary\n\n## Analysis\n\n" + "x" * 200
+        errors = gamma_generator._validate_gamma_input(input_text, canny_results, mode='canny')
+
+        # Should have no critical errors
+        assert len(errors) == 0
 
 
 class TestEdgeCases:

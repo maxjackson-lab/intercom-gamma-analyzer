@@ -207,13 +207,13 @@ class GammaGenerator:
     ) -> Dict[str, Any]:
         """
         Generate a Gamma presentation from markdown text, preserving formatting.
-        
+
         This method bypasses category_results validation and uses:
         - textMode="preserve" to keep markdown formatting
         - cardSplit="inputTextBreaks" to respect --- breaks
-        
+
         Ideal for topic-based Hilary format output.
-        
+
         Args:
             input_text: Markdown text (1-750,000 characters)
             title: Optional presentation title
@@ -221,10 +221,10 @@ class GammaGenerator:
             theme_name: Gamma theme name (e.g., "Night Sky")
             export_format: Export format ("pdf" or "pptx")
             output_dir: Output directory for saving results
-            
+
         Returns:
             Dictionary with gamma_url, generation_id, and metadata
-            
+
         Raises:
             GammaAPIError: If generation fails
         """
@@ -235,13 +235,19 @@ class GammaGenerator:
             theme=theme_name,
             export_format=export_format
         )
-        
+
         start_time = time.time()
-        
+
         try:
             # Validate input text length
             if len(input_text) < 1 or len(input_text) > 750000:
                 raise ValueError(f"Input text must be 1-750,000 characters, got {len(input_text)}")
+
+            # Validate Hilary markdown format
+            hilary_validation_errors = self._validate_hilary_markdown(input_text)
+            if hilary_validation_errors:
+                self.logger.error(f"Hilary markdown validation failed: {hilary_validation_errors}")
+                raise ValueError(f"Hilary markdown validation failed: {'; '.join(hilary_validation_errors)}")
             
             # Add title if provided
             if title and not input_text.startswith(f"# {title}"):
@@ -463,12 +469,10 @@ class GammaGenerator:
             input_text = self.builder.build_voc_narrative_content(voc_results, style, period_type)
             
             # Validate input before sending to Gamma
-            validation_errors = self._validate_gamma_input(input_text, voc_results)
+            validation_errors = self._validate_gamma_input(input_text, voc_results, mode='voc')
             if validation_errors:
-                self.logger.warning(f"Gamma input validation warnings: {validation_errors}")
-                # Temporarily disable validation to allow Gamma generation
-                # TODO: Fix validation logic bug
-                # raise ValueError(f"Gamma input validation failed: {'; '.join(validation_errors)}")
+                self.logger.error(f"Gamma input validation failed: {validation_errors}")
+                raise ValueError(f"Gamma input validation failed: {'; '.join(validation_errors)}")
             
             # Get style-specific parameters
             num_cards = self.prompts.get_slide_count_for_style(style)
@@ -486,13 +490,16 @@ class GammaGenerator:
             
             # Poll for completion
             result = await self.client.poll_generation(generation_id)
-            
+
+            elapsed = time.time() - start_time
+
             # Prepare response
             response = {
                 'gamma_url': result.get('gammaUrl'),
                 'generation_id': generation_id,
                 'export_url': result.get('exportUrl'),
                 'credits_used': result.get('credits', {}).get('deducted', 0),
+                'generation_time_seconds': elapsed,
                 'style': style,
                 'export_format': export_format,
                 'slide_count': num_cards,
@@ -608,12 +615,10 @@ class GammaGenerator:
             input_text = self.builder.build_canny_narrative_content(canny_results, style, period_type)
             
             # Validate input before sending to Gamma
-            validation_errors = self._validate_gamma_input(input_text, canny_results)
+            validation_errors = self._validate_gamma_input(input_text, canny_results, mode='canny')
             if validation_errors:
-                self.logger.warning(f"Gamma input validation warnings: {validation_errors}")
-                # Skip validation for Canny results as they have different structure
-                # TODO: Create Canny-specific validation
-                # raise ValueError(f"Gamma input validation failed: {'; '.join(validation_errors)}")
+                self.logger.error(f"Gamma input validation failed: {validation_errors}")
+                raise ValueError(f"Gamma input validation failed: {'; '.join(validation_errors)}")
             
             # Get style-specific parameters
             num_cards = self.prompts.get_slide_count_for_style(style)
@@ -631,13 +636,16 @@ class GammaGenerator:
             
             # Poll for completion
             result = await self.client.poll_generation(generation_id)
-            
+
+            elapsed = time.time() - start_time
+
             # Prepare response
             response = {
                 'gamma_url': result.get('gammaUrl'),
                 'generation_id': generation_id,
                 'export_url': result.get('exportUrl'),
                 'credits_used': result.get('credits', {}).get('deducted', 0),
+                'generation_time_seconds': elapsed,
                 'style': style,
                 'export_format': export_format,
                 'slide_count': num_cards,
@@ -827,84 +835,200 @@ class GammaGenerator:
                 'failed_styles': [r.get('style', 'unknown') for r in failed]
             }
 
-    def _validate_gamma_input(self, input_text: str, analysis_results: Dict) -> List[str]:
-        """Validate input before sending to Gamma API."""
+    def _validate_gamma_input(self, input_text: str, analysis_results: Dict, mode: str = 'hilary') -> List[str]:
+        """
+        Validate input before sending to Gamma API.
+
+        Args:
+            input_text: The generated markdown text
+            analysis_results: Original analysis results
+            mode: Validation mode - 'hilary' (topic orchestrator), 'voc', or 'canny'
+
+        Returns:
+            List of validation error strings (empty if valid)
+        """
         validation_errors = []
-        
-        # Check 1: Character limit
+
+        # Critical Check 1: Character limit (strict)
         if len(input_text) < 1:
             validation_errors.append("Input text is empty")
         elif len(input_text) > 750000:
             validation_errors.append(f"Input text too long: {len(input_text)} chars (max 750,000)")
-        
-        # Detect if this is topic-based orchestrator output (preformatted markdown)
-        # Topic-based output has a different structure with agent_results, formatted_report, etc.
+
+        # Critical Check 2: Minimum content quality (strict)
+        if len(input_text) < 200:
+            validation_errors.append("Input text too short for meaningful presentation (minimum 200 characters)")
+
+        # Mode-specific validation
+        if mode == 'hilary':
+            return self._validate_hilary_input(input_text, analysis_results, validation_errors)
+        elif mode == 'voc':
+            return self._validate_voc_input(input_text, analysis_results, validation_errors)
+        elif mode == 'canny':
+            return self._validate_canny_input(input_text, analysis_results, validation_errors)
+        else:
+            validation_errors.append(f"Unknown validation mode: {mode}")
+            return validation_errors
+
+    def _validate_hilary_input(self, input_text: str, analysis_results: Dict, validation_errors: List[str]) -> List[str]:
+        """Validate Hilary markdown (topic orchestrator) input."""
+        # Detect if this is topic-based orchestrator output
         is_topic_based = (
             'formatted_report' in analysis_results or
             'agent_results' in analysis_results or
             ('summary' in analysis_results and 'topics_analyzed' in analysis_results.get('summary', {}))
         )
-        
-        # Check 2: Required sections (flexible matching)
+
+        # Check required sections
         required_sections = ["Executive Summary"]
         optional_sections = ["Analysis", "Recommendations", "Immediate Actions", "Next Steps", "Critical Insights"]
-        
+
         for section in required_sections:
             if section not in input_text:
                 validation_errors.append(f"Missing required section: {section}")
-        
-        # Check if at least one optional section is present
+
+        # Check if at least one optional section is present (warning only)
         has_optional_section = any(section in input_text for section in optional_sections)
         if not has_optional_section:
-            validation_errors.append(f"Missing any of these sections: {', '.join(optional_sections)}")
-        
-        # Check 3: Data presence (flexible for different analysis types)
-        # For VoC analysis, check for results structure
-        if 'results' in analysis_results:
-            # VoC analysis structure
-            total_volume = sum(
-                category_data.get('volume', 0) 
-                for category_data in analysis_results['results'].values()
-                if isinstance(category_data, dict)
-            )
-            if total_volume == 0:
-                validation_errors.append("No category analysis results available")
-        elif 'conversations' in analysis_results:
-            # Standard analysis structure
-            conversation_count = len(analysis_results.get('conversations', []))
-            if conversation_count == 0:
-                validation_errors.append("No conversations provided for analysis")
-        elif 'metadata' in analysis_results and 'total_conversations' in analysis_results.get('metadata', {}):
-            # Alternative VoC structure with metadata
-            total_conversations = analysis_results['metadata']['total_conversations']
-            if total_conversations == 0:
-                validation_errors.append("No conversations found in metadata")
-        elif is_topic_based:
-            # Topic-based orchestrator output - check summary for conversation counts
+            self.logger.warning(f"No optional sections found: {', '.join(optional_sections)}")
+
+        # Check data presence
+        if is_topic_based:
             summary = analysis_results.get('summary', {})
             total_conversations = summary.get('total_conversations', 0)
             if total_conversations == 0:
                 validation_errors.append("No conversations found in topic-based summary")
-        else:
-            # Skip validation if we can't determine the structure
-            pass
-        
-        # Check 4: Intercom URL format
+        elif 'conversations' in analysis_results:
+            conversation_count = len(analysis_results.get('conversations', []))
+            if conversation_count == 0:
+                validation_errors.append("No conversations provided for analysis")
+
+        # Check Intercom URL format (warning only)
         if 'intercom.com' in input_text:
             import re
             urls = re.findall(r'https://app\.intercom\.com/\S+', input_text)
             if not urls:
-                validation_errors.append("Intercom URLs may be malformed")
-        
-        # Check 5: Category data presence
-        # Skip this check for topic-based orchestrator output (preformatted markdown)
+                self.logger.warning("Intercom URLs may be malformed")
+
+        # Check category data presence (skip for topic-based)
         if not is_topic_based:
             category_results = analysis_results.get('category_results', {})
             if not category_results:
-                validation_errors.append("No category analysis results available")
-        
-        # Check 6: Minimum content quality
-        if len(input_text) < 200:
-            validation_errors.append("Input text too short for meaningful presentation")
-        
+                self.logger.warning("No category analysis results available")
+
         return validation_errors
+
+    def _validate_voc_input(self, input_text: str, analysis_results: Dict, validation_errors: List[str]) -> List[str]:
+        """Validate VoC analysis input."""
+        # Critical: Check for results structure
+        if 'results' not in analysis_results:
+            validation_errors.append("VoC results missing 'results' dictionary")
+            return validation_errors
+
+        # Critical: Check total volume
+        total_volume = sum(
+            category_data.get('volume', 0)
+            for category_data in analysis_results['results'].values()
+            if isinstance(category_data, dict)
+        )
+        if total_volume == 0:
+            validation_errors.append("No conversations in VoC results (zero volume across all categories)")
+
+        # Critical: Check metadata
+        metadata = analysis_results.get('metadata', {})
+        total_conversations = metadata.get('total_conversations', 0)
+        if total_conversations == 0:
+            validation_errors.append("VoC metadata shows zero conversations")
+
+        # Optional: Check for required sections (warning only)
+        required_sections = ["Executive Summary", "Analysis"]
+        for section in required_sections:
+            if section not in input_text:
+                self.logger.warning(f"VoC input missing optional section: {section}")
+
+        return validation_errors
+
+    def _validate_canny_input(self, input_text: str, analysis_results: Dict, validation_errors: List[str]) -> List[str]:
+        """Validate Canny analysis input."""
+        # Critical: Check posts_analyzed
+        posts_analyzed = analysis_results.get('posts_analyzed', 0)
+        if posts_analyzed == 0:
+            validation_errors.append("Canny analysis has zero posts analyzed")
+
+        # Critical: Check sentiment_summary exists
+        if 'sentiment_summary' not in analysis_results:
+            validation_errors.append("Canny results missing 'sentiment_summary'")
+
+        # Critical: Check status_breakdown present
+        if 'status_breakdown' not in analysis_results:
+            validation_errors.append("Canny results missing 'status_breakdown'")
+
+        # Critical: Check top_requests non-empty when posts > 0
+        if posts_analyzed > 0:
+            top_requests = analysis_results.get('top_requests', [])
+            if not top_requests:
+                validation_errors.append("Canny analysis has posts but no top_requests")
+
+        # Optional: Check for required sections (warning only)
+        required_sections = ["Executive Summary", "Analysis"]
+        for section in required_sections:
+            if section not in input_text:
+                self.logger.warning(f"Canny input missing optional section: {section}")
+
+        return validation_errors
+
+    def _validate_hilary_markdown(self, markdown: str) -> List[str]:
+        """
+        Validate Hilary markdown formatting contract.
+
+        Checks:
+        - Slide break presence (---)
+        - Card headers (###)
+        - Well-formed Intercom URLs for examples
+        - Expected structure for topic cards
+
+        Args:
+            markdown: The formatted markdown text
+
+        Returns:
+            List of validation errors (empty if valid)
+        """
+        import re
+
+        errors = []
+
+        # Check for slide breaks
+        slide_breaks = markdown.count('\n---\n')
+        if slide_breaks == 0:
+            errors.append("No slide breaks (---) found in markdown")
+
+        # Check for card headers (### for topics)
+        card_headers = len(re.findall(r'\n###\s+\w', markdown))
+        if card_headers == 0:
+            errors.append("No card headers (###) found in markdown")
+
+        # Check Intercom URL format when examples are present
+        if '**Examples**:' in markdown or 'View conversation' in markdown:
+            # Look for Intercom URLs
+            intercom_urls = re.findall(r'https://app\.intercom\.com/a/[^\s\)]+', markdown)
+
+            # Check format of found URLs
+            for url in intercom_urls:
+                if '/inbox/inbox/conv_' not in url:
+                    errors.append(f"Malformed Intercom URL found: {url[:50]}...")
+
+            # Warn if examples mentioned but no URLs found
+            if '**Examples**:' in markdown and len(intercom_urls) == 0:
+                self.logger.warning("Examples section found but no Intercom URLs present")
+
+        # Check for minimum expected structure in topic cards
+        if '###' in markdown:
+            # Should have volume indicators
+            if 'tickets' not in markdown.lower() and 'conversations' not in markdown.lower():
+                self.logger.warning("Topic cards may be missing volume indicators")
+
+            # Should have sentiment indicators
+            if '**Sentiment**:' not in markdown:
+                self.logger.warning("Topic cards may be missing sentiment sections")
+
+        return errors

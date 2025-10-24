@@ -626,15 +626,38 @@ Practice: Show empathy, escalate appropriately, ensure follow-up"""
     
     @staticmethod
     def get_slide_count_for_style(style: str) -> int:
-        """Get recommended slide count for each presentation style."""
-        # Remove artificial limits - let Gamma use as many slides as needed
-        # Gamma API allows up to 75 slides for Ultra plan
-        slide_counts = {
-            "executive": 25,  # Increased from 10 - allow comprehensive executive briefings
-            "detailed": 50,   # Increased from 18 - allow thorough operational analysis
-            "training": 30    # Increased from 13 - allow complete training materials
+        """
+        Get recommended slide count for each presentation style.
+
+        Defaults are set to practical limits that balance comprehensiveness with Gamma credits.
+        Can be overridden via environment variables or settings.
+        """
+        import os
+        from src.config.settings import settings
+
+        # Practical defaults that balance detail with credits
+        default_counts = {
+            "executive": 12,   # 10-12 slides for high-level executive briefings
+            "detailed": 18,    # 18-20 slides for thorough operational analysis
+            "training": 14     # 12-15 slides for comprehensive training materials
         }
-        return slide_counts.get(style, 25)  # Default to 25 instead of 10
+
+        # Check for environment override (e.g., GAMMA_SLIDES_EXECUTIVE=15)
+        env_key = f"GAMMA_SLIDES_{style.upper()}"
+        env_override = os.getenv(env_key)
+        if env_override:
+            try:
+                return int(env_override)
+            except ValueError:
+                pass
+
+        # Check settings override
+        if hasattr(settings, 'gamma_slide_counts'):
+            counts = getattr(settings, 'gamma_slide_counts', {})
+            if style in counts:
+                return counts[style]
+
+        return default_counts.get(style, 12)
     
     @staticmethod
     def get_additional_instructions_for_style(style: str) -> str:
