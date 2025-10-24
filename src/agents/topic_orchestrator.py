@@ -98,9 +98,11 @@ class TopicOrchestrator:
             workflow_results['SegmentationAgent'] = segmentation_result.dict()
             
             paid_conversations = segmentation_result.data.get('paid_customer_conversations', [])
-            free_conversations = segmentation_result.data.get('free_customer_conversations', [])
-            
-            self.logger.info(f"   ✅ Paid: {len(paid_conversations)}, Free: {len(free_conversations)}")
+            free_fin_only_conversations = segmentation_result.data.get('free_fin_only_conversations', [])
+            paid_fin_resolved_conversations = segmentation_result.data.get('paid_fin_resolved_conversations', [])
+
+            self.logger.info(f"   ✅ Paid: {len(paid_conversations)} (Human: {len(paid_conversations) - len(paid_fin_resolved_conversations)}, Fin-resolved: {len(paid_fin_resolved_conversations)})")
+            self.logger.info(f"   ✅ Free (Fin-only): {len(free_fin_only_conversations)}")
             
             # PHASE 2: Detect topics (on paid conversations)
             self.logger.info("🏷️  Phase 2: Topic Detection")
@@ -220,13 +222,17 @@ class TopicOrchestrator:
                     'examples_count': len(examples_result.data.get('examples', []))
                 }
             
-            # PHASE 4: Fin Analysis (on free conversations)
+            # PHASE 4: Fin Analysis (on free and paid fin-resolved conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
             fin_context = context.model_copy()
-            fin_context.metadata = {'fin_conversations': free_conversations}
+            fin_context.metadata = {
+                'free_fin_conversations': free_fin_only_conversations,
+                'paid_fin_conversations': paid_fin_resolved_conversations,
+                'week_id': week_id
+            }
             fin_result = await self.fin_performance_agent.execute(fin_context)
             workflow_results['FinPerformanceAgent'] = fin_result.dict()
-            
+
             self.logger.info(f"   ✅ Fin analysis complete")
             
             # PHASE 5: Trend Analysis
@@ -280,7 +286,9 @@ class TopicOrchestrator:
                 'summary': {
                     'total_conversations': len(conversations),
                     'paid_conversations': len(paid_conversations),
-                    'free_conversations': len(free_conversations),
+                    'paid_human_conversations': len(paid_conversations) - len(paid_fin_resolved_conversations),
+                    'paid_fin_resolved_conversations': len(paid_fin_resolved_conversations),
+                    'free_fin_only_conversations': len(free_fin_only_conversations),
                     'topics_analyzed': len(topic_dist),
                     'total_execution_time': total_time,
                     'agents_completed': len(workflow_results)
@@ -290,7 +298,7 @@ class TopicOrchestrator:
             }
             
             self.logger.info(f"🎉 TopicOrchestrator: Complete in {total_time:.1f}s")
-            self.logger.info(f"   Topics: {len(topic_dist)}, Paid: {len(paid_conversations)}, Free: {len(free_conversations)}")
+            self.logger.info(f"   Topics: {len(topic_dist)}, Paid: {len(paid_conversations)}, Free: {len(free_fin_only_conversations)}")
             
             return final_output
             

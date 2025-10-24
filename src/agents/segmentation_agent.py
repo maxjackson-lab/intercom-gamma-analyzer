@@ -153,7 +153,7 @@ Output: Segmented conversations with agent type labels
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
         """Validate segmentation results"""
-        required_keys = ['paid_customer_conversations', 'free_customer_conversations']
+        required_keys = ['paid_customer_conversations', 'paid_fin_resolved_conversations', 'free_fin_only_conversations']
         for key in required_keys:
             if key not in result:
                 self.logger.warning(f"Missing key: {key}")
@@ -201,12 +201,47 @@ Output: Segmented conversations with agent type labels
                 
                 agent_distribution[agent_type].append(conv)
 
-            # Tier distribution tracking
+            # Tier distribution tracking and tier data quality
             tier_distribution = {'free': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
+            defaulted_tier_count = 0
+
             for conv in conversations:
                 tier = self._extract_customer_tier(conv)
                 if tier == CustomerTier.FREE:
                     tier_distribution['free'] += 1
+
+                    # Check if tier was defaulted (missing from all sources)
+                    # Check pre-validated tier
+                    has_tier = isinstance(conv.get('tier'), CustomerTier)
+                    # Check top-level string tier - must match a valid CustomerTier enum value
+                    if not has_tier:
+                        top_tier = conv.get('tier')
+                        if top_tier and isinstance(top_tier, str) and top_tier.strip():
+                            tier_string_lower = top_tier.strip().lower()
+                            has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
+                    # Check contact-level custom attributes - must match a valid CustomerTier enum value
+                    if not has_tier:
+                        contacts_data = conv.get('contacts', {})
+                        if contacts_data and isinstance(contacts_data, dict):
+                            contacts_list = contacts_data.get('contacts', [])
+                            if contacts_list and len(contacts_list) > 0:
+                                contact = contacts_list[0]
+                                custom_attrs = contact.get('custom_attributes', {})
+                                contact_tier = custom_attrs.get('tier')
+                                if contact_tier and isinstance(contact_tier, str) and contact_tier.strip():
+                                    tier_string_lower = contact_tier.strip().lower()
+                                    has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
+                    # Check conversation-level custom attributes - must match a valid CustomerTier enum value
+                    if not has_tier:
+                        custom_attrs = conv.get('custom_attributes', {})
+                        conv_tier = custom_attrs.get('tier')
+                        if conv_tier and isinstance(conv_tier, str) and conv_tier.strip():
+                            tier_string_lower = conv_tier.strip().lower()
+                            has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
+
+                    if not has_tier:
+                        defaulted_tier_count += 1
+
                 elif tier == CustomerTier.PRO:
                     tier_distribution['pro'] += 1
                 elif tier == CustomerTier.PLUS:
@@ -232,45 +267,99 @@ Output: Segmented conversations with agent type labels
                     f"Ultra: {tier_distribution['ultra']} ({ultra_pct}%)"
                 )
 
+            # Extract paid_fin_resolved conversations (paid customers resolved by Fin only)
+            paid_fin_resolved_conversations = agent_distribution['fin_resolved']
+
+            # Calculate paid_human_conversations (paid customers who escalated to human)
+            paid_human_conversations = (
+                agent_distribution['escalated'] +
+                agent_distribution['horatio'] +
+                agent_distribution['boldr'] +
+                agent_distribution['unknown']
+            )
+
             # Prepare result
             result_data = {
-                'paid_customer_conversations': paid_customers,
-                'free_customer_conversations': free_customers,
+                # Tier-specific conversation lists
+                'paid_customer_conversations': paid_customers,  # All paid tier (for backward compatibility)
+                'paid_fin_resolved_conversations': paid_fin_resolved_conversations,  # Paid tier, Fin-only
+                'free_fin_only_conversations': free_customers,  # Free tier, Fin-only (renamed)
                 'unknown_tier': unknown,
+
+                # Agent distribution (unchanged)
                 'agent_distribution': {
                     k: len(v) for k, v in agent_distribution.items()
                 },
+
+                # Enhanced segmentation summary
                 'segmentation_summary': {
+                    # Overall tier breakdown
                     'paid_count': len(paid_customers),
                     'paid_percentage': round(len(paid_customers) / len(conversations) * 100, 1),
                     'free_count': len(free_customers),
                     'free_percentage': round(len(free_customers) / len(conversations) * 100, 1),
-                    'unknown_count': len(unknown)
+                    'unknown_count': len(unknown),
+
+                    # Paid tier breakdown (human vs Fin-resolved)
+                    'paid_human_count': len(paid_human_conversations),
+                    'paid_human_percentage': round(len(paid_human_conversations) / len(conversations) * 100, 1),
+                    'paid_fin_resolved_count': len(paid_fin_resolved_conversations),
+                    'paid_fin_resolved_percentage': round(len(paid_fin_resolved_conversations) / len(conversations) * 100, 1),
+
+                    # Free tier breakdown (always Fin-only)
+                    'free_fin_only_count': len(free_customers),
+                    'free_fin_only_percentage': round(len(free_customers) / len(conversations) * 100, 1),
+
+                    # Tier data quality
+                    'tier_distribution': tier_distribution  # Include tier breakdown in summary
                 }
             }
             
             self.validate_output(result_data)
-            
-            # Calculate confidence
-            confidence = 1.0 - (len(unknown) / len(conversations)) if conversations else 0
-            confidence_level = (ConfidenceLevel.HIGH if confidence > 0.9 
-                              else ConfidenceLevel.MEDIUM if confidence > 0.7 
-                              else ConfidenceLevel.LOW)
+
+            # Calculate tier-aware confidence
+            # Step 1: Classification confidence (how many conversations were successfully classified)
+            classification_confidence = 1.0 - (len(unknown) / len(conversations)) if conversations else 0
+
+            # Step 2: Tier data quality score (how many tiers were defaulted)
+            tier_quality_score = 1.0 - (defaulted_tier_count / len(conversations)) if conversations else 0
+
+            # Step 3: Combined confidence (weighted average)
+            # Classification success (60%) + Tier data quality (40%)
+            final_confidence = (classification_confidence * 0.6) + (tier_quality_score * 0.4)
+
+            # Step 4: Determine confidence level with tier awareness
+            if final_confidence > 0.9 and tier_quality_score > 0.9:
+                confidence_level = ConfidenceLevel.HIGH
+            elif final_confidence > 0.7 or tier_quality_score > 0.7:
+                confidence_level = ConfidenceLevel.MEDIUM
+            else:
+                confidence_level = ConfidenceLevel.LOW
+
+            # Step 5: Build limitations list with tier quality issues
+            limitations = []
+            if defaulted_tier_count > 0:
+                limitations.append(f"{defaulted_tier_count} conversations defaulted to FREE tier (missing tier data)")
+            if len(unknown) > 0:
+                limitations.append(f"{len(unknown)} conversations could not be classified")
             
             execution_time = (datetime.now() - start_time).total_seconds()
-            
+
             self.logger.info(f"SegmentationAgent: Completed in {execution_time:.2f}s")
-            self.logger.info(f"   Paid: {len(paid_customers)} ({result_data['segmentation_summary']['paid_percentage']}%)")
-            self.logger.info(f"   Free: {len(free_customers)} ({result_data['segmentation_summary']['free_percentage']}%)")
+            self.logger.info(f"   Paid Total: {len(paid_customers)} ({result_data['segmentation_summary']['paid_percentage']}%)")
+            self.logger.info(f"      - Human Support: {len(paid_human_conversations)} ({result_data['segmentation_summary']['paid_human_percentage']}%)")
+            self.logger.info(f"      - Fin Resolved: {len(paid_fin_resolved_conversations)} ({result_data['segmentation_summary']['paid_fin_resolved_percentage']}%)")
+            self.logger.info(f"   Free (Fin Only): {len(free_customers)} ({result_data['segmentation_summary']['free_percentage']}%)")
             self.logger.info(f"   Agent distribution: {result_data['agent_distribution']}")
-            
+            self.logger.info(f"   Tier data quality: {defaulted_tier_count} conversations defaulted to FREE")
+
             return AgentResult(
                 agent_name=self.name,
                 success=True,
                 data=result_data,
-                confidence=confidence,
+                confidence=final_confidence,
                 confidence_level=confidence_level,
-                limitations=[f"{len(unknown)} conversations could not be classified"] if unknown else [],
+                limitations=limitations,
                 sources=["Intercom admin_assignee_id", "Conversation text analysis"],
                 execution_time=execution_time,
                 token_count=0  # Rule-based, no LLM
