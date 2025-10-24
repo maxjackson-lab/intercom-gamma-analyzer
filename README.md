@@ -120,6 +120,10 @@ intercom-analyzer/
 │   │   ├── base_analyzer.py      # Base analysis class
 │   │   ├── voice_analyzer.py     # Voice of customer analysis
 │   │   └── trend_analyzer.py     # General purpose trend analysis
+│   ├── agents/
+│   │   ├── base_agent.py         # Base agent class
+│   │   ├── fin_performance_agent.py # Finn AI performance analysis
+│   │   └── subtopic_detection_agent.py # Sub-topic detection
 │   ├── utils/
 │   │   └── logger.py             # Logging utility
 │   └── main.py                   # CLI application entry point
@@ -128,6 +132,14 @@ intercom-analyzer/
 ├── README.md
 └── pyproject.toml
 ```
+
+## 🤖 **Multi-Agent Workflow**
+
+### Finn Performance Analysis
+- Sub-topic performance breakdown (when SubTopicDetectionAgent is enabled)
+- Data-rooted quality metrics: resolution rate, knowledge gap rate, escalation rate, average conversation rating
+- Tier 2 sub-topics from Intercom data (tags, custom attributes, topics)
+- Tier 3 emerging themes from LLM analysis
 
 ## 🔧 **Configuration**
 

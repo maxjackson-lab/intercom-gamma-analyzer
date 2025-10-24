@@ -1690,6 +1690,242 @@ async def run_agent_performance_analysis(
         raise
 
 
+async def run_agent_coaching_report(
+    vendor: str, 
+    start_date: datetime, 
+    end_date: datetime, 
+    top_n: int, 
+    generate_gamma: bool
+):
+    """Run coaching-focused analysis with individual agent breakdowns"""
+    try:
+        from src.services.chunked_fetcher import ChunkedFetcher
+        from src.agents.agent_performance_agent import AgentPerformanceAgent
+        from src.agents.base_agent import AgentContext
+        from src.services.data_preprocessor import DataPreprocessor
+        from pathlib import Path
+        import json
+        
+        vendor_name = {'horatio': 'Horatio', 'boldr': 'Boldr'}.get(vendor, vendor.title())
+        
+        # Fetch conversations
+        console.print("📥 Fetching conversations...")
+        fetcher = ChunkedFetcher()
+        all_conversations = await fetcher.fetch_conversations_chunked(
+            start_date=start_date,
+            end_date=end_date
+        )
+        console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
+        
+        # Filter by vendor
+        console.print(f"🔍 Filtering for {vendor_name} conversations...")
+        vendor_conversations = []
+        
+        # Vendor email patterns
+        vendor_patterns = {
+            'horatio': ['@hirehoratio.co', '@horatio.com'],
+            'boldr': ['@boldrimpact.com', '@boldr']
+        }
+        
+        patterns = vendor_patterns.get(vendor, [])
+        
+        for conv in all_conversations:
+            # Extract admin emails
+            admin_emails = []
+            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+            for part in parts:
+                author = part.get('author', {})
+                if author.get('type') == 'admin':
+                    email = author.get('email', '')
+                    if email:
+                        admin_emails.append(email.lower())
+            
+            # Check for match
+            if any(pattern in email for pattern in patterns for email in admin_emails):
+                vendor_conversations.append(conv)
+        
+        console.print(f"   ✅ Found {len(vendor_conversations)} {vendor_name} conversations\n")
+        
+        if len(vendor_conversations) == 0:
+            console.print(f"[yellow]⚠ No conversations found for {vendor_name}[/yellow]")
+            return
+        
+        # Preprocess conversations
+        console.print("🔧 Preprocessing conversations...")
+        preprocessor = DataPreprocessor()
+        vendor_conversations, preprocess_stats = preprocessor.preprocess_conversations(
+            vendor_conversations,
+            options={
+                'deduplicate': True,
+                'infer_missing': True,
+                'clean_text': True,
+                'detect_outliers': True
+            }
+        )
+        console.print(f"   ✅ Preprocessed: {preprocess_stats['processed_count']} valid conversations\n")
+        
+        # Create agent context
+        context = AgentContext(
+            analysis_id=f"{vendor}_coaching_{datetime.now().strftime('%Y%m%d')}",
+            analysis_type="coaching_report",
+            start_date=start_date,
+            end_date=end_date,
+            conversations=vendor_conversations,
+            metadata={'vendor': vendor, 'vendor_name': vendor_name}
+        )
+        
+        # Run analysis with individual breakdown
+        console.print(f"🤖 [bold cyan]Analyzing {vendor_name} Agent Performance...[/bold cyan]\n")
+        performance_agent = AgentPerformanceAgent(agent_filter=vendor)
+        result = await performance_agent.execute(context, individual_breakdown=True)
+        
+        if not result.success:
+            console.print(f"[red]❌ Analysis failed: {result.error_message}[/red]")
+            return
+        
+        # Display coaching report
+        console.print("="*80)
+        console.print(f"[bold green]🎉 {vendor_name} Coaching Report Complete![/bold green]")
+        console.print("="*80 + "\n")
+        
+        _display_individual_breakdown(result.data, vendor_name)
+        
+        # Save detailed JSON
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = output_dir / f"coaching_report_{vendor}_{timestamp}.json"
+        
+        with open(output_file, 'w') as f:
+            json.dump(result.data, f, indent=2, default=str)
+        
+        console.print(f"\n📁 Detailed report saved: {output_file}\n")
+        
+        # Generate Gamma if requested
+        if generate_gamma:
+            try:
+                from src.services.gamma_generator import GammaGenerator
+                from src.services.gamma_client import GammaAPIError
+                
+                console.print("🎨 [bold cyan]Generating Gamma presentation...[/bold cyan]")
+                
+                # Build markdown report
+                markdown_report = _build_coaching_gamma_markdown(result.data, vendor_name, start_date, end_date, top_n)
+                
+                gamma_generator = GammaGenerator()
+                gamma_result = await gamma_generator.generate_from_markdown(
+                    input_text=markdown_report,
+                    title=f"{vendor_name} Coaching Report - {start_date.strftime('%b %Y')}",
+                    num_cards=min(10 + len(result.data.get('agents', [])), 25),
+                    theme_name=None,
+                    export_format=None,
+                    output_dir=output_dir
+                )
+                
+                gamma_url = gamma_result.get('gamma_url')
+                if gamma_url:
+                    console.print(f"\n🎨 [bold green]Gamma presentation generated![/bold green]")
+                    console.print(f"📊 Gamma URL: {gamma_url}\n")
+                    
+            except GammaAPIError as e:
+                console.print(f"[yellow]Warning: Gamma generation failed: {e}[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]Warning: Unexpected error during Gamma generation: {e}[/yellow]")
+        
+    except Exception as e:
+        console.print(f"[red]Error in coaching report: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+def _build_coaching_gamma_markdown(
+    data: Dict, 
+    vendor_name: str, 
+    start_date: datetime, 
+    end_date: datetime,
+    top_n: int
+) -> str:
+    """Build markdown for Gamma coaching presentation"""
+    team_metrics = data.get('team_metrics', {})
+    agents = data.get('agents', [])
+    
+    markdown = f"""# {vendor_name} Coaching Report
+
+## Analysis Period
+{start_date.date()} to {end_date.date()}
+
+---
+
+## Team Performance Summary
+
+**Total Agents**: {team_metrics.get('total_agents', 0)}
+**Total Conversations**: {team_metrics.get('total_conversations', 0)}
+
+**Team Metrics**:
+- First Contact Resolution: {team_metrics.get('team_fcr_rate', 0):.1%}
+- Escalation Rate: {team_metrics.get('team_escalation_rate', 0):.1%}
+
+---
+
+## Highlights & Achievements
+
+"""
+    
+    # Add highlights
+    for highlight in data.get('highlights', [])[:5]:
+        markdown += f"✓ {highlight}\n\n"
+    
+    markdown += "---\n\n## Areas for Improvement\n\n"
+    
+    # Add lowlights
+    for lowlight in data.get('lowlights', [])[:5]:
+        markdown += f"• {lowlight}\n\n"
+    
+    markdown += "---\n\n"
+    
+    # Top performers
+    top_performers = sorted(agents, key=lambda a: a.get('fcr_rate', 0), reverse=True)[:top_n]
+    if top_performers:
+        markdown += "## Top Performers\n\n"
+        for agent in top_performers:
+            markdown += f"### {agent.get('agent_name', 'Unknown')}\n\n"
+            markdown += f"**Performance**: {agent.get('fcr_rate', 0):.1%} FCR (Rank #{agent.get('fcr_rank', '?')})\n\n"
+            
+            for achievement in agent.get('praise_worthy_achievements', [])[:2]:
+                markdown += f"✓ {achievement}\n\n"
+            
+            markdown += "---\n\n"
+    
+    # Agents needing coaching
+    coaching_needed = data.get('agents_needing_coaching', [])[:top_n]
+    if coaching_needed:
+        markdown += "## Coaching Priorities\n\n"
+        for agent in coaching_needed:
+            markdown += f"### {agent.get('agent_name', 'Unknown')}\n\n"
+            markdown += f"**Current Performance**: {agent.get('fcr_rate', 0):.1%} FCR\n\n"
+            markdown += f"**Focus Areas**:\n"
+            
+            for area in agent.get('coaching_focus_areas', [])[:3]:
+                markdown += f"- {area}\n"
+            
+            markdown += "\n---\n\n"
+    
+    # Team training needs
+    training_needs = data.get('team_training_needs', [])
+    if training_needs:
+        markdown += "## Team-Wide Training Needs\n\n"
+        for need in training_needs[:5]:
+            markdown += f"### {need.get('topic', 'Unknown')}\n\n"
+            markdown += f"**Priority**: {need.get('priority', 'medium').upper()}\n\n"
+            markdown += f"{need.get('reason', '')}\n\n"
+            markdown += f"**Affected Agents**: {', '.join(need.get('affected_agents', [])[:5])}\n\n"
+            markdown += "---\n\n"
+    
+    return markdown
+
+
 async def run_category_analysis(category: str, start_date: datetime, end_date: datetime, output_format: str):
     """Run single category analysis."""
     try:

@@ -645,6 +645,12 @@ if HAS_FASTAPI:
                 <div class="example" onclick="setQuery('Show me billing analysis for this month with Gamma presentation')">
                     Show me billing analysis for this month with Gamma presentation
                 </div>
+                <div class="example" onclick="setQuery('Generate Horatio coaching report for this week')">
+                    Generate Horatio coaching report for this week
+                </div>
+                <div class="example" onclick="setQuery('Show individual agent performance for Boldr with taxonomy breakdown')">
+                    Show individual agent performance for Boldr with taxonomy breakdown
+                </div>
                 <div class="example" onclick="setQuery('Create a custom report for API tickets by Horatio agents in September')">
                     Create a custom report for API tickets by Horatio agents in September
                 </div>

@@ -190,6 +190,22 @@ class FinEscalationAnalyzer:
         self.logger.info("Fin escalation analysis completed")
         return results
 
+    def detect_escalation_request(self, conversation: Dict[str, Any]) -> bool:
+        """
+        Check if a conversation contains explicit escalation request phrases.
+
+        Args:
+            conversation: Conversation dictionary
+
+        Returns:
+            True if escalation request phrases are found, False otherwise
+        """
+        text = self._extract_conversation_text(conversation)
+        for pattern in self.compiled_failure_indicators['escalation_request']:
+            if pattern.search(text):
+                return True
+        return False
+
     def _filter_fin_conversations(self, conversations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter conversations that involve Fin interactions."""
         fin_conversations = []

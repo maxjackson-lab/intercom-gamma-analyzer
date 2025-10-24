@@ -269,6 +269,91 @@ class FunctionCallingEngine:
                     "Sites and accounts report"
                 ],
                 confidence_threshold=0.85
+            ),
+            
+            "agent_coaching_report": FunctionDefinition(
+                name="agent_coaching_report",
+                description="Generate individual agent coaching report with taxonomy breakdown",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "vendor": {
+                            "type": "string",
+                            "enum": ["horatio", "boldr"],
+                            "description": "Vendor to analyze (horatio or boldr)"
+                        },
+                        "time_period": {
+                            "type": "string",
+                            "enum": ["week", "month"],
+                            "description": "Time period for analysis"
+                        },
+                        "top_n": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 10,
+                            "description": "Number of top/bottom performers to highlight"
+                        },
+                        "generate_gamma": {
+                            "type": "boolean",
+                            "description": "Generate Gamma presentation"
+                        }
+                    },
+                    "required": ["vendor"]
+                },
+                examples=[
+                    "Generate Horatio coaching report for this week",
+                    "Boldr coaching report with individual agent breakdown",
+                    "Show me which Horatio agents need coaching",
+                    "Weekly coaching report for Boldr with Gamma presentation"
+                ],
+                confidence_threshold=0.85
+            ),
+            
+            "agent_performance_individual": FunctionDefinition(
+                name="agent_performance_individual",
+                description="Analyze agent performance with individual breakdown by taxonomy categories",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string",
+                            "enum": ["horatio", "boldr", "escalated"],
+                            "description": "Agent/vendor to analyze"
+                        },
+                        "time_period": {
+                            "type": "string",
+                            "enum": ["week", "month", "6-weeks", "quarter"],
+                            "description": "Time period for analysis"
+                        },
+                        "start_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "Start date (overrides time_period)"
+                        },
+                        "end_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "End date (overrides time_period)"
+                        },
+                        "individual_breakdown": {
+                            "type": "boolean",
+                            "description": "Show individual agent metrics with taxonomy breakdown",
+                            "default": True
+                        },
+                        "generate_gamma": {
+                            "type": "boolean",
+                            "description": "Generate Gamma presentation"
+                        }
+                    },
+                    "required": ["agent"]
+                },
+                examples=[
+                    "Show individual agent performance for Horatio with taxonomy breakdown",
+                    "Analyze Boldr agents individually with category breakdown",
+                    "Horatio agent performance this month with individual metrics",
+                    "Show me which categories each Boldr agent struggles with"
+                ],
+                confidence_threshold=0.85
             )
         }
     
@@ -303,6 +388,20 @@ class FunctionCallingEngine:
             "sites_analysis": [
                 r"(?:sites|accounts|account management)",
                 r"(?:analysis|report|insights)"
+            ],
+            "agent_coaching_report": [
+                r"(?:coaching|training|development)",
+                r"(?:horatio|boldr)",
+                r"(?:agent|agents|individual|vendor)",
+                r"(?:report|analysis|review)",
+                r"(?:need|struggling|praise|performance)"
+            ],
+            "agent_performance_individual": [
+                r"(?:individual|each|specific)",
+                r"(?:agent|agents)",
+                r"(?:performance|metrics|breakdown)",
+                r"(?:horatio|boldr)",
+                r"(?:taxonomy|category|subcategory)"
             ]
         }
     
@@ -402,6 +501,20 @@ class FunctionCallingEngine:
         
         return None
     
+    def _extract_vendor_or_agent(self, query: str) -> Optional[str]:
+        """Extract vendor/agent name from query."""
+        query_lower = query.lower()
+        
+        # Check for specific vendor/agent names
+        if "horatio" in query_lower:
+            return "horatio"
+        elif "boldr" in query_lower:
+            return "boldr"
+        elif any(word in query_lower for word in ["escalated", "senior staff", "max", "dae-ho", "hilary"]):
+            return "escalated"
+        
+        return None
+    
     def _match_function(self, query: str) -> Tuple[Optional[str], float]:
         """
         Match query to the most appropriate function.
@@ -461,7 +574,9 @@ class FunctionCallingEngine:
             "billing_analysis": "billing-analysis",
             "tech_analysis": "tech-analysis",
             "product_analysis": "product-analysis",
-            "sites_analysis": "sites-analysis"
+            "sites_analysis": "sites-analysis",
+            "agent_coaching_report": "agent-coaching-report",
+            "agent_performance_individual": "agent-performance"
         }
         
         command = command_map.get(func_name, func_name)
@@ -525,6 +640,19 @@ class FunctionCallingEngine:
             # Extract parameters
             parameters = {}
             
+            # Extract vendor/agent for new agent performance commands
+            if func_name in ["agent_coaching_report", "agent_performance_individual"]:
+                vendor_or_agent = self._extract_vendor_or_agent(query)
+                if vendor_or_agent:
+                    if func_name == "agent_coaching_report":
+                        parameters["vendor"] = vendor_or_agent
+                    else:
+                        parameters["agent"] = vendor_or_agent
+                
+                # For agent_performance_individual, default individual_breakdown to True
+                if func_name == "agent_performance_individual":
+                    parameters["individual_breakdown"] = True
+            
             # Extract date range
             start_date, end_date = self._extract_date_range(query)
             if start_date:
@@ -548,6 +676,10 @@ class FunctionCallingEngine:
                     parameters["generate_gamma"] = True  # Default to generating Gamma
                 if "ai_model" not in parameters:
                     parameters["ai_model"] = "openai"  # Default model
+            
+            # Default time period for coaching report if not specified
+            if func_name == "agent_coaching_report" and "time_period" not in parameters:
+                parameters["time_period"] = "week"  # Default to weekly
             
             # Build command
             command_args = self._build_command_args(func_name, parameters)
@@ -594,19 +726,31 @@ class FunctionCallingEngine:
             "billing_analysis": "Analyze billing and subscription data",
             "tech_analysis": "Analyze technical troubleshooting conversations",
             "product_analysis": "Analyze product-related questions and feedback",
-            "sites_analysis": "Analyze sites and account-related conversations"
+            "sites_analysis": "Analyze sites and account-related conversations",
+            "agent_coaching_report": "Generate individual agent coaching report with taxonomy breakdown",
+            "agent_performance_individual": "Analyze agent performance with individual breakdown by taxonomy categories"
         }
         
         base_explanation = explanations.get(func_name, "Execute analysis command")
         
         # Add parameter details
         details = []
+        
+        # Vendor/agent specific
+        if "vendor" in parameters:
+            details.append(f"for {parameters['vendor'].title()}")
+        elif "agent" in parameters:
+            details.append(f"for {parameters['agent'].title()}")
+        
         if "time_period" in parameters:
             details.append(f"for {parameters['time_period']}")
         elif "start_date" in parameters:
             details.append(f"from {parameters['start_date']}")
             if "end_date" in parameters:
                 details.append(f"to {parameters['end_date']}")
+        
+        if "individual_breakdown" in parameters and parameters["individual_breakdown"]:
+            details.append("with individual agent metrics")
         
         if "generate_gamma" in parameters and parameters["generate_gamma"]:
             details.append("with Gamma presentation")
