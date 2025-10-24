@@ -50,7 +50,16 @@ def mock_horatio_conversation_via_parts() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Customer billing question'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Pro'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -78,7 +87,16 @@ def mock_horatio_conversation_via_source() -> Dict[str, Any]:
                 'email': 'support@hirehoratio.co'
             }
         },
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Plus'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -102,6 +120,15 @@ def mock_horatio_conversation_via_assignee() -> Dict[str, Any]:
             'id': '999',
             'name': 'Team Lead',
             'email': 'team@hirehoratio.co'
+        },
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Pro'
+                    }
+                }
+            ]
         }
     }
 
@@ -134,7 +161,16 @@ def mock_boldr_conversation() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Customer billing question'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Plus'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -166,7 +202,16 @@ def mock_escalated_conversation_max() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Urgent issue'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Ultra'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -190,6 +235,15 @@ def mock_escalated_conversation_daeho() -> Dict[str, Any]:
             'id': '555',
             'name': 'Dae-Ho Chung',
             'email': 'dae-ho@example.com'
+        },
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Pro'
+                    }
+                }
+            ]
         }
     }
 
@@ -222,7 +276,16 @@ def mock_escalated_conversation_hilary() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Customer inquiry'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Plus'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -254,7 +317,16 @@ def mock_escalated_conversation_text() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Customer inquiry'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Ultra'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -285,7 +357,16 @@ def mock_fin_ai_conversation() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'chat', 'body': 'How do I reset my password?'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Free'
+                    }
+                }
+            ]
+        }
     }
 
 
@@ -305,6 +386,7 @@ def mock_unknown_conversation() -> Dict[str, Any]:
         },
         'source': {'type': 'email', 'body': 'Customer inquiry about pricing'},
         'assignee': {}
+        # No contacts block - truly unknown tier
     }
 
 
@@ -336,8 +418,70 @@ def mock_generic_paid_conversation() -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'email', 'body': 'Customer inquiry'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': 'Pro'
+                    }
+                }
+            ]
+        }
     }
+
+
+@pytest.fixture
+def paid_fin_only_conversation_factory():
+    """Factory fixture for paid-tier Fin-only conversations (no admin reply)."""
+    def _create_paid_fin_only_conversation(tier: str, conv_id: str = None) -> Dict[str, Any]:
+        """
+        Create a paid-tier Fin-only conversation.
+
+        Args:
+            tier: Customer tier ('Pro', 'Plus', 'Ultra')
+            conv_id: Conversation ID (optional, auto-generated if not provided)
+
+        Returns:
+            Conversation dict with AI participation but no admin reply
+        """
+        conv_id = conv_id or f'paid_fin_{tier.lower()}_{id(tier)}'
+        return {
+            'id': conv_id,
+            'created_at': 1699123456,
+            'updated_at': 1699125456,
+            'state': 'closed',
+            'admin_assignee_id': None,  # No admin assignment
+            'ai_agent_participated': True,
+            'full_text': 'Customer question resolved by AI',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'type': 'conversation_part',
+                        'id': f'part_{conv_id}',
+                        'part_type': 'comment',
+                        'body': '<p>Here is the answer to your question</p>',
+                        'author': {
+                            'type': 'bot',
+                            'id': 'fin_ai',
+                            'name': 'Fin'
+                        }
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Customer question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': tier
+                        }
+                    }
+                ]
+            }
+        }
+    return _create_paid_fin_only_conversation
 
 
 # ============================================================================
@@ -420,12 +564,13 @@ class TestSegmentationAgent:
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
 
     def test_unknown_classification(self, mock_unknown_conversation):
-        """Test unknown classification."""
+        """Test unknown classification (no admin, no AI, no tier)."""
         agent = SegmentationAgent()
         segment, agent_type = agent._classify_conversation(mock_unknown_conversation)
-        
-        assert segment == 'unknown', f"Expected 'unknown' segment, got '{segment}'"
-        assert agent_type == 'unknown', f"Expected 'unknown' agent type, got '{agent_type}'"
+
+        # Without tier, defaults to Free tier, and with no admin or AI, becomes fin_ai (edge case)
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
 
     def test_generic_paid_customer_unknown_agent(self, mock_generic_paid_conversation):
         """Test generic paid customer with unknown agent."""
@@ -438,7 +583,7 @@ class TestSegmentationAgent:
     def test_email_case_insensitivity(self):
         """Test that email detection is case-insensitive."""
         agent = SegmentationAgent()
-        
+
         # Test uppercase
         conv_upper = {
             'id': 'conv_upper',
@@ -457,11 +602,20 @@ class TestSegmentationAgent:
                 ]
             },
             'source': {},
-            'assignee': {}
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
         }
         segment, agent_type = agent._classify_conversation(conv_upper)
         assert agent_type == 'horatio', f"Expected 'horatio' for uppercase email, got '{agent_type}'"
-        
+
         # Test mixed case
         conv_mixed = {
             'id': 'conv_mixed',
@@ -480,7 +634,16 @@ class TestSegmentationAgent:
                 ]
             },
             'source': {},
-            'assignee': {}
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
         }
         segment, agent_type = agent._classify_conversation(conv_mixed)
         assert agent_type == 'horatio', f"Expected 'horatio' for mixed case email, got '{agent_type}'"
@@ -488,7 +651,7 @@ class TestSegmentationAgent:
     def test_multiple_admin_emails_first_match_wins(self):
         """Test that with multiple admin emails, Horatio is detected."""
         agent = SegmentationAgent()
-        
+
         conv = {
             'id': 'conv_multiple',
             'created_at': 1699123456,
@@ -512,10 +675,381 @@ class TestSegmentationAgent:
                 ]
             },
             'source': {},
-            'assignee': {}
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
         }
         segment, agent_type = agent._classify_conversation(conv)
         assert agent_type == 'horatio', f"Expected 'horatio' even with multiple emails, got '{agent_type}'"
+
+    def test_free_tier_classification(self):
+        """Test that Free tier customers are always classified as fin_ai."""
+        agent = SegmentationAgent()
+        
+        # Test 1: Free tier with ai_agent_participated=True (typical)
+        conv1 = {
+            'id': 'free_1',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            'full_text': 'Customer question',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Free'
+                        }
+                    }
+                ]
+            }
+        }
+        segment, agent_type = agent._classify_conversation(conv1)
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        
+        # Test 2: Free tier with ai_agent_participated=False (edge case)
+        conv2 = {
+            'id': 'free_2',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': False,
+            'full_text': 'Customer question',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Free'
+                        }
+                    }
+                ]
+            }
+        }
+        segment, agent_type = agent._classify_conversation(conv2)
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        
+        # Test 3: Free tier with no ai_agent_participated flag (edge case)
+        conv3 = {
+            'id': 'free_3',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'full_text': 'Customer question',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Free'
+                        }
+                    }
+                ]
+            }
+        }
+        segment, agent_type = agent._classify_conversation(conv3)
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+
+    def test_free_tier_with_admin_edge_case(self, caplog):
+        """Test that Free tier with admin_assignee_id is still classified as free (abuse/trust & safety case)."""
+        agent = SegmentationAgent()
+        
+        conv = {
+            'id': 'free_admin_edge',
+            'created_at': 1699123456,
+            'admin_assignee_id': '123',  # Has admin assignment
+            'ai_agent_participated': True,
+            'full_text': 'Customer question',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'admin',
+                            'email': 'support@example.com'
+                        }
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Free'
+                        }
+                    }
+                ]
+            }
+        }
+        
+        with caplog.at_level('WARNING'):
+            segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        
+        # Verify warning log about abuse/trust & safety
+        assert any('abuse/trust & safety' in record.message for record in caplog.records), \
+            "Expected warning log about abuse/trust & safety"
+
+    def test_paid_tier_fin_resolved(self, paid_fin_only_conversation_factory):
+        """Test that Paid tier customers resolved by Fin only are classified as fin_resolved."""
+        agent = SegmentationAgent()
+
+        # Test Pro tier with AI-only
+        conv1 = paid_fin_only_conversation_factory('Pro', 'paid_fin_1')
+        segment, agent_type = agent._classify_conversation(conv1)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+
+        # Test Plus tier with AI-only
+        conv2 = paid_fin_only_conversation_factory('Plus', 'paid_fin_2')
+        segment, agent_type = agent._classify_conversation(conv2)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+
+        # Test Ultra tier with AI-only
+        conv3 = paid_fin_only_conversation_factory('Ultra', 'paid_fin_3')
+        segment, agent_type = agent._classify_conversation(conv3)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+
+    def test_ultra_tier_detection(self):
+        """Test that Ultra tier is properly detected and classified."""
+        agent = SegmentationAgent()
+        
+        # Test Ultra tier with Horatio admin
+        conv1 = {
+            'id': 'ultra_horatio',
+            'created_at': 1699123456,
+            'admin_assignee_id': '123',
+            'ai_agent_participated': False,
+            'full_text': 'Customer question',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'admin',
+                            'email': 'agent@hirehoratio.co'
+                        }
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Ultra'
+                        }
+                    }
+                ]
+            }
+        }
+        segment, agent_type = agent._classify_conversation(conv1)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        
+        # Test Ultra tier with AI-only
+        conv2 = {
+            'id': 'ultra_ai',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            'full_text': 'Customer question',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Ultra'
+                        }
+                    }
+                ]
+            }
+        }
+        segment, agent_type = agent._classify_conversation(conv2)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+
+    def test_missing_tier_defaults_to_free(self, caplog):
+        """Test that missing tier defaults to Free with warning log."""
+        agent = SegmentationAgent()
+        
+        conv = {
+            'id': 'missing_tier',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            'full_text': 'Customer question',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {}
+            # No contacts dict - missing tier
+        }
+        
+        with caplog.at_level('WARNING'):
+            segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
+        assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        
+        # Verify warning log about missing tier
+        assert any('No tier found' in record.message and 'defaulting to FREE' in record.message for record in caplog.records), \
+            "Expected warning log about missing tier defaulting to FREE"
+
+    def test_case_insensitive_tier_matching(self):
+        """Test that tier matching is case-insensitive."""
+        agent = SegmentationAgent()
+        
+        # Test different case variations for 'free'
+        for tier_variant in ['free', 'Free', 'FREE', 'FrEe']:
+            conv = {
+                'id': f'case_test_{tier_variant}',
+                'created_at': 1699123456,
+                'admin_assignee_id': None,
+                'ai_agent_participated': True,
+                'full_text': 'Customer question',
+                'conversation_parts': {'conversation_parts': []},
+                'source': {'type': 'chat', 'body': 'Question'},
+                'assignee': {},
+                'contacts': {
+                    'contacts': [
+                        {
+                            'custom_attributes': {
+                                'tier': tier_variant
+                            }
+                        }
+                    ]
+                }
+            }
+            segment, agent_type = agent._classify_conversation(conv)
+            assert segment == 'free', f"Expected 'free' segment for tier '{tier_variant}', got '{segment}'"
+            assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type for tier '{tier_variant}', got '{agent_type}'"
+        
+        # Test different case variations for 'pro'
+        for tier_variant in ['pro', 'Pro', 'PRO']:
+            conv = {
+                'id': f'case_test_pro_{tier_variant}',
+                'created_at': 1699123456,
+                'admin_assignee_id': '123',
+                'ai_agent_participated': False,
+                'full_text': 'Customer question',
+                'conversation_parts': {
+                    'conversation_parts': [
+                        {
+                            'author': {
+                                'type': 'admin',
+                                'email': 'agent@hirehoratio.co'
+                            }
+                        }
+                    ]
+                },
+                'source': {'type': 'chat', 'body': 'Question'},
+                'assignee': {},
+                'contacts': {
+                    'contacts': [
+                        {
+                            'custom_attributes': {
+                                'tier': tier_variant
+                            }
+                        }
+                    ]
+                }
+            }
+            segment, agent_type = agent._classify_conversation(conv)
+            assert segment == 'paid', f"Expected 'paid' segment for tier '{tier_variant}', got '{segment}'"
+            assert agent_type == 'horatio', f"Expected 'horatio' agent type for tier '{tier_variant}', got '{agent_type}'"
+
+    def test_tier_extraction_from_conversation_level(self):
+        """Test tier extraction from conversation-level custom_attributes."""
+        agent = SegmentationAgent()
+        
+        conv = {
+            'id': 'conv_level_tier',
+            'created_at': 1699123456,
+            'admin_assignee_id': '123',
+            'ai_agent_participated': False,
+            'full_text': 'Customer question',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'admin',
+                            'email': 'agent@hirehoratio.co'
+                        }
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'custom_attributes': {
+                'tier': 'Pro'  # Conversation-level tier
+            }
+            # No contacts dict - should fall back to conversation-level
+        }
+        
+        segment, agent_type = agent._classify_conversation(conv)
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+
+    def test_tier_priority_contact_over_conversation(self):
+        """Test that contact-level tier takes priority over conversation-level tier."""
+        agent = SegmentationAgent()
+        
+        conv = {
+            'id': 'tier_priority_test',
+            'created_at': 1699123456,
+            'admin_assignee_id': '123',
+            'ai_agent_participated': False,
+            'full_text': 'Customer question',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'admin',
+                            'email': 'agent@hirehoratio.co'
+                        }
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'  # Contact-level tier (should take priority)
+                        }
+                    }
+                ]
+            },
+            'custom_attributes': {
+                'tier': 'Free'  # Conversation-level tier (should be ignored)
+            }
+        }
+        
+        segment, agent_type = agent._classify_conversation(conv)
+        assert segment == 'paid', f"Expected 'paid' segment (Pro tier), got '{segment}'"
+        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
 
     @pytest.mark.asyncio
     async def test_end_to_end_segmentation(
@@ -567,23 +1101,36 @@ class TestSegmentationAgent:
         assert result.success, f"Segmentation failed: {result.error_message}"
         
         # Check agent distribution
+        # Note: 2 unknown conversations have no tier and default to Free, classified as fin_ai
         agent_dist = result.data['agent_distribution']
         assert agent_dist['horatio'] == 3, f"Expected 3 Horatio conversations, got {agent_dist['horatio']}"
         assert agent_dist['boldr'] == 1, f"Expected 1 Boldr conversation, got {agent_dist['boldr']}"
         assert agent_dist['escalated'] == 1, f"Expected 1 escalated conversation, got {agent_dist['escalated']}"
-        assert agent_dist['fin_ai'] == 2, f"Expected 2 Fin AI conversations, got {agent_dist['fin_ai']}"
-        assert agent_dist['unknown'] == 2, f"Expected 2 unknown conversations, got {agent_dist['unknown']}"
-        
+        assert agent_dist['fin_ai'] == 4, f"Expected 4 Fin AI conversations (2 explicit + 2 defaulted), got {agent_dist['fin_ai']}"
+        assert agent_dist.get('unknown', 0) == 0, f"Expected 0 unknown conversations (all defaulted to free), got {agent_dist.get('unknown', 0)}"
+
         # Check segmentation summary
         summary = result.data['segmentation_summary']
         assert summary['paid_count'] == 5, f"Expected 5 paid conversations, got {summary['paid_count']}"
-        assert summary['free_count'] == 2, f"Expected 2 free conversations, got {summary['free_count']}"
-        assert summary['unknown_count'] == 2, f"Expected 2 unknown conversations, got {summary['unknown_count']}"
+        assert summary['free_count'] == 4, f"Expected 4 free conversations (2 explicit + 2 defaulted), got {summary['free_count']}"
+        assert summary['unknown_count'] == 0, f"Expected 0 unknown conversations (all defaulted to free), got {summary['unknown_count']}"
         
-        # Verify totals match
+        # Check tier-specific summary fields
+        assert summary['paid_human_count'] == 5, f"Expected 5 paid human conversations, got {summary['paid_human_count']}"
+        assert summary['paid_fin_resolved_count'] == 0, f"Expected 0 paid fin-resolved conversations, got {summary['paid_fin_resolved_count']}"
+        assert summary['free_fin_only_count'] == 4, f"Expected 4 free fin-only conversations (2 explicit + 2 defaulted), got {summary['free_fin_only_count']}"
+        
+        # Check tier distribution
+        # Note: 2 unknown conversations have no tier and default to Free
+        tier_dist = summary['tier_distribution']
+        assert tier_dist['free'] == 4, f"Expected 4 free tier conversations (2 explicit + 2 defaulted from unknown), got {tier_dist['free']}"
+        assert tier_dist['pro'] + tier_dist['plus'] + tier_dist['ultra'] == 5, f"Expected 5 paid tier conversations total, got {tier_dist['pro'] + tier_dist['plus'] + tier_dist['ultra']}"
+        
+        # Verify totals match (5 paid + 4 free + 0 unknown = 9 total)
         total = summary['paid_count'] + summary['free_count'] + summary['unknown_count']
         assert total == len(conversations), f"Total ({total}) doesn't match conversation count ({len(conversations)})"
         
         # Check confidence
         assert result.confidence > 0.7, f"Expected confidence > 0.7, got {result.confidence}"
-        assert result.confidence_level == ConfidenceLevel.MEDIUM or result.confidence_level == ConfidenceLevel.HIGH
+        assert result.confidence_level in [ConfidenceLevel.MEDIUM.value, ConfidenceLevel.HIGH.value], \
+            f"Expected 'medium' or 'high', got {result.confidence_level}"

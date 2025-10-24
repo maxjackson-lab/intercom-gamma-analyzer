@@ -28,7 +28,8 @@ def create_conversation_with_admin_email(
     email: str,
     conv_id: str = None,
     author_type: str = 'admin',
-    location: str = 'conversation_parts'
+    location: str = 'conversation_parts',
+    tier: str = None
 ) -> Dict[str, Any]:
     """
     Create a conversation dict with admin email in specified location.
@@ -38,6 +39,7 @@ def create_conversation_with_admin_email(
         conv_id: Conversation ID (default: auto-generated)
         author_type: Author type ('admin', 'contact', 'team')
         location: Where to place email ('conversation_parts', 'source', 'assignee')
+        tier: Customer tier ('Free', 'Pro', 'Plus', 'Ultra')
     
     Returns:
         Conversation dict matching Intercom API structure
@@ -56,6 +58,18 @@ def create_conversation_with_admin_email(
         'source': {'type': 'email', 'body': 'Customer message'},
         'assignee': {}
     }
+    
+    # Add tier if provided
+    if tier:
+        base_conv['contacts'] = {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': tier
+                    }
+                }
+            ]
+        }
     
     if location == 'conversation_parts':
         base_conv['conversation_parts']['conversation_parts'].append({
@@ -92,25 +106,27 @@ def create_conversation_with_admin_email(
     return base_conv
 
 
-def create_horatio_conversation(conv_id: str, location: str = 'conversation_parts') -> Dict[str, Any]:
+def create_horatio_conversation(conv_id: str, location: str = 'conversation_parts', tier: str = 'Pro') -> Dict[str, Any]:
     """Create a realistic Horatio conversation."""
     return create_conversation_with_admin_email(
         email='agent@hirehoratio.co',
         conv_id=conv_id,
-        location=location
+        location=location,
+        tier=tier
     )
 
 
-def create_boldr_conversation(conv_id: str) -> Dict[str, Any]:
+def create_boldr_conversation(conv_id: str, tier: str = 'Plus') -> Dict[str, Any]:
     """Create a realistic Boldr conversation."""
     return create_conversation_with_admin_email(
         email='support@boldrimpact.com',
         conv_id=conv_id,
-        location='conversation_parts'
+        location='conversation_parts',
+        tier=tier
     )
 
 
-def create_escalated_conversation(conv_id: str, person: str = 'max.jackson') -> Dict[str, Any]:
+def create_escalated_conversation(conv_id: str, person: str = 'max.jackson', tier: str = 'Ultra') -> Dict[str, Any]:
     """Create a realistic escalated conversation."""
     emails = {
         'max.jackson': 'max.jackson@example.com',
@@ -120,11 +136,12 @@ def create_escalated_conversation(conv_id: str, person: str = 'max.jackson') -> 
     return create_conversation_with_admin_email(
         email=emails.get(person, emails['max.jackson']),
         conv_id=conv_id,
-        location='conversation_parts'
+        location='conversation_parts',
+        tier=tier
     )
 
 
-def create_fin_ai_conversation(conv_id: str) -> Dict[str, Any]:
+def create_fin_ai_conversation(conv_id: str, tier: str = 'Free') -> Dict[str, Any]:
     """Create a realistic Fin AI-only conversation."""
     return {
         'id': conv_id,
@@ -150,13 +167,22 @@ def create_fin_ai_conversation(conv_id: str) -> Dict[str, Any]:
             ]
         },
         'source': {'type': 'chat', 'body': 'How do I reset password?'},
-        'assignee': {}
+        'assignee': {},
+        'contacts': {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': tier
+                    }
+                }
+            ]
+        }
     }
 
 
-def create_unknown_conversation(conv_id: str) -> Dict[str, Any]:
+def create_unknown_conversation(conv_id: str, tier: str = None) -> Dict[str, Any]:
     """Create an unknown conversation."""
-    return {
+    conv = {
         'id': conv_id,
         'created_at': 1699123456,
         'updated_at': 1699125456,
@@ -168,6 +194,20 @@ def create_unknown_conversation(conv_id: str) -> Dict[str, Any]:
         'source': {'type': 'email', 'body': 'Customer inquiry'},
         'assignee': {}
     }
+    
+    # Add tier if provided
+    if tier:
+        conv['contacts'] = {
+            'contacts': [
+                {
+                    'custom_attributes': {
+                        'tier': tier
+                    }
+                }
+            ]
+        }
+    
+    return conv
 
 
 def assert_segmentation_result(
@@ -227,26 +267,30 @@ class TestSegmentationIntegration:
         
         conversations = []
         
-        # Add 15 Horatio conversations
-        for i in range(15):
-            conversations.append(create_horatio_conversation(f'horatio_{i}'))
-        
-        # Add 5 Boldr conversations
+        # Add 15 Horatio conversations (10 Pro, 5 Plus)
+        for i in range(10):
+            conversations.append(create_horatio_conversation(f'horatio_pro_{i}', tier='Pro'))
         for i in range(5):
-            conversations.append(create_boldr_conversation(f'boldr_{i}'))
+            conversations.append(create_horatio_conversation(f'horatio_plus_{i}', tier='Plus'))
         
-        # Add 5 escalated conversations
+        # Add 5 Boldr conversations (all Plus)
+        for i in range(5):
+            conversations.append(create_boldr_conversation(f'boldr_{i}', tier='Plus'))
+        
+        # Add 5 escalated conversations (all Ultra)
         for i in range(5):
             person = ['max.jackson', 'dae-ho', 'hilary'][i % 3]
-            conversations.append(create_escalated_conversation(f'escalated_{i}', person))
+            conversations.append(create_escalated_conversation(f'escalated_{i}', person, tier='Ultra'))
         
-        # Add 15 Fin AI conversations
+        # Add 15 Fin AI conversations (all Free)
         for i in range(15):
-            conversations.append(create_fin_ai_conversation(f'fin_ai_{i}'))
+            conversations.append(create_fin_ai_conversation(f'fin_ai_{i}', tier='Free'))
         
-        # Add 10 unknown conversations
-        for i in range(10):
-            conversations.append(create_unknown_conversation(f'unknown_{i}'))
+        # Add 10 unknown conversations (5 Free, 5 missing tier)
+        for i in range(5):
+            conversations.append(create_unknown_conversation(f'unknown_free_{i}', tier='Free'))
+        for i in range(5):
+            conversations.append(create_unknown_conversation(f'unknown_missing_{i}'))
         
         # Create context
         context = AgentContext(
@@ -261,18 +305,19 @@ class TestSegmentationIntegration:
         result = await agent.execute(context)
         
         # Assert results
+        # Note: 10 unknown conversations (5 Free + 5 missing tier) default to fin_ai
         assert_segmentation_result(
             result,
             expected_distribution={
                 'horatio': 15,
                 'boldr': 5,
                 'escalated': 5,
-                'fin_ai': 15,
-                'unknown': 10
+                'fin_ai': 25,  # 15 explicit + 5 Free unknown + 5 missing tier unknown
+                'unknown': 0  # All unknowns are Free tier, classified as fin_ai
             },
             expected_paid=25,  # 15 + 5 + 5
-            expected_free=15,
-            expected_unknown=10
+            expected_free=25,  # 15 + 5 + 5 (10 unknowns defaulted to Free)
+            expected_unknown=0  # All unknowns classified as free/fin_ai
         )
         
         # Verify no crashes
@@ -292,16 +337,19 @@ class TestSegmentationIntegration:
         
         # Generate 1000 conversations with realistic distribution
         for i in range(1000):
-            if i < 400:  # 40% Horatio
-                conversations.append(create_horatio_conversation(f'horatio_{i}'))
-            elif i < 600:  # 20% Boldr
-                conversations.append(create_boldr_conversation(f'boldr_{i}'))
-            elif i < 650:  # 5% Escalated
-                conversations.append(create_escalated_conversation(f'escalated_{i}'))
-            elif i < 900:  # 25% Fin AI
-                conversations.append(create_fin_ai_conversation(f'fin_ai_{i}'))
-            else:  # 10% Unknown
-                conversations.append(create_unknown_conversation(f'unknown_{i}'))
+            if i < 400:  # 40% Horatio (60% Pro, 40% Plus)
+                tier = 'Pro' if i < 240 else 'Plus'
+                conversations.append(create_horatio_conversation(f'horatio_{i}', tier=tier))
+            elif i < 600:  # 20% Boldr (50% Pro, 50% Plus)
+                tier = 'Pro' if i < 500 else 'Plus'
+                conversations.append(create_boldr_conversation(f'boldr_{i}', tier=tier))
+            elif i < 650:  # 5% Escalated (all Ultra)
+                conversations.append(create_escalated_conversation(f'escalated_{i}', tier='Ultra'))
+            elif i < 900:  # 25% Fin AI (all Free)
+                conversations.append(create_fin_ai_conversation(f'fin_ai_{i}', tier='Free'))
+            else:  # 10% Unknown (50% Free, 50% missing tier)
+                tier = 'Free' if i < 950 else None
+                conversations.append(create_unknown_conversation(f'unknown_{i}', tier=tier))
         
         # Create context
         context = AgentContext(
@@ -321,18 +369,19 @@ class TestSegmentationIntegration:
             f"Execution took too long: {result.execution_time}s (expected < 5s for 1000 conversations)"
         
         # Assert correct counts
+        # Note: 100 unknown conversations (50 Free + 50 missing tier) default to fin_ai
         assert_segmentation_result(
             result,
             expected_distribution={
                 'horatio': 400,
                 'boldr': 200,
                 'escalated': 50,
-                'fin_ai': 250,
-                'unknown': 100
+                'fin_ai': 350,  # 250 explicit + 100 unknowns
+                'unknown': 0  # All unknowns are Free tier, classified as fin_ai
             },
             expected_paid=650,
-            expected_free=250,
-            expected_unknown=100
+            expected_free=350,  # 250 explicit + 100 unknowns
+            expected_unknown=0  # All unknowns classified as free/fin_ai
         )
 
     @pytest.mark.asyncio
@@ -341,8 +390,10 @@ class TestSegmentationIntegration:
         agent = SegmentationAgent()
         
         conversations = []
-        for i in range(20):
-            conversations.append(create_horatio_conversation(f'horatio_{i}'))
+        for i in range(15):
+            conversations.append(create_horatio_conversation(f'horatio_pro_{i}', tier='Pro'))
+        for i in range(5):
+            conversations.append(create_horatio_conversation(f'horatio_plus_{i}', tier='Plus'))
         
         # Create context
         context = AgentContext(
@@ -378,21 +429,21 @@ class TestSegmentationIntegration:
         
         conversations = []
         
-        # 5 conversations: email in conversation_parts only
+        # 5 conversations: email in conversation_parts only (Pro tier)
         for i in range(5):
-            conversations.append(create_horatio_conversation(f'parts_{i}', location='conversation_parts'))
+            conversations.append(create_horatio_conversation(f'parts_{i}', location='conversation_parts', tier='Pro'))
         
-        # 5 conversations: email in source only
+        # 5 conversations: email in source only (Plus tier)
         for i in range(5):
-            conversations.append(create_horatio_conversation(f'source_{i}', location='source'))
+            conversations.append(create_horatio_conversation(f'source_{i}', location='source', tier='Plus'))
         
-        # 5 conversations: email in assignee only
+        # 5 conversations: email in assignee only (Ultra tier)
         for i in range(5):
-            conversations.append(create_horatio_conversation(f'assignee_{i}', location='assignee'))
+            conversations.append(create_horatio_conversation(f'assignee_{i}', location='assignee', tier='Ultra'))
         
-        # 5 conversations: email in multiple locations
+        # 5 conversations: email in multiple locations (Pro tier)
         for i in range(5):
-            conv = create_horatio_conversation(f'multiple_{i}', location='conversation_parts')
+            conv = create_horatio_conversation(f'multiple_{i}', location='conversation_parts', tier='Pro')
             # Add email to source as well
             conv['source'] = {
                 'type': 'chat',
@@ -557,12 +608,12 @@ class TestSegmentationIntegration:
         conversations.extend([create_escalated_conversation(f'e_{i}') for i in range(2)])
         conversations.extend([create_fin_ai_conversation(f'f_{i}') for i in range(8)])
         conversations.extend([create_unknown_conversation(f'u_{i}') for i in range(5)])
-        
+
         # Total: 30 conversations
         # Paid: 17 (10+5+2)
-        # Free: 8
-        # Unknown: 5
-        
+        # Free: 13 (8 explicit + 5 unknown defaults to Free)
+        # Unknown: 0 (all unknowns defaulted to Free)
+
         # Create context
         context = AgentContext(
             analysis_id='logging_test',
@@ -588,11 +639,11 @@ class TestSegmentationIntegration:
         assert "'boldr': 5" in log_text, \
             "Expected Boldr count in logs"
         
-        # Check percentages
+        # Check percentages (updated to account for 5 unknowns defaulting to Free)
         summary = result.data['segmentation_summary']
-        expected_paid_pct = round(17 / 30 * 100, 1)
-        expected_free_pct = round(8 / 30 * 100, 1)
-        
+        expected_paid_pct = round(17 / 30 * 100, 1)  # 56.7%
+        expected_free_pct = round(13 / 30 * 100, 1)  # 43.3% (8 explicit + 5 unknown)
+
         assert summary['paid_percentage'] == expected_paid_pct, \
             f"Expected paid percentage {expected_paid_pct}, got {summary['paid_percentage']}"
         assert summary['free_percentage'] == expected_free_pct, \
@@ -665,3 +716,287 @@ class TestSegmentationIntegration:
         total = sum(agent_dist.values())
         assert total == len(conversations), \
             f"Total classified ({total}) doesn't match input ({len(conversations)})"
+
+    @pytest.mark.asyncio
+    async def test_tier_based_segmentation_full_pipeline(self):
+        """Test full tier-based segmentation pipeline with realistic tier distribution."""
+        agent = SegmentationAgent()
+        
+        conversations = []
+        
+        # Create 120 conversations with realistic tier distribution
+        # Free tier (36 conversations, 30%)
+        for i in range(36):
+            conversations.append(create_fin_ai_conversation(f'free_{i}', tier='Free'))
+        
+        # Pro tier (48 conversations, 40%)
+        for i in range(30):
+            conversations.append(create_horatio_conversation(f'pro_horatio_{i}', tier='Pro'))
+        for i in range(10):
+            conversations.append(create_boldr_conversation(f'pro_boldr_{i}', tier='Pro'))
+        for i in range(5):
+            conversations.append(create_escalated_conversation(f'pro_escalated_{i}', tier='Pro'))
+        for i in range(3):
+            # Fin-resolved (AI-only, no admin)
+            conv = create_fin_ai_conversation(f'pro_fin_resolved_{i}', tier='Pro')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # Plus tier (24 conversations, 20%)
+        for i in range(15):
+            conversations.append(create_horatio_conversation(f'plus_horatio_{i}', tier='Plus'))
+        for i in range(5):
+            conversations.append(create_boldr_conversation(f'plus_boldr_{i}', tier='Plus'))
+        for i in range(2):
+            conversations.append(create_escalated_conversation(f'plus_escalated_{i}', tier='Plus'))
+        for i in range(2):
+            # Fin-resolved (AI-only, no admin)
+            conv = create_fin_ai_conversation(f'plus_fin_resolved_{i}', tier='Plus')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # Ultra tier (12 conversations, 10%)
+        for i in range(8):
+            conversations.append(create_escalated_conversation(f'ultra_escalated_{i}', tier='Ultra'))
+        for i in range(2):
+            conversations.append(create_horatio_conversation(f'ultra_horatio_{i}', tier='Ultra'))
+        for i in range(2):
+            # Fin-resolved (AI-only, no admin)
+            conv = create_fin_ai_conversation(f'ultra_fin_resolved_{i}', tier='Ultra')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # Create context
+        context = AgentContext(
+            analysis_id='tier_pipeline_test',
+            analysis_type='tier_based_segmentation',
+            start_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+            conversations=conversations
+        )
+        
+        # Execute segmentation
+        result = await agent.execute(context)
+        
+        # Assert success
+        assert result.success, f"Segmentation failed: {result.error_message}"
+        
+        # Assert tier distribution
+        tier_dist = result.data['segmentation_summary']['tier_distribution']
+        assert tier_dist['free'] == 36, f"Expected 36 free tier conversations, got {tier_dist['free']}"
+        assert tier_dist['pro'] == 48, f"Expected 48 pro tier conversations, got {tier_dist['pro']}"
+        assert tier_dist['plus'] == 24, f"Expected 24 plus tier conversations, got {tier_dist['plus']}"
+        assert tier_dist['ultra'] == 12, f"Expected 12 ultra tier conversations, got {tier_dist['ultra']}"
+        
+        # Assert segmentation summary
+        summary = result.data['segmentation_summary']
+        assert summary['paid_count'] == 84, f"Expected 84 paid conversations, got {summary['paid_count']}"
+        assert summary['free_count'] == 36, f"Expected 36 free conversations, got {summary['free_count']}"
+        assert summary['paid_human_count'] == 77, f"Expected 77 paid human conversations, got {summary['paid_human_count']}"
+        assert summary['paid_fin_resolved_count'] == 7, f"Expected 7 paid fin-resolved conversations, got {summary['paid_fin_resolved_count']}"
+        assert summary['free_fin_only_count'] == 36, f"Expected 36 free fin-only conversations, got {summary['free_fin_only_count']}"
+        
+        # Assert agent distribution
+        agent_dist = result.data['agent_distribution']
+        assert agent_dist['horatio'] == 47, f"Expected 47 Horatio conversations, got {agent_dist['horatio']}"
+        assert agent_dist['boldr'] == 15, f"Expected 15 Boldr conversations, got {agent_dist['boldr']}"
+        assert agent_dist['escalated'] == 15, f"Expected 15 escalated conversations, got {agent_dist['escalated']}"
+        assert agent_dist['fin_ai'] == 36, f"Expected 36 fin_ai conversations, got {agent_dist['fin_ai']}"
+        assert agent_dist['fin_resolved'] == 7, f"Expected 7 fin_resolved conversations, got {agent_dist['fin_resolved']}"
+        
+        # Assert tier-aware confidence
+        assert result.confidence > 0.95, f"Expected confidence > 0.95, got {result.confidence}"
+        assert result.confidence_level == ConfidenceLevel.HIGH.value, f"Expected 'high', got {result.confidence_level}"
+        
+        # Assert result structure
+        assert len(result.data['paid_customer_conversations']) == 84, f"Expected 84 paid customer conversations in result"
+        assert len(result.data['paid_fin_resolved_conversations']) == 7, f"Expected 7 paid fin-resolved conversations in result"
+        assert len(result.data['free_fin_only_conversations']) == 36, f"Expected 36 free fin-only conversations in result"
+
+    @pytest.mark.asyncio
+    async def test_tier_data_quality_tracking(self):
+        """Test tier data quality tracking and confidence scoring."""
+        agent = SegmentationAgent()
+        
+        conversations = []
+        
+        # Create 50 conversations with mixed tier data quality
+        # 20 with valid tier='Pro' (Horatio conversations)
+        for i in range(20):
+            conversations.append(create_horatio_conversation(f'valid_pro_{i}', tier='Pro'))
+        
+        # 10 with valid tier='Free' (Fin AI conversations)
+        for i in range(10):
+            conversations.append(create_fin_ai_conversation(f'valid_free_{i}', tier='Free'))
+        
+        # 10 with invalid tier='Premium' (should default to Free)
+        for i in range(10):
+            conv = create_fin_ai_conversation(f'invalid_tier_{i}', tier='Premium')
+            conversations.append(conv)
+        
+        # 10 with missing tier (no contacts dict)
+        for i in range(10):
+            conversations.append(create_unknown_conversation(f'missing_tier_{i}'))
+        
+        # Create context
+        context = AgentContext(
+            analysis_id='tier_quality_test',
+            analysis_type='tier_data_quality',
+            start_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+            conversations=conversations
+        )
+        
+        # Execute segmentation
+        result = await agent.execute(context)
+        
+        # Assert success
+        assert result.success, f"Segmentation failed: {result.error_message}"
+        
+        # Assert tier distribution (invalid and missing should default to Free)
+        tier_dist = result.data['segmentation_summary']['tier_distribution']
+        assert tier_dist['pro'] == 20, f"Expected 20 pro tier conversations, got {tier_dist['pro']}"
+        assert tier_dist['free'] == 30, f"Expected 30 free tier conversations (10 valid + 10 invalid + 10 missing), got {tier_dist['free']}"
+        
+        # Assert tier data quality affects confidence
+        assert result.confidence < 0.9, f"Expected confidence < 0.9 due to tier quality issues, got {result.confidence}"
+        assert result.confidence_level in [ConfidenceLevel.MEDIUM.value, ConfidenceLevel.LOW.value], f"Expected 'medium' or 'low', got {result.confidence_level}"
+        
+        # Assert segmentation still works correctly
+        summary = result.data['segmentation_summary']
+        assert summary['paid_count'] == 20, f"Expected 20 paid conversations, got {summary['paid_count']}"
+        assert summary['free_count'] == 30, f"Expected 30 free conversations, got {summary['free_count']}"
+        
+        # Assert limitations include tier data quality issues
+        assert any('tier' in limitation.lower() for limitation in result.limitations), \
+            "Expected limitations to include tier data quality issues"
+
+    @pytest.mark.asyncio
+    async def test_free_tier_with_admin_edge_case_integration(self, caplog):
+        """Test Free tier with admin_assignee_id edge case at scale."""
+        agent = SegmentationAgent()
+        
+        conversations = []
+        
+        # 10 Free tier with ai_agent_participated=True, no admin (normal)
+        for i in range(10):
+            conversations.append(create_fin_ai_conversation(f'free_normal_{i}', tier='Free'))
+        
+        # 10 Free tier with admin_assignee_id set (abuse/trust & safety edge case)
+        for i in range(10):
+            conv = create_fin_ai_conversation(f'free_admin_{i}', tier='Free')
+            conv['admin_assignee_id'] = f'admin_{i}'
+            conv['conversation_parts']['conversation_parts'].append({
+                'author': {
+                    'type': 'admin',
+                    'email': 'support@example.com'
+                }
+            })
+            conversations.append(conv)
+        
+        # 10 Pro tier with admin (normal paid)
+        for i in range(10):
+            conversations.append(create_horatio_conversation(f'pro_normal_{i}', tier='Pro'))
+        
+        # Create context
+        context = AgentContext(
+            analysis_id='free_admin_edge_test',
+            analysis_type='free_tier_admin_edge_case',
+            start_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+            conversations=conversations
+        )
+        
+        # Execute segmentation with logging
+        with caplog.at_level('WARNING'):
+            result = await agent.execute(context)
+        
+        # Assert success
+        assert result.success, f"Segmentation failed: {result.error_message}"
+        
+        # Assert all Free tier are classified as 'fin_ai'
+        summary = result.data['segmentation_summary']
+        assert summary['free_count'] == 20, f"Expected 20 free conversations, got {summary['free_count']}"
+        assert summary['paid_count'] == 10, f"Expected 10 paid conversations, got {summary['paid_count']}"
+        
+        agent_dist = result.data['agent_distribution']
+        assert agent_dist['fin_ai'] == 20, f"Expected 20 fin_ai conversations, got {agent_dist['fin_ai']}"
+        
+        # Verify warning logs for edge cases
+        warning_logs = [record for record in caplog.records if record.levelname == 'WARNING']
+        admin_edge_warnings = [log for log in warning_logs if 'abuse/trust & safety' in log.message]
+        assert len(admin_edge_warnings) == 10, f"Expected 10 warning logs for admin edge cases, got {len(admin_edge_warnings)}"
+
+    @pytest.mark.asyncio
+    async def test_paid_tier_fin_resolved_vs_free_tier_fin_ai(self):
+        """Test distinction between paid tier fin-resolved and free tier fin-ai."""
+        agent = SegmentationAgent()
+        
+        conversations = []
+        
+        # 10 Free tier with AI-only (should be 'fin_ai')
+        for i in range(10):
+            conversations.append(create_fin_ai_conversation(f'free_ai_{i}', tier='Free'))
+        
+        # 10 Pro tier with AI-only (should be 'fin_resolved')
+        for i in range(10):
+            conv = create_fin_ai_conversation(f'pro_ai_{i}', tier='Pro')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # 10 Plus tier with AI-only (should be 'fin_resolved')
+        for i in range(10):
+            conv = create_fin_ai_conversation(f'plus_ai_{i}', tier='Plus')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # 10 Ultra tier with AI-only (should be 'fin_resolved')
+        for i in range(10):
+            conv = create_fin_ai_conversation(f'ultra_ai_{i}', tier='Ultra')
+            conv['ai_agent_participated'] = True
+            conv['admin_assignee_id'] = None
+            conversations.append(conv)
+        
+        # Create context
+        context = AgentContext(
+            analysis_id='fin_distinction_test',
+            analysis_type='paid_vs_free_fin_distinction',
+            start_date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            end_date=datetime(2024, 1, 31, tzinfo=timezone.utc),
+            conversations=conversations
+        )
+        
+        # Execute segmentation
+        result = await agent.execute(context)
+        
+        # Assert success
+        assert result.success, f"Segmentation failed: {result.error_message}"
+        
+        # Assert correct classification
+        summary = result.data['segmentation_summary']
+        assert summary['free_count'] == 10, f"Expected 10 free conversations, got {summary['free_count']}"
+        assert summary['paid_count'] == 30, f"Expected 30 paid conversations, got {summary['paid_count']}"
+        
+        agent_dist = result.data['agent_distribution']
+        assert agent_dist['fin_ai'] == 10, f"Expected 10 fin_ai conversations (only Free tier), got {agent_dist['fin_ai']}"
+        assert agent_dist['fin_resolved'] == 30, f"Expected 30 fin_resolved conversations (all paid tiers), got {agent_dist['fin_resolved']}"
+        
+        assert summary['paid_fin_resolved_count'] == 30, f"Expected 30 paid fin-resolved conversations, got {summary['paid_fin_resolved_count']}"
+        assert summary['free_fin_only_count'] == 10, f"Expected 10 free fin-only conversations, got {summary['free_fin_only_count']}"
+        
+        # Assert result structure
+        paid_fin_resolved = result.data['paid_fin_resolved_conversations']
+        free_fin_only = result.data['free_fin_only_conversations']
+        
+        assert len(paid_fin_resolved) == 30, f"Expected 30 paid fin-resolved conversations in result, got {len(paid_fin_resolved)}"
+        assert len(free_fin_only) == 10, f"Expected 10 free fin-only conversations in result, got {len(free_fin_only)}"
+        
+        # Verify no overlap between the two lists
+        paid_ids = {conv['id'] for conv in paid_fin_resolved}
+        free_ids = {conv['id'] for conv in free_fin_only}
+        assert len(paid_ids.intersection(free_ids)) == 0, "Expected no overlap between paid_fin_resolved and free_fin_only lists"
