@@ -9,7 +9,7 @@ import os
 import sys
 import warnings
 from datetime import datetime, date, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 
 # Suppress urllib3 SSL warning
