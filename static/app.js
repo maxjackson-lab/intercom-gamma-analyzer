@@ -849,12 +849,29 @@ function runAnalysis() {
     } else if (analysisValue === 'voice-of-customer-complete') {
         command = 'voice-of-customer';
         args.push('--multi-agent', '--analysis-type', 'complete');
-    } else if (analysisValue === 'agent-performance-horatio') {
+    } else if (analysisValue === 'agent-performance-horatio-team') {
         command = 'agent-performance';
         args.push('--agent', 'horatio');
-    } else if (analysisValue === 'agent-performance-boldr') {
+        // Team overview - no individual breakdown
+    } else if (analysisValue === 'agent-performance-boldr-team') {
         command = 'agent-performance';
         args.push('--agent', 'boldr');
+        // Team overview - no individual breakdown
+    } else if (analysisValue === 'agent-performance-horatio-individual') {
+        command = 'agent-performance';
+        args.push('--agent', 'horatio', '--individual-breakdown');
+    } else if (analysisValue === 'agent-performance-boldr-individual') {
+        command = 'agent-performance';
+        args.push('--agent', 'boldr', '--individual-breakdown');
+    } else if (analysisValue === 'agent-coaching-horatio') {
+        command = 'agent-coaching-report';
+        args.push('--vendor', 'horatio');
+    } else if (analysisValue === 'agent-coaching-boldr') {
+        command = 'agent-coaching-report';
+        args.push('--vendor', 'boldr');
+    } else if (analysisValue === 'agent-performance-escalated') {
+        command = 'agent-performance';
+        args.push('--agent', 'escalated');
     } else {
         command = analysisValue;
     }
@@ -1124,6 +1141,32 @@ async function viewJSON(filePath) {
     }
 }
 
+// Update analysis info panels based on selected type
+function updateAnalysisOptions() {
+    const analysisType = document.getElementById('analysisType');
+    const individualInfo = document.getElementById('individualBreakdownInfo');
+    const coachingInfo = document.getElementById('coachingReportInfo');
+    const teamInfo = document.getElementById('teamOverviewInfo');
+    
+    if (!analysisType) return;
+    
+    const value = analysisType.value;
+    
+    // Hide all info panels first
+    if (individualInfo) individualInfo.style.display = 'none';
+    if (coachingInfo) coachingInfo.style.display = 'none';
+    if (teamInfo) teamInfo.style.display = 'none';
+    
+    // Show relevant panel based on selection
+    if (value.includes('individual')) {
+        if (individualInfo) individualInfo.style.display = 'block';
+    } else if (value.includes('coaching')) {
+        if (coachingInfo) coachingInfo.style.display = 'block';
+    } else if (value.includes('team') || value === 'agent-performance-escalated') {
+        if (teamInfo) teamInfo.style.display = 'block';
+    }
+}
+
 // Event listener for custom date inputs
 document.addEventListener('DOMContentLoaded', function() {
     const timePeriodSelect = document.getElementById('timePeriod');
@@ -1135,4 +1178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // Initialize analysis options visibility
+    updateAnalysisOptions();
 });

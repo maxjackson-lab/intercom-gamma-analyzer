@@ -226,7 +226,7 @@ if HAS_FASTAPI:
                 <h2>Configure Analysis</h2>
                 
                 <label>Analysis Type:</label>
-                <select id="analysisType">
+                <select id="analysisType" onchange="updateAnalysisOptions()">
                     <optgroup label="Voice of Customer">
                         <option value="voice-of-customer-hilary" selected>VoC: Hilary Format (Topic Cards)</option>
                         <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
@@ -242,14 +242,67 @@ if HAS_FASTAPI:
                     <optgroup label="Combined Analysis">
                         <option value="analyze-all-categories">All Categories</option>
                     </optgroup>
-                    <optgroup label="Agent Performance">
-                        <option value="agent-performance-horatio">Horatio Performance Review</option>
-                        <option value="agent-performance-boldr">Boldr Performance Review</option>
+                    <optgroup label="Agent Performance - Team Overview">
+                        <option value="agent-performance-horatio-team">Horatio: Team Metrics</option>
+                        <option value="agent-performance-boldr-team">Boldr: Team Metrics</option>
+                        <option value="agent-performance-escalated">Escalated/Senior Staff Analysis</option>
+                    </optgroup>
+                    <optgroup label="Agent Performance - Individual Breakdown">
+                        <option value="agent-performance-horatio-individual">Horatio: Individual Agents + Taxonomy</option>
+                        <option value="agent-performance-boldr-individual">Boldr: Individual Agents + Taxonomy</option>
+                    </optgroup>
+                    <optgroup label="Agent Coaching Reports">
+                        <option value="agent-coaching-horatio">Horatio: Coaching & Development</option>
+                        <option value="agent-coaching-boldr">Boldr: Coaching & Development</option>
                     </optgroup>
                     <optgroup label="Other Sources">
                         <option value="canny-analysis">Canny Feedback</option>
                     </optgroup>
                 </select>
+                
+                <!-- Info Panel for Individual Breakdown -->
+                <div id="individualBreakdownInfo" style="display:none; margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <div style="font-size: 12px; color: #3b82f6;">
+                        <strong>📊 Individual Agent Breakdown Includes:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+                            <li>Per-agent FCR, escalation, and response time metrics</li>
+                            <li>Performance breakdown by taxonomy categories (Billing, Bug, API, etc.)</li>
+                            <li>Performance breakdown by subcategories (Billing>Refund, Bug>Export, etc.)</li>
+                            <li>Strong and weak areas for each agent</li>
+                            <li>Agent rankings and comparisons</li>
+                            <li>Example conversations (best and needs-coaching)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Info Panel for Coaching Reports -->
+                <div id="coachingReportInfo" style="display:none; margin-top: 15px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <div style="font-size: 12px; color: #f59e0b;">
+                        <strong>🎯 Coaching Report Includes:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+                            <li>Coaching priority (high/medium/low) for each agent</li>
+                            <li>Specific coaching focus areas (weak categories/subcategories)</li>
+                            <li>Praise-worthy achievements to recognize</li>
+                            <li>Top and bottom performers identification</li>
+                            <li>Example conversations for coaching sessions</li>
+                            <li>Team-wide coaching needs and training recommendations</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Info Panel for Team Overview -->
+                <div id="teamOverviewInfo" style="display:none; margin-top: 15px; padding: 15px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="font-size: 12px; color: #10b981;">
+                        <strong>📈 Team Performance Overview Includes:</strong>
+                        <ul style="margin: 8px 0; padding-left: 20px; line-height: 1.6;">
+                            <li>Aggregated team FCR and escalation rates</li>
+                            <li>Overall team strengths and weaknesses</li>
+                            <li>Top categories handled</li>
+                            <li>Team highlights and lowlights</li>
+                            <li>No individual agent breakdown (use Individual Breakdown for that)</li>
+                        </ul>
+                    </div>
+                </div>
                 
                 <label>Time Period:</label>
                 <select id="timePeriod">
