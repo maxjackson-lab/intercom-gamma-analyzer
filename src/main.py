@@ -1257,7 +1257,124 @@ async def run_fin_analysis(start_date: datetime, end_date: datetime, detailed: b
 async def run_agent_analysis(agent: str, start_date: datetime, end_date: datetime):
     """Run agent performance analysis (legacy version)."""
     # Call the full version with default parameters
-    await run_agent_performance_analysis(agent, start_date, end_date, None, False)
+    await run_agent_performance_analysis(agent, start_date, end_date, None, False, False)
+
+
+def _display_individual_breakdown(data: Dict, vendor_name: str):
+    """Display individual agent breakdown results"""
+    from rich.table import Table
+    
+    # Team summary
+    team_metrics = data.get('team_metrics', {})
+    console.print(f"[bold]📊 Team Summary:[/bold]")
+    console.print(f"   Total Agents: {team_metrics.get('total_agents', 0)}")
+    console.print(f"   Total Conversations: {team_metrics.get('total_conversations', 0)}")
+    console.print(f"   Team FCR: {team_metrics.get('team_fcr_rate', 0):.1%}")
+    console.print(f"   Team Escalation Rate: {team_metrics.get('team_escalation_rate', 0):.1%}\n")
+    
+    # Highlights
+    if data.get('highlights'):
+        console.print(f"[bold green]✨ Highlights:[/bold green]")
+        for highlight in data['highlights']:
+            console.print(f"   ✓ {highlight}")
+        console.print()
+    
+    # Lowlights
+    if data.get('lowlights'):
+        console.print(f"[bold yellow]⚠️  Lowlights:[/bold yellow]")
+        for lowlight in data['lowlights']:
+            console.print(f"   • {lowlight}")
+        console.print()
+    
+    # Individual agents table
+    agents = data.get('agents', [])
+    if agents:
+        console.print(f"[bold]👥 Individual Agent Performance:[/bold]\n")
+        
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("Rank", style="dim", width=5)
+        table.add_column("Agent Name", width=20)
+        table.add_column("Conversations", justify="right", width=13)
+        table.add_column("FCR", justify="right", width=8)
+        table.add_column("Escalation", justify="right", width=11)
+        table.add_column("Response Time", justify="right", width=13)
+        table.add_column("Coaching", width=10)
+        
+        for agent in sorted(agents, key=lambda a: a.get('fcr_rank', 999)):
+            coaching_priority = agent.get('coaching_priority', 'low')
+            coaching_color = "red" if coaching_priority == "high" else "yellow" if coaching_priority == "medium" else "green"
+            
+            table.add_row(
+                str(agent.get('fcr_rank', '?')),
+                agent.get('agent_name', 'Unknown'),
+                str(agent.get('total_conversations', 0)),
+                f"{agent.get('fcr_rate', 0):.1%}",
+                f"{agent.get('escalation_rate', 0):.1%}",
+                f"{agent.get('median_response_hours', 0):.1f}h",
+                f"[{coaching_color}]{coaching_priority.upper()}[/{coaching_color}]"
+            )
+        
+        console.print(table)
+        console.print()
+    
+    # Agents needing coaching
+    coaching_needed = data.get('agents_needing_coaching', [])
+    if coaching_needed:
+        console.print(f"[bold red]🎯 Agents Needing Coaching ({len(coaching_needed)}):[/bold red]")
+        for agent in coaching_needed[:5]:  # Top 5
+            console.print(f"\n   {agent.get('agent_name', 'Unknown')} ({agent.get('agent_email', '')})")
+            console.print(f"   FCR: {agent.get('fcr_rate', 0):.1%}, Escalation: {agent.get('escalation_rate', 0):.1%}")
+            
+            focus_areas = agent.get('coaching_focus_areas', [])
+            if focus_areas:
+                console.print(f"   Focus on: {', '.join(focus_areas[:3])}")
+            
+            weak_subcats = agent.get('weak_subcategories', [])
+            if weak_subcats:
+                console.print(f"   Weak subcategories: {', '.join(weak_subcats[:3])}")
+        console.print()
+    
+    # Agents for praise
+    praise_worthy = data.get('agents_for_praise', [])
+    if praise_worthy:
+        console.print(f"[bold green]🌟 Top Performers ({len(praise_worthy)}):[/bold green]")
+        for agent in praise_worthy[:5]:  # Top 5
+            console.print(f"\n   {agent.get('agent_name', 'Unknown')} ({agent.get('agent_email', '')})")
+            console.print(f"   FCR: {agent.get('fcr_rate', 0):.1%}, Rank: #{agent.get('fcr_rank', '?')}")
+            
+            achievements = agent.get('praise_worthy_achievements', [])
+            if achievements:
+                for achievement in achievements[:2]:
+                    console.print(f"   ✓ {achievement}")
+        console.print()
+    
+    # Team training needs
+    training_needs = data.get('team_training_needs', [])
+    if training_needs:
+        console.print(f"[bold]📚 Team Training Needs:[/bold]")
+        for need in training_needs[:5]:
+            priority = need.get('priority', 'medium')
+            priority_color = "red" if priority == "high" else "yellow"
+            
+            topic = need.get('topic', 'Unknown')
+            affected = need.get('affected_agents', [])
+            reason = need.get('reason', '')
+            
+            console.print(f"\n   [{priority_color}]{priority.upper()}[/{priority_color}]: {topic}")
+            console.print(f"   {reason}")
+            console.print(f"   Affects: {', '.join(affected[:3])}" + 
+                         (f" and {len(affected)-3} more" if len(affected) > 3 else ""))
+        console.print()
+    
+    # Week-over-week changes
+    wow_changes = data.get('week_over_week_changes')
+    if wow_changes:
+        console.print(f"[bold]📈 Week-over-Week Changes:[/bold]")
+        for metric, change in wow_changes.items():
+            direction = "↑" if change > 0 else "↓"
+            color = "green" if (change > 0 and 'fcr' in metric) or (change < 0 and 'escalation' in metric) else "yellow"
+            console.print(f"   {metric}: [{color}]{direction} {abs(change):.1f}%[/{color}]")
+        console.print()
 
 
 async def run_agent_performance_analysis(
@@ -1265,7 +1382,8 @@ async def run_agent_performance_analysis(
     start_date: datetime, 
     end_date: datetime, 
     focus_categories: Optional[str] = None,
-    generate_gamma: bool = False
+    generate_gamma: bool = False,
+    individual_breakdown: bool = False
 ):
     """Run comprehensive agent performance analysis with optional Gamma generation."""
     try:
@@ -1392,10 +1510,30 @@ async def run_agent_performance_analysis(
             metadata={'agent_filter': agent, 'agent_name': agent_name}
         )
         
+        # Preprocess conversations before analysis
+        if individual_breakdown:
+            from src.services.data_preprocessor import DataPreprocessor
+            
+            console.print("🔧 Preprocessing conversations...")
+            preprocessor = DataPreprocessor()
+            agent_conversations, preprocess_stats = preprocessor.preprocess_conversations(
+                agent_conversations,
+                options={
+                    'deduplicate': True,
+                    'infer_missing': True,
+                    'clean_text': True,
+                    'detect_outliers': True
+                }
+            )
+            console.print(f"   ✅ Preprocessed: {preprocess_stats['processed_count']} valid conversations\n")
+            
+            # Update context with preprocessed conversations
+            context.conversations = agent_conversations
+        
         # Run agent performance analysis
         console.print(f"🤖 [bold cyan]Analyzing {agent_name} Performance...[/bold cyan]\n")
         performance_agent = AgentPerformanceAgent(agent_filter=agent)
-        result = await performance_agent.execute(context)
+        result = await performance_agent.execute(context, individual_breakdown=individual_breakdown)
         
         if not result.success:
             console.print(f"[red]❌ Analysis failed: {result.error_message}[/red]")
@@ -1407,25 +1545,31 @@ async def run_agent_performance_analysis(
         console.print(f"[bold green]🎉 {agent_name} Performance Analysis Complete![/bold green]")
         console.print("="*80 + "\n")
         
-        console.print(f"[bold]📊 Overall Metrics:[/bold]")
-        console.print(f"   Total Conversations: {data['total_conversations']}")
-        console.print(f"   First Contact Resolution: {data['fcr_rate']:.1%}")
-        console.print(f"   Median Resolution Time: {data['median_resolution_hours']:.1f} hours")
-        console.print(f"   Escalation Rate: {data['escalation_rate']:.1%}")
-        console.print(f"   Confidence: {result.confidence_level.value}\n")
-        
-        if data.get('performance_by_category'):
-            console.print(f"[bold]📋 Performance by Category:[/bold]")
-            for category, metrics in sorted(data['performance_by_category'].items(), 
-                                          key=lambda x: x[1]['volume'], reverse=True):
-                console.print(f"   {category}: {metrics['volume']} conversations")
-                console.print(f"      FCR: {metrics['fcr_rate']:.1%}, Escalation: {metrics['escalation_rate']:.1%}, Avg Resolution: {metrics['median_resolution_hours']:.1f}h")
-            console.print()
-        
-        if data.get('llm_insights'):
-            console.print(f"[bold]💡 Performance Insights:[/bold]")
-            console.print(data['llm_insights'])
-            console.print()
+        # Display differently based on analysis type
+        if individual_breakdown and 'agents' in data:
+            # Individual agent breakdown display
+            _display_individual_breakdown(data, agent_name)
+        else:
+            # Team-level display (original)
+            console.print(f"[bold]📊 Overall Metrics:[/bold]")
+            console.print(f"   Total Conversations: {data['total_conversations']}")
+            console.print(f"   First Contact Resolution: {data['fcr_rate']:.1%}")
+            console.print(f"   Median Resolution Time: {data['median_resolution_hours']:.1f} hours")
+            console.print(f"   Escalation Rate: {data['escalation_rate']:.1%}")
+            console.print(f"   Confidence: {result.confidence_level.value}\n")
+            
+            if data.get('performance_by_category'):
+                console.print(f"[bold]📋 Performance by Category:[/bold]")
+                for category, metrics in sorted(data['performance_by_category'].items(), 
+                                              key=lambda x: x[1]['volume'], reverse=True):
+                    console.print(f"   {category}: {metrics['volume']} conversations")
+                    console.print(f"      FCR: {metrics['fcr_rate']:.1%}, Escalation: {metrics['escalation_rate']:.1%}, Avg Resolution: {metrics['median_resolution_hours']:.1f}h")
+                console.print()
+            
+            if data.get('llm_insights'):
+                console.print(f"[bold]💡 Performance Insights:[/bold]")
+                console.print(data['llm_insights'])
+                console.print()
         
         # Save results
         output_dir = Path("outputs")
@@ -3377,13 +3521,15 @@ def voice_of_customer_analysis(
 @cli.command(name='agent-performance')
 @click.option('--agent', type=click.Choice(['horatio', 'boldr', 'escalated']), required=True,
               help='Agent to analyze (horatio, boldr, or escalated to senior staff)')
+@click.option('--individual-breakdown', is_flag=True,
+              help='Show individual agent metrics with taxonomy breakdown (not just team summary)')
 @click.option('--time-period', type=click.Choice(['week', 'month', '6-weeks', 'quarter']),
               help='Time period for analysis')
 @click.option('--start-date', help='Start date (YYYY-MM-DD) - overrides time-period')
 @click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
 @click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-def agent_performance(agent: str, time_period: Optional[str], start_date: Optional[str], 
+def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], start_date: Optional[str], 
                      end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool):
     """Analyze support agent/team performance with operational metrics"""
     from datetime import timedelta
@@ -3411,6 +3557,8 @@ def agent_performance(agent: str, time_period: Optional[str], start_date: Option
     
     console.print(f"[bold green]{agent_name} Performance Analysis[/bold green]")
     console.print(f"Date Range: {start_date} to {end_date}")
+    if individual_breakdown:
+        console.print("[cyan]Mode: Individual Agent Breakdown with Taxonomy Analysis[/cyan]")
     if focus_categories:
         console.print(f"Focus: {focus_categories}")
     
@@ -3419,8 +3567,30 @@ def agent_performance(agent: str, time_period: Optional[str], start_date: Option
     end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     
     asyncio.run(run_agent_performance_analysis(
-        agent, start_dt, end_dt, focus_categories, generate_gamma
+        agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown
     ))
+
+
+@cli.command(name='agent-coaching-report')
+@click.option('--vendor', type=click.Choice(['horatio', 'boldr']), required=True,
+              help='Vendor to analyze (horatio or boldr)')
+@click.option('--time-period', type=click.Choice(['week', 'month']), default='week',
+              help='Time period for analysis')
+@click.option('--top-n', default=3, help='Number of top/bottom performers to highlight')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool):
+    """Generate coaching-focused report with individual agent performance and taxonomy breakdown"""
+    from datetime import timedelta
+    
+    # Calculate date range
+    end_dt = datetime.now()
+    start_dt = end_dt - timedelta(weeks=1 if time_period == 'week' else 4)
+    
+    console.print(f"\n📋 [bold cyan]{vendor.title()} Coaching Report[/bold cyan]")
+    console.print(f"Period: {start_dt.date()} to {end_dt.date()}")
+    console.print(f"Highlighting: Top {top_n} and Bottom {top_n} performers\n")
+    
+    asyncio.run(run_agent_coaching_report(vendor, start_dt, end_dt, top_n, generate_gamma))
 
 
 @cli.command()

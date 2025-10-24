@@ -152,6 +152,128 @@ class HistoricalDataManager:
         self.logger.info(f"Quarterly snapshot stored: {filepath}")
         return str(filepath)
     
+    async def store_agent_performance_snapshot(
+        self, 
+        analysis_date: datetime,
+        vendor: str,
+        agent_metrics: List[Any]
+    ) -> str:
+        """
+        Store individual agent performance snapshot for trending.
+        
+        Args:
+            analysis_date: Date of the analysis
+            vendor: Vendor name ('horatio', 'boldr', etc.)
+            agent_metrics: List of IndividualAgentMetrics
+            
+        Returns:
+            Path to stored snapshot
+        """
+        self.logger.info(f"Storing agent performance snapshot for {vendor} on {analysis_date.date()}")
+        
+        snapshot_data = {
+            'snapshot_type': 'agent_performance',
+            'analysis_date': analysis_date.isoformat(),
+            'vendor': vendor,
+            'agents': [agent.dict() if hasattr(agent, 'dict') else agent for agent in agent_metrics],
+            'created_at': datetime.now().isoformat(),
+            'metadata': {
+                'total_agents': len(agent_metrics),
+                'total_conversations': sum(
+                    agent.total_conversations if hasattr(agent, 'total_conversations') 
+                    else agent.get('total_conversations', 0)
+                    for agent in agent_metrics
+                )
+            }
+        }
+        
+        filename = f"agent_performance_{vendor}_{analysis_date.strftime('%Y%m%d')}.json"
+        filepath = self.storage_dir / filename
+        
+        with open(filepath, 'w') as f:
+            json.dump(snapshot_data, f, indent=2, default=str)
+        
+        self.logger.info(f"Agent performance snapshot stored: {filepath}")
+        return str(filepath)
+    
+    async def get_week_over_week_comparison(
+        self,
+        vendor: str,
+        current_date: datetime
+    ) -> Dict[str, float]:
+        """
+        Compare current week vs previous week for agent performance trending.
+        
+        Args:
+            vendor: Vendor name
+            current_date: Current analysis date
+            
+        Returns:
+            Dictionary of percentage changes in key metrics
+        """
+        self.logger.info(f"Calculating week-over-week comparison for {vendor}")
+        
+        # Fetch previous week's snapshot
+        prev_week = current_date - timedelta(weeks=1)
+        prev_snapshot = self._load_agent_snapshot(vendor, prev_week)
+        current_snapshot = self._load_agent_snapshot(vendor, current_date)
+        
+        if not prev_snapshot or not current_snapshot:
+            self.logger.warning("Missing snapshot data for comparison")
+            return {}
+        
+        # Calculate changes
+        changes = {}
+        
+        # Overall team metrics
+        prev_agents = prev_snapshot.get('agents', [])
+        curr_agents = current_snapshot.get('agents', [])
+        
+        if prev_agents and curr_agents:
+            # Calculate team averages
+            prev_fcr = sum(a.get('fcr_rate', 0) for a in prev_agents) / len(prev_agents)
+            curr_fcr = sum(a.get('fcr_rate', 0) for a in curr_agents) / len(curr_agents)
+            changes['fcr_rate_change'] = ((curr_fcr - prev_fcr) / prev_fcr * 100) if prev_fcr else 0
+            
+            prev_esc = sum(a.get('escalation_rate', 0) for a in prev_agents) / len(prev_agents)
+            curr_esc = sum(a.get('escalation_rate', 0) for a in curr_agents) / len(curr_agents)
+            changes['escalation_rate_change'] = ((curr_esc - prev_esc) / prev_esc * 100) if prev_esc else 0
+            
+            prev_res = sum(a.get('median_resolution_hours', 0) for a in prev_agents) / len(prev_agents)
+            curr_res = sum(a.get('median_resolution_hours', 0) for a in curr_agents) / len(curr_agents)
+            changes['resolution_time_change'] = ((curr_res - prev_res) / prev_res * 100) if prev_res else 0
+        
+        return changes
+    
+    def _load_agent_snapshot(self, vendor: str, analysis_date: datetime) -> Optional[Dict[str, Any]]:
+        """Load agent performance snapshot for a specific date"""
+        # Try exact date
+        filename = f"agent_performance_{vendor}_{analysis_date.strftime('%Y%m%d')}.json"
+        filepath = self.storage_dir / filename
+        
+        if filepath.exists():
+            try:
+                with open(filepath, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                self.logger.warning(f"Error loading snapshot {filepath}: {e}")
+        
+        # Try nearby dates (within 3 days)
+        for delta in range(1, 4):
+            for direction in [-1, 1]:
+                nearby_date = analysis_date + timedelta(days=delta * direction)
+                nearby_filename = f"agent_performance_{vendor}_{nearby_date.strftime('%Y%m%d')}.json"
+                nearby_filepath = self.storage_dir / nearby_filename
+                
+                if nearby_filepath.exists():
+                    try:
+                        with open(nearby_filepath, 'r') as f:
+                            return json.load(f)
+                    except Exception as e:
+                        continue
+        
+        return None
+    
     def get_historical_trends(
         self, 
         weeks_back: int = 12,

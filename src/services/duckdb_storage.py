@@ -166,6 +166,61 @@ class DuckDBStorage:
             engagement_trends JSON
         );
         
+        -- Admin profiles cache for agent performance tracking
+        CREATE TABLE IF NOT EXISTS admin_profiles (
+            admin_id VARCHAR PRIMARY KEY,
+            name VARCHAR,
+            email VARCHAR,
+            public_email VARCHAR,
+            vendor VARCHAR,
+            active BOOLEAN,
+            first_seen TIMESTAMP,
+            last_updated TIMESTAMP
+        );
+        
+        -- Individual agent performance snapshots
+        CREATE TABLE IF NOT EXISTS agent_performance_history (
+            snapshot_id VARCHAR PRIMARY KEY,
+            analysis_date DATE,
+            agent_id VARCHAR,
+            agent_name VARCHAR,
+            agent_email VARCHAR,
+            vendor VARCHAR,
+            total_conversations INTEGER,
+            fcr_rate FLOAT,
+            reopen_rate FLOAT,
+            escalation_rate FLOAT,
+            median_resolution_hours FLOAT,
+            median_response_hours FLOAT,
+            over_48h_count INTEGER,
+            avg_conversation_complexity FLOAT,
+            strong_categories JSON,
+            weak_categories JSON,
+            strong_subcategories JSON,
+            weak_subcategories JSON,
+            coaching_priority VARCHAR,
+            performance_by_category JSON,
+            performance_by_subcategory JSON,
+            metadata JSON,
+            FOREIGN KEY (agent_id) REFERENCES admin_profiles(admin_id)
+        );
+        
+        -- Vendor-level performance snapshots
+        CREATE TABLE IF NOT EXISTS vendor_performance_history (
+            snapshot_id VARCHAR PRIMARY KEY,
+            analysis_date DATE,
+            vendor_name VARCHAR,
+            team_fcr_rate FLOAT,
+            team_escalation_rate FLOAT,
+            total_agents INTEGER,
+            total_conversations INTEGER,
+            team_strengths JSON,
+            team_weaknesses JSON,
+            highlights JSON,
+            lowlights JSON,
+            metadata JSON
+        );
+        
         -- Create indexes for performance
         CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
         CREATE INDEX IF NOT EXISTS idx_conversations_state ON conversations(state);

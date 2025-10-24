@@ -108,8 +108,26 @@ Focus areas:
         required = ['fcr_rate', 'median_resolution_hours', 'escalation_rate', 'performance_by_category']
         return all(k in result for k in required)
     
-    async def execute(self, context: AgentContext) -> AgentResult:
-        """Execute agent performance analysis"""
+    async def execute(self, context: AgentContext, individual_breakdown: bool = False) -> AgentResult:
+        """
+        Execute agent performance analysis with optional individual breakdown.
+        
+        Args:
+            context: AgentContext with conversations and metadata
+            individual_breakdown: If True, analyze each agent individually
+            
+        Returns:
+            AgentResult with team-level or individual-level analysis
+        """
+        if not individual_breakdown:
+            # Use existing team-level analysis
+            return await self._execute_team_analysis(context)
+        else:
+            # NEW: Individual agent analysis with taxonomy breakdown
+            return await self._execute_individual_analysis(context)
+    
+    async def _execute_team_analysis(self, context: AgentContext) -> AgentResult:
+        """Execute team-level performance analysis (original behavior)"""
         start_time = datetime.now()
         
         try:
@@ -191,6 +209,328 @@ Focus areas:
                 error_message=str(e),
                 execution_time=execution_time
             )
+    
+    async def _execute_individual_analysis(self, context: AgentContext) -> AgentResult:
+        """Execute individual agent performance analysis with taxonomy breakdown"""
+        start_time = datetime.now()
+        
+        try:
+            import httpx
+            from src.services.admin_profile_cache import AdminProfileCache
+            from src.services.individual_agent_analyzer import IndividualAgentAnalyzer
+            from src.services.duckdb_storage import DuckDBStorage
+            from src.services.historical_data_manager import HistoricalDataManager
+            from src.models.agent_performance_models import VendorPerformanceReport
+            from src.services.intercom_service_v2 import IntercomServiceV2
+            
+            self.validate_input(context)
+            
+            conversations = context.conversations
+            agent_name = self.AGENT_PATTERNS.get(self.agent_filter, {}).get('name', self.agent_filter)
+            
+            self.logger.info(
+                f"AgentPerformanceAgent: Individual breakdown for {agent_name} "
+                f"({len(conversations)} conversations)"
+            )
+            
+            # Initialize services
+            intercom_service = IntercomServiceV2()
+            duckdb_storage = DuckDBStorage()
+            admin_cache = AdminProfileCache(intercom_service, duckdb_storage)
+            
+            # Extract admin details for all conversations
+            self.logger.info("Extracting admin profiles from conversations...")
+            admin_details_map = {}
+            
+            async with httpx.AsyncClient(timeout=60) as client:
+                for conv in conversations:
+                    # Extract admin IDs from conversation
+                    admin_ids = self._extract_admin_ids(conv)
+                    
+                    for admin_id in admin_ids:
+                        if admin_id not in admin_details_map:
+                            # Get public email if available
+                            public_email = self._get_public_email_for_admin(conv, admin_id)
+                            
+                            # Fetch profile with caching
+                            profile = await admin_cache.get_admin_profile(
+                                admin_id, 
+                                client,
+                                public_email
+                            )
+                            
+                            # Only include if vendor matches
+                            if profile.vendor == self.agent_filter:
+                                admin_details_map[admin_id] = {
+                                    'id': profile.id,
+                                    'name': profile.name,
+                                    'email': profile.email,
+                                    'vendor': profile.vendor
+                                }
+                                
+                                # Attach to conversation for grouping
+                                if '_admin_details' not in conv:
+                                    conv['_admin_details'] = []
+                                conv['_admin_details'].append(admin_details_map[admin_id])
+            
+            self.logger.info(f"Found {len(admin_details_map)} {agent_name} agents")
+            
+            if not admin_details_map:
+                return AgentResult(
+                    agent_name=self.name,
+                    success=False,
+                    data={},
+                    confidence=0.0,
+                    confidence_level=ConfidenceLevel.LOW,
+                    error_message=f"No {agent_name} agents found in conversations",
+                    execution_time=(datetime.now() - start_time).total_seconds()
+                )
+            
+            # Analyze individual agents
+            analyzer = IndividualAgentAnalyzer(
+                self.agent_filter, 
+                admin_cache, 
+                duckdb_storage
+            )
+            agent_metrics = await analyzer.analyze_agents(conversations, admin_details_map)
+            
+            # Generate vendor-level report
+            report = self._build_vendor_report(
+                agent_metrics, 
+                context, 
+                agent_name
+            )
+            
+            # Store in DuckDB for historical tracking
+            historical_manager = HistoricalDataManager()
+            await historical_manager.store_agent_performance_snapshot(
+                analysis_date=context.end_date,
+                vendor=self.agent_filter,
+                agent_metrics=agent_metrics
+            )
+            
+            # Get week-over-week comparison if available
+            wow_changes = await historical_manager.get_week_over_week_comparison(
+                self.agent_filter,
+                context.end_date
+            )
+            report.week_over_week_changes = wow_changes if wow_changes else None
+            
+            execution_time = (datetime.now() - start_time).total_seconds()
+            
+            self.logger.info(f"Individual analysis completed in {execution_time:.2f}s")
+            self.logger.info(f"   Analyzed {len(agent_metrics)} agents")
+            self.logger.info(f"   {len(report.agents_needing_coaching)} need coaching")
+            self.logger.info(f"   {len(report.agents_for_praise)} deserve praise")
+            
+            return AgentResult(
+                agent_name=self.name,
+                success=True,
+                data=report.dict(),
+                confidence=1.0,
+                confidence_level=ConfidenceLevel.HIGH,
+                limitations=[],
+                sources=[f"{agent_name} agents", "Taxonomy analysis", "Historical data"],
+                execution_time=execution_time
+            )
+            
+        except Exception as e:
+            execution_time = (datetime.now() - start_time).total_seconds()
+            self.logger.error(f"Individual analysis error: {e}", exc_info=True)
+            
+            return AgentResult(
+                agent_name=self.name,
+                success=False,
+                data={},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                error_message=str(e),
+                execution_time=execution_time
+            )
+    
+    def _extract_admin_ids(self, conv: Dict) -> List[str]:
+        """Extract all admin IDs from a conversation"""
+        admin_ids = set()
+        
+        # From conversation_parts
+        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        for part in parts:
+            author = part.get('author', {})
+            if author.get('type') == 'admin' and author.get('id'):
+                admin_ids.add(str(author['id']))
+        
+        # From assignee
+        if conv.get('admin_assignee_id'):
+            admin_ids.add(str(conv['admin_assignee_id']))
+        
+        return list(admin_ids)
+    
+    def _get_public_email_for_admin(self, conv: Dict, admin_id: str) -> Optional[str]:
+        """Get the public/display email for an admin from conversation"""
+        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        for part in parts:
+            author = part.get('author', {})
+            if author.get('type') == 'admin' and str(author.get('id')) == admin_id:
+                return author.get('email')
+        return None
+    
+    def _build_vendor_report(
+        self, 
+        agent_metrics: List[Any], 
+        context: AgentContext,
+        vendor_name: str
+    ) -> Any:
+        """Build VendorPerformanceReport from agent metrics"""
+        from src.models.agent_performance_models import VendorPerformanceReport, TeamTrainingNeed
+        
+        # Calculate team metrics
+        total_convs = sum(a.total_conversations for a in agent_metrics)
+        team_fcr = sum(a.fcr_rate * a.total_conversations for a in agent_metrics) / total_convs if total_convs else 0
+        team_esc = sum(a.escalation_rate * a.total_conversations for a in agent_metrics) / total_convs if total_convs else 0
+        
+        team_metrics = {
+            'total_conversations': total_convs,
+            'team_fcr_rate': team_fcr,
+            'team_escalation_rate': team_esc,
+            'total_agents': len(agent_metrics)
+        }
+        
+        # Identify agents needing coaching (bottom 25% or coaching_priority = high)
+        agents_needing_coaching = [
+            a for a in agent_metrics 
+            if a.coaching_priority == "high" or a.fcr_rank > len(agent_metrics) * 0.75
+        ]
+        
+        # Identify agents for praise (top 25% or excellent performance)
+        agents_for_praise = [
+            a for a in agent_metrics 
+            if a.fcr_rank <= max(1, len(agent_metrics) * 0.25) or a.fcr_rate >= 0.9
+        ]
+        
+        # Identify team strengths and weaknesses from common patterns
+        team_strengths, team_weaknesses = self._identify_team_patterns(agent_metrics)
+        
+        # Identify team training needs
+        team_training_needs = self._identify_team_training_needs(agent_metrics)
+        
+        # Generate highlights and lowlights
+        highlights = self._generate_highlights(agent_metrics, team_metrics)
+        lowlights = self._generate_lowlights(agent_metrics, team_metrics)
+        
+        return VendorPerformanceReport(
+            vendor_name=vendor_name,
+            analysis_period={
+                'start': context.start_date.isoformat(),
+                'end': context.end_date.isoformat()
+            },
+            team_metrics=team_metrics,
+            agents=agent_metrics,
+            agents_needing_coaching=agents_needing_coaching,
+            agents_for_praise=agents_for_praise,
+            team_strengths=team_strengths,
+            team_weaknesses=team_weaknesses,
+            team_training_needs=team_training_needs,
+            highlights=highlights,
+            lowlights=lowlights
+        )
+    
+    def _identify_team_patterns(self, agent_metrics: List[Any]) -> tuple[List[str], List[str]]:
+        """Identify team-wide strengths and weaknesses"""
+        from collections import Counter
+        
+        # Collect all categories mentioned
+        all_strong = []
+        all_weak = []
+        
+        for agent in agent_metrics:
+            all_strong.extend(agent.strong_categories)
+            all_weak.extend(agent.weak_categories)
+        
+        # Find common patterns (mentioned by >30% of agents)
+        threshold = max(1, len(agent_metrics) * 0.3)
+        
+        strong_counts = Counter(all_strong)
+        weak_counts = Counter(all_weak)
+        
+        team_strengths = [cat for cat, count in strong_counts.items() if count >= threshold]
+        team_weaknesses = [cat for cat, count in weak_counts.items() if count >= threshold]
+        
+        return team_strengths, team_weaknesses
+    
+    def _identify_team_training_needs(self, agent_metrics: List[Any]) -> List[Any]:
+        """Identify team-wide training needs"""
+        from collections import defaultdict
+        from src.models.agent_performance_models import TeamTrainingNeed
+        
+        # Group agents by weak subcategories
+        weak_by_subcat = defaultdict(list)
+        
+        for agent in agent_metrics:
+            for subcat in agent.weak_subcategories:
+                weak_by_subcat[subcat].append(agent.agent_name)
+        
+        # Create training needs for subcategories affecting multiple agents
+        training_needs = []
+        for subcat, agent_names in weak_by_subcat.items():
+            if len(agent_names) >= 2:  # At least 2 agents struggle
+                priority = "high" if len(agent_names) >= len(agent_metrics) * 0.5 else "medium"
+                
+                training_needs.append(TeamTrainingNeed(
+                    topic=subcat,
+                    reason=f"{len(agent_names)} agents showing poor performance in this area",
+                    affected_agents=agent_names,
+                    priority=priority,
+                    example_conversations=[]
+                ))
+        
+        return training_needs
+    
+    def _generate_highlights(self, agent_metrics: List[Any], team_metrics: Dict) -> List[str]:
+        """Generate highlights from analysis"""
+        highlights = []
+        
+        # Team FCR
+        if team_metrics['team_fcr_rate'] >= 0.85:
+            highlights.append(f"Excellent team FCR: {team_metrics['team_fcr_rate']:.1%}")
+        
+        # Top performers
+        top_agents = sorted(agent_metrics, key=lambda a: a.fcr_rate, reverse=True)[:2]
+        for agent in top_agents:
+            if agent.fcr_rate >= 0.9:
+                highlights.append(f"{agent.agent_name}: {agent.fcr_rate:.1%} FCR")
+        
+        # Achievements
+        for agent in agent_metrics:
+            if agent.praise_worthy_achievements:
+                highlights.append(f"{agent.agent_name}: {agent.praise_worthy_achievements[0]}")
+                break
+        
+        return highlights[:5]  # Top 5
+    
+    def _generate_lowlights(self, agent_metrics: List[Any], team_metrics: Dict) -> List[str]:
+        """Generate lowlights from analysis"""
+        lowlights = []
+        
+        # High escalation rate
+        if team_metrics['team_escalation_rate'] > 0.15:
+            lowlights.append(f"Team escalation rate elevated: {team_metrics['team_escalation_rate']:.1%}")
+        
+        # Agents needing coaching
+        struggling_agents = [a for a in agent_metrics if a.coaching_priority == "high"]
+        if struggling_agents:
+            lowlights.append(f"{len(struggling_agents)} agents need immediate coaching")
+        
+        # Common weak areas
+        from collections import Counter
+        all_weak = []
+        for agent in agent_metrics:
+            all_weak.extend(agent.weak_categories)
+        
+        if all_weak:
+            most_common_weak = Counter(all_weak).most_common(1)[0]
+            lowlights.append(f"Team struggles with {most_common_weak[0]} ({most_common_weak[1]} agents)")
+        
+        return lowlights[:5]  # Top 5
     
     def _calculate_performance_metrics(self, conversations: List[Dict]) -> Dict[str, Any]:
         """Calculate operational performance metrics"""

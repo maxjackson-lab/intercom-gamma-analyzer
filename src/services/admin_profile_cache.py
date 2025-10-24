@@ -1,0 +1,230 @@
+"""
+Admin Profile Cache Service
+
+Caches Intercom admin profiles to avoid repeated API calls and extract
+nested/work emails from admin objects.
+"""
+
+import logging
+from typing import Dict, Optional
+from datetime import datetime, timedelta
+import httpx
+
+from src.models.agent_performance_models import AdminProfile
+from src.services.duckdb_storage import DuckDBStorage
+
+logger = logging.getLogger(__name__)
+
+
+class AdminProfileCache:
+    """Cache Intercom admin profiles with session and persistent storage"""
+    
+    def __init__(self, intercom_service, duckdb_storage: Optional[DuckDBStorage] = None):
+        """
+        Initialize admin profile cache.
+        
+        Args:
+            intercom_service: IntercomService instance for API calls
+            duckdb_storage: Optional DuckDB storage for persistent caching
+        """
+        self.intercom_service = intercom_service
+        self.storage = duckdb_storage
+        self.session_cache: Dict[str, AdminProfile] = {}  # In-memory cache for current session
+        self.cache_ttl_days = 7  # Refresh profiles older than 7 days
+        self.logger = logging.getLogger(__name__)
+        
+    async def get_admin_profile(
+        self, 
+        admin_id: str, 
+        client: httpx.AsyncClient,
+        public_email: Optional[str] = None
+    ) -> AdminProfile:
+        """
+        Get admin profile with caching.
+        
+        Args:
+            admin_id: Intercom admin ID
+            client: HTTP client for API calls
+            public_email: Optional public/display email from conversation
+            
+        Returns:
+            AdminProfile with work email and vendor information
+        """
+        # Check session cache first
+        if admin_id in self.session_cache:
+            self.logger.debug(f"Admin {admin_id} found in session cache")
+            return self.session_cache[admin_id]
+        
+        # Check DuckDB cache
+        if self.storage:
+            cached = self._get_from_db(admin_id)
+            if cached and self._is_cache_valid(cached):
+                self.logger.debug(f"Admin {admin_id} found in DB cache")
+                self.session_cache[admin_id] = cached
+                return cached
+        
+        # Fetch from Intercom API
+        profile = await self._fetch_from_api(admin_id, client, public_email)
+        
+        # Cache it
+        self.session_cache[admin_id] = profile
+        if self.storage:
+            self._store_in_db(profile)
+        
+        return profile
+    
+    async def _fetch_from_api(
+        self, 
+        admin_id: str, 
+        client: httpx.AsyncClient,
+        public_email: Optional[str] = None
+    ) -> AdminProfile:
+        """Fetch admin profile from Intercom API"""
+        try:
+            self.logger.info(f"Fetching admin profile from API: {admin_id}")
+            response = await client.get(
+                f"{self.intercom_service.base_url}/admins/{admin_id}",
+                headers=self.intercom_service.headers
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            work_email = data.get('email', '')
+            name = data.get('name', 'Unknown')
+            
+            profile = AdminProfile(
+                id=admin_id,
+                name=name,
+                email=work_email,
+                public_email=public_email or work_email,
+                vendor=self._identify_vendor(work_email),
+                active=data.get('away_mode_enabled', False) is False,
+                cached_at=datetime.now()
+            )
+            
+            self.logger.info(
+                f"Fetched admin {name} ({admin_id}): "
+                f"work_email={work_email}, vendor={profile.vendor}"
+            )
+            
+            return profile
+            
+        except httpx.HTTPStatusError as e:
+            self.logger.warning(f"HTTP error fetching admin {admin_id}: {e.response.status_code}")
+            return self._create_fallback_profile(admin_id, public_email)
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
+            return self._create_fallback_profile(admin_id, public_email)
+    
+    def _identify_vendor(self, email: str) -> str:
+        """Identify vendor from email domain"""
+        if not email:
+            return "unknown"
+        
+        email_lower = email.lower()
+        
+        if email_lower.endswith('@hirehoratio.co') or email_lower.endswith('@horatio.com'):
+            return "horatio"
+        elif email_lower.endswith('@boldrimpact.com') or '@boldr' in email_lower:
+            return "boldr"
+        elif email_lower.endswith('@gamma.app'):
+            return "gamma"
+        else:
+            return "unknown"
+    
+    def _create_fallback_profile(self, admin_id: str, public_email: Optional[str] = None) -> AdminProfile:
+        """Create fallback profile when API fetch fails"""
+        return AdminProfile(
+            id=admin_id,
+            name="Unknown",
+            email=public_email or "",
+            public_email=public_email,
+            vendor=self._identify_vendor(public_email or ""),
+            active=True,
+            cached_at=datetime.now()
+        )
+    
+    def _get_from_db(self, admin_id: str) -> Optional[AdminProfile]:
+        """Retrieve admin profile from DuckDB cache"""
+        if not self.storage or not self.storage.conn:
+            return None
+        
+        try:
+            result = self.storage.conn.execute(
+                """
+                SELECT admin_id, name, email, public_email, vendor, active, last_updated
+                FROM admin_profiles
+                WHERE admin_id = ?
+                """,
+                [admin_id]
+            ).fetchone()
+            
+            if result:
+                return AdminProfile(
+                    id=result[0],
+                    name=result[1],
+                    email=result[2],
+                    public_email=result[3],
+                    vendor=result[4],
+                    active=result[5],
+                    cached_at=result[6]
+                )
+            
+            return None
+            
+        except Exception as e:
+            self.logger.warning(f"Error retrieving admin {admin_id} from DB: {e}")
+            return None
+    
+    def _store_in_db(self, profile: AdminProfile):
+        """Store admin profile in DuckDB cache"""
+        if not self.storage or not self.storage.conn:
+            return
+        
+        try:
+            now = datetime.now()
+            
+            # Use INSERT OR REPLACE pattern
+            self.storage.conn.execute(
+                """
+                INSERT OR REPLACE INTO admin_profiles 
+                (admin_id, name, email, public_email, vendor, active, first_seen, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    profile.id,
+                    profile.name,
+                    profile.email,
+                    profile.public_email,
+                    profile.vendor,
+                    profile.active,
+                    now,  # first_seen (will be overwritten if exists)
+                    now   # last_updated
+                ]
+            )
+            
+            self.logger.debug(f"Stored admin {profile.id} in DB cache")
+            
+        except Exception as e:
+            self.logger.warning(f"Error storing admin {profile.id} in DB: {e}")
+    
+    def _is_cache_valid(self, profile: AdminProfile) -> bool:
+        """Check if cached profile is still valid"""
+        if not profile.cached_at:
+            return False
+        
+        age = datetime.now() - profile.cached_at
+        return age.days < self.cache_ttl_days
+    
+    def clear_session_cache(self):
+        """Clear the in-memory session cache"""
+        self.session_cache.clear()
+        self.logger.info("Session cache cleared")
+    
+    def get_cache_stats(self) -> Dict[str, int]:
+        """Get cache statistics"""
+        return {
+            'session_cache_size': len(self.session_cache),
+            'cache_ttl_days': self.cache_ttl_days
+        }
+

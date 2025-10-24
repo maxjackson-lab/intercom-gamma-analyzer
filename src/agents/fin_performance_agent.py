@@ -27,7 +27,10 @@ class FinPerformanceAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.4
         )
-        self.ai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
+        # Honor the agent's model choice
+        if hasattr(self.ai_client, 'model'):
+            self.ai_client.model = self.model
     
     def get_agent_specific_instructions(self) -> str:
         """Fin performance agent instructions"""
