@@ -21,6 +21,8 @@ from src.agents.example_extraction_agent import ExampleExtractionAgent
 from src.agents.fin_performance_agent import FinPerformanceAgent
 from src.agents.trend_agent import TrendAgent
 from src.agents.output_formatter_agent import OutputFormatterAgent
+from src.utils.agent_output_display import get_display
+from src.config.modes import get_analysis_mode_config
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +93,20 @@ class TopicOrchestrator:
         
         workflow_results = {}
         
+        # Initialize display with config settings
+        config = get_analysis_mode_config()
+        display = get_display()
+        display.enabled = config.get_visibility_setting('enable_agent_output_display', True)
+        show_full_data = config.get_visibility_setting('show_full_agent_data', False)
+        
         try:
             # PHASE 1: Segment conversations (paid vs free)
             self.logger.info("📊 Phase 1: Segmentation (Paid vs Free)")
             segmentation_result = await self.segmentation_agent.execute(context)
             workflow_results['SegmentationAgent'] = segmentation_result.dict()
+            
+            # Display agent result
+            display.display_agent_result('SegmentationAgent', segmentation_result.dict(), show_full_data)
             
             paid_conversations = segmentation_result.data.get('paid_customer_conversations', [])
             free_fin_only_conversations = segmentation_result.data.get('free_fin_only_conversations', [])
@@ -109,6 +120,9 @@ class TopicOrchestrator:
             context.conversations = paid_conversations
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = topic_detection_result.dict()
+            
+            # Display agent result
+            display.display_agent_result('TopicDetectionAgent', topic_detection_result.dict(), show_full_data)
             
             topic_dist = topic_detection_result.data.get('topic_distribution', {})
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics")
@@ -232,6 +246,9 @@ class TopicOrchestrator:
             }
             fin_result = await self.fin_performance_agent.execute(fin_context)
             workflow_results['FinPerformanceAgent'] = fin_result.dict()
+            
+            # Display agent result
+            display.display_agent_result('FinPerformanceAgent', fin_result.dict(), show_full_data)
 
             self.logger.info(f"   ✅ Fin analysis complete")
             
@@ -247,6 +264,9 @@ class TopicOrchestrator:
             }
             trend_result = await self.trend_agent.execute(trend_context)
             workflow_results['TrendAgent'] = trend_result.dict()
+            
+            # Display agent result
+            display.display_agent_result('TrendAgent', trend_result.dict(), show_full_data)
             
             self.logger.info(f"   ✅ Trend analysis complete")
             
@@ -269,6 +289,9 @@ class TopicOrchestrator:
             
             formatter_result = await self.output_formatter_agent.execute(output_context)
             workflow_results['OutputFormatterAgent'] = formatter_result.dict()
+            
+            # Display agent result
+            display.display_agent_result('OutputFormatterAgent', formatter_result.dict(), show_full_data)
             
             self.logger.info(f"   ✅ Output formatted")
             
@@ -296,6 +319,20 @@ class TopicOrchestrator:
                 'metrics': metrics,
                 'agent_results': workflow_results
             }
+            
+            # Display summary table of all agent results
+            if config.get_visibility_setting('show_agent_summary_table', True):
+                display.display_all_agent_results(workflow_results, f"Analysis Complete - {week_id}")
+            
+            # Display markdown preview if enabled
+            if config.get_visibility_setting('show_markdown_preview', True):
+                formatted_report = formatter_result.data.get('formatted_output', '')
+                max_lines = config.get_visibility_setting('markdown_preview_max_lines', 50)
+                display.display_markdown_preview(
+                    formatted_report,
+                    title=f"Formatted Report - {period_label or week_id}",
+                    max_lines=max_lines
+                )
             
             self.logger.info(f"🎉 TopicOrchestrator: Complete in {total_time:.1f}s")
             self.logger.info(f"   Topics: {len(topic_dist)}, Paid: {len(paid_conversations)}, Free: {len(free_fin_only_conversations)}")

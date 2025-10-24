@@ -177,6 +177,20 @@ class AnalysisModeConfig:
         """
         multi_agent_config = self.config.get('multi_agent', {})
         return multi_agent_config.get(setting_name)
+    
+    def get_visibility_setting(self, setting_name: str, default: Any = True) -> Any:
+        """
+        Get an agent output visibility setting.
+        
+        Args:
+            setting_name: Name of the setting (e.g., 'enable_agent_output_display')
+            default: Default value if setting is not found
+        
+        Returns:
+            Setting value
+        """
+        features = self.config.get('features', {})
+        return features.get(setting_name, default)
 
 
 # Global singleton instance

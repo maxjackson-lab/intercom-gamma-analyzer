@@ -14,6 +14,8 @@ from src.services.gamma_client import GammaClient, GammaAPIError
 from src.services.presentation_builder import PresentationBuilder
 from src.config.gamma_prompts import GammaPrompts
 from src.utils.time_utils import detect_period_type
+from src.utils.agent_output_display import get_display
+from src.config.modes import get_analysis_mode_config
 
 logger = structlog.get_logger()
 
@@ -98,6 +100,25 @@ class GammaGenerator:
             # Get style-specific parameters
             num_cards = self.prompts.get_slide_count_for_style(style)
             additional_instructions = self.prompts.get_additional_instructions_for_style(style)
+            
+            # Display Gamma API call preview if enabled
+            config = get_analysis_mode_config()
+            if config.get_visibility_setting('enable_agent_output_display', True):
+                display = get_display()
+                show_full_text = config.get_visibility_setting('show_full_gamma_input', False)
+                display.display_gamma_api_call(
+                    input_text=input_text,
+                    parameters={
+                        'format': 'presentation',
+                        'num_cards': num_cards,
+                        'text_mode': 'generate',
+                        'card_split': 'auto',
+                        'theme_name': 'stockholm',
+                        'export_format': export_format,
+                        'additional_instructions': additional_instructions[:100] + '...' if additional_instructions and len(additional_instructions) > 100 else additional_instructions
+                    },
+                    show_full_text=show_full_text
+                )
             
             # Generate presentation
             generation_id = await self.client.generate_presentation(

@@ -112,7 +112,12 @@ class IntercomServiceV2:
                         self.logger.info("No more conversations found")
                         break
                     
-                    all_conversations.extend(conversations)
+                    # Fetch full contact details for each conversation
+                    enriched_conversations = await self._enrich_conversations_with_contact_details(
+                        conversations, client
+                    )
+                    
+                    all_conversations.extend(enriched_conversations)
                     self.logger.info(f"Fetched {len(conversations)} conversations (total: {len(all_conversations)})")
                     
                     # Check if we've reached the max conversations limit
@@ -191,6 +196,80 @@ class IntercomServiceV2:
             )
         
         return filtered_conversations
+    
+    async def _enrich_conversations_with_contact_details(
+        self, 
+        conversations: List[Dict], 
+        client: httpx.AsyncClient
+    ) -> List[Dict]:
+        """
+        Enrich conversations with full contact details including custom attributes and segments.
+        
+        Args:
+            conversations: List of conversation dictionaries
+            client: HTTP client for making API calls
+            
+        Returns:
+            List of enriched conversation dictionaries
+        """
+        enriched_conversations = []
+        
+        for conv in conversations:
+            try:
+                # Extract contact IDs from the conversation
+                contacts_data = conv.get('contacts', {})
+                if contacts_data and isinstance(contacts_data, dict):
+                    contacts_list = contacts_data.get('contacts', [])
+                    
+                    if contacts_list:
+                        # Get the first contact (primary contact)
+                        contact_id = contacts_list[0].get('id')
+                        
+                        if contact_id:
+                            # Fetch full contact details
+                            try:
+                                contact_response = await client.get(
+                                    f"{self.base_url}/contacts/{contact_id}",
+                                    headers=self.headers
+                                )
+                                contact_response.raise_for_status()
+                                
+                                full_contact_data = contact_response.json()
+                                
+                                # Fetch segments for the contact
+                                try:
+                                    segments_response = await client.get(
+                                        f"{self.base_url}/contacts/{contact_id}/segments",
+                                        headers=self.headers
+                                    )
+                                    segments_response.raise_for_status()
+                                    
+                                    segments_data = segments_response.json()
+                                    full_contact_data['segments'] = segments_data
+                                    
+                                    self.logger.debug(f"Enriched conversation {conv.get('id')} with segments data")
+                                    
+                                except Exception as e:
+                                    self.logger.warning(f"Failed to fetch segments for contact {contact_id}: {e}")
+                                    # Continue without segments data
+                                
+                                # Replace the contact data in the conversation
+                                conv['contacts']['contacts'][0] = full_contact_data
+                                
+                                self.logger.debug(f"Enriched conversation {conv.get('id')} with full contact details")
+                                
+                            except Exception as e:
+                                self.logger.warning(f"Failed to fetch contact details for {contact_id}: {e}")
+                                # Continue with original contact data
+                
+                enriched_conversations.append(conv)
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to enrich conversation {conv.get('id')}: {e}")
+                # Add the original conversation if enrichment fails
+                enriched_conversations.append(conv)
+        
+        return enriched_conversations
     
     def _normalize_and_filter_by_date(
         self,

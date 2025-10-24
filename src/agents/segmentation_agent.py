@@ -100,7 +100,55 @@ class SegmentationAgent(BaseAgent):
             except Exception as e:
                 self.logger.debug(f"Error matching tier for conversation {conv_id}: {e}, defaulting to FREE")
         else:
-            self.logger.warning(f"No tier found for conversation {conv_id}, defaulting to FREE")
+            # Check if contact is in "Paid Users" segment or has active Stripe subscription
+            if contacts_data and isinstance(contacts_data, dict):
+                contacts_list = contacts_data.get('contacts', [])
+                if contacts_list and len(contacts_list) > 0:
+                    contact = contacts_list[0]
+                    
+                    # Check if contact has segments information
+                    if 'segments' in contact:
+                        segments = contact['segments']
+                        if 'segments' in segments and len(segments['segments']) > 0:
+                            for segment in segments['segments']:
+                                if segment.get('name') == 'Paid Users':
+                                    self.logger.debug(f"Contact is in 'Paid Users' segment for conversation {conv_id}, defaulting to PRO")
+                                    return CustomerTier.PRO
+                    
+                    # Check Stripe subscription data
+                    if 'custom_attributes' in contact:
+                        custom_attrs = contact['custom_attributes']
+                        
+                        # Check for active Stripe subscription
+                        stripe_status = custom_attrs.get('stripe_subscription_status')
+                        stripe_plan = custom_attrs.get('stripe_plan')
+                        
+                        if stripe_status == 'active' and stripe_plan:
+                            self.logger.debug(f"Contact has active Stripe subscription '{stripe_plan}' for conversation {conv_id}")
+                            
+                            # Map Stripe plan to CustomerTier
+                            plan_lower = stripe_plan.lower()
+                            if 'plus' in plan_lower:
+                                self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
+                                return CustomerTier.PLUS
+                            elif 'pro' in plan_lower:
+                                self.logger.debug(f"Detected PRO tier from Stripe plan for conversation {conv_id}")
+                                return CustomerTier.PRO
+                            elif 'ultra' in plan_lower:
+                                self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
+                                return CustomerTier.ULTRA
+                            else:
+                                # Unknown plan, default to PRO
+                                self.logger.debug(f"Unknown Stripe plan '{stripe_plan}', defaulting to PRO for conversation {conv_id}")
+                                return CustomerTier.PRO
+                    
+                    # If no segments info and no Stripe data, check if we can get it from the contact data
+                    # This is a fallback for when segments are not included in the contact data
+                    self.logger.debug(f"No segments or Stripe information found for conversation {conv_id}, defaulting to FREE")
+                else:
+                    self.logger.debug(f"No contacts found for conversation {conv_id}, defaulting to FREE")
+            else:
+                self.logger.debug(f"No contacts data found for conversation {conv_id}, defaulting to FREE")
 
         # Default to FREE
         return CustomerTier.FREE

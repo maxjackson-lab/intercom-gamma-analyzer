@@ -36,6 +36,25 @@ features:
   
   # Enable/disable historical data tracking
   enable_historical: true
+  
+  # Agent Output Visibility Settings
+  # Enable/disable agent output display in terminal
+  enable_agent_output_display: true
+  
+  # Show full data in agent results (vs just summary)
+  show_full_agent_data: false
+  
+  # Show formatted markdown preview before sending to Gamma
+  show_markdown_preview: true
+  
+  # Maximum lines to show in markdown preview (null for all)
+  markdown_preview_max_lines: 50
+  
+  # Show full input text in Gamma API call preview
+  show_full_gamma_input: false
+  
+  # Display summary table of all agent results
+  show_agent_summary_table: true
 
 # Multi-agent workflow settings
 multi_agent:
