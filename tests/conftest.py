@@ -564,6 +564,117 @@ def fin_conversations():
     ]
 
 
+@pytest.fixture
+def sample_fin_conversations_with_ratings():
+    """List of 20+ Finn conversations with varied ratings, escalation/knowledge gap phrases, and Tier 2 indicators."""
+    conversations = []
+    ratings = [1, 2, 3, 4, 5, None]  # Cycle through ratings
+    topics = ['Billing Issues', 'Account Issues', 'Product Questions']
+    
+    for i in range(20):
+        rating = ratings[i % len(ratings)]
+        topic = topics[i % len(topics)]
+        
+        # Base conversation
+        conv = {
+            'id': f'fin_conv_{i}',
+            'created_at': 1699123456 + (i * 3600),
+            'updated_at': 1699123456 + (i * 3600) + 1800,
+            'state': 'closed',
+            'admin_assignee_id': 'admin_fin',
+            'ai_agent_participated': True,
+            'conversation_rating': rating,
+            'custom_attributes': {
+                'Fin AI Agent: Preview': True,
+                'Language': 'en'
+            },
+            'tags': {'tags': []},
+            'conversation_topics': [],
+            'detected_topics': [topic],
+            'full_text': f'Customer inquiry about {topic.lower()} issue {i}.',
+            'customer_messages': [f'Message about {topic.lower()} {i}']
+        }
+        
+        # Add Tier 2 indicators based on topic
+        if topic == 'Billing Issues':
+            if i % 2 == 0:
+                conv['tags']['tags'].append({'name': 'Refund'})
+                conv['conversation_topics'].append({'name': 'Refund'})
+            else:
+                conv['tags']['tags'].append({'name': 'Invoice'})
+                conv['conversation_topics'].append({'name': 'Invoice'})
+            conv['custom_attributes']['billing_type'] = 'annual' if i % 4 == 0 else 'monthly'
+        elif topic == 'Account Issues':
+            conv['tags']['tags'].append({'name': 'Login'})
+            conv['conversation_topics'].append({'name': 'Login'})
+            conv['custom_attributes']['account_type'] = 'premium' if i % 3 == 0 else 'free'
+        else:  # Product Questions
+            conv['tags']['tags'].append({'name': 'Feature'})
+            conv['conversation_topics'].append({'name': 'Feature'})
+            conv['custom_attributes']['product_version'] = 'v2' if i % 5 == 0 else 'v1'
+        
+        # Add escalation phrases in some conversations
+        if i % 4 == 0:
+            conv['full_text'] += ' I need to speak to human support.'
+        elif i % 4 == 1:
+            conv['full_text'] += ' Talk to a real person please.'
+        elif i % 4 == 2:
+            conv['full_text'] += ' Escalate this to supervisor.'
+        
+        # Add knowledge gap phrases in some conversations
+        if i % 5 == 0:
+            conv['full_text'] += ' This answer is wrong.'
+        elif i % 5 == 1:
+            conv['full_text'] += ' Not helpful at all.'
+        
+        conversations.append(conv)
+    
+    return conversations
+
+
+@pytest.fixture
+def mock_subtopic_data_for_fin():
+    """Mock SubTopicDetectionAgent output structure for Finn conversations."""
+    return {
+        'subtopics_by_tier1_topic': {
+            'Billing Issues': {
+                'tier2': {
+                    'Refund': {'volume': 5, 'percentage': 50.0, 'source': 'tags'},
+                    'Invoice': {'volume': 3, 'percentage': 30.0, 'source': 'tags'},
+                    'annual': {'volume': 1, 'percentage': 10.0, 'source': 'custom_attributes'},
+                    'monthly': {'volume': 1, 'percentage': 10.0, 'source': 'custom_attributes'}
+                },
+                'tier3': {
+                    'Refund Processing Delays': {'keywords': ['refund', 'delay'], 'method': 'llm_semantic'},
+                    'Invoice Discrepancies': {'keywords': ['invoice', 'error'], 'method': 'llm_semantic'}
+                }
+            },
+            'Account Issues': {
+                'tier2': {
+                    'Login': {'volume': 4, 'percentage': 66.7, 'source': 'tags'},
+                    'premium': {'volume': 1, 'percentage': 16.7, 'source': 'custom_attributes'},
+                    'free': {'volume': 1, 'percentage': 16.7, 'source': 'custom_attributes'}
+                },
+                'tier3': {
+                    'Login Failures': {'keywords': ['login', 'fail'], 'method': 'llm_semantic'},
+                    'Password Reset Issues': {'keywords': ['password', 'reset'], 'method': 'llm_semantic'}
+                }
+            },
+            'Product Questions': {
+                'tier2': {
+                    'Feature': {'volume': 3, 'percentage': 60.0, 'source': 'tags'},
+                    'v1': {'volume': 1, 'percentage': 20.0, 'source': 'custom_attributes'},
+                    'v2': {'volume': 1, 'percentage': 20.0, 'source': 'custom_attributes'}
+                },
+                'tier3': {
+                    'Feature Requests': {'keywords': ['feature', 'request'], 'method': 'llm_semantic'},
+                    'Usage Questions': {'keywords': ['how', 'use'], 'method': 'llm_semantic'}
+                }
+            }
+        }
+    }
+
+
 
 
 

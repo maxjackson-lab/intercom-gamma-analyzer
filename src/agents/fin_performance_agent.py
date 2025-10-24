@@ -6,14 +6,18 @@ Purpose:
 - Identify knowledge gaps
 - Detect unnecessary escalations
 - Performance by topic
+- Performance by sub-topic (Tier 2 and Tier 3)
+- Data-rooted quality metrics (ratings, escalation rate)
 """
 
 import logging
 from typing import Dict, Any, List
 from datetime import datetime
+from collections import defaultdict
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
+from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +31,12 @@ class FinPerformanceAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.4
         )
+        self.logger = logging.getLogger(__name__)
         self.ai_client = get_ai_client()
         # Honor the agent's model choice
         if hasattr(self.ai_client, 'model'):
             self.ai_client.model = self.model
+        self.escalation_analyzer = FinEscalationAnalyzer()
     
     def get_agent_specific_instructions(self) -> str:
         """Fin performance agent instructions"""
@@ -47,6 +53,9 @@ FIN PERFORMANCE AGENT SPECIFIC RULES:
    - Resolution rate (% resolved without human request)
    - Knowledge gap frequency
    - Topic-specific performance differences
+   - Escalation rate (% requesting human support)
+   - Average conversation rating per sub-topic
+   - Sub-topic performance breakdown (when available)
 
 3. Identify patterns:
    - Which topics Fin handles well
@@ -66,9 +75,12 @@ FIN PERFORMANCE AGENT SPECIFIC RULES:
         # Backward compatibility
         if not free_fin_convs and not paid_fin_convs:
             fin_convs = context.metadata.get('fin_conversations', [])
-            return f"Analyze Fin AI performance across {len(fin_convs)} AI-only conversations."
+            description = f"Analyze Fin AI performance across {len(fin_convs)} AI-only conversations."
+            if 'SubTopicDetectionAgent' in context.previous_results:
+                description += "\n5. Sub-topic performance breakdown (Tier 2 + Tier 3)"
+            return description
 
-        return f"""
+        description = f"""
 Analyze Fin AI performance with tier-based segmentation:
 - Free tier (Fin-only): {len(free_fin_convs)} conversations
 - Paid tier (Fin-resolved): {len(paid_fin_convs)} conversations
@@ -79,6 +91,9 @@ Calculate tier-specific metrics:
 3. Performance differences between tiers
 4. Topic-specific performance
 """
+        if 'SubTopicDetectionAgent' in context.previous_results:
+            description += "\n5. Sub-topic performance breakdown (Tier 2 + Tier 3)"
+        return description
     
     def format_context_data(self, context: AgentContext) -> str:
         """Format Fin conversations"""
@@ -101,6 +116,18 @@ Calculate tier-specific metrics:
         has_old_format = 'resolution_rate' in result and 'knowledge_gaps_count' in result
         has_new_format = 'free_tier' in result or 'paid_tier' in result
 
+        # Validate sub-topic structure if present
+        if has_new_format:
+            for tier_key in ['free_tier', 'paid_tier']:
+                if tier_key in result and result[tier_key]:
+                    subtopic_data = result[tier_key].get('performance_by_subtopic')
+                    if subtopic_data is not None:
+                        if not isinstance(subtopic_data, dict):
+                            return False
+                        for tier1_topic, subtopics in subtopic_data.items():
+                            if not isinstance(subtopics, dict) or 'tier2' not in subtopics or 'tier3' not in subtopics:
+                                return False
+
         return has_old_format or has_new_format
     
     async def execute(self, context: AgentContext) -> AgentResult:
@@ -119,6 +146,13 @@ Calculate tier-specific metrics:
                 legacy_conversations = context.metadata.get('fin_conversations', [])
                 free_fin_conversations = legacy_conversations
                 self.logger.warning("Using legacy 'fin_conversations' format - consider updating to tier-based format")
+
+            # Check for sub-topic data
+            subtopics_data = None
+            if 'SubTopicDetectionAgent' in context.previous_results:
+                subtopics_data = context.previous_results['SubTopicDetectionAgent'].get('data', {}).get('subtopics_by_tier1_topic')
+                if subtopics_data:
+                    self.logger.info(f"Sub-topic data available: {len(subtopics_data)} Tier 1 topics")
 
             total_free = len(free_fin_conversations)
             total_paid = len(paid_fin_conversations)
@@ -142,8 +176,8 @@ Calculate tier-specific metrics:
                 }
             else:
                 # Calculate metrics for each tier
-                free_tier_metrics = self._calculate_tier_metrics(free_fin_conversations, 'Free') if total_free > 0 else {}
-                paid_tier_metrics = self._calculate_tier_metrics(paid_fin_conversations, 'Paid') if total_paid > 0 else {}
+                free_tier_metrics = self._calculate_tier_metrics(free_fin_conversations, 'Free', subtopics_data) if total_free > 0 else {}
+                paid_tier_metrics = self._calculate_tier_metrics(paid_fin_conversations, 'Paid', subtopics_data) if total_paid > 0 else {}
 
                 # Build tier-aware result data
                 result_data = {
@@ -213,7 +247,7 @@ Calculate tier-specific metrics:
                 execution_time=execution_time
             )
 
-    def _calculate_tier_metrics(self, conversations: List[Dict], tier_name: str) -> Dict:
+    def _calculate_tier_metrics(self, conversations: List[Dict], tier_name: str, subtopics_data: Dict = None) -> Dict:
         """
         Calculate Fin performance metrics for a specific tier.
 
@@ -228,11 +262,10 @@ Calculate tier-specific metrics:
         if total == 0:
             return {}
 
-        # Resolution rate
-        escalation_phrases = ['speak to human', 'talk to agent', 'real person', 'human support']
+        # Resolution rate - using centralized escalation detection
         resolved_by_fin = [
             c for c in conversations
-            if not any(phrase in c.get('full_text', '').lower() for phrase in escalation_phrases)
+            if not self.escalation_analyzer.detect_escalation_request(c)
         ]
         resolution_rate = len(resolved_by_fin) / total
 
@@ -244,7 +277,6 @@ Calculate tier-specific metrics:
         ]
 
         # Performance by topic
-        from collections import defaultdict
         topic_performance = defaultdict(lambda: {'total': 0, 'resolved': 0})
 
         for conv in conversations:
@@ -277,6 +309,11 @@ Calculate tier-specific metrics:
             key=lambda x: x[1]['resolution_rate']
         )[:3]
 
+        # Sub-topic performance
+        performance_by_subtopic = None
+        if subtopics_data is not None:
+            performance_by_subtopic = self._calculate_subtopic_performance(conversations, subtopics_data, resolved_by_fin, knowledge_gaps)
+
         return {
             'total_conversations': total,
             'resolution_rate': resolution_rate,
@@ -293,7 +330,8 @@ Calculate tier-specific metrics:
             ],
             'performance_by_topic': topic_performance_dict,
             'top_performing_topics': top_performing,
-            'struggling_topics': struggling
+            'struggling_topics': struggling,
+            'performance_by_subtopic': performance_by_subtopic
         }
 
     def _compare_tiers(self, free_metrics: Dict, paid_metrics: Dict) -> Dict:
@@ -367,6 +405,30 @@ Calculate tier-specific metrics:
         free_struggling = free_tier.get('struggling_topics', [])
         paid_struggling = paid_tier.get('struggling_topics', [])
 
+        # Format sub-topic performance if available
+        free_subtopics = free_tier.get('performance_by_subtopic', {})
+        paid_subtopics = paid_tier.get('performance_by_subtopic', {})
+
+        # Helper to format sub-topics
+        def format_subtopics(subtopic_data, tier_name):
+            if not subtopic_data:
+                return f"{tier_name} sub-topics: N/A"
+            lines = [f"{tier_name} sub-topics:"]
+            for tier1, subs in subtopic_data.items():
+                tier2_top = sorted(subs['tier2'].items(), key=lambda x: x[1]['resolution_rate'], reverse=True)[:2]
+                tier3_top = sorted(subs['tier3'].items(), key=lambda x: x[1]['resolution_rate'], reverse=True)[:2]
+                if tier2_top:
+                    tier2_formatted = ', '.join([f"{k} ({v['resolution_rate']:.1%})" for k, v in tier2_top])
+                    lines.append(f"  Tier 2 ({tier1}): {tier2_formatted}")
+                if tier3_top:
+                    tier3_formatted = ', '.join([f"{k} ({v['resolution_rate']:.1%})" for k, v in tier3_top])
+                    lines.append(f"  Tier 3 ({tier1}): {tier3_formatted}")
+            return '\n'.join(lines)
+
+        subtopic_info = ""
+        if free_subtopics or paid_subtopics:
+            subtopic_info = f"\n{format_subtopics(free_subtopics, 'Free Tier')}\n{format_subtopics(paid_subtopics, 'Paid Tier')}"
+
         prompt = f"""
 Analyze Fin AI's performance across customer tiers and provide nuanced, actionable insights.
 
@@ -388,6 +450,8 @@ Tier Comparison:
 - Resolution rate delta: {tier_comparison.get('resolution_rate_delta', 0):.1%}
 - Interpretation: {tier_comparison.get('resolution_rate_interpretation', 'N/A')}
 
+{subtopic_info}
+
 Instructions:
 1. Analyze performance differences between tiers
 2. Identify why Paid customers might resolve issues with Fin vs escalate
@@ -395,6 +459,7 @@ Instructions:
 4. Suggest improvements based on tier-specific insights
 5. Keep it under 200 words, professional executive tone
 6. Focus on actionable insights for improving AI performance
+7. Highlight sub-topic patterns if available (which specific sub-topics Fin excels at vs struggles with)
 
 Insights:"""
 
@@ -409,6 +474,98 @@ Insights:"""
                 fallback += f" {tier_comparison.get('resolution_rate_interpretation', '')}"
             return fallback
     
+    def _calculate_subtopic_performance(self, conversations: List[Dict], subtopics_data: Dict, resolved_by_fin: List[Dict], knowledge_gaps: List[Dict]) -> Dict:
+        subtopic_metrics = {}
+        for tier1_topic, subtopics in subtopics_data.items():
+            subtopic_metrics[tier1_topic] = {'tier2': {}, 'tier3': {}}
+            # Get conversations for this topic
+            convs_for_topic = [c for c in conversations if tier1_topic in c.get('detected_topics', [])]
+            self.logger.debug(f"Analyzing {len(convs_for_topic)} conversations for Tier 1 topic: {tier1_topic}")
+            # Tier 2 sub-topics
+            for subtopic_name, subtopic_data in subtopics['tier2'].items():
+                matched_convs = [c for c in convs_for_topic if self._match_conversation_to_subtopic(c, subtopic_name, 'tier2', subtopic_data)]
+                if matched_convs:
+                    metrics = self._calculate_single_subtopic_metrics(matched_convs, tier1_topic, subtopic_name, 'tier2')
+                    subtopic_metrics[tier1_topic]['tier2'][subtopic_name] = metrics
+            # Tier 3 sub-topics
+            for subtopic_name, subtopic_data in subtopics['tier3'].items():
+                matched_convs = [c for c in convs_for_topic if self._match_conversation_to_subtopic(c, subtopic_name, 'tier3', subtopic_data)]
+                if matched_convs:
+                    metrics = self._calculate_single_subtopic_metrics(matched_convs, tier1_topic, subtopic_name, 'tier3')
+                    subtopic_metrics[tier1_topic]['tier3'][subtopic_name] = metrics
+        return subtopic_metrics
+
+    def _calculate_single_subtopic_metrics(self, conversations: List[Dict], tier1_topic: str, subtopic_name: str, tier_level: str) -> Dict:
+        total = len(conversations)
+        if total == 0:
+            return {
+                'total': 0,
+                'resolution_rate': 0,
+                'knowledge_gap_rate': 0,
+                'escalation_rate': 0,
+                'avg_rating': None,
+                'rated_count': 0,
+                'resolved_count': 0,
+                'knowledge_gap_count': 0,
+                'escalation_count': 0
+            }
+        # Resolution rate - using centralized escalation detection
+        resolved_convs = [c for c in conversations if not self.escalation_analyzer.detect_escalation_request(c)]
+        resolution_rate = len(resolved_convs) / total
+        # Knowledge gap rate
+        gap_convs = [c for c in conversations if any(phrase in c.get('full_text', '').lower() for phrase in ['incorrect', 'wrong', 'not helpful', 'didn\'t answer', 'not what i asked'])]
+        knowledge_gap_rate = len(gap_convs) / total
+        # Escalation rate
+        escalation_convs = [c for c in conversations if self._detect_escalation_request(c)]
+        escalation_rate = len(escalation_convs) / total
+        # Average rating
+        ratings = [c.get('conversation_rating') for c in conversations if c.get('conversation_rating') is not None]
+        avg_rating = sum(ratings) / len(ratings) if ratings else None
+        rated_count = len(ratings)
+        return {
+            'total': total,
+            'resolution_rate': resolution_rate,
+            'knowledge_gap_rate': knowledge_gap_rate,
+            'escalation_rate': escalation_rate,
+            'avg_rating': avg_rating,
+            'rated_count': rated_count,
+            'resolved_count': len(resolved_convs),
+            'knowledge_gap_count': len(gap_convs),
+            'escalation_count': len(escalation_convs)
+        }
+
+    def _detect_escalation_request(self, conv: Dict) -> bool:
+        """Detect escalation request using centralized FinEscalationAnalyzer."""
+        return self.escalation_analyzer.detect_escalation_request(conv)
+
+    def _match_conversation_to_subtopic(self, conv: Dict, subtopic_name: str, tier_level: str, subtopic_data: Dict) -> bool:
+        if tier_level == 'tier2':
+            # Check tags
+            tags = conv.get('tags', {}).get('tags', [])
+            if any(tag.get('name', tag) == subtopic_name for tag in tags):
+                return True
+            # Check custom_attributes
+            custom_attrs = conv.get('custom_attributes', {})
+            if any(str(value).lower() == subtopic_name.lower() for value in custom_attrs.values()):
+                return True
+            # Check conversation_topics - normalize to handle dicts with 'name'
+            topics = conv.get('conversation_topics', [])
+            topic_names = set()
+            for t in topics:
+                if isinstance(t, dict):
+                    topic_names.add(t.get('name', '').lower())
+                else:
+                    topic_names.add(str(t).lower())
+            if subtopic_name.lower() in topic_names:
+                return True
+            return False
+        elif tier_level == 'tier3':
+            keywords = subtopic_data.get('keywords', [])
+            text = conv.get('full_text', '').lower()
+            # Lowercase keywords for case-insensitive matching
+            return any(kw.lower() in text for kw in keywords)
+        return False
+
     def _build_intercom_url(self, conversation_id: str) -> str:
         """Build Intercom conversation URL with workspace ID"""
         from src.config.settings import settings
