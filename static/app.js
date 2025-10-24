@@ -435,6 +435,9 @@ function startPolling() {
                     // Parse and populate tabs
                     updateAnalysisTabs(fullOutput);
                     
+                    // Parse and display agent results in Summary tab
+                    updateAgentResultsSummary(fullOutput);
+                    
                 } else {
                     executionStatus.className = 'status-badge failed';
                     executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -573,16 +576,56 @@ function parseAnalysisSummary(output) {
     // Try to extract key metrics from the output
     const summary = {
         conversations: 0,
+        paidConversations: 0,
+        freeConversations: 0,
+        topicsAnalyzed: 0,
         dateRange: '',
+        executionTime: 0,
+        agentsCompleted: 0,
         topCategories: [],
         sentiment: '',
         keyInsights: []
     };
     
-    // Extract conversation count
-    const convMatch = output.match(/(\d{1,3}(?:,\d{3})*)\s+conversations?/i);
-    if (convMatch) {
-        summary.conversations = parseInt(convMatch[1].replace(/,/g, ''));
+    // Extract total conversations (look for specific patterns from topic-based output)
+    const totalConvMatch = output.match(/(?:Total conversations|📊 Total conversations):\s*(\d{1,3}(?:,\d{3})*)/i);
+    if (totalConvMatch) {
+        summary.conversations = parseInt(totalConvMatch[1].replace(/,/g, ''));
+    } else {
+        // Fallback: look for "Fetched X conversations"
+        const fetchedMatch = output.match(/Fetched\s+(\d{1,3}(?:,\d{3})*)\s+conversations/i);
+        if (fetchedMatch) {
+            summary.conversations = parseInt(fetchedMatch[1].replace(/,/g, ''));
+        }
+    }
+    
+    // Extract paid/free breakdown
+    const paidMatch = output.match(/Paid customers.*?:\s*(\d{1,3}(?:,\d{3})*)/i);
+    if (paidMatch) {
+        summary.paidConversations = parseInt(paidMatch[1].replace(/,/g, ''));
+    }
+    
+    const freeMatch = output.match(/Free customers.*?:\s*(\d{1,3}(?:,\d{3})*)/i);
+    if (freeMatch) {
+        summary.freeConversations = parseInt(freeMatch[1].replace(/,/g, ''));
+    }
+    
+    // Extract topics analyzed
+    const topicsMatch = output.match(/(?:Topics analyzed|🏷️\s+Topics analyzed):\s*(\d+)/i);
+    if (topicsMatch) {
+        summary.topicsAnalyzed = parseInt(topicsMatch[1]);
+    }
+    
+    // Extract execution time
+    const timeMatch = output.match(/(?:Total time|⏱️\s+Total time):\s*([\d.]+)s/i);
+    if (timeMatch) {
+        summary.executionTime = parseFloat(timeMatch[1]);
+    }
+    
+    // Extract agents completed
+    const agentsMatch = output.match(/(?:Agents completed|🤖 Agents completed):\s*(\d+)/i);
+    if (agentsMatch) {
+        summary.agentsCompleted = parseInt(agentsMatch[1]);
     }
     
     // Extract date range
@@ -601,16 +644,44 @@ function parseAnalysisSummary(output) {
 }
 
 function showAnalysisSummary(summary) {
-    const summaryContainer = document.getElementById('analysisSummary');
-    if (!summaryContainer) return;
+    const summaryCardsContainer = document.querySelector('#analysisSummary .summary-cards');
+    if (!summaryCardsContainer) return;
     
-    let html = '<div class="summary-cards">';
+    let html = '';
     
+    // Main metrics
     if (summary.conversations > 0) {
         html += `
             <div class="summary-card">
-                <div class="card-title">Conversations Analyzed</div>
+                <div class="card-title">Total Conversations</div>
                 <div class="card-value">${summary.conversations.toLocaleString()}</div>
+            </div>
+        `;
+    }
+    
+    if (summary.paidConversations > 0) {
+        html += `
+            <div class="summary-card">
+                <div class="card-title">Paid Customers</div>
+                <div class="card-value">${summary.paidConversations.toLocaleString()}</div>
+            </div>
+        `;
+    }
+    
+    if (summary.freeConversations > 0) {
+        html += `
+            <div class="summary-card">
+                <div class="card-title">Free Customers</div>
+                <div class="card-value">${summary.freeConversations.toLocaleString()}</div>
+            </div>
+        `;
+    }
+    
+    if (summary.topicsAnalyzed > 0) {
+        html += `
+            <div class="summary-card">
+                <div class="card-title">Topics Analyzed</div>
+                <div class="card-value">${summary.topicsAnalyzed}</div>
             </div>
         `;
     }
@@ -620,6 +691,24 @@ function showAnalysisSummary(summary) {
             <div class="summary-card">
                 <div class="card-title">Date Range</div>
                 <div class="card-value">${summary.dateRange}</div>
+            </div>
+        `;
+    }
+    
+    if (summary.executionTime > 0) {
+        html += `
+            <div class="summary-card">
+                <div class="card-title">Execution Time</div>
+                <div class="card-value">${summary.executionTime.toFixed(1)}s</div>
+            </div>
+        `;
+    }
+    
+    if (summary.agentsCompleted > 0) {
+        html += `
+            <div class="summary-card">
+                <div class="card-title">Agents Completed</div>
+                <div class="card-value">${summary.agentsCompleted}/7</div>
             </div>
         `;
     }
@@ -638,9 +727,7 @@ function showAnalysisSummary(summary) {
         `;
     }
     
-    html += '</div>';
-    summaryContainer.innerHTML = html;
-    summaryContainer.style.display = 'block';
+    summaryCardsContainer.innerHTML = html;
 }
 
 function switchTab(tabName) {
@@ -815,6 +902,74 @@ function runAnalysis() {
     executeCommand(command, args);
 }
 
+// Update agent results in Summary tab
+function updateAgentResultsSummary(output) {
+    try {
+        const summaryContainer = document.getElementById('analysisSummary');
+        if (!summaryContainer) return;
+        
+        // Parse agent results from rich terminal output
+        // Look for agent result panels (the ones from agent_output_display.py)
+        const agentResultPattern = /(?:✅|❌)\s+(\w+Agent)\s+Result.*?Confidence:\s*([\d.]+)%.*?Execution Time:\s*([\d.]+)s/gs;
+        const agentMatches = [...output.matchAll(agentResultPattern)];
+        
+        if (agentMatches.length > 0) {
+            let html = '<div class="agent-results-section">';
+            html += '<h3 style="color:#fff;margin-bottom:20px;">🤖 Multi-Agent Workflow Results</h3>';
+            html += '<div class="agent-results-grid">';
+            
+            agentMatches.forEach(match => {
+                const agentName = match[1];
+                const confidence = parseFloat(match[2]);
+                const executionTime = parseFloat(match[3]);
+                const success = output.includes(`✅ ${agentName}`);
+                
+                const confidenceColor = confidence >= 90 ? '#10b981' : confidence >= 70 ? '#f59e0b' : '#ef4444';
+                const statusIcon = success ? '✅' : '❌';
+                
+                html += `
+                    <div class="agent-result-card">
+                        <div class="agent-header">
+                            <span class="agent-status">${statusIcon}</span>
+                            <span class="agent-name">${agentName}</span>
+                        </div>
+                        <div class="agent-metrics">
+                            <div class="metric">
+                                <span class="metric-label">Confidence</span>
+                                <span class="metric-value" style="color:${confidenceColor}">${confidence.toFixed(1)}%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Time</span>
+                                <span class="metric-value">${executionTime.toFixed(2)}s</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+            
+            // Prepend to summary container
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            summaryContainer.insertBefore(tempDiv.firstChild, summaryContainer.firstChild);
+        }
+        
+        // Also parse the summary table if present
+        const summaryTableMatch = output.match(/Analysis Complete.*?\n([\s\S]*?)(?:\n\n|$)/);
+        if (summaryTableMatch) {
+            // Add a visual representation of the agent summary table
+            const tableSection = document.createElement('div');
+            tableSection.className = 'agent-summary-table';
+            tableSection.innerHTML = '<h4 style="color:#9ca3af;margin:20px 0 10px 0;">Agent Execution Summary</h4><pre style="background:#0a0a0a;padding:15px;border-radius:8px;overflow-x:auto;font-size:12px;">' + summaryTableMatch[1] + '</pre>';
+            summaryContainer.appendChild(tableSection);
+        }
+        
+    } catch (error) {
+        console.error('Error updating agent results summary:', error);
+    }
+}
+
 // Update analysis tabs with parsed content
 function updateAnalysisTabs(output) {
     try {
@@ -822,71 +977,31 @@ function updateAnalysisTabs(output) {
         const gammaUrlMatch = output.match(/(?:Gamma URL|📊 Gamma URL):\s*(https:\/\/gamma\.app\/[^\s]+)/i);
         if (gammaUrlMatch) {
             const gammaUrl = gammaUrlMatch[1];
-            const gammaContent = document.getElementById('gamma-content');
-            if (gammaContent) {
+            const gammaLinksContainer = document.querySelector('#gammaLinks .gamma-links');
+            if (gammaLinksContainer) {
                 // Parse additional Gamma metadata
                 const creditsMatch = output.match(/(?:Credits used|💳 Credits used):\s*(\d+)/i);
                 const timeMatch = output.match(/(?:Generation time|⏱️\s+Generation time):\s*([\d.]+)s/i);
                 
-                gammaContent.innerHTML = `
-                    <div class="tab-section">
-                        <h3>🎨 Gamma Presentation Generated</h3>
-                        <a href="${gammaUrl}" target="_blank" class="gamma-link-large">
-                            <span class="gamma-icon">📊</span>
-                            <span>Open Gamma Presentation</span>
-                            <span class="arrow">→</span>
-                        </a>
-                        <div class="gamma-meta">
-                            ${creditsMatch ? `<div class="meta-item"><strong>Credits used:</strong> ${creditsMatch[1]}</div>` : ''}
-                            ${timeMatch ? `<div class="meta-item"><strong>Generation time:</strong> ${timeMatch[1]}s</div>` : ''}
-                        </div>
-                        <div class="url-copy">
-                            <code>${gammaUrl}</code>
-                            <button onclick="copyToClipboard('${gammaUrl}')" class="copy-btn">📋 Copy</button>
-                        </div>
+                gammaLinksContainer.innerHTML = `
+                    <a href="${gammaUrl}" target="_blank" class="gamma-link-large">
+                        <span class="gamma-icon">📊</span>
+                        <span>Open Gamma Presentation</span>
+                        <span class="arrow">→</span>
+                    </a>
+                    <div class="gamma-meta">
+                        ${creditsMatch ? `<div class="meta-item"><strong>Credits used:</strong> ${creditsMatch[1]}</div>` : ''}
+                        ${timeMatch ? `<div class="meta-item"><strong>Generation time:</strong> ${timeMatch[1]}s</div>` : ''}
+                    </div>
+                    <div class="url-copy">
+                        <code>${gammaUrl}</code>
+                        <button onclick="copyToClipboard('${gammaUrl}')" class="copy-btn">📋 Copy</button>
                     </div>
                 `;
             }
         }
         
-        // Parse Output Files
-        const outputMatches = output.matchAll(/(?:📁|saved to|Report saved|Full results):\s*([^\n]+\.(json|md))/gi);
-        const outputFiles = [];
-        for (const match of outputMatches) {
-            const filePath = match[1].trim();
-            const fileType = match[2].toUpperCase();
-            outputFiles.push({ path: filePath, type: fileType });
-        }
-        
-        if (outputFiles.length > 0) {
-            const outputContent = document.getElementById('output-content');
-            if (outputContent) {
-                // Get the main JSON file (usually the first or most recent)
-                const mainFile = outputFiles.find(f => f.type === 'JSON') || outputFiles[0];
-                const fileName = mainFile.path.split('/').pop();
-                
-                outputContent.innerHTML = `
-                    <div class="tab-section">
-                        <h3>📄 Analysis Results</h3>
-                        <div class="file-primary">
-                            <div class="file-icon">${mainFile.type === 'JSON' ? '📊' : '📝'}</div>
-                            <div class="file-info">
-                                <div class="file-name">${fileName}</div>
-                                <div class="file-path"><code>${mainFile.path}</code></div>
-                            </div>
-                        </div>
-                        <div class="file-actions">
-                            <button onclick="downloadFile('${mainFile.path}')" class="action-btn primary">
-                                📥 Download ${mainFile.type}
-                            </button>
-                            ${mainFile.type === 'JSON' ? `<button onclick="viewJSON('${mainFile.path}')" class="action-btn secondary">👁️ View Data</button>` : ''}
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        
-        // Parse Download Links (all files)
+        // Parse and populate Files tab
         const allFileMatches = output.matchAll(/(?:📁|saved|exported|generated).*?:\s*([^\n]+\.(json|md|txt|pdf|csv))/gi);
         const allFiles = [];
         for (const match of allFileMatches) {
@@ -897,8 +1012,8 @@ function updateAnalysisTabs(output) {
         }
         
         if (allFiles.length > 0) {
-            const downloadContent = document.getElementById('download-content');
-            if (downloadContent) {
+            const filesListContainer = document.querySelector('#filesList .files-list');
+            if (filesListContainer) {
                 // Group files by type
                 const filesByType = {
                     'JSON': allFiles.filter(f => f.type === 'JSON'),
@@ -936,7 +1051,7 @@ function updateAnalysisTabs(output) {
                 }
                 
                 html += '</div>';
-                downloadContent.innerHTML = html;
+                filesListContainer.innerHTML = html;
             }
         }
         
