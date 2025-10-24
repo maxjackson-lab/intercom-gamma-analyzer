@@ -309,7 +309,8 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
     
     def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly", subtopics: Dict = None) -> str:
         """Format a single topic card"""
-        method_label = "Intercom conversation attribute" if stats['detection_method'] == 'attribute' else "Keyword detection"
+        detection_method = stats.get('detection_method', 'unknown')
+        method_label = "Intercom conversation attribute" if detection_method == 'attribute' else "Keyword detection" if detection_method == 'keyword' else "Detection method not specified"
         
         card = f"""### {topic_name}{trend}
 **{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**  
@@ -331,7 +332,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             if tier2:
                 card += "\n_Tier 2: From Intercom Data_\n"
                 # Sort by volume descending and limit to top 10
-                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1]['volume'], reverse=True)[:10]
+                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:10]
                 for subtopic_name, subtopic_data in sorted_tier2:
                     volume = subtopic_data.get('volume', 0)
                     percentage = subtopic_data.get('percentage', 0)
@@ -343,7 +344,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             if tier3:
                 card += "\n_Tier 3: AI-Discovered Themes_\n"
                 # Sort by volume descending and limit to top 5
-                sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+                sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:5]
                 for theme_name, theme_data in sorted_tier3:
                     volume = theme_data.get('volume', 0)
                     percentage = theme_data.get('percentage', 0)
