@@ -269,20 +269,26 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         
         card += "\n**Examples**:\n\n"
         
-        # Add examples with validation, language info, and enhanced link formatting
+        # Add examples with validation, language info, translation, and enhanced link formatting
         if examples and len(examples) > 0:
             for i, example in enumerate(examples, 1):
                 # Defensive read of example fields
                 preview = example.get('preview', 'No preview available') if isinstance(example, dict) else 'Invalid example format'
                 url = example.get('intercom_url', '#') if isinstance(example, dict) else '#'
                 language = example.get('language', 'English') if isinstance(example, dict) else 'English'
+                translation = example.get('translation') if isinstance(example, dict) else None
                 
-                # Show language label if not English
-                lang_label = f" _{language}_" if language and language != 'English' else ""
-                
-                # Enhanced format: Language label, quote, prominent link
-                card += f"{i}. {lang_label}\"{preview}\"\n"
-                card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                # Format based on whether translation is available
+                if translation and language != 'English':
+                    # Show translation first (English), then original in italics
+                    card += f"{i}. \"{translation}\"\n"
+                    card += f"   _{language}: \"{preview}\"_\n"
+                    card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                else:
+                    # Show language label for non-English without translation
+                    lang_label = f"_{language}_ " if language and language != 'English' else ""
+                    card += f"{i}. {lang_label}\"{preview}\"\n"
+                    card += f"   **[📎 View in Intercom →]({url})**\n\n"
         else:
             card += "_No examples available - topic may have low volume or quality conversations_\n"
         

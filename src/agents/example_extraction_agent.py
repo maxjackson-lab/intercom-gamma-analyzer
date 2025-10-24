@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.openai_client import OpenAIClient
+from src.services.quote_translator import QuoteTranslator
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class ExampleExtractionAgent(BaseAgent):
             temperature=0.3
         )
         self.openai_client = OpenAIClient()
+        self.translator = QuoteTranslator()
     
     def _to_datetime_utc(self, value: Any) -> Optional[datetime]:
         """
@@ -206,12 +208,16 @@ Selection criteria:
                 if example:
                     examples.append(example)
             
+            # Translate non-English examples
+            self.logger.info(f"Translating {len([e for e in examples if e.get('language') != 'English'])} non-English quotes...")
+            translated_examples = await self._translate_examples(examples)
+            
             # Prepare result
             result_data = {
                 'topic': topic,
-                'examples': examples,
+                'examples': translated_examples,
                 'total_available': len(conversations),
-                'selected_count': len(examples)
+                'selected_count': len(translated_examples)
             }
             
             self.validate_output(result_data)
@@ -371,6 +377,45 @@ Selection criteria:
             'created_at': created_at_str,
             'language': language
         }
+    
+    async def _translate_examples(self, examples: List[Dict]) -> List[Dict]:
+        """
+        Translate non-English example quotes to English.
+        
+        Args:
+            examples: List of example dicts with 'preview' and 'language'
+            
+        Returns:
+            List of examples with 'translation' field added for non-English quotes
+        """
+        translated_examples = []
+        
+        for example in examples:
+            language = example.get('language', 'English')
+            preview = example.get('preview', '')
+            
+            # Skip translation for English or very short quotes
+            if language == 'English' or len(preview.strip()) < 10:
+                example['translation'] = None
+                example['needs_translation'] = False
+                translated_examples.append(example)
+                continue
+            
+            # Translate using the translator service
+            try:
+                translation_result = await self.translator.translate_quote(preview, language)
+                example['translation'] = translation_result.get('translation')
+                example['needs_translation'] = translation_result.get('needs_translation', False)
+                example['detected_language'] = translation_result.get('language', language)
+                translated_examples.append(example)
+                
+            except Exception as e:
+                self.logger.warning(f"Translation failed for {language} quote: {e}")
+                example['translation'] = None
+                example['needs_translation'] = False
+                translated_examples.append(example)
+        
+        return translated_examples
     
     async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 10) -> List[Dict]:
         """
