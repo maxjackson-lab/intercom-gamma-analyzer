@@ -3682,9 +3682,14 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
                 # Calculate number of cards based on topics
                 num_cards = min(summary.get('topics_analyzed', 5) + 3, 20)
                 
+                # Create proper title with date range
+                title_start = start_date.strftime('%b %d')
+                title_end = end_date.strftime('%b %d, %Y')
+                gamma_title = f"Voice of Customer: {title_start} - {title_end}"
+                
                 gamma_result = await gamma_generator.generate_from_markdown(
                     input_text=formatted_report,
-                    title=f"Voice of Customer Analysis - Week {week_id}",
+                    title=gamma_title,
                     num_cards=num_cards,
                     theme_name=None,
                     export_format=None,
@@ -3707,7 +3712,7 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
                     with open(gamma_url_file, 'w') as f:
                         f.write(f"Gamma Presentation URL\n")
                         f.write(f"=====================\n\n")
-                        f.write(f"Analysis: Voice of Customer - Week {week_id}\n")
+                        f.write(f"Analysis: Voice of Customer - {title_start} - {title_end}\n")
                         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
                         f.write(f"URL: {gamma_url}\n")
                     

@@ -98,10 +98,20 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             # Get period type from metadata
             period_type = context.metadata.get('period_type', 'weekly')
             period_label = context.metadata.get('period_label', 'Weekly')
-            
-            # Header
             week_id = context.metadata.get('week_id', datetime.now().strftime('%Y-W%W'))
-            output_sections.append(f"# Voice of Customer Analysis - Week {week_id}")
+            
+            # Build header with actual date range instead of week code
+            if context.start_date and context.end_date:
+                start_str = context.start_date.strftime('%b %d')
+                end_str = context.end_date.strftime('%b %d, %Y')
+                # If different months, include month in start date
+                if context.start_date.month != context.end_date.month:
+                    start_str = context.start_date.strftime('%b %d')
+                header_title = f"# Voice of Customer Analysis: {start_str} - {end_str}"
+            else:
+                header_title = f"# Voice of Customer Analysis - Week {week_id}"
+            
+            output_sections.append(header_title)
             output_sections.append("")
             
             # Add language breakdown if available
