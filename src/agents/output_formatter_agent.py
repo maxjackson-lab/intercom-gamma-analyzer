@@ -6,6 +6,8 @@ Purpose:
 - Separate VoC (paid) from Fin analysis (free)
 - Include detection methods and examples
 - Add trend indicators when available
+- Display 3-tier sub-topic hierarchies
+- Show Finn performance by sub-topic with quality metrics
 """
 
 import logging
@@ -87,10 +89,18 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             # Get results from previous agents
             segmentation = context.previous_results.get('SegmentationAgent', {}).get('data', {})
             topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
+            topic_dist = topic_detection.get('topic_distribution', {})
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
             fin_performance = context.previous_results.get('FinPerformanceAgent', {}).get('data', {})
             trends = context.previous_results.get('TrendAgent', {}).get('data', {}).get('trends', {})
+            
+            # Get sub-topic data (defensive read for backward compatibility)
+            subtopics_data = context.previous_results.get('SubTopicDetectionAgent', {}).get('data', {}).get('subtopics_by_tier1_topic', {})
+            if subtopics_data:
+                self.logger.info(f"Sub-topic data available: {len(subtopics_data)} Tier 1 topics with sub-topic breakdowns")
+            else:
+                self.logger.info("No sub-topic data available (backward compatibility mode)")
             
             # Build output
             output_sections = []
@@ -142,9 +152,9 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append("")
             
             # Add language breakdown if available
-            lang_dist = segmentation.get('language_distribution', {})
+            lang_dist = seg_summary.get('language_distribution', {})
             if lang_dist:
-                total_langs = segmentation.get('total_languages', len(lang_dist))
+                total_langs = seg_summary.get('total_languages', len(lang_dist))
                 output_sections.append(f"**Languages**: {total_langs} languages represented")
                 
                 # Show top 5 languages
@@ -161,8 +171,11 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append("")
             
             # Sort topics by volume
-            topic_dist = topic_detection.get('topic_distribution', {})
             sorted_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
+            
+            # Get LLM trend insights from TrendAgent (outside loop for efficiency)
+            trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
+            trend_insights = trend_agent_data.get('trend_insights', {})
             
             for topic_name, topic_stats in sorted_topics:
                 # Get sentiment and examples for this topic (defensive reads)
@@ -182,11 +195,12 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 if trend and 'direction' in trend:
                     trend_indicator = f" {trend['direction']} {trend.get('alert', '')}"
                 
-                # Get LLM trend insights from TrendAgent
-                trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
-                trend_insights = trend_agent_data.get('trend_insights', {})
+                # Get trend explanation from pre-fetched trend insights
                 if topic_name in trend_insights:
                     trend_explanation = trend_insights[topic_name]
+                
+                # Get sub-topic data for this topic
+                subtopics_for_topic = subtopics_data.get(topic_name, {}) if subtopics_data else {}
                 
                 # Format card
                 card = self._format_topic_card(
@@ -196,7 +210,8 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     examples,
                     trend_indicator,
                     trend_explanation,
-                    period_label
+                    period_label,
+                    subtopics_for_topic
                 )
                 output_sections.append(card)
             
@@ -292,7 +307,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 execution_time=execution_time
             )
     
-    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly") -> str:
+    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly", subtopics: Dict = None) -> str:
         """Format a single topic card"""
         method_label = "Intercom conversation attribute" if stats['detection_method'] == 'attribute' else "Keyword detection"
         
@@ -307,7 +322,36 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         if trend_explanation:
             card += f"\n**Trend Analysis**: {trend_explanation}\n"
         
-        card += "\n**Examples**:\n\n"
+        # Add sub-topic breakdown if available
+        if subtopics and (subtopics.get('tier2') or subtopics.get('tier3')):
+            card += "\n**Sub-Topic Breakdown**:\n"
+            
+            # Tier 2 sub-topics
+            tier2 = subtopics.get('tier2', {})
+            if tier2:
+                card += "\n_Tier 2: From Intercom Data_\n"
+                # Sort by volume descending and limit to top 10
+                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1]['volume'], reverse=True)[:10]
+                for subtopic_name, subtopic_data in sorted_tier2:
+                    volume = subtopic_data.get('volume', 0)
+                    percentage = subtopic_data.get('percentage', 0)
+                    source = subtopic_data.get('source', 'unknown')
+                    card += f"  - {subtopic_name}: {volume} conversations ({percentage}%) [Source: {source}]\n"
+            
+            # Tier 3 sub-topics
+            tier3 = subtopics.get('tier3', {})
+            if tier3:
+                card += "\n_Tier 3: AI-Discovered Themes_\n"
+                # Sort by volume descending and limit to top 5
+                sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1]['volume'], reverse=True)[:5]
+                for theme_name, theme_data in sorted_tier3:
+                    volume = theme_data.get('volume', 0)
+                    percentage = theme_data.get('percentage', 0)
+                    card += f"  - {theme_name}: {volume} conversations ({percentage}%)\n"
+            
+            card += "\n"
+        
+        card += "**Examples**:\n\n"
         
         # Add examples with validation, language info, translation, and enhanced link formatting
         if examples and len(examples) > 0:
@@ -386,6 +430,33 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
 
         return card
 
+    def _format_subtopic_metrics_line(self, subtopic_name: str, metrics: Dict) -> str:
+        """
+        Format a single sub-topic metrics line with consistent formatting.
+        
+        Args:
+            subtopic_name: Name of the sub-topic
+            metrics: Dict with total, resolution_rate, knowledge_gap_rate, escalation_rate, avg_rating, rated_count
+            
+        Returns:
+            Formatted string for sub-topic performance
+        """
+        total = metrics.get('total', 0)
+        resolution_rate = metrics.get('resolution_rate', 0)
+        knowledge_gap_rate = metrics.get('knowledge_gap_rate', 0)
+        escalation_rate = metrics.get('escalation_rate', 0)
+        avg_rating = metrics.get('avg_rating')
+        rated_count = metrics.get('rated_count', 0)
+        
+        line = f"  - {subtopic_name}: {resolution_rate:.1%} resolution | {knowledge_gap_rate:.1%} gaps | {escalation_rate:.1%} escalation"
+        
+        if avg_rating is not None:
+            line += f" | ⭐ {avg_rating:.1f}/5 ({rated_count} rated)"
+        
+        line += f" ({total} convs)"
+        
+        return line
+    
     def _format_free_tier_fin_card(self, fin_data: Dict) -> str:
         """
         Format Fin AI performance card for Free tier customers.
@@ -418,6 +489,30 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             card += "\n**What Fin Does Well (Free Tier)**:\n"
             for topic, stats in top_topics:
                 card += f"- {topic}: {stats['resolution_rate']:.1%} resolution rate ({stats['total']} conversations)\n"
+
+        # Performance by sub-topic
+        performance_by_subtopic = free_tier.get('performance_by_subtopic', {})
+        if performance_by_subtopic:
+            card += "\n**Performance by Sub-Topic**:\n"
+            for tier1_topic in sorted(performance_by_subtopic.keys()):
+                card += f"\n_{tier1_topic}_\n"
+                subtopic_tiers = performance_by_subtopic[tier1_topic]
+                
+                # Tier 2 sub-topics (top 5 by resolution rate)
+                tier2_metrics = subtopic_tiers.get('tier2', {})
+                if tier2_metrics:
+                    sorted_tier2 = sorted(tier2_metrics.items(), key=lambda x: x[1].get('resolution_rate', 0), reverse=True)[:5]
+                    for subtopic_name, metrics in sorted_tier2:
+                        card += self._format_subtopic_metrics_line(subtopic_name, metrics) + "\n"
+                
+                # Tier 3 themes (top 3 by resolution rate)
+                tier3_metrics = subtopic_tiers.get('tier3', {})
+                if tier3_metrics:
+                    sorted_tier3 = sorted(tier3_metrics.items(), key=lambda x: x[1].get('resolution_rate', 0), reverse=True)[:3]
+                    for theme_name, metrics in sorted_tier3:
+                        card += self._format_subtopic_metrics_line(theme_name, metrics) + "\n"
+            
+            card += "\n"
 
         # Knowledge gaps
         card += f"\n**Knowledge Gaps (Free Tier)**:\n"
@@ -474,6 +569,30 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             for topic, stats in top_topics:
                 card += f"- {topic}: {stats['resolution_rate']:.1%} resolution rate ({stats['total']} conversations)\n"
             card += "- These paid customers had the option to escalate but chose not to\n"
+
+        # Performance by sub-topic
+        performance_by_subtopic = paid_tier.get('performance_by_subtopic', {})
+        if performance_by_subtopic:
+            card += "\n**Performance by Sub-Topic**:\n"
+            for tier1_topic in sorted(performance_by_subtopic.keys()):
+                card += f"\n_{tier1_topic}_\n"
+                subtopic_tiers = performance_by_subtopic[tier1_topic]
+                
+                # Tier 2 sub-topics (top 5 by resolution rate)
+                tier2_metrics = subtopic_tiers.get('tier2', {})
+                if tier2_metrics:
+                    sorted_tier2 = sorted(tier2_metrics.items(), key=lambda x: x[1].get('resolution_rate', 0), reverse=True)[:5]
+                    for subtopic_name, metrics in sorted_tier2:
+                        card += self._format_subtopic_metrics_line(subtopic_name, metrics) + "\n"
+                
+                # Tier 3 themes (top 3 by resolution rate)
+                tier3_metrics = subtopic_tiers.get('tier3', {})
+                if tier3_metrics:
+                    sorted_tier3 = sorted(tier3_metrics.items(), key=lambda x: x[1].get('resolution_rate', 0), reverse=True)[:3]
+                    for theme_name, metrics in sorted_tier3:
+                        card += self._format_subtopic_metrics_line(theme_name, metrics) + "\n"
+            
+            card += "\n"
 
         # Knowledge gaps
         card += f"\n**Knowledge Gaps (Paid Tier)**:\n"
