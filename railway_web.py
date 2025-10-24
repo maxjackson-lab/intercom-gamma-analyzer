@@ -924,18 +924,22 @@ if HAS_FASTAPI:
             function showDownloadLinks() {
                 const executionResults = document.getElementById('executionResults');
                 const downloadLinks = document.getElementById('downloadLinks');
-                
-                // TODO: Fetch actual file list from execution results
-                // For now, show a generic message
-                downloadLinks.innerHTML = `
-                    <div class="panel success">
-                        <div class="panel-header">✓ Execution Complete</div>
-                        <div class="panel-content">
-                            <p>Command executed successfully! Generated files are available in the outputs directory.</p>
-                            <p>Check the command output above for Gamma presentation URLs and file locations.</p>
-                        </div>
-                    </div>
-                `;
+
+                // Build dynamic download links from artifacts
+                let linksHtml = '<div class="panel success"><div class="panel-header">✓ Execution Complete</div><div class="panel-content">';
+
+                if (currentGammaUrl) {
+                    linksHtml += `<p><strong>Gamma Presentation:</strong> <a href="${currentGammaUrl}" target="_blank" rel="noopener">${currentGammaUrl}</a></p>`;
+                }
+
+                if (currentMarkdownPath) {
+                    linksHtml += `<p><strong>Markdown Summary:</strong> ${currentMarkdownPath}</p>`;
+                }
+
+                linksHtml += '<p>Generated files are available in the outputs directory. Check the command output above for additional file locations.</p>';
+                linksHtml += '</div></div>';
+
+                downloadLinks.innerHTML = linksHtml;
                 executionResults.style.display = 'block';
             }
             
