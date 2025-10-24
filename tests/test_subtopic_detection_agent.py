@@ -168,7 +168,7 @@ class TestSubTopicDetectionAgent:
 
     def test_detect_tier2_subtopics_from_tags(self, agent, sample_conversations_with_tier2_data):
         """Test extraction of sub-topics from tags.tags array, verify counts and percentages."""
-        # Filter to conversations with tags
+        # Filter to conversations with tags (first 5 and mixed 15-19)
         tagged_convs = [c for c in sample_conversations_with_tier2_data if c['tags']['tags']]
         
         result = agent._detect_tier2_subtopics(tagged_convs, 'Billing Issues')
@@ -176,17 +176,27 @@ class TestSubTopicDetectionAgent:
         # Should find 'Refund' and 'Invoice'
         assert 'Refund' in result
         assert 'Invoice' in result
-        assert result['Refund']['volume'] == len(tagged_convs)  # Each has 'Refund'
-        assert result['Invoice']['volume'] == len(tagged_convs)  # Each has 'Invoice'
         
-        # Percentages should be 100% since all conversations have these tags
-        assert result['Refund']['percentage'] == 100.0
-        assert result['Invoice']['percentage'] == 100.0
-        assert result['Refund']['source'] == 'intercom_data'
+        # Count how many conversations actually have each tag based on fixture:
+        # - First 5 (billing_tag_0 to billing_tag_4): have both 'Refund' and 'Invoice'
+        # - Middle conversations (billing_attr_5-14, billing_topic_10-14): no tags
+        # - Mixed (mixed_15-19): have 'Refund'
+        # Total tagged conversations: 5 + 5 = 10
+        # 'Refund': appears in first 5 + mixed 5 = 10 conversations
+        # 'Invoice': appears in first 5 only = 5 conversations
+        
+        assert result['Refund']['volume'] == 10
+        assert result['Invoice']['volume'] == 5
+        
+        # Percentages should be relative to the 10 tagged conversations
+        assert result['Refund']['percentage'] == 100.0  # 10/10
+        assert result['Invoice']['percentage'] == 50.0   # 5/10
+        assert result['Refund']['source'] == 'tags'
+        assert result['Invoice']['source'] == 'tags'
 
     def test_detect_tier2_subtopics_from_custom_attributes(self, agent, sample_conversations_with_tier2_data):
         """Test extraction from custom_attributes dict, verify filtering for relevant attributes."""
-        # Filter to conversations with custom attributes
+        # Filter to conversations with custom attributes (indices 5-9 and 15-19)
         attr_convs = [c for c in sample_conversations_with_tier2_data if c['custom_attributes']]
         
         result = agent._detect_tier2_subtopics(attr_convs, 'Billing Issues')
@@ -196,18 +206,29 @@ class TestSubTopicDetectionAgent:
         assert 'monthly' in result
         assert 'credit_card' in result
         
-        # Count how many have each
+        # Count how many have each based on fixture:
+        # billing_attr_5-9: billing_type alternates (annual, monthly, annual, monthly, annual) + payment_method='credit_card' for all 5
+        # mixed_15-19: billing_type='annual' for all 5 + NO payment_method
+        # Total: 10 conversations with custom_attributes
+        # 'annual': appears in billing_attr_5,7,9 (3) + mixed_15-19 (5) = 8
+        # 'monthly': appears in billing_attr_6,8 (2)
+        # 'credit_card': appears in billing_attr_5-9 only (5)
+        
         annual_count = sum(1 for c in attr_convs if c['custom_attributes'].get('billing_type') == 'annual')
         monthly_count = sum(1 for c in attr_convs if c['custom_attributes'].get('billing_type') == 'monthly')
-        credit_count = len(attr_convs)  # All have payment_method
+        credit_count = sum(1 for c in attr_convs if 'payment_method' in c['custom_attributes'])
         
-        assert result['annual']['volume'] == annual_count
-        assert result['monthly']['volume'] == monthly_count
-        assert result['credit_card']['volume'] == credit_count
+        assert result['annual']['volume'] == annual_count  # 8
+        assert result['monthly']['volume'] == monthly_count  # 2
+        assert result['credit_card']['volume'] == credit_count  # 5
+        
+        # Verify source is set correctly
+        assert result['annual']['source'] == 'custom_attributes'
+        assert result['credit_card']['source'] == 'custom_attributes'
 
     def test_detect_tier2_subtopics_from_topics(self, agent, sample_conversations_with_tier2_data):
         """Test extraction from conversation_topics array."""
-        # Filter to conversations with topics
+        # Filter to conversations with topics (indices 10-14 and 15-19)
         topic_convs = [c for c in sample_conversations_with_tier2_data if c['conversation_topics']]
         
         result = agent._detect_tier2_subtopics(topic_convs, 'Billing Issues')
@@ -215,8 +236,20 @@ class TestSubTopicDetectionAgent:
         # Should find 'Subscription' and 'Payment'
         assert 'Subscription' in result
         assert 'Payment' in result
-        assert result['Subscription']['volume'] == len(topic_convs)  # Each has 'Subscription'
-        assert result['Payment']['volume'] == len(topic_convs)  # Each has 'Payment'
+        
+        # Based on fixture:
+        # billing_topic_10-14: have both 'Subscription' and 'Payment' (5)
+        # mixed_15-19: have only 'Subscription', NOT 'Payment' (5)
+        # Total: 10 conversations with topics
+        subscription_count = sum(1 for c in topic_convs if any(t.get('name') == 'Subscription' for t in c['conversation_topics']))
+        payment_count = sum(1 for c in topic_convs if any(t.get('name') == 'Payment' for t in c['conversation_topics']))
+        
+        assert result['Subscription']['volume'] == subscription_count  # 10
+        assert result['Payment']['volume'] == payment_count  # 5
+        
+        # Verify source is set correctly
+        assert result['Subscription']['source'] == 'topics'
+        assert result['Payment']['source'] == 'topics'
 
     def test_detect_tier2_subtopics_mixed_sources(self, agent, sample_conversations_with_tier2_data):
         """Test when sub-topics come from multiple sources (tags + attributes + topics)."""
@@ -243,13 +276,13 @@ class TestSubTopicDetectionAgent:
     @pytest.mark.asyncio
     async def test_discover_tier3_themes_with_llm(self, agent, sample_conversations_with_tier2_data):
         """Mock LLM response with JSON themes, verify parsing and conversation matching."""
-        # Mock the OpenAI client
-        agent.openai_client = AsyncMock()
+        # Mock the AI client (updated from openai_client)
+        agent.ai_client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.choices = [AsyncMock()]
         mock_response.choices[0].message.content = '{"Pricing Confusion": ["pricing", "cost"], "Payment Issues": ["payment", "failed"]}'
         mock_response.usage.total_tokens = 150
-        agent.openai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        agent.ai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         tier2_subtopics = {'Refund': {}, 'Invoice': {}}  # Mock existing tier2
         
@@ -265,9 +298,9 @@ class TestSubTopicDetectionAgent:
     @pytest.mark.asyncio
     async def test_discover_tier3_themes_llm_failure(self, agent, sample_conversations_with_tier2_data):
         """Test graceful fallback when LLM call fails."""
-        # Mock the OpenAI client to raise exception
-        agent.openai_client = AsyncMock()
-        agent.openai_client.client.chat.completions.create = AsyncMock(side_effect=Exception("LLM error"))
+        # Mock the AI client to raise exception (updated from openai_client)
+        agent.ai_client = AsyncMock()
+        agent.ai_client.client.chat.completions.create = AsyncMock(side_effect=Exception("LLM error"))
         
         tier2_subtopics = {}
         
@@ -327,13 +360,13 @@ class TestSubTopicDetectionAgent:
     @pytest.mark.asyncio
     async def test_execute_token_counting(self, agent, mock_context_with_topics):
         """Verify token usage is tracked and returned in AgentResult.token_count."""
-        # Mock the OpenAI client
-        agent.openai_client = AsyncMock()
+        # Mock the AI client (updated from openai_client)
+        agent.ai_client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.choices = [AsyncMock()]
         mock_response.choices[0].message.content = '{}'
         mock_response.usage.total_tokens = 200
-        agent.openai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        agent.ai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         result = await agent.execute(mock_context_with_topics)
         
@@ -341,13 +374,13 @@ class TestSubTopicDetectionAgent:
 
     def test_confidence_calculation(self, agent, mock_context_with_topics):
         """Test confidence scoring based on coverage and sample size."""
-        # Mock the OpenAI client for execute
-        agent.openai_client = AsyncMock()
+        # Mock the AI client for execute (updated from openai_client)
+        agent.ai_client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.choices = [AsyncMock()]
         mock_response.choices[0].message.content = '{}'
         mock_response.usage.total_tokens = 100
-        agent.openai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        agent.ai_client.client.chat.completions.create = AsyncMock(return_value=mock_response)
         
         # Test with full coverage (all conversations covered)
         import asyncio
@@ -355,7 +388,8 @@ class TestSubTopicDetectionAgent:
             result = await agent.execute(mock_context_with_topics)
             # All conversations are covered, so confidence should be 1.0
             assert result.confidence == 1.0
-            assert result.confidence_level == ConfidenceLevel.HIGH
+            # confidence_level is a string, not an enum
+            assert result.confidence_level == 'high' or result.confidence_level == ConfidenceLevel.HIGH
         
         asyncio.run(run_test())
         
@@ -369,4 +403,3 @@ class TestSubTopicDetectionAgent:
             assert result.confidence == pytest.approx(expected_coverage, abs=0.01)
         
         asyncio.run(run_partial_test())
-"""

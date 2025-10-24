@@ -9,14 +9,31 @@ Purpose:
 
 import logging
 import json
-from typing import Dict, Any, List, Tuple
+import os
+from typing import Dict, Any, List, Tuple, Set
 from datetime import datetime
 from collections import defaultdict
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
+
+# Whitelist of topic-relevant custom attribute keys to avoid noisy data
+CUSTOM_ATTRIBUTE_WHITELIST = {
+    'billing_type', 'payment_method', 'plan', 'invoice_type',
+    'subscription_status', 'subscription_tier', 'contract_term',
+    'account_status', 'feature_flags', 'product_tier', 'usage_tier',
+    'industry', 'company_size', 'region', 'segment'
+}
+
+# Keys to skip (IDs, timestamps, booleans, noisy data)
+CUSTOM_ATTRIBUTE_SKIP_PATTERNS = {
+    'id', 'uuid', 'token', 'key', 'secret',
+    'created', 'updated', 'modified', 'timestamp', 'date',
+    'is_', 'has_', 'can_', 'enable', 'disable',  # booleans
+    'admin', 'user', 'password', 'api', 'auth'  # sensitive/noisy
+}
 
 
 class SubTopicDetectionAgent(BaseAgent):
@@ -28,7 +45,10 @@ class SubTopicDetectionAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.3
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
+        # Honor the agent's model choice by setting it on the client
+        if hasattr(self.ai_client, 'model'):
+            self.ai_client.model = self.model
     
     def get_agent_specific_instructions(self) -> str:
         """Sub-topic detection agent specific instructions"""
@@ -41,7 +61,7 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
    - Tier 3: LLM-discovered emerging themes not captured by Tier 2
 
 2. For Tier 2 extraction:
-   - Filter custom_attributes for topic-relevant keys
+   - Filter custom_attributes for topic-relevant keys (whitelist)
    - Extract tag names from tags.tags array
    - Extract topic names from topics.topics or conversation_topics
 
@@ -125,11 +145,27 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
                     'tier3': tier3_themes
                 }
             
-            # Calculate confidence based on coverage
+            # Prepare result data for validation
+            result_data = {'subtopics_by_tier1_topic': subtopics_by_tier1_topic}
+            
+            # Validate output before returning (Comment 2)
+            if not self.validate_output(result_data):
+                raise ValueError("Output validation failed: invalid subtopic structure")
+            
+            # Calculate confidence based on coverage with unique conversation IDs (Comment 1)
             total_convs = len(context.conversations)
-            covered_convs = sum(len(convs) for convs in conversations_by_topic.values())
+            
+            # Build set of unique conversation IDs across all topics
+            unique_conv_ids: Set[str] = set()
+            for topic, convs in conversations_by_topic.items():
+                for conv in convs:
+                    unique_conv_ids.add(conv.get('id'))
+            
+            covered_convs = len(unique_conv_ids)
             coverage = covered_convs / total_convs if total_convs > 0 else 0
-            confidence = coverage
+            
+            # Clamp confidence to maximum of 1.0 (Comment 1)
+            confidence = min(coverage, 1.0)
             confidence_level = (ConfidenceLevel.HIGH if confidence > 0.9 
                               else ConfidenceLevel.MEDIUM if confidence > 0.7 
                               else ConfidenceLevel.LOW)
@@ -138,13 +174,13 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
             
             self.logger.info(f"SubTopicDetectionAgent: Completed in {execution_time:.2f}s")
             self.logger.info(f"   Tier 1 topics processed: {len(subtopics_by_tier1_topic)}")
-            self.logger.info(f"   Coverage: {coverage:.1%}")
+            self.logger.info(f"   Coverage: {coverage:.1%} ({covered_convs}/{total_convs})")
             self.logger.info(f"   Total token count: {total_token_count}")
             
             return AgentResult(
                 agent_name=self.name,
                 success=True,
-                data={'subtopics_by_tier1_topic': subtopics_by_tier1_topic},
+                data=result_data,
                 confidence=confidence,
                 confidence_level=confidence_level,
                 limitations=[f"{total_convs - covered_convs} conversations not covered by any Tier 1 topic"] if total_convs - covered_convs > 0 else [],
@@ -167,49 +203,112 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
                 execution_time=execution_time
             )
     
+    def _should_skip_custom_attribute(self, key: str) -> bool:
+        """Check if a custom attribute key should be skipped (Comment 4)"""
+        key_lower = key.lower()
+        
+        # Skip if matches any skip pattern
+        for pattern in CUSTOM_ATTRIBUTE_SKIP_PATTERNS:
+            if pattern in key_lower:
+                return True
+        
+        return False
+    
+    def _is_valid_custom_attribute_value(self, value: Any) -> bool:
+        """Check if a custom attribute value is valid and not noisy (Comment 4)"""
+        # Skip booleans
+        if isinstance(value, bool):
+            return False
+        
+        # Skip empty strings
+        if isinstance(value, str):
+            if not value.strip():
+                return False
+            # Skip very long strings (likely free-form text)
+            if len(value) > 200:
+                return False
+            return True
+        
+        # Skip numeric IDs and timestamps (too long numbers)
+        if isinstance(value, (int, float)):
+            return False
+        
+        # Skip lists/dicts
+        if isinstance(value, (list, dict)):
+            return False
+        
+        return False
+    
     def _detect_tier2_subtopics(self, conversations: List[Dict], tier1_topic: str) -> Dict[str, Dict[str, Any]]:
         """
         Extract Tier 2 sub-topics from Intercom structured data
+        
+        Tracks source origin for each sub-topic (Comment 3) and filters custom attributes (Comment 4).
         
         Args:
             conversations: Conversations for this Tier 1 topic
             tier1_topic: The Tier 1 topic name
             
         Returns:
-            Dict of subtopic_name -> {'volume': int, 'percentage': float, 'source': str}
+            Dict of subtopic_name -> {'volume': int, 'percentage': float, 'source': str, 'sources': list}
         """
-        subtopic_counts = defaultdict(int)
+        # Track subtopic -> {count: int, sources: set}
+        subtopic_data = defaultdict(lambda: {'count': 0, 'sources': set()})
         
         for conv in conversations:
-            # Custom attributes
+            # Extract from custom attributes (Comment 3 & 4)
             custom_attrs = conv.get('custom_attributes', {})
             for key, value in custom_attrs.items():
-                if isinstance(value, str) and len(value.strip()) > 0:
-                    subtopic_counts[value.strip()] += 1
+                # Skip non-string values and invalid attributes
+                if not isinstance(value, str):
+                    continue
+                
+                # Apply whitelist and skip pattern filters (Comment 4)
+                key_lower = key.lower()
+                in_whitelist = any(wl in key_lower for wl in CUSTOM_ATTRIBUTE_WHITELIST)
+                should_skip = self._should_skip_custom_attribute(key)
+                
+                if should_skip or (not in_whitelist and not any(tier1_topic.lower() in key_lower for tier1_topic_part in tier1_topic.split())):
+                    continue
+                
+                value_clean = value.strip()
+                if value_clean:
+                    subtopic_data[value_clean]['count'] += 1
+                    subtopic_data[value_clean]['sources'].add('custom_attributes')
             
-            # Tags
+            # Extract from tags (Comment 3)
             tags = conv.get('tags', {}).get('tags', [])
             for tag in tags:
                 tag_name = tag.get('name', tag) if isinstance(tag, dict) else str(tag)
                 if tag_name:
-                    subtopic_counts[tag_name] += 1
+                    subtopic_data[tag_name]['count'] += 1
+                    subtopic_data[tag_name]['sources'].add('tags')
             
-            # Topics
+            # Extract from topics (Comment 3)
             topics = conv.get('topics', {}).get('topics', []) or conv.get('conversation_topics', [])
             for topic in topics:
                 topic_name = topic.get('name', topic) if isinstance(topic, dict) else str(topic)
                 if topic_name:
-                    subtopic_counts[topic_name] += 1
+                    subtopic_data[topic_name]['count'] += 1
+                    subtopic_data[topic_name]['sources'].add('topics')
         
         total_convs = len(conversations)
         tier2_dict = {}
         
-        for subtopic, count in subtopic_counts.items():
+        for subtopic, data in subtopic_data.items():
+            count = data['count']
+            sources = list(data['sources'])
             percentage = (count / total_convs * 100) if total_convs > 0 else 0
+            
+            # Prefer strongest source or list them all (Comment 3)
+            source_priority = {'tags': 0, 'topics': 1, 'custom_attributes': 2}
+            primary_source = min(sources, key=lambda s: source_priority.get(s, 999))
+            
             tier2_dict[subtopic] = {
                 'volume': count,
                 'percentage': round(percentage, 1),
-                'source': 'intercom_data'
+                'source': primary_source,  # Primary source (Comment 3)
+                'sources': sources  # All sources this came from
             }
         
         self.logger.debug(f"Tier 2 sub-topics for {tier1_topic}: {len(tier2_dict)} found")
@@ -260,9 +359,9 @@ Instructions:
 Emerging themes:"""
         
         try:
-            # Make LLM call
-            response = await self.openai_client.client.chat.completions.create(
-                model=self.openai_client.model,
+            # Make LLM call using configurable client
+            response = await self.ai_client.client.chat.completions.create(
+                model=self.ai_client.model,
                 messages=[
                     {
                         "role": "system",
@@ -273,8 +372,8 @@ Emerging themes:"""
                         "content": prompt
                     }
                 ],
-                max_tokens=self.openai_client.max_tokens,
-                temperature=self.openai_client.temperature
+                max_tokens=self.ai_client.max_tokens,
+                temperature=self.ai_client.temperature
             )
             
             # Extract token usage
