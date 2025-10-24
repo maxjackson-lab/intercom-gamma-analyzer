@@ -169,13 +169,15 @@ class AIModelFactory:
                 model=AIModel.OPENAI_GPT4
             )
         """
+        import time
         self.logger.info(f"Executing task '{task}' with {model.value} (fallback enabled)")
-        
+
+        start_time = time.time()
         try:
             # Try primary model
             client = self.get_client(model)
             method = getattr(client, method_name)
-            
+
             # Handle both dict and direct prompt inputs
             if isinstance(inputs, dict) and 'prompt' in inputs:
                 result = await method(inputs['prompt'])
@@ -183,29 +185,42 @@ class AIModelFactory:
                 result = await method(inputs)
             else:
                 result = await method(**inputs)
-            
+
             # Ensure result is a dict
             if isinstance(result, str):
                 result = {'response': result}
-            
+
             result['model_used'] = model.value
             result['fallback_used'] = False
-            
+
             return result
-            
+
         except Exception as e:
-            self.logger.error(f"Primary model ({model.value}) failed for task '{task}': {e}")
-            
+            elapsed = time.time() - start_time
+
+            # Emit structured telemetry event for fallback trigger
+            self.logger.error(
+                "ai_fallback_triggered",
+                extra={
+                    "primary_model": model.value,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "elapsed_seconds": elapsed,
+                    "task": task
+                }
+            )
+
             # Try fallback model
-            fallback_model = (AIModel.ANTHROPIC_CLAUDE if model == AIModel.OPENAI_GPT4 
+            fallback_model = (AIModel.ANTHROPIC_CLAUDE if model == AIModel.OPENAI_GPT4
                              else AIModel.OPENAI_GPT4)
-            
+
             self.logger.warning(f"Falling back to {fallback_model.value} for task '{task}'")
-            
+
+            fallback_start = time.time()
             try:
                 client = self.get_client(fallback_model)
                 method = getattr(client, method_name)
-                
+
                 # Handle both dict and direct prompt inputs
                 if isinstance(inputs, dict) and 'prompt' in inputs:
                     result = await method(inputs['prompt'])
@@ -213,21 +228,47 @@ class AIModelFactory:
                     result = await method(inputs)
                 else:
                     result = await method(**inputs)
-                
+
                 # Ensure result is a dict
                 if isinstance(result, str):
                     result = {'response': result}
-                
+
                 result['model_used'] = fallback_model.value
                 result['fallback_used'] = True
                 result['primary_model_error'] = str(e)
-                
-                self.logger.info(f"Fallback successful for task '{task}' using {fallback_model.value}")
-                
+
+                fallback_elapsed = time.time() - fallback_start
+
+                # Emit success telemetry
+                self.logger.info(
+                    "ai_fallback_succeeded",
+                    extra={
+                        "primary_model": model.value,
+                        "fallback_model": fallback_model.value,
+                        "elapsed_seconds": fallback_elapsed,
+                        "total_elapsed_seconds": time.time() - start_time,
+                        "task": task
+                    }
+                )
+
                 return result
-                
+
             except Exception as fallback_error:
-                self.logger.error(f"Fallback model ({fallback_model.value}) also failed for task '{task}': {fallback_error}")
+                total_elapsed = time.time() - start_time
+
+                # Emit failure telemetry
+                self.logger.error(
+                    "ai_fallback_failed",
+                    extra={
+                        "primary_model": model.value,
+                        "fallback_model": fallback_model.value,
+                        "primary_error": str(e),
+                        "fallback_error": str(fallback_error),
+                        "total_elapsed_seconds": total_elapsed,
+                        "task": task
+                    }
+                )
+
                 raise Exception(
                     f"Both {model.value} and {fallback_model.value} failed. "
                     f"Primary error: {e}. Fallback error: {fallback_error}"

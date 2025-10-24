@@ -219,25 +219,72 @@ class MultiAgentOrchestrator:
         context: AgentContext,
         workflow_state: Dict[str, Any]
     ) -> AgentResult:
-        """Execute agent with checkpointing for recovery"""
+        """Execute agent with checkpointing and timeout for recovery"""
+        import asyncio
+
         try:
             # Check for existing checkpoint
             checkpoint = self._load_checkpoint(context.analysis_id, agent.name)
             if checkpoint:
                 self.logger.info(f"   📂 Resuming {agent.name} from checkpoint")
                 return AgentResult(**checkpoint)
-            
-            # Execute agent
-            result = await agent.execute(context)
-            
-            # Save checkpoint
-            self._save_checkpoint(context.analysis_id, agent.name, result.dict())
-            
-            return result
-            
+
+            # Get timeout for this agent (default 300 seconds = 5 minutes)
+            timeout = self._get_agent_timeout(agent.name)
+
+            try:
+                # Execute agent with timeout
+                self.logger.debug(f"Executing {agent.name} with {timeout}s timeout")
+                result = await asyncio.wait_for(
+                    agent.execute(context),
+                    timeout=timeout
+                )
+
+                # Save checkpoint
+                self._save_checkpoint(context.analysis_id, agent.name, result.dict())
+
+                return result
+
+            except asyncio.TimeoutError:
+                self.logger.error(
+                    f"Agent {agent.name} timed out after {timeout}s",
+                    extra={
+                        "agent": agent.name,
+                        "timeout_seconds": timeout,
+                        "status": "timeout"
+                    }
+                )
+                # Return partial result with timeout status
+                return AgentResult(
+                    status="timeout",
+                    data={"error": f"Agent timed out after {timeout}s"},
+                    metadata={"agent": agent.name, "timeout": timeout},
+                    confidence=0.0
+                )
+
         except Exception as e:
             self.logger.error(f"Agent execution error: {e}")
             raise
+
+    def _get_agent_timeout(self, agent_name: str) -> float:
+        """Get timeout for specific agent from config or default."""
+        # Default timeouts per agent type (in seconds)
+        default_timeouts = {
+            'DataCollector': 180,      # 3 minutes for data fetching
+            'Categorization': 300,      # 5 minutes for categorization
+            'ExampleExtractor': 240,    # 4 minutes for examples
+            'InsightAgent': 300,        # 5 minutes for insights
+            'PresentationAgent': 600,   # 10 minutes for presentation generation
+            'SegmentationAgent': 300,   # 5 minutes for segmentation
+            'TrendAgent': 240           # 4 minutes for trends
+        }
+
+        # Try to get from settings/config
+        from src.config.settings import settings
+        if hasattr(settings, 'agent_timeouts'):
+            return settings.agent_timeouts.get(agent_name, default_timeouts.get(agent_name, 300))
+
+        return default_timeouts.get(agent_name, 300)
     
     def _save_checkpoint(self, analysis_id: str, agent_name: str, result: Dict[str, Any]):
         """Save agent result as checkpoint"""
