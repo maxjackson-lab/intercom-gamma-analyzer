@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Tuple
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class TopicDetectionAgent(BaseAgent):
             model="gpt-4o-mini",
             temperature=0.1
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
         
         # Topic definitions (hybrid: attribute + keywords)
         self.topics = {
@@ -381,8 +381,8 @@ Additional topics:"""
         
         try:
             # Make the LLM call directly to get the full response object with usage stats
-            response = await self.openai_client.client.chat.completions.create(
-                model=self.openai_client.model,
+            response = await self.ai_client.client.chat.completions.create(
+                model=self.ai_client.model,
                 messages=[
                     {
                         "role": "system",
@@ -393,8 +393,8 @@ Additional topics:"""
                         "content": prompt
                     }
                 ],
-                max_tokens=self.openai_client.max_tokens,
-                temperature=self.openai_client.temperature
+                max_tokens=self.ai_client.max_tokens,
+                temperature=self.ai_client.temperature
             )
             
             # Extract token usage defensively

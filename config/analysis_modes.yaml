@@ -67,6 +67,20 @@ multi_agent:
   # Enable per-topic metrics collection
   enable_topic_metrics: true
 
+# AI Model Configuration
+ai_model:
+  # Default AI model to use for all LLM-powered agents
+  # Options: 'openai' (GPT-4) or 'claude' (Claude 3)
+  default_model: openai
+  
+  # Enable automatic fallback to alternative model if primary fails
+  enable_fallback: true
+  
+  # Fallback order (will try in this order)
+  fallback_order:
+    - openai
+    - claude
+
 # Override settings (can be set via environment variables)
-# Environment variables take precedence: ANALYSIS_MODE, FORCE_MULTI_AGENT, FORCE_STANDARD
+# Environment variables take precedence: ANALYSIS_MODE, FORCE_MULTI_AGENT, FORCE_STANDARD, AI_MODEL
 

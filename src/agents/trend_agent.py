@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class TrendAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.5
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
         self.historical_dir = historical_data_dir or Path("outputs/weekly_history")
         self.historical_dir.mkdir(parents=True, exist_ok=True)
     
@@ -295,7 +295,7 @@ Instructions:
 Explanation:"""
             
             try:
-                explanation = await self.openai_client.generate_analysis(prompt)
+                explanation = await self.ai_client.generate_analysis(prompt)
                 interpretations[topic] = explanation.strip()
                 self.logger.info(f"Trend insight for {topic}: {explanation[:100]}...")
             except Exception as e:

@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 from src.services.quote_translator import QuoteTranslator
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class ExampleExtractionAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.3
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
         self.translator = QuoteTranslator()
     
     def _to_datetime_utc(self, value: Any) -> Optional[datetime]:
@@ -463,7 +463,7 @@ Instructions:
 Selected example numbers:"""
 
         try:
-            response = await self.openai_client.generate_analysis(prompt)
+            response = await self.ai_client.generate_analysis(prompt)
             
             # Parse JSON from response
             if '[' in response and ']' in response:

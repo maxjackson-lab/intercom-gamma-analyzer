@@ -14,7 +14,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class InsightAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.7  # Higher temperature for creative synthesis
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
     
     def get_agent_specific_instructions(self) -> str:
         """Insight agent specific instructions"""
@@ -158,7 +158,7 @@ Use ONLY this data to generate insights. Do not invent additional statistics.
             prompt = self.build_prompt(context)
             
             # Call OpenAI for insight synthesis
-            response = await self.openai_client.generate_analysis(
+            response = await self.ai_client.generate_analysis(
                 prompt=prompt,
                 model=self.model,
                 temperature=self.temperature

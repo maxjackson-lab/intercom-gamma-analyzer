@@ -87,8 +87,15 @@ def cli(verbose: bool, output_dir: str):
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
 @click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard', 
               help='Analysis type: standard (single), topic-based (Hilary format), synthesis (insights)')
-def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str):
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use (openai or claude). Defaults to config setting.')
+def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str, ai_model: Optional[str]):
     """Generate Voice of Customer analysis for monthly executive reports"""
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]Using AI model: {ai_model}[/cyan]")
     
     # Parse tier1 countries
     tier1_list = []
@@ -3245,6 +3252,8 @@ async def run_test_topic_based(conversations):
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode')
 @click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete']), 
               default='topic-based', help='Analysis type when multi-agent enabled')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use (openai or claude). Defaults to config setting.')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def voice_of_customer_analysis(
     time_period: Optional[str],
@@ -3345,6 +3354,11 @@ def voice_of_customer_analysis(
     console.print(f"Date Range: {start_date} to {end_date} (Pacific Time)")
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model}[/cyan]")
     
     # This branch is multi-agent only
     console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")

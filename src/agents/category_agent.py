@@ -16,7 +16,7 @@ from datetime import datetime
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.category_filters import CategoryFilters
 from src.config.taxonomy import taxonomy_manager
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class CategoryAgent(BaseAgent):
             temperature=0.3  # Moderate temperature for classification
         )
         self.category_filters = CategoryFilters()
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
     
     def get_agent_specific_instructions(self) -> str:
         """Category agent specific instructions"""

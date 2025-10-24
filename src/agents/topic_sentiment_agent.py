@@ -14,7 +14,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class TopicSentimentAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.6  # Moderate for nuanced language
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
     
     def get_agent_specific_instructions(self) -> str:
         """Topic sentiment agent specific instructions"""
@@ -170,7 +170,7 @@ Analyze ALL {len(topic_conversations)} conversations to generate your insight.
             prompt = self.build_prompt(context)
             
             # Generate sentiment insight
-            insight = await self.openai_client.generate_analysis(prompt)
+            insight = await self.ai_client.generate_analysis(prompt)
             insight = insight.strip().strip('"').strip()  # Clean up formatting
             
             # Prepare result

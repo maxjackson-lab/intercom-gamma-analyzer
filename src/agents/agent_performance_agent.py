@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class AgentPerformanceAgent(BaseAgent):
             temperature=0.3
         )
         self.agent_filter = agent_filter.lower()
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
     
     def get_agent_specific_instructions(self) -> str:
         """Agent performance analysis instructions"""
@@ -450,7 +450,7 @@ Structure as:
 Analysis:"""
         
         try:
-            insights = await self.openai_client.generate_analysis(prompt)
+            insights = await self.ai_client.generate_analysis(prompt)
             return insights.strip()
         except Exception as e:
             self.logger.warning(f"LLM insights generation failed: {e}")

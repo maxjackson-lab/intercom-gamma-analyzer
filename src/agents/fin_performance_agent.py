@@ -13,7 +13,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class FinPerformanceAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.4
         )
-        self.openai_client = OpenAIClient()
+        self.ai_client = OpenAIClient()
     
     def get_agent_specific_instructions(self) -> str:
         """Fin performance agent instructions"""
@@ -396,7 +396,7 @@ Instructions:
 Insights:"""
 
         try:
-            insights = await self.openai_client.generate_analysis(prompt)
+            insights = await self.ai_client.generate_analysis(prompt)
             return insights.strip()
         except Exception as e:
             self.logger.warning(f"LLM insights generation failed: {e}")

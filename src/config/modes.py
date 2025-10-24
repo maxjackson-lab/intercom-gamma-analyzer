@@ -191,6 +191,43 @@ class AnalysisModeConfig:
         """
         features = self.config.get('features', {})
         return features.get(setting_name, default)
+    
+    def get_ai_model_setting(self, setting_name: str, default: Any = 'openai') -> Any:
+        """
+        Get an AI model configuration setting.
+        
+        Args:
+            setting_name: Name of the setting (e.g., 'default_model', 'enable_fallback')
+            default: Default value if setting is not found
+        
+        Returns:
+            Setting value
+        """
+        ai_model_config = self.config.get('ai_model', {})
+        return ai_model_config.get(setting_name, default)
+    
+    def get_default_ai_model(self) -> str:
+        """
+        Get the default AI model (openai or claude).
+        
+        Priority:
+        1. Environment variable AI_MODEL
+        2. Config file ai_model.default_model
+        3. Default to 'openai'
+        
+        Returns:
+            'openai' or 'claude'
+        """
+        # Check environment variable first
+        env_model = os.getenv('AI_MODEL', '').lower()
+        if env_model in ['openai', 'claude']:
+            self.logger.info(f"Using AI model from environment: {env_model}")
+            return env_model
+        
+        # Check config
+        default_model = self.get_ai_model_setting('default_model', 'openai')
+        self.logger.info(f"Using AI model from config: {default_model}")
+        return default_model
 
 
 # Global singleton instance

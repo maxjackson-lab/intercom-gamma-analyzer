@@ -5,7 +5,7 @@ Uses OpenAI for translation to keep it simple and accurate.
 
 import logging
 from typing import Dict, Optional
-from src.services.openai_client import OpenAIClient
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ class QuoteTranslator:
     """Translates customer quotes to English for better analysis visibility."""
     
     def __init__(self):
-        self.openai_client = OpenAIClient()
+        self.ai_client = get_ai_client()
         self.logger = logging.getLogger(__name__)
         
         # Cache translations to avoid re-translating same text
@@ -67,7 +67,7 @@ Format your response as:
 TRANSLATION: [English translation here]
 LANGUAGE: [Language name]"""
             
-            response = await self.openai_client.generate_completion(
+            response = await self.ai_client.generate_completion(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=500
