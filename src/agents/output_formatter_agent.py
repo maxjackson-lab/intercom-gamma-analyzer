@@ -104,6 +104,18 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append(f"# Voice of Customer Analysis - Week {week_id}")
             output_sections.append("")
             
+            # Add language breakdown if available
+            lang_dist = segmentation.get('language_distribution', {})
+            if lang_dist:
+                total_langs = segmentation.get('total_languages', len(lang_dist))
+                output_sections.append(f"**Languages Represented**: {total_langs} languages")
+                
+                # Show top 5 languages
+                top_langs = list(lang_dist.items())[:5]
+                lang_summary = ", ".join([f"{lang} ({count})" for lang, count in top_langs])
+                output_sections.append(f"**Top Languages**: {lang_summary}")
+                output_sections.append("")
+            
             # Section 1: Voice of Customer (Paid Customers)
             output_sections.append("## Customer Topics (Paid Tier - Human Support)")
             output_sections.append("")
@@ -257,15 +269,19 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         
         card += "\n**Examples**:\n\n"
         
-        # Add examples with validation and enhanced link formatting
+        # Add examples with validation, language info, and enhanced link formatting
         if examples and len(examples) > 0:
             for i, example in enumerate(examples, 1):
                 # Defensive read of example fields
                 preview = example.get('preview', 'No preview available') if isinstance(example, dict) else 'Invalid example format'
                 url = example.get('intercom_url', '#') if isinstance(example, dict) else '#'
+                language = example.get('language', 'English') if isinstance(example, dict) else 'English'
                 
-                # Enhanced format: Quote on one line, prominent link on next line
-                card += f"{i}. \"{preview}\"\n"
+                # Show language label if not English
+                lang_label = f" _{language}_" if language and language != 'English' else ""
+                
+                # Enhanced format: Language label, quote, prominent link
+                card += f"{i}. {lang_label}\"{preview}\"\n"
                 card += f"   **[📎 View in Intercom →]({url})**\n\n"
         else:
             card += "_No examples available - topic may have low volume or quality conversations_\n"

@@ -320,7 +320,7 @@ Selection criteria:
         return score
     
     def _format_example(self, conv: Dict) -> Dict[str, str]:
-        """Format conversation into example with preview and link"""
+        """Format conversation into example with preview, link, and language info"""
         # Validate customer_messages with type check
         customer_msgs = conv.get('customer_messages', [])
         if not isinstance(customer_msgs, list) or not customer_msgs or not customer_msgs[0]:
@@ -361,11 +361,15 @@ Selection criteria:
         if created_at is not None:  # Explicitly check for None to handle epoch 0
             created_at_str = self._to_iso_utc(created_at)
         
+        # Get language from conversation
+        language = conv.get('custom_attributes', {}).get('Language', 'English')
+        
         return {
             'preview': preview,
             'intercom_url': intercom_url,
             'conversation_id': str(conv_id),
-            'created_at': created_at_str
+            'created_at': created_at_str,
+            'language': language
         }
     
     async def _llm_select_examples(self, candidates: List[Dict], topic: str, sentiment: str, target_count: int = 10) -> List[Dict]:

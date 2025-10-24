@@ -315,6 +315,21 @@ Output: Segmented conversations with agent type labels
                     f"Ultra: {tier_distribution['ultra']} ({ultra_pct}%)"
                 )
 
+            # Calculate language breakdown
+            language_distribution = {}
+            for conv in conversations:
+                lang = conv.get('custom_attributes', {}).get('Language', 'English')
+                language_distribution[lang] = language_distribution.get(lang, 0) + 1
+            
+            # Sort by count
+            sorted_languages = dict(sorted(
+                language_distribution.items(),
+                key=lambda x: x[1],
+                reverse=True
+            ))
+            
+            self.logger.info(f"Language distribution: {sorted_languages}")
+            
             # Extract paid_fin_resolved conversations (paid customers resolved by Fin only)
             paid_fin_resolved_conversations = agent_distribution['fin_resolved']
 
@@ -359,7 +374,13 @@ Output: Segmented conversations with agent type labels
                     'free_fin_only_percentage': round(len(free_customers) / len(conversations) * 100, 1),
 
                     # Tier data quality
-                    'tier_distribution': tier_distribution  # Include tier breakdown in summary
+                    'tier_distribution': tier_distribution,  # Include tier breakdown in summary
+                    
+                    # Language/Regional breakdown
+                    'language_distribution': sorted_languages,
+                    'total_languages': len(sorted_languages),
+                    'top_language': list(sorted_languages.keys())[0] if sorted_languages else 'English',
+                    'top_language_count': list(sorted_languages.values())[0] if sorted_languages else 0
                 }
             }
             
