@@ -3664,6 +3664,7 @@ def voice_of_customer_analysis(
     separate_agent_feedback: bool,
     multi_agent: bool,
     analysis_type: str,
+    audit_trail: bool,
     output_dir: str
 ):
     """
@@ -3777,11 +3778,11 @@ def voice_of_customer_analysis(
     start_dt, end_dt = get_date_range_pacific(start_date, end_date)
     
     if analysis_type == 'topic-based':
-        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count))
+        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count, audit_trail))
     elif analysis_type == 'synthesis':
-        asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma))
+        asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail))
     else:  # complete
-        asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma))
+        asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail))
 
 
 @cli.command(name='agent-performance')
@@ -3908,12 +3909,26 @@ async def run_topic_based_analysis_custom(
     end_date: datetime, 
     generate_gamma: bool,
     test_mode: bool = False,
-    test_data_count: int = 100
+    test_data_count: int = 100,
+    audit_trail: bool = False
 ):
     """Run topic-based analysis with custom date range"""
     from src.agents.topic_orchestrator import TopicOrchestrator
     from src.services.chunked_fetcher import ChunkedFetcher
     from src.services.gamma_generator import GammaGenerator
+    from src.services.audit_trail import AuditTrail
+    
+    # Initialize audit trail if enabled
+    audit = None
+    if audit_trail:
+        audit = AuditTrail()
+        audit.step("Initialization", "Started Voice of Customer Analysis", {
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+            'test_mode': test_mode,
+            'generate_gamma': generate_gamma
+        })
+        console.print("📋 [purple]Audit Trail Mode: ENABLED[/purple] - Generating detailed analysis narration\n")
     
     # Fetch conversations (or generate test data)
     if test_mode:
@@ -3926,16 +3941,45 @@ async def run_topic_based_analysis_custom(
             end_date=end_date
         )
         console.print(f"   ✅ Generated {len(conversations)} test conversations\n")
+        
+        if audit:
+            audit.step("Data Generation", f"Generated {len(conversations)} test conversations", {
+                'count': len(conversations),
+                'method': 'TestDataGenerator',
+                'distribution': 'Realistic (tiers, topics, languages)'
+            })
     else:
         console.print("📥 Fetching conversations from Intercom...")
+        if audit:
+            audit.step("Data Fetching", "Started fetching conversations from Intercom API", {
+                'start_date': start_date.strftime('%Y-%m-%d'),
+                'end_date': end_date.strftime('%Y-%m-%d'),
+                'api': 'Intercom Conversations Search API'
+            })
+        
         fetcher = ChunkedFetcher()
         conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
         console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+        
+        if audit:
+            audit.step("Data Fetching", f"Fetched {len(conversations)} conversations", {
+                'count': len(conversations),
+                'method': 'ChunkedFetcher',
+                'chunking_strategy': 'Daily chunks with preprocessing'
+            })
     
     # Detect period type from date range
     period_type, period_label = detect_period_type(start_date, end_date)
     
-    orchestrator = TopicOrchestrator()
+    if audit:
+        audit.decision(
+            "What time period does this analysis cover?",
+            f"{period_type} ({period_label})",
+            f"Based on date range {start_date.date()} to {end_date.date()}",
+            {'period_type': period_type, 'period_label': period_label}
+        )
+    
+    orchestrator = TopicOrchestrator(audit_trail=audit)
     week_id = start_date.strftime('%Y-W%W')
     
     results = await orchestrator.execute_weekly_analysis(
@@ -3955,6 +3999,21 @@ async def run_topic_based_analysis_custom(
     
     with open(report_file, 'w') as f:
         f.write(results.get('formatted_report', ''))
+    
+    # Save audit trail if enabled
+    if audit:
+        audit.step("Output Generation", "Saved analysis report", {
+            'file': str(report_file),
+            'format': 'markdown'
+        })
+        
+        audit_md = audit.save_report()
+        audit_json = audit.save_json()
+        
+        console.print(f"\n📋 [purple]Audit Trail Reports Generated:[/purple]")
+        console.print(f"   📄 Narrative Report: {audit_md}")
+        console.print(f"   📊 JSON Data: {audit_json}")
+        console.print(f"   ℹ️  Review these files to validate the analysis methodology\n")
     
     console.print(f"✅ Topic-based analysis complete")
     console.print(f"📁 Report: {report_file}")
@@ -4038,7 +4097,7 @@ async def run_topic_based_analysis_custom(
             # Don't raise - let the analysis complete without Gamma
 
 
-async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool, audit_trail: bool = False):
     """Run synthesis analysis with custom date range"""
     from src.agents.orchestrator import MultiAgentOrchestrator
     from src.services.chunked_fetcher import ChunkedFetcher
@@ -4058,11 +4117,11 @@ async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime
         console.print("[yellow]Gamma generation for synthesis pending synthesis implementation[/yellow]")
 
 
-async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool, audit_trail: bool = False):
     """Run both analyses"""
-    await run_topic_based_analysis_custom(start_date, end_date, generate_gamma)
+    await run_topic_based_analysis_custom(start_date, end_date, generate_gamma, audit_trail=audit_trail)
     console.print("\n" + "="*80 + "\n")
-    await run_synthesis_analysis_custom(start_date, end_date, generate_gamma)
+    await run_synthesis_analysis_custom(start_date, end_date, generate_gamma, audit_trail)
     console.print("\n🎉 Complete analysis finished!")
 
 

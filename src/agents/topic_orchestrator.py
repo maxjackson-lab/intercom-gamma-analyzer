@@ -77,7 +77,7 @@ def _normalize_agent_result(result: Any) -> Dict[str, Any]:
 class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
-    def __init__(self, ai_factory: AIModelFactory = None):
+    def __init__(self, ai_factory: AIModelFactory = None, audit_trail=None):
         self.segmentation_agent = SegmentationAgent()
         self.topic_detection_agent = TopicDetectionAgent()
         self.subtopic_detection_agent = SubTopicDetectionAgent()
@@ -91,6 +91,9 @@ class TopicOrchestrator:
         self.ai_factory = ai_factory or AIModelFactory()
         self._canny_topic_detection_agent = None
         self._cross_platform_correlation_agent = None
+        
+        #Audit trail for detailed narration
+        self.audit = audit_trail
         
         self.logger = logging.getLogger(__name__)
     
@@ -173,6 +176,14 @@ class TopicOrchestrator:
         try:
             # PHASE 1: Segment conversations (paid vs free)
             self.logger.info("📊 Phase 1: Segmentation (Paid vs Free)")
+            
+            if self.audit:
+                self.audit.step("Phase 1: Segmentation", "Starting customer tier classification", {
+                    'agent': 'SegmentationAgent',
+                    'total_conversations': len(conversations),
+                    'method': 'Tier-first classification (Free/Paid/Unknown)'
+                })
+            
             segmentation_result = await self.segmentation_agent.execute(context)
             workflow_results['SegmentationAgent'] = _normalize_agent_result(segmentation_result)
             
@@ -189,10 +200,40 @@ class TopicOrchestrator:
             self.logger.info(f"   ✅ Paid: {len(paid_conversations)} (Human: {len(paid_conversations) - len(paid_fin_resolved_conversations)}, Fin-resolved: {len(paid_fin_resolved_conversations)})")
             self.logger.info(f"   ✅ Free (Fin-only): {len(free_fin_only_conversations)}")
             
+            if self.audit:
+                self.audit.step("Phase 1: Segmentation", "Completed customer tier classification", {
+                    'paid_conversations': len(paid_conversations),
+                    'free_conversations': len(free_fin_only_conversations),
+                    'paid_fin_resolved': len(paid_fin_resolved_conversations),
+                    'paid_human_handled': len(paid_conversations) - len(paid_fin_resolved_conversations),
+                    'execution_time_seconds': segmentation_result.execution_time
+                })
+                
+                self.audit.decision(
+                    "How were conversations segmented by tier?",
+                    "Tier-first classification using custom_attributes['tier'] field",
+                    "Free tier customers can only interact with Fin AI. Paid tier can escalate to humans.",
+                    {
+                        'free_tier_count': len(free_fin_only_conversations),
+                        'paid_tier_count': len(paid_conversations),
+                        'free_percentage': f"{len(free_fin_only_conversations)/len(conversations)*100:.1f}%",
+                        'paid_percentage': f"{len(paid_conversations)/len(conversations)*100:.1f}%"
+                    }
+                )
+            
             # PHASE 2: Detect topics (on ALL conversations - paid AND free)
             # We need topics for both paid tier (for cards) and free tier (for Fin analysis)
             self.logger.info("🏷️  Phase 2: Topic Detection")
             self.logger.info(f"   Running topic detection on ALL {len(conversations)} conversations (paid + free)")
+            
+            if self.audit:
+                self.audit.step("Phase 2: Topic Detection", "Starting AI-based topic classification", {
+                    'agent': 'TopicDetectionAgent',
+                    'conversations_to_classify': len(conversations),
+                    'taxonomy_categories': 12,
+                    'method': 'AI classification with keyword fallback'
+                })
+            
             context.conversations = conversations  # Changed: detect topics for ALL conversations
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
@@ -206,6 +247,14 @@ class TopicOrchestrator:
             topic_dist = topic_detection_result.data.get('topic_distribution', {})
             topics_by_conv = topic_detection_result.data.get('topics_by_conversation', {})
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
+            
+            if self.audit:
+                self.audit.step("Phase 2: Topic Detection", f"Completed topic classification - {len(topic_dist)} topics detected", {
+                    'topics_detected': len(topic_dist),
+                    'conversations_classified': len(topics_by_conv),
+                    'top_topics': list(sorted(topic_dist.items(), key=lambda x: x[1], reverse=True)[:5]),
+                    'execution_time_seconds': topic_detection_result.execution_time
+                })
             
             # Apply detected topics back to ALL conversation objects
             # CRITICAL: Need to apply to BOTH the original list AND the segmented lists
