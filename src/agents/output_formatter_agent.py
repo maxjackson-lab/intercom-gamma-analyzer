@@ -477,24 +477,26 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         struggling = free_tier.get('struggling_topics', [])
         gap_examples = free_tier.get('knowledge_gap_examples', [])
 
-        # Get CSAT data
+        # Get CSAT data (updated with eligible count)
         avg_rating = free_tier.get('avg_rating')
         rated_count = free_tier.get('rated_count', 0)
-        rating_pct = free_tier.get('rating_percentage', 0)
+        eligible_count = free_tier.get('rating_eligible_count', 0)
+        rating_response_rate = free_tier.get('rating_response_rate', 0)
         
         card = f"""### Free Tier: Fin AI Performance (AI-Only Support)
 **{total_free} conversations from Free tier customers**
 
 **Performance Overview**:
-- Resolution rate: {resolution_rate:.1%} (customers satisfied without requesting human support)
-- Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information
+- Resolution rate: {resolution_rate:.1%} (Fin resolved without admin escalation)
+- Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information ({knowledge_gaps/total_free*100:.1f}% gap rate)
 """
         
-        # Add CSAT if available
+        # Add CSAT if available (only for conversations with ≥2 responses from both sides)
         if avg_rating is not None:
-            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_pct:.1f}% response rate)\n"
+            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_response_rate:.1f}% of {eligible_count} eligible)\n"
+            card += f"  _Note: Only {eligible_count} conversations eligible for rating (≥2 responses from both customer and Fin)_\n"
         else:
-            card += f"- **Customer Satisfaction (CSAT):** No ratings available ({rated_count} rated, {rating_pct:.1f}% response rate)\n"
+            card += f"- **Customer Satisfaction (CSAT):** No ratings ({eligible_count} eligible conversations, {rated_count} actually rated)\n"
 
         # What Fin does well
         if top_topics:
@@ -567,24 +569,26 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         struggling = paid_tier.get('struggling_topics', [])
         gap_examples = paid_tier.get('knowledge_gap_examples', [])
         
-        # Get CSAT data
+        # Get CSAT data (updated with eligible count)
         avg_rating = paid_tier.get('avg_rating')
         rated_count = paid_tier.get('rated_count', 0)
-        rating_pct = paid_tier.get('rating_percentage', 0)
+        eligible_count = paid_tier.get('rating_eligible_count', 0)
+        rating_response_rate = paid_tier.get('rating_response_rate', 0)
 
         card = f"""### Paid Tier: Fin-Resolved Conversations
 **{total_paid} paid customers resolved their issues with Fin AI (no human escalation needed)**
 
 **Performance Overview**:
-- Resolution rate: {resolution_rate:.1%} (chose not to escalate to human support)
-- Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information
+- Resolution rate: {resolution_rate:.1%} (Fin resolved without admin escalation)
+- Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information ({knowledge_gaps/total_paid*100:.1f}% gap rate)
 """
         
-        # Add CSAT if available
+        # Add CSAT if available (only for conversations with ≥2 responses from both sides)
         if avg_rating is not None:
-            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_pct:.1f}% response rate)\n"
+            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_response_rate:.1f}% of {eligible_count} eligible)\n"
+            card += f"  _Note: Only {eligible_count} conversations eligible for rating (≥2 responses from both customer and Fin)_\n"
         else:
-            card += f"- **Customer Satisfaction (CSAT):** No ratings available ({rated_count} rated, {rating_pct:.1f}% response rate)\n"
+            card += f"- **Customer Satisfaction (CSAT):** No ratings ({eligible_count} eligible conversations, {rated_count} actually rated)\n"
 
         # What Fin does well
         if top_topics:
