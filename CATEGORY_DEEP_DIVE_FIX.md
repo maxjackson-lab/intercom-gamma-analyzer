@@ -1,7 +1,7 @@
-# Category Deep Dive Commands - Critical Bug Fix
+# Web UI Command Flag Compatibility - Critical Bug Fix (v3.0.4)
 
 ## Problem
-**Every single category deep dive command was failing immediately** when executed from the web interface.
+**Multiple commands were failing immediately** when executed from the web interface due to incompatible command-line flags.
 
 ## Root Cause
 The web UI JavaScript was passing incompatible command-line flags to category deep dive commands.
@@ -79,18 +79,32 @@ if (filterValue && supportsTimePeriod.includes(command)) {
 }
 ```
 
+### 4. Verbose Logging Filtering (Lines 973-977) **[NEW in v3.0.4]**
+```javascript
+// Only add --verbose to commands that support it (voice-of-customer only)
+const supportsVerbose = ['voice-of-customer'];
+if (isVerbose && supportsVerbose.includes(command)) {
+    args.push('--verbose');
+}
+```
+
 ## Files Modified
 
 1. **`static/app.js`**
    - Added command compatibility checks
    - Convert time period to `--days` for category commands
-   - Filter unsupported flags by command type
-   - Updated version marker to v3.0.3-category-fix
+   - Filter unsupported flags by command type (--test-mode, --focus-areas, --verbose)
+   - Updated version marker to v3.0.4-verbose-fix
 
 2. **`deploy/railway_web.py`**
-   - Updated version markers to v3.0.3
+   - Updated version markers to v3.0.4
    - Updated debug endpoint with fix details
    - Updated cache-busting query strings
+
+## Versions
+
+- **v3.0.3** - Fixed category deep dive commands (--time-period → --days)
+- **v3.0.4** - Fixed agent performance commands (--verbose only for voice-of-customer)
 
 ## Testing
 
@@ -111,9 +125,11 @@ To verify the fix works:
 ## Impact
 
 - ✅ All category deep dive commands now work correctly from web UI
-- ✅ Voice of Customer, Agent Performance, and Agent Coaching commands unaffected
+- ✅ Agent Performance and Agent Coaching commands now work (--verbose no longer added)
+- ✅ Voice of Customer commands work with full feature set
 - ✅ Test mode only enabled for commands that support it
 - ✅ Taxonomy filters only added to commands that support them
+- ✅ Verbose logging only added to commands that support it
 - ✅ Custom date ranges work for all commands
 
 ## Deployment
@@ -141,7 +157,40 @@ To verify the fix works:
 
 ## Previous Issues
 
-This was a **critical bug** that made the web interface effectively non-functional for category-specific analyses, which are a core feature of the tool.
+These were **critical bugs** that made the web interface effectively non-functional for many analysis types.
 
 Users had to fall back to the CLI, defeating the purpose of the web interface.
+
+## "Whack-a-Mole" Nature of the Bug
+
+As the user noted, this was indeed a "whack-a-mole" situation:
+
+1. **v3.0.3** - Fixed category deep dive commands failing with `--time-period` error
+   - Discovered: All category commands (billing, product, API) were broken
+   - Fix: Convert `--time-period` to `--days` for legacy commands
+
+2. **v3.0.4** - Fixed agent performance commands failing with `--verbose` error  
+   - Discovered: Agent performance/coaching commands were broken
+   - Fix: Only add `--verbose` to voice-of-customer command
+
+### Root Cause Analysis
+
+The underlying issue was a **mismatch between the web UI's assumptions and the CLI's actual interfaces**:
+
+- The web UI was written to assume all commands support the same flags
+- In reality, different commands were built at different times with different interfaces
+- Newer multi-agent commands (voice-of-customer, agent-performance) have rich flag support
+- Older category commands (analyze-billing, analyze-product) have minimal flag support
+- The `--verbose` flag is **only** supported by voice-of-customer at the command level
+
+### Solution Architecture
+
+Instead of blindly passing all flags to all commands, the web UI now:
+
+1. **Categorizes commands** by their capabilities
+2. **Routes flags intelligently** based on command type
+3. **Degrades gracefully** (e.g., time-period → days conversion)
+4. **Validates compatibility** before building the command string
+
+This ensures the web UI can handle both legacy and modern command interfaces.
 

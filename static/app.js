@@ -1,5 +1,5 @@
-// VERSION MARKER: v3.0.3-category-fix - If you see this, the latest code is deployed
-console.log('✅ JavaScript v3.0.3-category-fix loaded successfully - Category deep dive commands fixed');
+// VERSION MARKER: v3.0.4-verbose-fix - If you see this, the latest code is deployed
+console.log('✅ JavaScript v3.0.4-verbose-fix loaded successfully - All command flag compatibility fixed');
 
 // Global error handler - catch all JavaScript errors and display them
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -963,15 +963,16 @@ function runAnalysis() {
         args.push('--generate-gamma');
     }
     
-    // Add test mode flags (only for voice-of-customer and agent commands that support it)
+    // Add test mode flags (only for commands that support it)
     const supportsTestMode = ['voice-of-customer', 'agent-performance', 'agent-coaching-report'];
     if (isTestMode && supportsTestMode.includes(command)) {
         args.push('--test-mode');
         args.push('--test-data-count', testCount);
     }
     
-    // Add verbose logging (supported by most commands)
-    if (isVerbose) {
+    // Add verbose logging (only voice-of-customer supports this flag at command level)
+    const supportsVerbose = ['voice-of-customer'];
+    if (isVerbose && supportsVerbose.includes(command)) {
         args.push('--verbose');
     }
     

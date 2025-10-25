@@ -213,9 +213,9 @@ if HAS_FASTAPI:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool v3.0.3 [CATEGORY-FIX]</title>
+        <title>Intercom Analysis Tool v3.0.4 [VERBOSE-FIX]</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
-        <link rel="stylesheet" href="/static/styles.css?v=3.0.3">
+        <link rel="stylesheet" href="/static/styles.css?v=3.0.4">
     </head>
     <body>
         <div class="container">
@@ -467,10 +467,10 @@ if HAS_FASTAPI:
         
         <!-- Version marker for cache verification -->
         <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
-            v3.0.3-category-fix
+            v3.0.4-verbose-fix
         </div>
 
-        <script src="/static/app.js?v=3.0.3"></script>
+        <script src="/static/app.js?v=3.0.4"></script>
     </body>
     </html>
         """
@@ -935,16 +935,18 @@ if HAS_FASTAPI:
             git_hash = "unknown"
         
         return {
-            "version": "3.0.3",
+            "version": "3.0.4",
             "commit": git_hash,
-            "expected_commit": "category-fix",
+            "expected_commit": "verbose-fix",
             "timestamp": datetime.now().isoformat(),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
             "fixes_included": [
+                "Fixed --verbose flag (only added to voice-of-customer command)",
                 "Category deep dive commands now work correctly",
                 "Fixed --time-period flag incompatibility (now uses --days for category commands)",
                 "Fixed --test-mode flag only added to commands that support it",
                 "Fixed --focus-areas flag only added to commands that support it",
+                "All command flag compatibility issues resolved",
                 "JavaScript regex syntax error fixed (line 1185)",
                 "Cache-control headers added",
                 "Version marker added to HTML",
