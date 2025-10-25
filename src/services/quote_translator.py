@@ -67,14 +67,10 @@ Format your response as:
 TRANSLATION: [English translation here]
 LANGUAGE: [Language name]"""
             
-            response = await self.ai_client.generate_completion(
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=500
-            )
+            # Use generate_analysis instead of generate_completion
+            response_text = await self.ai_client.generate_analysis(prompt)
             
-            # Parse response
-            response_text = response['content']
+            # Parse response (response_text is already a string, not a dict)
             
             translation = None
             language = source_language or 'Unknown'

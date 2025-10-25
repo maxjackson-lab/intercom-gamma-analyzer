@@ -3919,6 +3919,10 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
             # Don't use PresentationBuilder - it throws away our work and uses generic templates
             markdown_report = results.get('formatted_report', '')
             
+            if not markdown_report:
+                console.print("[yellow]⚠️  No markdown report found - skipping Gamma generation[/yellow]")
+                return
+            
             console.print(f"   Sending {len(markdown_report)} characters to Gamma API...")
             
             generation_id = await gamma_client.generate_presentation(
@@ -3933,16 +3937,19 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
                 }
             )
             
-            console.print(f"   Generation ID: {generation_id}")
-            console.print("   Waiting for Gamma to process...")
+            console.print(f"   ✅ Generation ID: {generation_id}")
+            console.print("   ⏳ Waiting for Gamma to process (max 8 minutes)...")
             
             # Use GammaClient.poll_generation() with backoff
             status = await gamma_client.poll_generation(generation_id, max_polls=30, poll_interval=2.0)
             
+            console.print(f"   Poll completed with status: {status.get('status')}")
+            
             if status.get('status') == 'completed':
                 gamma_url = status.get('gammaUrl')  # Use v0.2 field name
                 if gamma_url:
-                    console.print(f"✅ Gamma URL: {gamma_url}")
+                    console.print(f"\n🎉 [bold green]SUCCESS![/bold green]")
+                    console.print(f"📊 Gamma URL: {gamma_url}")
                     
                     # Save URL to file with descriptive name
                     from src.utils.time_utils import generate_descriptive_filename
@@ -3960,12 +3967,23 @@ async def run_topic_based_analysis_custom(start_date: datetime, end_date: dateti
                 else:
                     console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
             elif status.get('status') == 'failed':
-                console.print(f"[red]❌ Gamma generation failed: {status.get('error')}[/red]")
+                error_msg = status.get('error', 'Unknown error')
+                console.print(f"[red]❌ Gamma generation FAILED: {error_msg}[/red]")
+                console.print(f"[yellow]Generation ID: {generation_id}[/yellow]")
+            else:
+                console.print(f"[yellow]⚠️  Unexpected status: {status.get('status')}[/yellow]")
+                console.print(f"[yellow]Full status response: {status}[/yellow]")
                 
         except Exception as e:
-            console.print(f"[red]❌ Gamma generation failed: {e}[/red]")
+            console.print(f"\n[red]{'='*60}[/red]")
+            console.print(f"[red]❌ GAMMA GENERATION ERROR[/red]")
+            console.print(f"[red]{'='*60}[/red]")
+            console.print(f"[red]Error: {e}[/red]")
+            console.print(f"[red]Type: {type(e).__name__}[/red]")
             import traceback
-            console.print(f"[dim]{traceback.format_exc()}[/dim]")
+            console.print(f"[red]{traceback.format_exc()}[/red]")
+            console.print(f"[red]{'='*60}[/red]")
+            # Don't raise - let the analysis complete without Gamma
 
 
 async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):

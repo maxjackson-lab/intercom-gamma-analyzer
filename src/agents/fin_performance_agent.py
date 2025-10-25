@@ -395,9 +395,10 @@ Calculate tier-specific metrics:
         """
         total_free = result_data.get('total_free_tier', 0)
         total_paid = result_data.get('total_paid_tier', 0)
-        free_tier = result_data.get('free_tier', {})
-        paid_tier = result_data.get('paid_tier', {})
-        tier_comparison = result_data.get('tier_comparison', {})
+        # Handle None values explicitly - use {} as fallback
+        free_tier = result_data.get('free_tier') or {}
+        paid_tier = result_data.get('paid_tier') or {}
+        tier_comparison = result_data.get('tier_comparison') or {}
 
         free_resolution = free_tier.get('resolution_rate', 0)
         paid_resolution = paid_tier.get('resolution_rate', 0)

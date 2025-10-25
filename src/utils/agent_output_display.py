@@ -310,7 +310,8 @@ class AgentOutputDisplay:
                     continue
                 
                 # Check if this looks like a nested topic map (all values are dicts)
-                if result and all(isinstance(v, dict) for v in result.values() if not k.startswith('_')):
+                # Fixed: k should be defined in the loop, not just checked
+                if result and all(isinstance(v, dict) for k, v in result.items() if not k.startswith('_')):
                     # This is likely a nested structure, skip it
                     continue
                 
