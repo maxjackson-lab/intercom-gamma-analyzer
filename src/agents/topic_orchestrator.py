@@ -87,12 +87,26 @@ class TopicOrchestrator:
         self.trend_agent = TrendAgent()
         self.output_formatter_agent = OutputFormatterAgent()
         
-        # Canny integration agents
+        # Canny integration agents (lazy-initialized only when needed)
         self.ai_factory = ai_factory or AIModelFactory()
-        self.canny_topic_detection_agent = CannyTopicDetectionAgent(self.ai_factory)
-        self.cross_platform_correlation_agent = CrossPlatformCorrelationAgent(self.ai_factory)
+        self._canny_topic_detection_agent = None
+        self._cross_platform_correlation_agent = None
         
         self.logger = logging.getLogger(__name__)
+    
+    @property
+    def canny_topic_detection_agent(self):
+        """Lazy-initialize Canny topic detection agent only when needed"""
+        if self._canny_topic_detection_agent is None:
+            self._canny_topic_detection_agent = CannyTopicDetectionAgent(self.ai_factory)
+        return self._canny_topic_detection_agent
+    
+    @property
+    def cross_platform_correlation_agent(self):
+        """Lazy-initialize cross-platform correlation agent only when needed"""
+        if self._cross_platform_correlation_agent is None:
+            self._cross_platform_correlation_agent = CrossPlatformCorrelationAgent(self.ai_factory)
+        return self._cross_platform_correlation_agent
     
     async def execute_weekly_analysis(
         self,
