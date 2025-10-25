@@ -307,18 +307,22 @@ Focus areas:
                 agent_name
             )
             
-            # Store in DuckDB for historical tracking
-            historical_manager = HistoricalDataManager()
-            await historical_manager.store_agent_performance_snapshot(
-                analysis_date=context.end_date,
+            # Store in DuckDB for historical tracking and get WoW trends
+            from src.services.historical_performance_manager import HistoricalPerformanceManager
+            historical_manager = HistoricalPerformanceManager(duckdb_storage)
+            
+            # Store this week's snapshot
+            await historical_manager.store_weekly_snapshot(
                 vendor=self.agent_filter,
+                week_start=context.start_date,
+                week_end=context.end_date,
                 agent_metrics=agent_metrics
             )
             
             # Get week-over-week comparison if available
             wow_changes = await historical_manager.get_week_over_week_comparison(
                 self.agent_filter,
-                context.end_date
+                context.start_date
             )
             report.week_over_week_changes = wow_changes if wow_changes else None
             
@@ -422,6 +426,9 @@ Focus areas:
         # Generate highlights and lowlights
         highlights = self._generate_highlights(agent_metrics, team_metrics)
         lowlights = self._generate_lowlights(agent_metrics, team_metrics)
+        
+        # Add WoW trend summary to highlights/lowlights (will be filled after WoW calculation)
+        # This is a placeholder that will be updated with actual trends
         
         return VendorPerformanceReport(
             vendor_name=vendor_name,
