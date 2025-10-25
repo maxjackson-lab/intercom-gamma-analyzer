@@ -204,6 +204,9 @@ class IndividualAgentAnalyzer:
         best_example = self._find_best_example(fcr_convs)
         coaching_example = self._find_coaching_example(escalated, reopened_convs)
         
+        # Find worst CSAT examples for coaching (egregious cases)
+        worst_csat_examples = self._find_worst_csat_examples(rated_convs, ratings)
+        
         return IndividualAgentMetrics(
             agent_id=agent_id,
             agent_name=agent_info.get('name', 'Unknown'),
@@ -235,7 +238,8 @@ class IndividualAgentAnalyzer:
             coaching_focus_areas=[],  # Will be identified later
             praise_worthy_achievements=[],  # Will be identified later
             best_example_url=best_example,
-            needs_coaching_example_url=coaching_example
+            needs_coaching_example_url=coaching_example,
+            worst_csat_examples=worst_csat_examples
         )
     
     def _analyze_category_performance(self, convs: List[Dict]) -> Dict[str, CategoryPerformance]:
@@ -459,12 +463,24 @@ class IndividualAgentAnalyzer:
     
     def _assess_coaching_priority(self, agent: IndividualAgentMetrics) -> str:
         """Assess coaching priority for an agent"""
-        # High priority if poor performance on key metrics
+        # High priority if poor performance on key metrics OR low CSAT
         if agent.fcr_rate < self.FAIR_FCR or agent.escalation_rate > self.FAIR_ESCALATION:
+            return "high"
+        
+        # High priority if low CSAT with sufficient surveys (egregious cases)
+        if agent.csat_survey_count >= 5 and agent.csat_score < 3.5:
+            return "high"
+        
+        # High priority if multiple negative CSAT ratings
+        if agent.negative_csat_count >= 3:
             return "high"
         
         # Medium priority if multiple weak categories
         if len(agent.weak_categories) >= 2 or len(agent.weak_subcategories) >= 3:
+            return "medium"
+        
+        # Medium priority if moderate CSAT issues
+        if agent.csat_survey_count >= 5 and agent.csat_score < 4.0:
             return "medium"
         
         # Low priority otherwise
@@ -473,6 +489,12 @@ class IndividualAgentAnalyzer:
     def _identify_coaching_areas(self, agent: IndividualAgentMetrics) -> List[str]:
         """Identify specific areas for coaching"""
         areas = []
+        
+        # PRIORITY: Low CSAT issues (most important)
+        if agent.csat_score < 3.5 and agent.csat_survey_count >= 3:
+            areas.append(f"URGENT: Low CSAT ({agent.csat_score:.2f}) - Review worst tickets immediately")
+        elif agent.negative_csat_count >= 2:
+            areas.append(f"Customer Satisfaction ({agent.negative_csat_count} negative ratings)")
         
         # Add weak subcategories as coaching focus
         for subcat in agent.weak_subcategories[:5]:  # Top 5
@@ -534,6 +556,81 @@ class IndividualAgentAnalyzer:
             return self._build_intercom_url(escalated[0].get('id'))
         
         return None
+    
+    def _find_worst_csat_examples(
+        self, 
+        rated_convs: List[Dict],
+        ratings: List[float]
+    ) -> List[Dict[str, Any]]:
+        """
+        Find worst CSAT conversations for coaching.
+        
+        Returns top 3-5 most egregious low-CSAT tickets with:
+        - Conversation URL
+        - CSAT rating
+        - Brief customer complaint/issue
+        - Category (if available)
+        
+        Prioritizes 1★ over 2★ ratings.
+        """
+        if not rated_convs:
+            return []
+        
+        # Find conversations with low ratings (1-2 stars)
+        low_csat_convs = []
+        for conv in rated_convs:
+            rating = conv.get('conversation_rating')
+            if rating and rating <= 2:
+                low_csat_convs.append(conv)
+        
+        if not low_csat_convs:
+            return []
+        
+        # Sort by rating (worst first)
+        low_csat_convs.sort(key=lambda c: c.get('conversation_rating', 5))
+        
+        # Build detailed examples for top 5 worst
+        examples = []
+        for conv in low_csat_convs[:5]:
+            rating = conv.get('conversation_rating')
+            conv_id = conv.get('id')
+            
+            # Extract customer complaint/issue
+            full_text = conv.get('full_text', '')
+            customer_messages = conv.get('customer_messages', [])
+            
+            # Try to get the main customer complaint (first message or first 200 chars)
+            complaint = ""
+            if customer_messages:
+                complaint = customer_messages[0][:200] + "..." if len(customer_messages[0]) > 200 else customer_messages[0]
+            elif full_text:
+                complaint = full_text[:200] + "..." if len(full_text) > 200 else full_text
+            
+            # Get category if available
+            category = conv.get('primary_category', 'Unknown')
+            subcategory = conv.get('subcategory')
+            category_label = f"{category}>{subcategory}" if subcategory else category
+            
+            # Get whether it was reopened or escalated (red flags)
+            reopened = conv.get('count_reopens', 0) > 0
+            escalated = any(name in full_text.lower() for name in ['dae-ho', 'max jackson', 'hilary'])
+            
+            red_flags = []
+            if reopened:
+                red_flags.append("Reopened")
+            if escalated:
+                red_flags.append("Escalated")
+            
+            examples.append({
+                'url': self._build_intercom_url(conv_id),
+                'rating': int(rating),
+                'category': category_label,
+                'complaint': complaint,
+                'red_flags': red_flags,
+                'conversation_id': conv_id
+            })
+        
+        return examples
     
     def _get_resolution_hours(self, conv: Dict) -> float:
         """Get resolution time in hours"""

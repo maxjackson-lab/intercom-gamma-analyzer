@@ -121,6 +121,10 @@ class IndividualAgentMetrics(BaseModel):
     # Example conversations
     best_example_url: Optional[str] = None
     needs_coaching_example_url: Optional[str] = None
+    worst_csat_examples: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Worst CSAT examples with conversation links (for coaching)"
+    )
     
     class Config:
         json_encoders = {
