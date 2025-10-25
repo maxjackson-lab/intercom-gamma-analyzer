@@ -22,6 +22,9 @@ from src.agents.example_extraction_agent import ExampleExtractionAgent
 from src.agents.fin_performance_agent import FinPerformanceAgent
 from src.agents.trend_agent import TrendAgent
 from src.agents.output_formatter_agent import OutputFormatterAgent
+from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
+from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelationAgent
+from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.utils.agent_output_display import get_display
 from src.config.modes import get_analysis_mode_config
 
@@ -74,7 +77,7 @@ def _normalize_agent_result(result: Any) -> Dict[str, Any]:
 class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
-    def __init__(self):
+    def __init__(self, ai_factory: AIModelFactory = None):
         self.segmentation_agent = SegmentationAgent()
         self.topic_detection_agent = TopicDetectionAgent()
         self.subtopic_detection_agent = SubTopicDetectionAgent()
@@ -83,6 +86,11 @@ class TopicOrchestrator:
         self.fin_performance_agent = FinPerformanceAgent()
         self.trend_agent = TrendAgent()
         self.output_formatter_agent = OutputFormatterAgent()
+        
+        # Canny integration agents
+        self.ai_factory = ai_factory or AIModelFactory()
+        self.canny_topic_detection_agent = CannyTopicDetectionAgent(self.ai_factory)
+        self.cross_platform_correlation_agent = CrossPlatformCorrelationAgent(self.ai_factory)
         
         self.logger = logging.getLogger(__name__)
     
@@ -93,10 +101,12 @@ class TopicOrchestrator:
         start_date: datetime = None,
         end_date: datetime = None,
         period_type: str = None,
-        period_label: str = None
+        period_label: str = None,
+        canny_posts: List[Dict] = None,
+        ai_model: AIModel = AIModel.OPENAI_GPT4
     ) -> Dict[str, Any]:
         """
-        Execute complete weekly VoC analysis
+        Execute complete weekly VoC analysis with optional Canny integration.
         
         Args:
             conversations: All conversations for the week
@@ -105,9 +115,11 @@ class TopicOrchestrator:
             end_date: Week end date
             period_type: Period type (e.g., 'week', 'month', 'custom')
             period_label: Human-readable period label
+            canny_posts: Optional list of Canny feature request posts
+            ai_model: AI model to use for analysis
         
         Returns:
-            Complete analysis in Hilary's format
+            Complete analysis in Hilary's format with optional Canny correlation
         """
         if not week_id:
             week_id = datetime.now().strftime('%Y-W%W')
@@ -245,6 +257,57 @@ class TopicOrchestrator:
                     'data': {}
                 }
             
+            # PHASE 2.6: Canny Topic Detection (if Canny posts provided)
+            canny_topics_by_category = {}
+            if canny_posts:
+                self.logger.info("🎯 Phase 2.6: Canny Topic Detection")
+                self.logger.info(f"   Mapping {len(canny_posts)} Canny posts to taxonomy")
+                canny_topic_start_time = datetime.now()
+                try:
+                    canny_topics_by_category = await self.canny_topic_detection_agent.detect_topics(
+                        canny_posts=canny_posts,
+                        taxonomy=None,  # Use default taxonomy
+                        ai_model=ai_model,
+                        enable_fallback=True
+                    )
+                    
+                    canny_topic_execution_time = (datetime.now() - canny_topic_start_time).total_seconds()
+                    workflow_results['CannyTopicDetectionAgent'] = {
+                        'agent_name': 'CannyTopicDetectionAgent',
+                        'success': True,
+                        'execution_time': canny_topic_execution_time,
+                        'confidence': 0.8,
+                        'data': {
+                            'topics_detected': len(canny_topics_by_category),
+                            'total_posts': len(canny_posts),
+                            'topics_by_category': {
+                                topic: data['count'] for topic, data in canny_topics_by_category.items()
+                            }
+                        }
+                    }
+                    
+                    # Display agent result
+                    try:
+                        display.display_agent_result('CannyTopicDetectionAgent', workflow_results['CannyTopicDetectionAgent'], show_full_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to display CannyTopicDetectionAgent result: {e}")
+                    
+                    self.logger.info(f"   ✅ Detected {len(canny_topics_by_category)} Canny topics")
+                    
+                except Exception as e:
+                    self.logger.error(f"   ❌ CannyTopicDetectionAgent failed: {e}", exc_info=True)
+                    canny_topic_execution_time = (datetime.now() - canny_topic_start_time).total_seconds()
+                    workflow_results['CannyTopicDetectionAgent'] = {
+                        'agent_name': 'CannyTopicDetectionAgent',
+                        'success': False,
+                        'error_message': str(e),
+                        'execution_time': canny_topic_execution_time,
+                        'confidence': 0.0,
+                        'data': {}
+                    }
+            else:
+                self.logger.info("⏭️  Phase 2.6: Skipping Canny Topic Detection (no Canny posts provided)")
+            
             # PHASE 3: Analyze each topic
             self.logger.info("💭 Phase 3: Per-Topic Analysis")
             topic_sentiments = {}
@@ -378,6 +441,63 @@ class TopicOrchestrator:
                 logger.warning(f"Failed to display FinPerformanceAgent result: {e}")
 
             self.logger.info(f"   ✅ Fin analysis complete")
+            
+            # PHASE 4.6: Cross-Platform Correlation (if Canny posts provided)
+            cross_platform_insights = {}
+            if canny_posts and canny_topics_by_category:
+                self.logger.info("🔗 Phase 4.6: Cross-Platform Correlation Analysis")
+                self.logger.info(f"   Analyzing correlations between Intercom ({len(conversations)}) and Canny ({len(canny_posts)})")
+                correlation_start_time = datetime.now()
+                try:
+                    correlation_results = await self.cross_platform_correlation_agent.analyze_correlations(
+                        intercom_conversations=paid_conversations,  # Use paid conversations for correlation
+                        canny_posts=canny_posts,
+                        ai_model=ai_model,
+                        enable_fallback=True
+                    )
+                    
+                    correlation_execution_time = (datetime.now() - correlation_start_time).total_seconds()
+                    workflow_results['CrossPlatformCorrelationAgent'] = {
+                        'agent_name': 'CrossPlatformCorrelationAgent',
+                        'success': True,
+                        'execution_time': correlation_execution_time,
+                        'confidence': 0.85,
+                        'data': {
+                            'correlations_found': correlation_results.get('correlation_count', 0),
+                            'intercom_topics': correlation_results.get('intercom_topic_count', 0),
+                            'canny_topics': correlation_results.get('canny_topic_count', 0),
+                            'unified_priorities': correlation_results.get('unified_priorities', []),
+                            'insights': correlation_results.get('insights', [])
+                        }
+                    }
+                    
+                    # Display agent result
+                    try:
+                        display.display_agent_result('CrossPlatformCorrelationAgent', workflow_results['CrossPlatformCorrelationAgent'], show_full_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to display CrossPlatformCorrelationAgent result: {e}")
+                    
+                    # Store insights for final output
+                    cross_platform_insights = correlation_results
+                    
+                    self.logger.info(f"   ✅ Found {correlation_results.get('correlation_count', 0)} cross-platform correlations")
+                    
+                except Exception as e:
+                    self.logger.error(f"   ❌ CrossPlatformCorrelationAgent failed: {e}", exc_info=True)
+                    correlation_execution_time = (datetime.now() - correlation_start_time).total_seconds()
+                    workflow_results['CrossPlatformCorrelationAgent'] = {
+                        'agent_name': 'CrossPlatformCorrelationAgent',
+                        'success': False,
+                        'error_message': str(e),
+                        'execution_time': correlation_execution_time,
+                        'confidence': 0.0,
+                        'data': {}
+                    }
+            else:
+                if not canny_posts:
+                    self.logger.info("⏭️  Phase 4.6: Skipping Cross-Platform Correlation (no Canny posts)")
+                else:
+                    self.logger.info("⏭️  Phase 4.6: Skipping Cross-Platform Correlation (Canny topic detection failed)")
             
             # PHASE 5: Trend Analysis
             self.logger.info("📈 Phase 5: Trend Analysis")

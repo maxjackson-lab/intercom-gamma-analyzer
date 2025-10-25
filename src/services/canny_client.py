@@ -32,18 +32,91 @@ class CannyClient:
         
         self.logger = logging.getLogger(__name__)
     
+    async def _make_request_with_retry(
+        self,
+        endpoint: str,
+        data: Dict[str, Any],
+        method: str = "POST"
+    ) -> Dict[str, Any]:
+        """
+        Make API request with exponential backoff retry.
+        
+        Args:
+            endpoint: API endpoint (e.g., "boards/list")
+            data: Request data including apiKey
+            method: HTTP method (default: POST)
+            
+        Returns:
+            JSON response from API
+            
+        Raises:
+            httpx.HTTPError: If all retries fail
+        """
+        base_delay = 1.0
+        max_delay = 30.0
+        
+        for attempt in range(self.max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    if method == "POST":
+                        response = await client.post(
+                            f"{self.base_url}/{endpoint}",
+                            data=data
+                        )
+                    else:
+                        response = await client.get(
+                            f"{self.base_url}/{endpoint}",
+                            params=data
+                        )
+                    
+                    # Handle rate limiting
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** attempt)))
+                        retry_after = min(retry_after, max_delay)
+                        self.logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt + 1}/{self.max_retries})")
+                        await asyncio.sleep(retry_after)
+                        continue
+                    
+                    # Raise for other HTTP errors
+                    response.raise_for_status()
+                    return response.json()
+                    
+            except httpx.TimeoutException as e:
+                if attempt == self.max_retries - 1:
+                    self.logger.error(f"Request timeout after {self.max_retries} attempts: {e}")
+                    raise
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                self.logger.warning(f"Request timeout. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                await asyncio.sleep(delay)
+                
+            except httpx.HTTPStatusError as e:
+                if attempt == self.max_retries - 1:
+                    self.logger.error(f"HTTP error after {self.max_retries} attempts: {e}")
+                    raise
+                # Don't retry on 4xx errors (except 429) as they won't succeed
+                if 400 <= e.response.status_code < 500 and e.response.status_code != 429:
+                    self.logger.error(f"Client error {e.response.status_code}: {e}")
+                    raise
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                self.logger.warning(f"HTTP error {e.response.status_code}. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                await asyncio.sleep(delay)
+                
+            except httpx.HTTPError as e:
+                if attempt == self.max_retries - 1:
+                    self.logger.error(f"HTTP error after {self.max_retries} attempts: {e}")
+                    raise
+                delay = min(base_delay * (2 ** attempt), max_delay)
+                self.logger.warning(f"HTTP error. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                await asyncio.sleep(delay)
+        
+        raise Exception(f"Failed after {self.max_retries} retries")
+    
     async def test_connection(self) -> bool:
         """Test connection to Canny API."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Canny API uses POST with apiKey in body
-                response = await client.post(
-                    f"{self.base_url}/boards/list",
-                    data={'apiKey': self.api_key}
-                )
-                response.raise_for_status()
-                self.logger.info("Canny API connection successful")
-                return True
+            data = await self._make_request_with_retry("boards/list", {'apiKey': self.api_key})
+            self.logger.info("Canny API connection successful")
+            return True
         except Exception as e:
             self.logger.error(f"Canny API connection failed: {e}")
             raise
@@ -51,18 +124,10 @@ class CannyClient:
     async def fetch_boards(self) -> List[Dict[str, Any]]:
         """Fetch all feedback boards."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Canny API uses POST with apiKey in body
-                response = await client.post(
-                    f"{self.base_url}/boards/list",
-                    data={'apiKey': self.api_key}
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                boards = data.get('boards', [])
-                self.logger.info(f"Fetched {len(boards)} boards")
-                return boards
+            data = await self._make_request_with_retry("boards/list", {'apiKey': self.api_key})
+            boards = data.get('boards', [])
+            self.logger.info(f"Fetched {len(boards)} boards")
+            return boards
         except Exception as e:
             self.logger.error(f"Failed to fetch boards: {e}")
             raise
@@ -100,16 +165,10 @@ class CannyClient:
             if end_date:
                 post_data['createdBefore'] = int(end_date.timestamp())
             
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/posts/list",
-                    data=post_data
-                )
-                response.raise_for_status()
-                data = response.json()
-                posts = data.get('posts', [])
-                self.logger.info(f"Fetched {len(posts)} posts")
-                return posts
+            data = await self._make_request_with_retry("posts/list", post_data)
+            posts = data.get('posts', [])
+            self.logger.info(f"Fetched {len(posts)} posts")
+            return posts
         except Exception as e:
             self.logger.error(f"Failed to fetch posts: {e}")
             raise
@@ -117,18 +176,12 @@ class CannyClient:
     async def fetch_post_details(self, post_id: str) -> Dict[str, Any]:
         """Fetch detailed information for a specific post."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/posts/retrieve",
-                    data={
-                        'apiKey': self.api_key,
-                        'id': post_id
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
-                self.logger.debug(f"Fetched details for post {post_id}")
-                return data
+            data = await self._make_request_with_retry(
+                "posts/retrieve",
+                {'apiKey': self.api_key, 'id': post_id}
+            )
+            self.logger.debug(f"Fetched details for post {post_id}")
+            return data
         except Exception as e:
             self.logger.error(f"Failed to fetch post details for {post_id}: {e}")
             raise
@@ -136,19 +189,13 @@ class CannyClient:
     async def fetch_comments(self, post_id: str) -> List[Dict[str, Any]]:
         """Fetch all comments for a specific post."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/comments/list",
-                    data={
-                        'apiKey': self.api_key,
-                        'postID': post_id
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
-                comments = data.get('comments', [])
-                self.logger.debug(f"Fetched {len(comments)} comments for post {post_id}")
-                return comments
+            data = await self._make_request_with_retry(
+                "comments/list",
+                {'apiKey': self.api_key, 'postID': post_id}
+            )
+            comments = data.get('comments', [])
+            self.logger.debug(f"Fetched {len(comments)} comments for post {post_id}")
+            return comments
         except Exception as e:
             self.logger.error(f"Failed to fetch comments for post {post_id}: {e}")
             raise
@@ -156,19 +203,13 @@ class CannyClient:
     async def fetch_votes(self, post_id: str) -> List[Dict[str, Any]]:
         """Fetch all votes for a specific post."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/votes/list",
-                    data={
-                        'apiKey': self.api_key,
-                        'postID': post_id
-                    }
-                )
-                response.raise_for_status()
-                data = response.json()
-                votes = data.get('votes', [])
-                self.logger.debug(f"Fetched {len(votes)} votes for post {post_id}")
-                return votes
+            data = await self._make_request_with_retry(
+                "votes/list",
+                {'apiKey': self.api_key, 'postID': post_id}
+            )
+            votes = data.get('votes', [])
+            self.logger.debug(f"Fetched {len(votes)} votes for post {post_id}")
+            return votes
         except Exception as e:
             self.logger.error(f"Failed to fetch votes for post {post_id}: {e}")
             raise

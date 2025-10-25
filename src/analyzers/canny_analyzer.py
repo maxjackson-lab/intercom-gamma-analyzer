@@ -4,11 +4,12 @@ Canny sentiment analyzer for product feedback analysis.
 
 import logging
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from collections import defaultdict, Counter
 
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.canny_preprocessor import CannyPreprocessor
+from src.services.duckdb_storage import DuckDBStorage
 from src.models.canny_models import (
     CannyAnalysisResults, CannySentimentAnalysis, CannyPostWithSentiment,
     CannyEngagementMetrics, CannyVoteAnalysis, CannyWeeklySnapshot
@@ -20,9 +21,10 @@ logger = logging.getLogger(__name__)
 class CannyAnalyzer:
     """Analyzer for Canny product feedback data."""
     
-    def __init__(self, ai_factory: AIModelFactory):
+    def __init__(self, ai_factory: AIModelFactory, duckdb_storage: Optional[DuckDBStorage] = None):
         self.ai_factory = ai_factory
         self.preprocessor = CannyPreprocessor()
+        self.duckdb_storage = duckdb_storage or DuckDBStorage()
         self.logger = logging.getLogger(__name__)
     
     async def analyze_canny_sentiment(
@@ -67,6 +69,20 @@ class CannyAnalyzer:
             
             # Generate analysis results
             results = await self._generate_analysis_results(posts_with_sentiment)
+            
+            # Store results in DuckDB
+            try:
+                self.duckdb_storage.store_canny_posts(posts_with_sentiment)
+                self.logger.info(f"Stored {len(posts_with_sentiment)} Canny posts in DuckDB")
+                
+                # Create and store weekly snapshot
+                snapshot = self._create_weekly_snapshot(results, posts_with_sentiment)
+                self.duckdb_storage.store_canny_weekly_snapshot(snapshot)
+                self.logger.info("Stored weekly Canny snapshot")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to store Canny data in DuckDB: {e}")
+                # Continue even if storage fails
             
             self.logger.info(f"Canny sentiment analysis completed for {len(posts_with_sentiment)} posts")
             return results
@@ -411,6 +427,38 @@ class CannyAnalyzer:
             insights.append(f"{high_engagement} posts have high engagement, indicating strong user interest in specific features")
         
         return insights
+    
+    def _create_weekly_snapshot(
+        self, 
+        results: Dict[str, Any], 
+        posts: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Create weekly snapshot from analysis results."""
+        status_breakdown = results.get('status_breakdown', {})
+        
+        # Get current week's Monday date
+        today = date.today()
+        days_since_monday = today.weekday()
+        snapshot_date = today - timedelta(days=days_since_monday)
+        
+        return {
+            'snapshot_date': snapshot_date,
+            'total_posts': results.get('posts_analyzed', 0),
+            'open_posts': status_breakdown.get('open', 0),
+            'planned_posts': status_breakdown.get('planned', 0),
+            'in_progress_posts': status_breakdown.get('in progress', 0),
+            'completed_posts': status_breakdown.get('complete', 0),
+            'closed_posts': status_breakdown.get('closed', 0),
+            'total_votes': results.get('vote_analysis', {}).get('total_votes', 0),
+            'total_comments': results.get('engagement_metrics', {}).get('total_comments', 0),
+            'sentiment_breakdown': results.get('sentiment_summary', {}),
+            'top_requests': results.get('top_requests', [])[:5],  # Top 5
+            'engagement_trends': {
+                'high_engagement': results.get('engagement_metrics', {}).get('high_engagement_posts', 0),
+                'medium_engagement': results.get('engagement_metrics', {}).get('medium_engagement_posts', 0),
+                'low_engagement': results.get('engagement_metrics', {}).get('low_engagement_posts', 0),
+            }
+        }
     
     def _create_empty_results(self) -> Dict[str, Any]:
         """Create empty results structure."""

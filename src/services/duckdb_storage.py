@@ -914,6 +914,108 @@ class DuckDBStorage:
             'limit': limit
         })
     
+    def get_canny_trends(self, weeks: int = 4) -> Dict:
+        """
+        Get Canny trends over specified number of weeks.
+        
+        Args:
+            weeks: Number of weeks to analyze
+            
+        Returns:
+            Dictionary with trend data including week-over-week changes
+        """
+        sql = """
+        SELECT 
+            snapshot_date,
+            total_posts,
+            open_posts,
+            planned_posts,
+            in_progress_posts,
+            completed_posts,
+            closed_posts,
+            total_votes,
+            total_comments,
+            sentiment_breakdown,
+            top_requests,
+            engagement_trends
+        FROM canny_weekly_snapshots
+        ORDER BY snapshot_date DESC
+        LIMIT ?
+        """
+        
+        try:
+            result = self.conn.execute(sql, [weeks]).fetchall()
+            
+            if not result:
+                return {
+                    'weeks_analyzed': 0,
+                    'snapshots': [],
+                    'trends': {},
+                    'message': 'No historical data available'
+                }
+            
+            snapshots = []
+            for row in result:
+                snapshots.append({
+                    'snapshot_date': row[0],
+                    'total_posts': row[1],
+                    'open_posts': row[2],
+                    'planned_posts': row[3],
+                    'in_progress_posts': row[4],
+                    'completed_posts': row[5],
+                    'closed_posts': row[6],
+                    'total_votes': row[7],
+                    'total_comments': row[8],
+                    'sentiment_breakdown': json.loads(row[9]) if row[9] else {},
+                    'top_requests': json.loads(row[10]) if row[10] else [],
+                    'engagement_trends': json.loads(row[11]) if row[11] else {}
+                })
+            
+            # Calculate week-over-week trends
+            trends = {}
+            if len(snapshots) >= 2:
+                latest = snapshots[0]
+                previous = snapshots[1]
+                
+                trends = {
+                    'total_posts_change': latest['total_posts'] - previous['total_posts'],
+                    'total_posts_change_pct': self._calculate_percentage_change(
+                        previous['total_posts'], latest['total_posts']
+                    ),
+                    'votes_change': latest['total_votes'] - previous['total_votes'],
+                    'votes_change_pct': self._calculate_percentage_change(
+                        previous['total_votes'], latest['total_votes']
+                    ),
+                    'comments_change': latest['total_comments'] - previous['total_comments'],
+                    'comments_change_pct': self._calculate_percentage_change(
+                        previous['total_comments'], latest['total_comments']
+                    ),
+                    'open_posts_change': latest['open_posts'] - previous['open_posts'],
+                    'completed_posts_change': latest['completed_posts'] - previous['completed_posts'],
+                }
+            
+            return {
+                'weeks_analyzed': len(snapshots),
+                'snapshots': snapshots,
+                'trends': trends,
+                'latest_snapshot': snapshots[0] if snapshots else None
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get Canny trends: {e}")
+            return {
+                'weeks_analyzed': 0,
+                'snapshots': [],
+                'trends': {},
+                'error': str(e)
+            }
+    
+    def _calculate_percentage_change(self, old_value: int, new_value: int) -> float:
+        """Calculate percentage change between two values."""
+        if old_value == 0:
+            return 100.0 if new_value > 0 else 0.0
+        return round(((new_value - old_value) / old_value) * 100, 2)
+    
     def close(self):
         """Close database connection."""
         if self.conn:
