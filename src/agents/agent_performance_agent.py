@@ -9,7 +9,7 @@ Purpose:
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import numpy as np
 

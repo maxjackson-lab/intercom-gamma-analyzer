@@ -181,13 +181,32 @@ class TopicOrchestrator:
             topics_by_conv = topic_detection_result.data.get('topics_by_conversation', {})
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
             
-            # Apply detected topics back to ALL conversations for downstream agents
-            for conv in conversations:
-                conv_id = conv.get('id')
-                if conv_id in topics_by_conv:
-                    conv['detected_topics'] = [t['topic'] for t in topics_by_conv[conv_id]]
-                else:
-                    conv['detected_topics'] = []
+            # Apply detected topics back to ALL conversation objects
+            # CRITICAL: Need to apply to BOTH the original list AND the segmented lists
+            # because segmentation returns copies, not references!
+            
+            def apply_topics_to_list(conv_list, topics_map):
+                """Helper to apply topics to a list of conversations."""
+                applied_count = 0
+                for conv in conv_list:
+                    conv_id = conv.get('id')
+                    if conv_id in topics_map:
+                        conv['detected_topics'] = [t['topic'] for t in topics_map[conv_id]]
+                        applied_count += 1
+                    else:
+                        conv['detected_topics'] = []
+                return applied_count
+            
+            # Apply to all lists
+            original_applied = apply_topics_to_list(conversations, topics_by_conv)
+            free_applied = apply_topics_to_list(free_fin_only_conversations, topics_by_conv)
+            paid_applied = apply_topics_to_list(paid_conversations, topics_by_conv)
+            paid_fin_applied = apply_topics_to_list(paid_fin_resolved_conversations, topics_by_conv)
+            
+            self.logger.info(f"   Topics applied: Original={original_applied}, Free={free_applied}, Paid={paid_applied}, PaidFin={paid_fin_applied}")
+            
+            # ALSO pass topics_by_conversation to metadata for agents that need it
+            context.metadata['topics_by_conversation'] = topics_by_conv
             
             # PHASE 2.5: Sub-Topic Detection
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")

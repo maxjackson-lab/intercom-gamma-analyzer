@@ -51,7 +51,7 @@ class WebCommandExecutor:
             "allowed_modules": {"src.main", "-m"},
             "allowed_flags": {
                 # Help and info
-                "--help", "-h", "--version", "-v", "--verbose",
+                "--help", "-h", "--version", "-v", "--verbose", "--test-mode", "--test-data-count",
                 # Output options
                 "--output-dir", "--output-format", "--generate-gamma",
                 # Date/time options

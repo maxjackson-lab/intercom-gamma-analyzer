@@ -213,9 +213,9 @@ if HAS_FASTAPI:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool v3.1.0 [EXTERNAL-JS]</title>
+        <title>Intercom Analysis Tool v3.0.3 [CATEGORY-FIX]</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
-        <link rel="stylesheet" href="/static/styles.css?v=3.1.0">
+        <link rel="stylesheet" href="/static/styles.css?v=3.0.3">
     </head>
     <body>
         <div class="container">
@@ -348,6 +348,36 @@ if HAS_FASTAPI:
                     <option value="gamma">Gamma Presentation</option>
                 </select>
                 
+                <!-- Test Mode Options -->
+                <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="testMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #f59e0b;">🧪 Test Mode (Use Mock Data)</span>
+                    </label>
+                    <div id="testModeOptions" style="display: none; margin-top: 12px; padding-left: 28px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 13px;">
+                            Test Data Volume:
+                            <select id="testDataCount" style="margin-left: 8px; padding: 4px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb;">
+                                <option value="50">50 conversations (fast test)</option>
+                                <option value="100" selected>100 conversations (realistic)</option>
+                                <option value="500">500 conversations (full test)</option>
+                                <option value="1000">1,000 conversations (stress test)</option>
+                            </select>
+                        </label>
+                        <label style="display: flex; align-items: center; margin-top: 8px; cursor: pointer;">
+                            <input type="checkbox" id="verboseLogging" checked style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 13px;">Verbose Logging (DEBUG level)</span>
+                        </label>
+                        <div style="font-size: 11px; color: #f59e0b; margin-top: 10px; line-height: 1.5;">
+                            <strong>ℹ️ Test Mode Benefits:</strong><br>
+                            • No API calls - runs instantly<br>
+                            • Realistic data distribution (tiers, topics, languages)<br>
+                            • DEBUG logs show agent decision-making<br>
+                            • Perfect for testing changes before production
+                        </div>
+                    </div>
+                </div>
+                
                 <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>
             
@@ -437,10 +467,10 @@ if HAS_FASTAPI:
         
         <!-- Version marker for cache verification -->
         <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
-            v3.0.2-736b1d4
+            v3.0.3-category-fix
         </div>
 
-        <script src="/static/app.js?v=3.1.0"></script>
+        <script src="/static/app.js?v=3.0.3"></script>
     </body>
     </html>
         """
@@ -905,12 +935,16 @@ if HAS_FASTAPI:
             git_hash = "unknown"
         
         return {
-            "version": "3.0.2",
+            "version": "3.0.3",
             "commit": git_hash,
-            "expected_commit": "736b1d4",
+            "expected_commit": "category-fix",
             "timestamp": datetime.now().isoformat(),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
             "fixes_included": [
+                "Category deep dive commands now work correctly",
+                "Fixed --time-period flag incompatibility (now uses --days for category commands)",
+                "Fixed --test-mode flag only added to commands that support it",
+                "Fixed --focus-areas flag only added to commands that support it",
                 "JavaScript regex syntax error fixed (line 1185)",
                 "Cache-control headers added",
                 "Version marker added to HTML",

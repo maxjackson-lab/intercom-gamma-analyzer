@@ -477,6 +477,11 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         struggling = free_tier.get('struggling_topics', [])
         gap_examples = free_tier.get('knowledge_gap_examples', [])
 
+        # Get CSAT data
+        avg_rating = free_tier.get('avg_rating')
+        rated_count = free_tier.get('rated_count', 0)
+        rating_pct = free_tier.get('rating_percentage', 0)
+        
         card = f"""### Free Tier: Fin AI Performance (AI-Only Support)
 **{total_free} conversations from Free tier customers**
 
@@ -484,6 +489,12 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
 - Resolution rate: {resolution_rate:.1%} (customers satisfied without requesting human support)
 - Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information
 """
+        
+        # Add CSAT if available
+        if avg_rating is not None:
+            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_pct:.1f}% response rate)\n"
+        else:
+            card += f"- **Customer Satisfaction (CSAT):** No ratings available ({rated_count} rated, {rating_pct:.1f}% response rate)\n"
 
         # What Fin does well
         if top_topics:
@@ -555,6 +566,11 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         top_topics = paid_tier.get('top_performing_topics', [])
         struggling = paid_tier.get('struggling_topics', [])
         gap_examples = paid_tier.get('knowledge_gap_examples', [])
+        
+        # Get CSAT data
+        avg_rating = paid_tier.get('avg_rating')
+        rated_count = paid_tier.get('rated_count', 0)
+        rating_pct = paid_tier.get('rating_percentage', 0)
 
         card = f"""### Paid Tier: Fin-Resolved Conversations
 **{total_paid} paid customers resolved their issues with Fin AI (no human escalation needed)**
@@ -563,6 +579,12 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
 - Resolution rate: {resolution_rate:.1%} (chose not to escalate to human support)
 - Knowledge gaps: {knowledge_gaps} conversations with incorrect/incomplete information
 """
+        
+        # Add CSAT if available
+        if avg_rating is not None:
+            card += f"- **Customer Satisfaction (CSAT):** ⭐ {avg_rating:.2f}/5.0 from {rated_count} ratings ({rating_pct:.1f}% response rate)\n"
+        else:
+            card += f"- **Customer Satisfaction (CSAT):** No ratings available ({rated_count} rated, {rating_pct:.1f}% response rate)\n"
 
         # What Fin does well
         if top_topics:

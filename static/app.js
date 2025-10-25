@@ -1,5 +1,5 @@
-// VERSION MARKER: v3.0.2-f5d29d0 - If you see this, the latest code is deployed
-console.log('✅ JavaScript v3.0.2-f5d29d0 loaded successfully');
+// VERSION MARKER: v3.0.3-category-fix - If you see this, the latest code is deployed
+console.log('✅ JavaScript v3.0.3-category-fix loaded successfully - Category deep dive commands fixed');
 
 // Global error handler - catch all JavaScript errors and display them
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -814,6 +814,23 @@ function showStatus(type, message) {
 }
 
 
+// Toggle test mode options visibility
+function toggleTestModeOptions() {
+    const testMode = document.getElementById('testMode');
+    const testModeOptions = document.getElementById('testModeOptions');
+    if (testMode && testModeOptions) {
+        testModeOptions.style.display = testMode.checked ? 'block' : 'none';
+    }
+}
+
+// Attach event listener when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const testMode = document.getElementById('testMode');
+    if (testMode) {
+        testMode.addEventListener('change', toggleTestModeOptions);
+    }
+});
+
 // Form-based analysis execution handler
 function runAnalysis() {
     // Get form values with validation
@@ -822,6 +839,9 @@ function runAnalysis() {
     const dataSource = document.getElementById('dataSource');
     const taxonomyFilter = document.getElementById('taxonomyFilter');
     const outputFormat = document.getElementById('outputFormat');
+    const testMode = document.getElementById('testMode');
+    const testDataCount = document.getElementById('testDataCount');
+    const verboseLogging = document.getElementById('verboseLogging');
     
     if (!analysisType || !timePeriod || !dataSource || !outputFormat) {
         console.error('Missing required form elements');
@@ -834,6 +854,9 @@ function runAnalysis() {
     const sourceValue = dataSource.value;
     const filterValue = taxonomyFilter ? taxonomyFilter.value : '';
     const formatValue = outputFormat.value;
+    const isTestMode = testMode ? testMode.checked : false;
+    const testCount = testDataCount ? testDataCount.value : '100';
+    const isVerbose = verboseLogging ? verboseLogging.checked : false;
     
     // Build command based on analysis type
     let command = '';
@@ -877,6 +900,25 @@ function runAnalysis() {
     }
     
     // Add time period or custom dates
+    // Commands that support --time-period flag (newer multi-agent commands)
+    const supportsTimePeriod = [
+        'voice-of-customer',
+        'agent-performance',
+        'agent-coaching-report',
+        'canny-analysis'
+    ];
+    
+    // Commands that only support --days or --start-date/--end-date (legacy category commands)
+    const categoryDeepDiveCommands = [
+        'analyze-billing',
+        'analyze-product',
+        'analyze-api',
+        'analyze-sites',
+        'analyze-escalations',
+        'tech-analysis',
+        'analyze-all-categories'
+    ];
+    
     if (timeValue === 'custom') {
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
@@ -887,7 +929,20 @@ function runAnalysis() {
         }
         
         args.push('--start-date', startDate.value, '--end-date', endDate.value);
+    } else if (supportsTimePeriod.includes(command)) {
+        // Use --time-period for commands that support it
+        args.push('--time-period', timeValue);
+    } else if (categoryDeepDiveCommands.includes(command)) {
+        // Convert time period to --days for legacy commands
+        const dayMap = {
+            'yesterday': 1,
+            'week': 7,
+            'month': 30
+        };
+        const days = dayMap[timeValue] || 7;
+        args.push('--days', String(days));
     } else {
+        // Default: use --time-period
         args.push('--time-period', timeValue);
     }
     
@@ -898,14 +953,26 @@ function runAnalysis() {
         args.push('--include-canny');
     }
     
-    // Add taxonomy filter if selected
-    if (filterValue) {
+    // Add taxonomy filter if selected (only for commands that support it)
+    if (filterValue && supportsTimePeriod.includes(command)) {
         args.push('--focus-areas', filterValue);
     }
     
     // Add output format
     if (formatValue === 'gamma') {
         args.push('--generate-gamma');
+    }
+    
+    // Add test mode flags (only for voice-of-customer and agent commands that support it)
+    const supportsTestMode = ['voice-of-customer', 'agent-performance', 'agent-coaching-report'];
+    if (isTestMode && supportsTestMode.includes(command)) {
+        args.push('--test-mode');
+        args.push('--test-data-count', testCount);
+    }
+    
+    // Add verbose logging (supported by most commands)
+    if (isVerbose) {
+        args.push('--verbose');
     }
     
     // Show terminal container and execute

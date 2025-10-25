@@ -268,11 +268,31 @@ Calculate tier-specific metrics:
             return {}
 
         # Resolution rate - using centralized escalation detection
-        resolved_by_fin = [
-            c for c in conversations
-            if not self.escalation_analyzer.detect_escalation_request(c)
-        ]
-        resolution_rate = len(resolved_by_fin) / total
+        resolved_by_fin = []
+        escalated = []
+        
+        for c in conversations:
+            conv_id = c.get('id')
+            has_escalation_request = self.escalation_analyzer.detect_escalation_request(c)
+            
+            # DEBUG logging to trace Fin resolution logic
+            self.logger.debug(
+                f"Fin resolution check for {conv_id}: "
+                f"ai_participated={c.get('ai_agent_participated')}, "
+                f"admin_assignee={c.get('admin_assignee_id')}, "
+                f"state={c.get('state')}, "
+                f"rating={c.get('conversation_rating')}, "
+                f"detected_topics={c.get('detected_topics', [])}, "
+                f"escalation_request={has_escalation_request}"
+            )
+            
+            if has_escalation_request:
+                escalated.append(c)
+            else:
+                resolved_by_fin.append(c)
+        
+        resolution_rate = len(resolved_by_fin) / total if total > 0 else 0
+        self.logger.info(f"{tier_name} tier: {len(resolved_by_fin)} resolved, {len(escalated)} escalated")
 
         # Knowledge gaps
         knowledge_gap_phrases = ['incorrect', 'wrong', 'not helpful', 'didn\'t answer', 'not what i asked']
@@ -319,6 +339,14 @@ Calculate tier-specific metrics:
         if subtopics_data is not None:
             performance_by_subtopic = self._calculate_subtopic_performance(conversations, subtopics_data, resolved_by_fin, knowledge_gaps)
 
+        # CRITICAL: Calculate overall CSAT for the entire tier
+        all_ratings = [c.get('conversation_rating') for c in conversations if c.get('conversation_rating') is not None]
+        overall_avg_rating = sum(all_ratings) / len(all_ratings) if all_ratings else None
+        overall_rated_count = len(all_ratings)
+        rating_percentage = (overall_rated_count / total * 100) if total > 0 else 0
+        
+        self.logger.info(f"{tier_name} tier CSAT: {overall_avg_rating:.2f}/5.0 from {overall_rated_count} ratings ({rating_percentage:.1f}% response rate)" if overall_avg_rating else f"{tier_name} tier CSAT: No ratings")
+
         return {
             'total_conversations': total,
             'resolution_rate': resolution_rate,
@@ -336,7 +364,11 @@ Calculate tier-specific metrics:
             'performance_by_topic': topic_performance_dict,
             'top_performing_topics': top_performing,
             'struggling_topics': struggling,
-            'performance_by_subtopic': performance_by_subtopic
+            'performance_by_subtopic': performance_by_subtopic,
+            # CSAT metrics
+            'avg_rating': overall_avg_rating,
+            'rated_count': overall_rated_count,
+            'rating_percentage': rating_percentage
         }
 
     def _compare_tiers(self, free_metrics: Dict, paid_metrics: Dict) -> Dict:

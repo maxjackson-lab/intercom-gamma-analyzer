@@ -5,6 +5,8 @@ A comprehensive Python application that extracts Intercom conversation data and 
 1. **Voice of Customer Analysis** - Monthly executive reports with specific metrics and insights
 2. **General Purpose Trend Analysis** - Flexible reports for any time period with customizable focus areas
 
+> **⚡ Latest Update (v3.0.3):** Fixed critical bug where all category deep dive commands (Billing, Product, API, etc.) were failing in the web UI. Commands now correctly receive `--days` instead of unsupported `--time-period` flag. See [CATEGORY_DEEP_DIVE_FIX.md](CATEGORY_DEEP_DIVE_FIX.md) for details.
+
 ## 🎯 **Key Features**
 
 ### **Voice of Customer Metrics**
@@ -135,11 +137,57 @@ intercom-analyzer/
 
 ## 🤖 **Multi-Agent Workflow**
 
-### Finn Performance Analysis
+The TopicOrchestrator coordinates a 7-phase analysis pipeline:
+
+### **Phase 1: Segmentation**
+- Separates paid vs free tier conversations
+- Identifies Finn AI-participated conversations
+- Segments by customer type and language
+
+### **Phase 2: Topic Detection**
+- Detects Tier 1 topics from Intercom data
+- Calculates topic distribution and volume
+- Maps conversations to primary topics
+
+### **Phase 2.5: Sub-Topic Detection** (NEW)
+- **Extracts Tier 2 sub-topics** from Intercom structured data (tags, custom attributes, conversation topics)
+- **Discovers Tier 3 emerging themes** using LLM semantic analysis
+- **Calculates percentage breakdowns** for sub-topics within each Tier 1 category
+- **Provides granular context** for downstream Finn performance and output formatting
+- Runs after Topic Detection but before Per-Topic Analysis
+
+### **Phase 3: Per-Topic Analysis**
+- Analyzes sentiment for each topic (parallel execution)
+- Extracts representative examples
+- Generates topic-specific insights
+
+### **Phase 4: Finn AI Performance Analysis**
 - Sub-topic performance breakdown (when SubTopicDetectionAgent is enabled)
 - Data-rooted quality metrics: resolution rate, knowledge gap rate, escalation rate, average conversation rating
 - Tier 2 sub-topics from Intercom data (tags, custom attributes, topics)
 - Tier 3 emerging themes from LLM analysis
+- Separate analysis for free vs paid tiers
+
+### **Phase 5: Trend Analysis**
+- Identifies week-over-week trends
+- Highlights significant changes in volume, sentiment, and topics
+- Provides trend interpretations
+
+### **Phase 6: Output Formatting**
+The OutputFormatterAgent formats all analysis results into Hilary's exact card structure for Gamma presentations:
+- **3-tier sub-topic hierarchies** within topic cards
+- **Tier 2 sub-topics** from Intercom data (tags, custom attributes, topics)
+- **Tier 3 AI-discovered themes** from LLM analysis
+- **Sub-topic performance metrics** in Finn cards (resolution rate, knowledge gaps, escalation rate, average rating)
+- **Graceful backward compatibility** - handles absence of sub-topic data seamlessly
+
+### **Workflow Metrics**
+The orchestrator tracks comprehensive metrics across all phases:
+- **Phase timings**: Execution time for each phase including sub-topic detection
+- **LLM usage**: Total token counts and API calls
+- **Sub-topic statistics**: Tier 2 and Tier 3 counts per topic
+- **Agent performance**: Success rates and confidence scores
+- **Quality indicators**: Example counts, topic coverage, error rates
 
 ## 🔧 **Configuration**
 

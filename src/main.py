@@ -3626,6 +3626,12 @@ async def run_test_topic_based(conversations):
 @click.option('--canny-board-id', help='Specific Canny board ID for combined analysis')
 @click.option('--generate-gamma', is_flag=True, default=False,
               help='Generate Gamma presentation from results')
+@click.option('--test-mode', is_flag=True, default=False,
+              help='🧪 Use mock test data instead of Intercom API (fast, no API calls)')
+@click.option('--test-data-count', type=int, default=100,
+              help='Number of test conversations to generate (only with --test-mode)')
+@click.option('--verbose', is_flag=True, default=False,
+              help='Enable verbose DEBUG logging to see detailed agent decision-making')
 @click.option('--separate-agent-feedback', is_flag=True, default=True,
               help='Separate feedback by agent type (Finn, Boldr, Horatio, etc.)')
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode')
@@ -3645,6 +3651,9 @@ def voice_of_customer_analysis(
     include_canny: bool,
     canny_board_id: Optional[str],
     generate_gamma: bool,
+    test_mode: bool,
+    test_data_count: int,
+    verbose: bool,
     separate_agent_feedback: bool,
     multi_agent: bool,
     analysis_type: str,
@@ -3734,6 +3743,20 @@ def voice_of_customer_analysis(
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
     
+    # Enable verbose logging if requested
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        # Also set for specific modules
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+    
+    # Test mode indication
+    if test_mode:
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count} mock conversations)[/yellow]")
+        console.print(f"[dim]   No API calls will be made - using generated test data[/dim]")
+    
     # Set AI model if specified
     if ai_model:
         os.environ['AI_MODEL'] = ai_model
@@ -3747,7 +3770,7 @@ def voice_of_customer_analysis(
     start_dt, end_dt = get_date_range_pacific(start_date, end_date)
     
     if analysis_type == 'topic-based':
-        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma))
+        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count))
     elif analysis_type == 'synthesis':
         asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma))
     else:  # complete
@@ -3869,16 +3892,34 @@ def chat(model: str, enable_cache: bool, railway: bool):
         console.print("[yellow]Check the logs for more details[/yellow]")
 
 
-async def run_topic_based_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool):
+async def run_topic_based_analysis_custom(
+    start_date: datetime, 
+    end_date: datetime, 
+    generate_gamma: bool,
+    test_mode: bool = False,
+    test_data_count: int = 100
+):
     """Run topic-based analysis with custom date range"""
     from src.agents.topic_orchestrator import TopicOrchestrator
     from src.services.chunked_fetcher import ChunkedFetcher
     from src.services.gamma_generator import GammaGenerator
     
-    console.print("📥 Fetching conversations...")
-    fetcher = ChunkedFetcher()
-    conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
-    console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+    # Fetch conversations (or generate test data)
+    if test_mode:
+        console.print(f"🧪 [yellow]TEST MODE: Generating {test_data_count} mock conversations...[/yellow]")
+        from src.services.test_data_generator import TestDataGenerator
+        generator = TestDataGenerator()
+        conversations = generator.generate_conversations(
+            count=test_data_count,
+            start_date=start_date,
+            end_date=end_date
+        )
+        console.print(f"   ✅ Generated {len(conversations)} test conversations\n")
+    else:
+        console.print("📥 Fetching conversations from Intercom...")
+        fetcher = ChunkedFetcher()
+        conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
+        console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
     
     # Detect period type from date range
     period_type, period_label = detect_period_type(start_date, end_date)
