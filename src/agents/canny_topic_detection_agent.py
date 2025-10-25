@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from collections import defaultdict, Counter
 
-from src.agents.base_agent import BaseAgent
+from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.ai_model_factory import AIModelFactory, AIModel
 
 
@@ -22,8 +22,87 @@ class CannyTopicDetectionAgent(BaseAgent):
     """
     
     def __init__(self, ai_factory: AIModelFactory):
-        super().__init__(ai_factory)
+        super().__init__(
+            name="CannyTopicDetectionAgent",
+            model="gpt-4o-mini",
+            temperature=0.2
+        )
+        self.ai_factory = ai_factory
         self.logger = logging.getLogger(__name__)
+    
+    def get_agent_specific_instructions(self) -> str:
+        """Get agent-specific instructions for Canny topic detection"""
+        return """
+Classify Canny feature requests into taxonomy categories.
+Map posts to appropriate categories based on content.
+"""
+    
+    def get_task_description(self, context: AgentContext) -> str:
+        """Describe the Canny topic detection task"""
+        canny_posts = context.metadata.get('canny_posts', [])
+        return f"Classify {len(canny_posts)} Canny posts into taxonomy categories"
+    
+    def format_context_data(self, context: AgentContext) -> str:
+        """Format context data for Canny posts"""
+        canny_posts = context.metadata.get('canny_posts', [])
+        return f"Canny posts: {len(canny_posts)}"
+    
+    def validate_input(self, context: AgentContext) -> bool:
+        """Validate input has Canny posts"""
+        canny_posts = context.metadata.get('canny_posts', [])
+        return isinstance(canny_posts, list)
+    
+    def validate_output(self, result: Dict[str, Any]) -> bool:
+        """Validate output contains topic groups"""
+        return 'topic_groups' in result
+    
+    async def execute(self, context: AgentContext) -> AgentResult:
+        """Execute Canny topic detection"""
+        from datetime import datetime
+        start_time = datetime.now()
+        
+        try:
+            canny_posts = context.metadata.get('canny_posts', [])
+            
+            if not canny_posts:
+                return AgentResult(
+                    agent_name=self.name,
+                    success=True,
+                    data={'topic_groups': {}},
+                    confidence=1.0,
+                    confidence_level=ConfidenceLevel.HIGH,
+                    execution_time=0.0
+                )
+            
+            # Detect topics
+            topic_groups = await self.detect_topics(canny_posts)
+            
+            # Get summary
+            summary = self.get_topic_summary(topic_groups)
+            
+            execution_time = (datetime.now() - start_time).total_seconds()
+            
+            return AgentResult(
+                agent_name=self.name,
+                success=True,
+                data={'topic_groups': topic_groups, 'summary': summary},
+                confidence=1.0,
+                confidence_level=ConfidenceLevel.HIGH,
+                execution_time=execution_time
+            )
+            
+        except Exception as e:
+            execution_time = (datetime.now() - start_time).total_seconds()
+            self.logger.error(f"Canny topic detection failed: {e}")
+            return AgentResult(
+                agent_name=self.name,
+                success=False,
+                data={},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                error_message=str(e),
+                execution_time=execution_time
+            )
     
     async def detect_topics(
         self,
