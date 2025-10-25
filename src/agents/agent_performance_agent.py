@@ -250,6 +250,7 @@ Focus areas:
             # Extract admin details for all conversations
             self.logger.info("Extracting admin profiles from conversations...")
             admin_details_map = {}
+            all_admins_seen = {}  # Track ALL admins for debugging
             
             async with httpx.AsyncClient(timeout=60) as client:
                 for conv in conversations:
@@ -268,6 +269,13 @@ Focus areas:
                                 public_email
                             )
                             
+                            # Track all admins for debugging
+                            all_admins_seen[admin_id] = {
+                                'email': profile.email,
+                                'vendor': profile.vendor,
+                                'name': profile.name
+                            }
+                            
                             # Only include if vendor matches
                             if profile.vendor == self.agent_filter:
                                 admin_details_map[admin_id] = {
@@ -282,7 +290,26 @@ Focus areas:
                                     conv['_admin_details'] = []
                                 conv['_admin_details'].append(admin_details_map[admin_id])
             
+            # Enhanced logging for debugging
             self.logger.info(f"Found {len(admin_details_map)} {agent_name} agents")
+            self.logger.info(f"Total unique admins seen: {len(all_admins_seen)}")
+            
+            # Log vendor distribution for debugging
+            vendor_counts = {}
+            for admin_info in all_admins_seen.values():
+                vendor = admin_info['vendor']
+                vendor_counts[vendor] = vendor_counts.get(vendor, 0) + 1
+            
+            self.logger.info(f"Admin vendor distribution: {vendor_counts}")
+            
+            # If no matches, log sample admins for debugging
+            if not admin_details_map:
+                self.logger.warning(f"No {agent_name} agents found! Sampl admins seen:")
+                for admin_id, info in list(all_admins_seen.items())[:5]:
+                    self.logger.warning(
+                        f"  Admin {admin_id}: {info['name']} - "
+                        f"email={info['email']}, vendor={info['vendor']}"
+                    )
             
             if not admin_details_map:
                 return AgentResult(
@@ -380,12 +407,32 @@ Focus areas:
         return list(admin_ids)
     
     def _get_public_email_for_admin(self, conv: Dict, admin_id: str) -> Optional[str]:
-        """Get the public/display email for an admin from conversation"""
+        """
+        Get email for an admin from conversation.
+        
+        NOTE: This extracts the email directly from conversation_parts, which may be
+        the work email (@hirehoratio.co) rather than public email depending on
+        Intercom's configuration.
+        """
         parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
         for part in parts:
             author = part.get('author', {})
             if author.get('type') == 'admin' and str(author.get('id')) == admin_id:
-                return author.get('email')
+                email = author.get('email')
+                if email:
+                    self.logger.debug(f"Found email for admin {admin_id} in conversation: {email}")
+                    return email
+        
+        # Also check source author
+        source = conv.get('source', {})
+        if source:
+            author = source.get('author', {})
+            if author.get('type') == 'admin' and str(author.get('id')) == admin_id:
+                email = author.get('email')
+                if email:
+                    self.logger.debug(f"Found email for admin {admin_id} in source: {email}")
+                    return email
+        
         return None
     
     def _build_vendor_report(

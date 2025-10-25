@@ -96,13 +96,32 @@ class AdminProfileCache:
             response.raise_for_status()
             data = response.json()
             
+            # Log full API response for debugging
+            self.logger.debug(f"Admin API response for {admin_id}: {data}")
+            
             # Enhanced email extraction with fallback and validation
             work_email = data.get('email', '').strip() if data.get('email') else ''
             
-            # If no work email from API, fall back to public_email
+            # CRITICAL: Log if work_email is empty
+            if not work_email:
+                self.logger.warning(
+                    f"Admin API returned NO WORK EMAIL for {admin_id} "
+                    f"(name: {data.get('name')}, public_email: {public_email})"
+                )
+                # Try to infer vendor from public_email if available
+                if public_email:
+                    self.logger.info(f"Attempting vendor detection from public_email: {public_email}")
+                    inferred_vendor = self._identify_vendor(public_email)
+                    if inferred_vendor != 'unknown':
+                        self.logger.info(f"Inferred vendor from public_email: {inferred_vendor}")
+            
+            # If no work email from API, use public_email but log warning
             if not work_email and public_email:
                 work_email = public_email.strip()
-                self.logger.info(f"Using public_email as fallback for admin {admin_id}")
+                self.logger.warning(
+                    f"Using public_email as work_email for admin {admin_id} "
+                    f"(API returned no work email - vendor detection may fail!)"
+                )
             
             # Validate email with basic regex
             if work_email and not self._validate_email(work_email):
@@ -111,25 +130,36 @@ class AdminProfileCache:
             
             name = data.get('name', 'Unknown')
             
+            # Determine vendor from work_email (or public_email as last resort)
+            vendor = self._identify_vendor(work_email)
+            
+            # If vendor is unknown but we have public_email, try that too
+            if vendor == 'unknown' and public_email and public_email != work_email:
+                vendor_from_public = self._identify_vendor(public_email)
+                if vendor_from_public != 'unknown':
+                    vendor = vendor_from_public
+                    self.logger.info(f"Vendor identified from public_email: {vendor}")
+            
             profile = AdminProfile(
                 id=admin_id,
                 name=name,
                 email=work_email,
                 public_email=public_email or work_email,
-                vendor=self._identify_vendor(work_email),
+                vendor=vendor,
                 active=data.get('away_mode_enabled', False) is False,
                 cached_at=datetime.now()
             )
             
             self.logger.info(
                 f"Fetched admin {name} ({admin_id}): "
-                f"work_email={work_email}, vendor={profile.vendor}"
+                f"work_email={work_email}, public_email={public_email}, vendor={profile.vendor}"
             )
             
             return profile
             
         except httpx.HTTPStatusError as e:
             self.logger.warning(f"HTTP error fetching admin {admin_id}: {e.response.status_code}")
+            self.logger.warning(f"Response body: {e.response.text[:500]}")
             return self._create_fallback_profile(admin_id, public_email)
         except Exception as e:
             self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
@@ -190,7 +220,12 @@ class AdminProfileCache:
         return bool(re.match(email_pattern, email.strip()))
     
     def _create_fallback_profile(self, admin_id: str, public_email: Optional[str] = None) -> AdminProfile:
-        """Create fallback profile when API fetch fails"""
+        """
+        Create fallback profile when API fetch fails.
+        
+        IMPORTANT: Uses the email from conversation_parts directly, which may be
+        the work email (@hirehoratio.co) even if labeled as 'public_email' in our code.
+        """
         # Validate and clean public_email if provided
         clean_email = ""
         if public_email:
@@ -199,12 +234,19 @@ class AdminProfileCache:
                 self.logger.warning(f"Invalid public_email format for admin {admin_id}: {public_email}")
                 clean_email = ""
         
+        vendor = self._identify_vendor(clean_email)
+        
+        self.logger.info(
+            f"Created fallback profile for admin {admin_id}: "
+            f"email={clean_email}, vendor={vendor}"
+        )
+        
         return AdminProfile(
             id=admin_id,
             name="Unknown",
             email=clean_email,
             public_email=public_email,
-            vendor=self._identify_vendor(clean_email),
+            vendor=vendor,
             active=True,
             cached_at=datetime.now()
         )
