@@ -75,6 +75,30 @@ class IndividualAgentMetrics(BaseModel):
         description="Breakdown by star rating (1-5)"
     )
     
+    # Troubleshooting metrics (effort and methodology)
+    avg_troubleshooting_score: float = Field(
+        default=0.0,
+        ge=0,
+        le=1,
+        description="Average troubleshooting effort score (0-1)"
+    )
+    avg_diagnostic_questions: float = Field(
+        default=0.0,
+        description="Average number of diagnostic questions per conversation"
+    )
+    premature_escalation_rate: float = Field(
+        default=0.0,
+        ge=0,
+        le=1,
+        description="% of conversations escalated without adequate troubleshooting"
+    )
+    troubleshooting_consistency: float = Field(
+        default=0.0,
+        ge=0,
+        le=1,
+        description="Consistency of troubleshooting approach (0-1)"
+    )
+    
     # Taxonomy-based performance breakdown
     performance_by_category: Dict[str, CategoryPerformance] = Field(
         default_factory=dict,

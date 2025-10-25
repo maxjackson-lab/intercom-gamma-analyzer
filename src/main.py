@@ -1383,6 +1383,7 @@ async def run_agent_performance_analysis(
     end_date: datetime, 
     focus_categories: Optional[str] = None,
     generate_gamma: bool = False,
+    analyze_troubleshooting: bool = False,
     individual_breakdown: bool = False
 ):
     """Run comprehensive agent performance analysis with optional Gamma generation."""
@@ -1532,8 +1533,14 @@ async def run_agent_performance_analysis(
         
         # Run agent performance analysis
         console.print(f"🤖 [bold cyan]Analyzing {agent_name} Performance...[/bold cyan]\n")
+        if analyze_troubleshooting:
+            console.print("   🔍 Troubleshooting analysis enabled (analyzing diagnostic questions and escalation patterns)\n")
         performance_agent = AgentPerformanceAgent(agent_filter=agent)
-        result = await performance_agent.execute(context, individual_breakdown=individual_breakdown)
+        result = await performance_agent.execute(
+            context, 
+            individual_breakdown=individual_breakdown,
+            analyze_troubleshooting=analyze_troubleshooting
+        )
         
         if not result.success:
             console.print(f"[red]❌ Analysis failed: {result.error_message}[/red]")
@@ -3788,8 +3795,11 @@ def voice_of_customer_analysis(
 @click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
 @click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--analyze-troubleshooting', is_flag=True, 
+              help='Enable AI-powered troubleshooting analysis (slower, analyzes diagnostic questions and escalation patterns)')
 def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], start_date: Optional[str], 
-                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool):
+                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool,
+                     analyze_troubleshooting: bool = False):
     """Analyze support agent/team performance with operational metrics"""
     from datetime import timedelta
     
@@ -3826,7 +3836,8 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     
     asyncio.run(run_agent_performance_analysis(
-        agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown
+        agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown,
+        analyze_troubleshooting
     ))
 
 

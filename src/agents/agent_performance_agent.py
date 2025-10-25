@@ -114,13 +114,15 @@ Focus areas:
         required = ['fcr_rate', 'median_resolution_hours', 'escalation_rate', 'performance_by_category']
         return all(k in result for k in required)
     
-    async def execute(self, context: AgentContext, individual_breakdown: bool = False) -> AgentResult:
+    async def execute(self, context: AgentContext, individual_breakdown: bool = False, 
+                     analyze_troubleshooting: bool = False) -> AgentResult:
         """
         Execute agent performance analysis with optional individual breakdown.
         
         Args:
             context: AgentContext with conversations and metadata
             individual_breakdown: If True, analyze each agent individually
+            analyze_troubleshooting: If True, enable AI-powered troubleshooting analysis
             
         Returns:
             AgentResult with team-level or individual-level analysis
@@ -130,7 +132,7 @@ Focus areas:
             return await self._execute_team_analysis(context)
         else:
             # NEW: Individual agent analysis with taxonomy breakdown
-            return await self._execute_individual_analysis(context)
+            return await self._execute_individual_analysis(context, analyze_troubleshooting)
     
     async def _execute_team_analysis(self, context: AgentContext) -> AgentResult:
         """Execute team-level performance analysis (original behavior)"""
@@ -216,7 +218,8 @@ Focus areas:
                 execution_time=execution_time
             )
     
-    async def _execute_individual_analysis(self, context: AgentContext) -> AgentResult:
+    async def _execute_individual_analysis(self, context: AgentContext, 
+                                           analyze_troubleshooting: bool = False) -> AgentResult:
         """Execute individual agent performance analysis with taxonomy breakdown"""
         start_time = datetime.now()
         
@@ -296,7 +299,8 @@ Focus areas:
             analyzer = IndividualAgentAnalyzer(
                 self.agent_filter, 
                 admin_cache, 
-                duckdb_storage
+                duckdb_storage,
+                enable_troubleshooting_analysis=analyze_troubleshooting
             )
             agent_metrics = await analyzer.analyze_agents(conversations, admin_details_map)
             

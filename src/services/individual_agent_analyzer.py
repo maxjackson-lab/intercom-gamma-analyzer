@@ -39,7 +39,8 @@ class IndividualAgentAnalyzer:
         self, 
         vendor: str, 
         admin_cache: AdminProfileCache, 
-        duckdb_storage: Optional[DuckDBStorage] = None
+        duckdb_storage: Optional[DuckDBStorage] = None,
+        enable_troubleshooting_analysis: bool = False
     ):
         """
         Initialize individual agent analyzer.
@@ -48,12 +49,21 @@ class IndividualAgentAnalyzer:
             vendor: Vendor name ('horatio', 'boldr', etc.)
             admin_cache: AdminProfileCache instance
             duckdb_storage: Optional DuckDB storage
+            enable_troubleshooting_analysis: Enable AI-powered troubleshooting analysis (slower)
         """
         self.vendor = vendor
         self.admin_cache = admin_cache
         self.storage = duckdb_storage
+        self.enable_troubleshooting_analysis = enable_troubleshooting_analysis
         self.logger = logging.getLogger(__name__)
         self.taxonomy = taxonomy_manager
+        
+        # Initialize troubleshooting analyzer if enabled
+        if enable_troubleshooting_analysis:
+            from src.services.troubleshooting_analyzer import TroubleshootingAnalyzer
+            self.troubleshooting_analyzer = TroubleshootingAnalyzer()
+        else:
+            self.troubleshooting_analyzer = None
     
     async def analyze_agents(
         self, 
@@ -207,6 +217,27 @@ class IndividualAgentAnalyzer:
         # Find worst CSAT examples for coaching (egregious cases)
         worst_csat_examples = self._find_worst_csat_examples(rated_convs, ratings)
         
+        # Troubleshooting analysis (if enabled)
+        troubleshooting_metrics = {}
+        if self.troubleshooting_analyzer:
+            troubleshooting_pattern = await self.troubleshooting_analyzer.analyze_agent_troubleshooting_pattern(
+                convs,
+                agent_info.get('name', 'Unknown')
+            )
+            troubleshooting_metrics = {
+                'avg_troubleshooting_score': troubleshooting_pattern['avg_troubleshooting_score'],
+                'avg_diagnostic_questions': troubleshooting_pattern['avg_diagnostic_questions'],
+                'premature_escalation_rate': troubleshooting_pattern['premature_escalation_rate'],
+                'troubleshooting_consistency': troubleshooting_pattern['consistency_score']
+            }
+        else:
+            troubleshooting_metrics = {
+                'avg_troubleshooting_score': 0.0,
+                'avg_diagnostic_questions': 0.0,
+                'premature_escalation_rate': 0.0,
+                'troubleshooting_consistency': 0.0
+            }
+        
         return IndividualAgentMetrics(
             agent_id=agent_id,
             agent_name=agent_info.get('name', 'Unknown'),
@@ -225,6 +256,11 @@ class IndividualAgentAnalyzer:
             csat_survey_count=csat_survey_count,
             negative_csat_count=negative_csat_count,
             rating_distribution=rating_distribution,
+            # Troubleshooting metrics
+            avg_troubleshooting_score=troubleshooting_metrics['avg_troubleshooting_score'],
+            avg_diagnostic_questions=troubleshooting_metrics['avg_diagnostic_questions'],
+            premature_escalation_rate=troubleshooting_metrics['premature_escalation_rate'],
+            troubleshooting_consistency=troubleshooting_metrics['troubleshooting_consistency'],
             # Taxonomy performance
             performance_by_category=perf_by_category,
             performance_by_subcategory=perf_by_subcategory,
@@ -475,12 +511,23 @@ class IndividualAgentAnalyzer:
         if agent.negative_csat_count >= 3:
             return "high"
         
+        # HIGH PRIORITY: Poor troubleshooting methodology
+        if agent.premature_escalation_rate > 0.4:  # >40% premature escalations
+            return "high"
+        
+        if agent.avg_troubleshooting_score < 0.4:  # Low effort score
+            return "high"
+        
         # Medium priority if multiple weak categories
         if len(agent.weak_categories) >= 2 or len(agent.weak_subcategories) >= 3:
             return "medium"
         
         # Medium priority if moderate CSAT issues
         if agent.csat_survey_count >= 5 and agent.csat_score < 4.0:
+            return "medium"
+        
+        # Medium priority if moderate troubleshooting issues
+        if agent.premature_escalation_rate > 0.25 or agent.avg_troubleshooting_score < 0.6:
             return "medium"
         
         # Low priority otherwise
@@ -490,7 +537,25 @@ class IndividualAgentAnalyzer:
         """Identify specific areas for coaching"""
         areas = []
         
-        # PRIORITY: Low CSAT issues (most important)
+        # HIGHEST PRIORITY: Troubleshooting methodology (your main focus!)
+        if agent.premature_escalation_rate > 0.4:
+            areas.append(
+                f"CRITICAL: Premature Escalations ({agent.premature_escalation_rate:.0%}) - "
+                f"Establish troubleshooting checklist before escalating"
+            )
+        elif agent.premature_escalation_rate > 0.25:
+            areas.append(f"Premature Escalations ({agent.premature_escalation_rate:.0%})")
+        
+        if agent.avg_diagnostic_questions < 2.0 and agent.avg_troubleshooting_score > 0:
+            areas.append(
+                f"Insufficient Diagnostic Questions (avg {agent.avg_diagnostic_questions:.1f}) - "
+                f"Require minimum 3 questions before escalating"
+            )
+        
+        if agent.troubleshooting_consistency < 0.6 and agent.avg_troubleshooting_score > 0:
+            areas.append("Inconsistent Troubleshooting Approach - Apply process consistently")
+        
+        # PRIORITY: Low CSAT issues
         if agent.csat_score < 3.5 and agent.csat_survey_count >= 3:
             areas.append(f"URGENT: Low CSAT ({agent.csat_score:.2f}) - Review worst tickets immediately")
         elif agent.negative_csat_count >= 2:
