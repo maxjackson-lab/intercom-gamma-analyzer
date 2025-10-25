@@ -68,6 +68,8 @@ class WebCommandExecutor:
                 "--board-id", "--canny-board-id", "--include-canny",
                 "--include-comments", "--include-votes", "--include-trends",
                 "--separate-agent-feedback",
+                # Debugging and audit options
+                "--audit-trail", "--analyze-troubleshooting",
                 # Other options
                 "--export-format", "--limit", "--category", "--subcategory"
             }

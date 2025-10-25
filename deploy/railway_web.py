@@ -213,9 +213,9 @@ if HAS_FASTAPI:
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool v3.0.4 [VERBOSE-FIX]</title>
+        <title>Intercom Analysis Tool v3.1.0 [AUDIT-TRAIL]</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
-        <link rel="stylesheet" href="/static/styles.css?v=3.0.4">
+        <link rel="stylesheet" href="/static/styles.css?v=3.1.0">
     </head>
     <body>
         <div class="container">
@@ -378,6 +378,23 @@ if HAS_FASTAPI:
                     </div>
                 </div>
                 
+                <!-- Audit Trail Mode -->
+                <div style="margin-top: 15px; padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="auditMode" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #a78bfa;">📋 Audit Trail Mode (Show Your Work)</span>
+                    </label>
+                    <div style="font-size: 11px; color: #a78bfa; margin-top: 10px; line-height: 1.5;">
+                        <strong>ℹ️ Audit Trail Benefits:</strong><br>
+                        • Narrates every step of analysis in plain language<br>
+                        • Shows all decisions made and why<br>
+                        • Documents data quality checks<br>
+                        • Generates detailed report for data engineer review<br>
+                        • Builds confidence in analysis methodology<br>
+                        • Perfect for validation and debugging
+                    </div>
+                </div>
+                
                 <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>
             
@@ -467,10 +484,10 @@ if HAS_FASTAPI:
         
         <!-- Version marker for cache verification -->
         <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
-            v3.0.4-verbose-fix
+            v3.1.0-audit-trail
         </div>
 
-        <script src="/static/app.js?v=3.0.4"></script>
+        <script src="/static/app.js?v=3.1.0"></script>
     </body>
     </html>
         """
@@ -935,23 +952,21 @@ if HAS_FASTAPI:
             git_hash = "unknown"
         
         return {
-            "version": "3.0.4",
+            "version": "3.1.0",
             "commit": git_hash,
-            "expected_commit": "verbose-fix",
+            "expected_commit": "audit-trail",
             "timestamp": datetime.now().isoformat(),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
             "fixes_included": [
+                "Audit Trail Mode added (narrates analysis for data engineer review)",
+                "CSAT integration complete (scores, worst tickets, links)",
+                "Week-over-week trend tracking (Phase 2)",
+                "Troubleshooting analysis (diagnostic questions, premature escalations)",
+                "Lazy Canny agent initialization (only when needed)",
+                "Enhanced admin email extraction and vendor detection",
                 "Fixed --verbose flag (only added to voice-of-customer command)",
                 "Category deep dive commands now work correctly",
-                "Fixed --time-period flag incompatibility (now uses --days for category commands)",
-                "Fixed --test-mode flag only added to commands that support it",
-                "Fixed --focus-areas flag only added to commands that support it",
-                "All command flag compatibility issues resolved",
-                "JavaScript regex syntax error fixed (line 1185)",
-                "Cache-control headers added",
-                "Version marker added to HTML",
-                "Canny imports fixed",
-                "Datetime bugs fixed"
+                "All command flag compatibility issues resolved"
             ]
         }
     

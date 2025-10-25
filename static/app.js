@@ -1,5 +1,5 @@
-// VERSION MARKER: v3.0.4-verbose-fix - If you see this, the latest code is deployed
-console.log('✅ JavaScript v3.0.4-verbose-fix loaded successfully - All command flag compatibility fixed');
+// VERSION MARKER: v3.1.0-audit-trail - If you see this, the latest code is deployed
+console.log('✅ JavaScript v3.1.0-audit-trail loaded successfully - Audit trail mode added');
 
 // Global error handler - catch all JavaScript errors and display them
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -842,6 +842,7 @@ function runAnalysis() {
     const testMode = document.getElementById('testMode');
     const testDataCount = document.getElementById('testDataCount');
     const verboseLogging = document.getElementById('verboseLogging');
+    const auditMode = document.getElementById('auditMode');
     
     if (!analysisType || !timePeriod || !dataSource || !outputFormat) {
         console.error('Missing required form elements');
@@ -857,6 +858,7 @@ function runAnalysis() {
     const isTestMode = testMode ? testMode.checked : false;
     const testCount = testDataCount ? testDataCount.value : '100';
     const isVerbose = verboseLogging ? verboseLogging.checked : false;
+    const isAuditMode = auditMode ? auditMode.checked : false;
     
     // Build command based on analysis type
     let command = '';
@@ -974,6 +976,12 @@ function runAnalysis() {
     const supportsVerbose = ['voice-of-customer'];
     if (isVerbose && supportsVerbose.includes(command)) {
         args.push('--verbose');
+    }
+    
+    // Add audit trail mode (supported by voice-of-customer and agent-performance commands)
+    const supportsAuditTrail = ['voice-of-customer', 'agent-performance', 'agent-coaching-report'];
+    if (isAuditMode && supportsAuditTrail.includes(command)) {
+        args.push('--audit-trail');
     }
     
     // Show terminal container and execute
