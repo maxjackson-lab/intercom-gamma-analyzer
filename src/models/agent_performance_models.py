@@ -55,6 +55,26 @@ class IndividualAgentMetrics(BaseModel):
         description="Average conversation parts per conversation"
     )
     
+    # CSAT metrics (customer satisfaction)
+    csat_score: float = Field(
+        default=0.0,
+        ge=0, 
+        le=5, 
+        description="Average CSAT rating (1-5 stars)"
+    )
+    csat_survey_count: int = Field(
+        default=0,
+        description="Number of conversations with CSAT ratings"
+    )
+    negative_csat_count: int = Field(
+        default=0,
+        description="Number of low ratings (1-2 stars)"
+    )
+    rating_distribution: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Breakdown by star rating (1-5)"
+    )
+    
     # Taxonomy-based performance breakdown
     performance_by_category: Dict[str, CategoryPerformance] = Field(
         default_factory=dict,

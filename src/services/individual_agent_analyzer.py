@@ -175,6 +175,23 @@ class IndividualAgentAnalyzer:
             c.get('count_conversation_parts', 0) for c in convs
         ])) if len(convs) > 0 else 0.0
         
+        # CSAT metrics (customer satisfaction)
+        rated_convs = [c for c in convs if c.get('conversation_rating') is not None]
+        ratings = [c.get('conversation_rating') for c in rated_convs]
+        
+        csat_score = float(np.mean(ratings)) if ratings else 0.0
+        csat_survey_count = len(rated_convs)
+        negative_csat_count = len([r for r in ratings if r <= 2])  # 1★ or 2★
+        
+        # Rating distribution
+        rating_distribution = {
+            '5_star': len([r for r in ratings if r == 5]),
+            '4_star': len([r for r in ratings if r == 4]),
+            '3_star': len([r for r in ratings if r == 3]),
+            '2_star': len([r for r in ratings if r == 2]),
+            '1_star': len([r for r in ratings if r == 1])
+        }
+        
         # Taxonomy-based performance breakdown
         perf_by_category = self._analyze_category_performance(convs)
         perf_by_subcategory = self._analyze_subcategory_performance(convs)
@@ -200,6 +217,12 @@ class IndividualAgentAnalyzer:
             median_response_hours=float(median_response),
             over_48h_count=over_48h,
             avg_conversation_complexity=float(avg_complexity),
+            # CSAT metrics
+            csat_score=csat_score,
+            csat_survey_count=csat_survey_count,
+            negative_csat_count=negative_csat_count,
+            rating_distribution=rating_distribution,
+            # Taxonomy performance
             performance_by_category=perf_by_category,
             performance_by_subcategory=perf_by_subcategory,
             strong_categories=strong_cats,

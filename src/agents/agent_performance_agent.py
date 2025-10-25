@@ -57,19 +57,22 @@ class AgentPerformanceAgent(BaseAgent):
 AGENT PERFORMANCE ANALYSIS - {agent_name.upper()}
 
 1. Analyze performance objectively with data-driven insights:
-   - First Contact Resolution rate
+   - First Contact Resolution (FCR) rate
+   - Customer Satisfaction (CSAT) scores and trends
    - Resolution time (median, P90)
    - Escalation patterns
    - Category-specific performance
 
 2. Identify specific strengths and development areas:
    - What topics does this agent handle well?
+   - Are low CSAT scores tied to specific categories or behaviors?
    - What topics require escalation most often?
    - Where are the knowledge gaps?
+   - Is there a correlation between FCR and CSAT?
 
 3. Generate actionable recommendations:
    - Process improvements
-   - Training opportunities
+   - Training opportunities (especially for low-CSAT categories)
    - Documentation needs
    - Workload optimization
 
@@ -77,6 +80,7 @@ AGENT PERFORMANCE ANALYSIS - {agent_name.upper()}
    - Data-driven, not judgmental
    - Specific examples with Intercom links
    - Comparative benchmarks where applicable
+   - Balance CSAT scores with operational context
 """
     
     def get_task_description(self, context: AgentContext) -> str:
@@ -86,11 +90,13 @@ AGENT PERFORMANCE ANALYSIS - {agent_name.upper()}
 Analyze performance of {agent_name} agents across {len(context.conversations)} conversations.
 
 Focus areas:
-1. Resolution efficiency (FCR, time to resolution)
-2. Escalation patterns (what gets escalated and why)
-3. Category performance (which topics handled well vs struggle)
-4. Time period trends (if historical data available)
-5. Actionable improvement recommendations
+1. Customer Satisfaction (CSAT scores, negative ratings, trends)
+2. Resolution efficiency (FCR, time to resolution)
+3. Escalation patterns (what gets escalated and why)
+4. Category performance (which topics handled well vs struggle)
+5. CSAT correlation (are low CSAT scores tied to specific categories?)
+6. Time period trends (if historical data available)
+7. Actionable improvement recommendations
 """
     
     def format_context_data(self, context: AgentContext) -> str:
@@ -493,7 +499,17 @@ Focus areas:
         if team_metrics['team_fcr_rate'] >= 0.85:
             highlights.append(f"Excellent team FCR: {team_metrics['team_fcr_rate']:.1%}")
         
-        # Top performers
+        # Top CSAT performers
+        agents_with_csat = [a for a in agent_metrics if a.csat_survey_count >= 5]
+        if agents_with_csat:
+            top_csat_agent = max(agents_with_csat, key=lambda a: a.csat_score)
+            if top_csat_agent.csat_score >= 4.5:
+                highlights.append(
+                    f"{top_csat_agent.agent_name}: {top_csat_agent.csat_score:.2f} CSAT "
+                    f"({top_csat_agent.csat_survey_count} surveys)"
+                )
+        
+        # Top FCR performers
         top_agents = sorted(agent_metrics, key=lambda a: a.fcr_rate, reverse=True)[:2]
         for agent in top_agents:
             if agent.fcr_rate >= 0.9:
@@ -510,6 +526,17 @@ Focus areas:
     def _generate_lowlights(self, agent_metrics: List[Any], team_metrics: Dict) -> List[str]:
         """Generate lowlights from analysis"""
         lowlights = []
+        
+        # Low CSAT performers
+        agents_with_csat = [a for a in agent_metrics if a.csat_survey_count >= 5]
+        if agents_with_csat:
+            low_csat_agents = [a for a in agents_with_csat if a.csat_score < 3.5]
+            if low_csat_agents:
+                worst_csat = min(low_csat_agents, key=lambda a: a.csat_score)
+                lowlights.append(
+                    f"{worst_csat.agent_name}: Low CSAT {worst_csat.csat_score:.2f} "
+                    f"({worst_csat.negative_csat_count} negative ratings)"
+                )
         
         # High escalation rate
         if team_metrics['team_escalation_rate'] > 0.15:
