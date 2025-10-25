@@ -55,12 +55,13 @@ class WebCommandExecutor:
                 # Output options
                 "--output-dir", "--output-format", "--generate-gamma",
                 # Date/time options
-                "--start-date", "--end-date", "--month", "--year", "--time-period", "--days",
+                "--start-date", "--end-date", "--month", "--year", "--time-period", "--days", "--periods-back",
                 # Analysis options
                 "--multi-agent", "--analysis-type", "--tier1-countries",
-                "--focus-areas", "--custom-prompt", "--prompt-file",
+                "--focus-areas", "--focus-categories", "--custom-prompt", "--prompt-file",
+                "--max-conversations", "--parallel",
                 # Agent options
-                "--agent", "--agent-type",
+                "--agent", "--agent-type", "--vendor", "--individual-breakdown", "--top-n",
                 # AI model options
                 "--ai-model", "--enable-fallback", "--force-standard", "--force-multi-agent",
                 # Data source options
