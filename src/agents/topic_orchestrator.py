@@ -163,9 +163,11 @@ class TopicOrchestrator:
             self.logger.info(f"   ✅ Paid: {len(paid_conversations)} (Human: {len(paid_conversations) - len(paid_fin_resolved_conversations)}, Fin-resolved: {len(paid_fin_resolved_conversations)})")
             self.logger.info(f"   ✅ Free (Fin-only): {len(free_fin_only_conversations)}")
             
-            # PHASE 2: Detect topics (on paid conversations)
+            # PHASE 2: Detect topics (on ALL conversations - paid AND free)
+            # We need topics for both paid tier (for cards) and free tier (for Fin analysis)
             self.logger.info("🏷️  Phase 2: Topic Detection")
-            context.conversations = paid_conversations
+            self.logger.info(f"   Running topic detection on ALL {len(conversations)} conversations (paid + free)")
+            context.conversations = conversations  # Changed: detect topics for ALL conversations
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
             
@@ -176,10 +178,16 @@ class TopicOrchestrator:
                 logger.warning(f"Failed to display TopicDetectionAgent result: {e}")
             
             topic_dist = topic_detection_result.data.get('topic_distribution', {})
-            self.logger.info(f"   ✅ Detected {len(topic_dist)} topics")
+            topics_by_conv = topic_detection_result.data.get('topics_by_conversation', {})
+            self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
             
-            # Restore original conversation list for future phases
-            context.conversations = conversations
+            # Apply detected topics back to ALL conversations for downstream agents
+            for conv in conversations:
+                conv_id = conv.get('id')
+                if conv_id in topics_by_conv:
+                    conv['detected_topics'] = [t['topic'] for t in topics_by_conv[conv_id]]
+                else:
+                    conv['detected_topics'] = []
             
             # PHASE 2.5: Sub-Topic Detection
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")
