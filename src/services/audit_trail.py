@@ -277,22 +277,24 @@ class AuditTrail:
         return str(filepath)
     
     def print_summary(self):
-        """Print a quick summary to console"""
-        print("\n" + "="*80)
-        print("📋 AUDIT TRAIL SUMMARY")
-        print("="*80)
-        print(f"Duration: {(datetime.now() - self.start_time).total_seconds():.1f}s")
-        print(f"Steps: {len(self.steps)}")
-        print(f"Decisions: {len(self.decisions)}")
-        print(f"Warnings: {len(self.warnings)}")
-        print(f"Data Quality Checks: {len(self.data_quality_issues)}")
+        """Log a quick summary (uses logging instead of print for proper output handling)"""
+        duration = (datetime.now() - self.start_time).total_seconds()
+        
+        self.logger.info("=" * 80)
+        self.logger.info("📋 AUDIT TRAIL SUMMARY")
+        self.logger.info("=" * 80)
+        self.logger.info(f"Duration: {duration:.1f}s")
+        self.logger.info(f"Steps: {len(self.steps)}")
+        self.logger.info(f"Decisions: {len(self.decisions)}")
+        self.logger.info(f"Warnings: {len(self.warnings)}")
+        self.logger.info(f"Data Quality Checks: {len(self.data_quality_issues)}")
         
         if self.warnings:
-            print("\n⚠️ WARNINGS:")
+            self.logger.warning("⚠️ WARNINGS:")
             for w in self.warnings[:5]:
-                print(f"  - {w['issue']}")
+                self.logger.warning(f"  - {w['issue']}")
         
-        print("="*80 + "\n")
+        self.logger.info("=" * 80)
 
 
 class AuditableAnalysis:

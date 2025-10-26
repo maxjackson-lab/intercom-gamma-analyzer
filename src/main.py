@@ -21,9 +21,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.panel import Panel
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent))
-
+# Proper package imports - run with: python -m src.main
+# Entry point also configured in pyproject.toml as 'intercom-analyzer'
 from src.config.settings import settings
 from src.services.intercom_service import IntercomService
 from src.services.intercom_service_v2 import IntercomServiceV2
@@ -55,8 +54,8 @@ from src.services.canny_client import CannyClient
 from src.services.canny_preprocessor import CannyPreprocessor
 from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from src.utils.time_utils import detect_period_type
-from utils.logger import setup_logging
-from utils.cli_help import help_system
+from src.utils.logger import setup_logging
+from src.utils.cli_help import help_system
 
 console = Console()
 
@@ -336,31 +335,8 @@ def show_categories():
     """List available categories"""
     help_system.show_categories()
 
-@cli.command()
-@click.option('--days', type=int, default=90, help='Number of days to scan for tags')
-@click.option('--agent', help='Filter by specific agent')
-def show_tags(days: int, agent: Optional[str]):
-    """List tags in your data"""
-    console.print(f"[bold]Scanning {days} days for tags...[/bold]")
-    # TODO: Implement tag discovery
-    console.print("Tag discovery not yet implemented")
-
-@cli.command()
-@click.option('--days', type=int, default=90, help='Number of days to scan for agents')
-def show_agents(days: int):
-    """List all agents"""
-    console.print(f"[bold]Scanning {days} days for agents...[/bold]")
-    # TODO: Implement agent discovery
-    console.print("Agent discovery not yet implemented")
-
-@cli.command()
-@click.option('--days', type=int, default=90, help='Number of days to scan')
-@click.option('--auto-update', is_flag=True, help='Automatically update taxonomy')
-def sync_taxonomy(days: int, auto_update: bool):
-    """Update taxonomy from Intercom"""
-    console.print(f"[bold]Syncing taxonomy from {days} days of data...[/bold]")
-    # TODO: Implement taxonomy sync
-    console.print("Taxonomy sync not yet implemented")
+# Note: Removed non-functional utility commands (show_tags, show_agents, sync_taxonomy)
+# These were stubs without implementation and may be added in future releases if needed
 
 # Primary Commands (Technical Triage)
 @cli.command(name='tech-analysis')
@@ -4103,18 +4079,36 @@ async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime
     from src.services.chunked_fetcher import ChunkedFetcher
     from src.services.gamma_generator import GammaGenerator
     
+    console.print(f"\n🧠 [bold cyan]Synthesis Multi-Agent Analysis[/bold cyan]")
+    console.print("Focus: Cross-category patterns, strategic insights, recommendations\n")
+    
+    # Fetch conversations
     console.print("📥 Fetching conversations...")
     fetcher = ChunkedFetcher()
     conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
     console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
     
-    # TODO: Implement synthesis orchestrator
-    console.print("✅ Synthesis analysis complete")
-    console.print("[yellow]Note: Synthesis analysis implementation pending[/yellow]")
+    # Use multi-agent orchestrator for synthesis
+    orchestrator = MultiAgentOrchestrator()
+    results = await orchestrator.execute_analysis(
+        analysis_type="voice-of-customer",
+        start_date=start_date,
+        end_date=end_date,
+        generate_gamma=generate_gamma
+    )
     
-    # Gamma generation would go here when synthesis is implemented
-    if generate_gamma:
-        console.print("[yellow]Gamma generation for synthesis pending synthesis implementation[/yellow]")
+    # Display and save results
+    console.print("\n🎉 Synthesis analysis complete")
+    
+    output_dir = Path("outputs")
+    output_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    results_file = output_dir / f"synthesis_custom_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}_{timestamp}.json"
+    with open(results_file, 'w') as f:
+        json.dump(results, f, indent=2, default=str)
+    
+    console.print(f"📁 Results saved: {results_file}")
 
 
 async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool, audit_trail: bool = False):

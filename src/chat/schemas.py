@@ -367,7 +367,8 @@ def validate_command_translation(data: Dict[str, Any]) -> bool:
         
         return True
         
-    except Exception:
+    except (TypeError, KeyError, AttributeError):
+        # Return False if data is malformed or not a dict
         return False
 
 

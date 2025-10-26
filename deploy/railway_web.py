@@ -7,31 +7,39 @@ import os
 import sys
 import json
 import asyncio
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+
+# Setup logging for deployment diagnostics
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Silence tokenizers parallelism warning
 os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
 
 # Verify Python path setup
-print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
-print(f"🔧 Current working directory: {os.getcwd()}")
-print(f"🔧 Script location: {__file__}")
+logger.info(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
+logger.info(f"🔧 Current working directory: {os.getcwd()}")
+logger.info(f"🔧 Script location: {__file__}")
 
 # Add parent directory to path for imports (since we're in deploy/)
 parent_dir = str(Path(__file__).parent.parent)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
-    print(f"🔧 Added parent to path: {parent_dir}")
+    logger.info(f"🔧 Added parent to path: {parent_dir}")
 
 # Test src import
 try:
     import src
-    print(f"✅ Successfully imported src module")
+    logger.info("✅ Successfully imported src module")
 except ImportError as e:
-    print(f"❌ Failed to import src: {e}")
-    print(f"🔧 sys.path: {sys.path[:3]}")  # Show first 3 entries
+    logger.error(f"❌ Failed to import src: {e}")
+    logger.debug(f"🔧 sys.path: {sys.path[:3]}")  # Show first 3 entries
 
 try:
     from fastapi import FastAPI, HTTPException, Request, Depends
@@ -53,12 +61,12 @@ try:
     from src.services.web_command_executor import WebCommandExecutor
     from src.services.execution_state_manager import ExecutionStateManager, ExecutionStatus
     HAS_CHAT = True
-    print("✅ Chat dependencies imported successfully")
+    logger.info("✅ Chat dependencies imported successfully")
 except ImportError as e:
     HAS_CHAT = False
-    print(f"❌ Chat dependencies import failed: {e}")
-    print("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
-    print("   The web interface will still work, but chat features will be limited")
+    logger.error(f"❌ Chat dependencies import failed: {e}")
+    logger.warning("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
+    logger.warning("   The web interface will still work, but chat features will be limited")
 
 # Initialize FastAPI app
 if HAS_FASTAPI:
@@ -161,11 +169,11 @@ def initialize_chat():
     """Initialize the chat interface."""
     global chat_interface, command_executor, state_manager
     if not HAS_CHAT:
-        print("❌ Chat interface dependencies not available")
+        logger.error("❌ Chat interface dependencies not available")
         return False
     
     try:
-        print("🔧 Checking environment variables...")
+        logger.info("🔧 Checking environment variables...")
         
         # Check for required environment variables
         required_vars = ["INTERCOM_ACCESS_TOKEN", "OPENAI_API_KEY"]
@@ -176,31 +184,29 @@ def initialize_chat():
                 missing_vars.append(var)
         
         if missing_vars:
-            print(f"⚠️ Missing required environment variables: {missing_vars}")
-            print("   Chat interface will not be available until these are set")
+            logger.warning(f"⚠️ Missing required environment variables: {missing_vars}")
+            logger.warning("   Chat interface will not be available until these are set")
             return False
         
-        print("🔧 Initializing settings...")
+        logger.info("🔧 Initializing settings...")
         settings = Settings()
-        print("✅ Settings loaded successfully")
+        logger.info("✅ Settings loaded successfully")
         
-        print("🔧 Initializing chat interface...")
+        logger.info("🔧 Initializing chat interface...")
         chat_interface = ChatInterface(settings)
-        print("✅ Chat interface initialized successfully")
+        logger.info("✅ Chat interface initialized successfully")
         
-        print("🔧 Initializing command executor...")
+        logger.info("🔧 Initializing command executor...")
         command_executor = WebCommandExecutor()
-        print("✅ Command executor initialized successfully")
+        logger.info("✅ Command executor initialized successfully")
         
-        print("🔧 Initializing state manager...")
+        logger.info("🔧 Initializing state manager...")
         state_manager = ExecutionStateManager(max_concurrent=5, max_queue_size=20)
-        print("✅ State manager initialized successfully")
+        logger.info("✅ State manager initialized successfully")
         
         return True
     except Exception as e:
-        print(f"❌ Failed to initialize chat interface: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Failed to initialize chat interface: {e}", exc_info=True)
         return False
 
 if HAS_FASTAPI:
@@ -874,8 +880,8 @@ if HAS_FASTAPI:
             outputs_dir = Path("/app/outputs").resolve()
             if not str(full_path).startswith(str(outputs_dir)):
                 raise HTTPException(status_code=400, detail="Access denied")
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid file path")
+        except (OSError, ValueError, RuntimeError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid file path: {e}")
         
         # Check if file exists
         if not full_path.exists() or not full_path.is_file():
@@ -1020,27 +1026,27 @@ if HAS_FASTAPI:
 def main():
     """Main entrypoint for Railway web server."""
     if not HAS_FASTAPI:
-        print("❌ FastAPI not available. Install with: pip install fastapi uvicorn")
+        logger.error("❌ FastAPI not available. Install with: pip install fastapi uvicorn")
         sys.exit(1)
     
-    print("🚀 Starting Intercom Analysis Tool Chat Interface...")
+    logger.info("🚀 Starting Intercom Analysis Tool Chat Interface...")
     
     # Try to initialize chat interface (but don't fail if it doesn't work)
-    print("🔧 Attempting to initialize chat interface...")
+    logger.info("🔧 Attempting to initialize chat interface...")
     chat_init_success = initialize_chat()
     
     if chat_init_success:
-        print("✅ Chat interface initialized successfully")
+        logger.info("✅ Chat interface initialized successfully")
     else:
-        print("⚠️ Chat interface initialization failed, but server will start anyway")
-        print("   The health endpoint will still work, but chat features may be limited")
+        logger.warning("⚠️ Chat interface initialization failed, but server will start anyway")
+        logger.warning("   The health endpoint will still work, but chat features may be limited")
     
     # Get port from Railway environment
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
-    print(f"🌐 Starting web server on {host}:{port}")
-    print(f"📊 Health check available at: http://{host}:{port}/health")
+    logger.info(f"🌐 Starting web server on {host}:{port}")
+    logger.info(f"📊 Health check available at: http://{host}:{port}/health")
     
     # Start the server
     uvicorn.run(

@@ -11,10 +11,8 @@ from datetime import datetime, date, timedelta
 from typing import Dict, List, Any
 import json
 
-# Add src to path for imports
-import sys
-sys.path.append(str(Path(__file__).parent.parent / "src"))
-
+# Proper package imports - tests should be run with pytest from project root
+# If running from within tests/ directory, run: python -m pytest from root instead
 from src.config.settings import Settings
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.elt_pipeline import ELTPipeline

@@ -269,7 +269,8 @@ class CannyPreprocessor:
             votes = post.get('score', 0)
             return votes / days_since_creation
             
-        except Exception:
+        except (ValueError, TypeError, KeyError, AttributeError):
+            # Return 0.0 if date parsing fails or data is malformed
             return 0.0
     
     def _calculate_comment_velocity(self, post: Dict[str, Any]) -> float:
@@ -284,7 +285,8 @@ class CannyPreprocessor:
             comments = post.get('commentCount', 0)
             return comments / days_since_creation
             
-        except Exception:
+        except (ValueError, TypeError, KeyError, AttributeError):
+            # Return 0.0 if date parsing fails or data is malformed
             return 0.0
     
     def _is_trending_post(self, post: Dict[str, Any], threshold: float = 1.0) -> bool:
