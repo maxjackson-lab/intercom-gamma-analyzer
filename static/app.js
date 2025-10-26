@@ -536,8 +536,7 @@ function showDownloadLinks() {
     const executionResults = document.getElementById('executionResults');
     const downloadLinks = document.getElementById('downloadLinks');
     
-    // TODO: Fetch actual file list from execution results
-    // For now, show a generic message
+    // Show generic success message (file list available via Files tab)
     downloadLinks.innerHTML = `
         <div class="panel success">
             <div class="panel-header">✓ Execution Complete</div>
