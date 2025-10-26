@@ -330,18 +330,31 @@ Return ONLY valid JSON in this exact format:
             # Use sentiment analysis method as a proxy for theme detection
             result = await client.analyze_sentiment_multilingual(prompt, language='en')
             
-            # Try to parse JSON from the response
+            # Try to parse JSON from the response with robust extraction
             analysis_text = result.get('analysis', '{}')
-            
-            # Find JSON in the response
-            start_idx = analysis_text.find('{')
-            end_idx = analysis_text.rfind('}') + 1
-            
-            if start_idx >= 0 and end_idx > start_idx:
-                json_str = analysis_text[start_idx:end_idx]
-                themes_data = json.loads(json_str)
+
+            # Try to extract JSON from fenced code blocks first
+            import re
+            json_fence_pattern = r'```json\s*(\{[\s\S]*?\})\s*```'
+            fence_match = re.search(json_fence_pattern, analysis_text)
+
+            if fence_match:
+                json_str = fence_match.group(1)
             else:
-                self.logger.warning("Could not extract JSON from AI response for emerging trends")
+                # Fallback: Find JSON braces
+                start_idx = analysis_text.find('{')
+                end_idx = analysis_text.rfind('}') + 1
+
+                if start_idx >= 0 and end_idx > start_idx:
+                    json_str = analysis_text[start_idx:end_idx]
+                else:
+                    self.logger.warning("Could not extract JSON from AI response for emerging trends")
+                    return {}
+
+            try:
+                themes_data = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse JSON from AI response: {e}. Raw text: {json_str[:200]}")
                 return {}
             
             # Group conversations by detected themes
@@ -486,14 +499,19 @@ Return ONLY valid JSON in this exact format:
         return 'neutral'
     
     def _generate_intercom_url(self, conversation_id: str) -> str:
-        """Generate Intercom conversation URL."""
+        """
+        Generate Intercom conversation URL.
+
+        Correct format per Intercom docs is:
+        https://app.intercom.com/a/apps/{workspace_id}/inbox/conversation/{conversation_id}
+        """
         from src.config.settings import settings
         workspace_id = settings.intercom_workspace_id
-        
+
         if not workspace_id or not conversation_id:
             return ""
-        
-        return f"https://app.intercom.com/a/apps/{workspace_id}/inbox/inbox/{conversation_id}"
+
+        return f"https://app.intercom.com/a/apps/{workspace_id}/inbox/conversation/{conversation_id}"
     
     def _format_all_examples_with_urls(self, conversations: List[Dict]) -> Dict[str, List[Dict]]:
         """Format all conversations when count is small."""

@@ -150,81 +150,88 @@ class ChunkedFetcher:
             raise FetchError(f"Failed to fetch single chunk: {e}") from e
     
     async def _fetch_daily_chunks(
-        self, 
-        start_date: datetime, 
+        self,
+        start_date: datetime,
         end_date: datetime,
         max_pages: Optional[int],
         progress_callback: Optional[callable]
     ) -> List[Dict[str, Any]]:
         """Fetch conversations in daily chunks."""
         self.logger.info(f"Fetching daily chunks: {start_date.date()} to {end_date.date()}")
-        
+
         all_conversations = []
         current_date = start_date
         total_days = (end_date - start_date).days + 1
         processed_days = 0
-        
-        while current_date <= end_date:
-            # Calculate chunk end date
-            chunk_end = min(current_date + timedelta(days=self.max_days_per_chunk - 1), end_date)
-            
-            self.logger.info(f"Processing chunk: {current_date.date()} to {chunk_end.date()}")
-            
-            try:
-                # Fetch chunk
-                chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                    current_date, chunk_end, max_pages
-                )
-                
-                # Debug: Check actual date range of fetched chunk
-                if chunk_conversations:
-                    # Convert created_at to datetime, handling both datetime and numeric types
-                    actual_dates = []
-                    for c in chunk_conversations:
-                        created_at = c.get('created_at')
-                        if created_at:
-                            dt = to_utc_datetime(created_at)
-                            if dt:
-                                actual_dates.append(dt)
-                    
-                    if actual_dates:
-                        min_date = min(actual_dates)
-                        max_date = max(actual_dates)
-                        self.logger.info(f"📅 Chunk actual dates: {min_date.date()} to {max_date.date()}")
-                        
-                        # Check if dates are outside requested range
-                        if min_date.date() < current_date.date() or max_date.date() > chunk_end.date():
-                            self.logger.warning(f"⚠️  API returned conversations outside chunk range!")
-                            self.logger.warning(f"   Requested: {current_date.date()} to {chunk_end.date()}")
-                            self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
-                
-                all_conversations.extend(chunk_conversations)
-                processed_days += (chunk_end - current_date).days + 1
-                
-                # Update progress
-                if progress_callback:
-                    progress_callback(len(all_conversations), processed_days, total_days)
-                
-                self.logger.info(f"Chunk completed: {len(chunk_conversations)} conversations (total: {len(all_conversations)})")
-                
-                # Delay between chunks to respect rate limits
-                if chunk_end < end_date:
-                    self.logger.debug(f"Waiting {self.chunk_delay}s before next chunk")
-                    await asyncio.sleep(self.chunk_delay)
-                
-                # Move to next chunk
-                current_date = chunk_end + timedelta(days=1)
-                
-            except Exception as e:
-                self.logger.error(f"Chunk fetch failed for {current_date.date()}-{chunk_end.date()}: {e}")
-                
-                # Decide whether to continue or fail
-                if len(all_conversations) > 0:
-                    self.logger.warning(f"Continuing with {len(all_conversations)} conversations already fetched")
-                    break
-                else:
-                    self.logger.error("No conversations fetched, failing")
-                    raise FetchError(f"Failed to fetch chunk {current_date.date()}-{chunk_end.date()}: {e}") from e
+
+        try:
+            while current_date <= end_date:
+                # Calculate chunk end date
+                chunk_end = min(current_date + timedelta(days=self.max_days_per_chunk - 1), end_date)
+
+                self.logger.info(f"Processing chunk: {current_date.date()} to {chunk_end.date()}")
+
+                try:
+                    # Fetch chunk
+                    chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
+                        current_date, chunk_end, max_pages
+                    )
+
+                    # Debug: Check actual date range of fetched chunk
+                    if chunk_conversations:
+                        # Convert created_at to datetime, handling both datetime and numeric types
+                        actual_dates = []
+                        for c in chunk_conversations:
+                            created_at = c.get('created_at')
+                            if created_at:
+                                dt = to_utc_datetime(created_at)
+                                if dt:
+                                    actual_dates.append(dt)
+
+                        if actual_dates:
+                            min_date = min(actual_dates)
+                            max_date = max(actual_dates)
+                            self.logger.info(f"📅 Chunk actual dates: {min_date.date()} to {max_date.date()}")
+
+                            # Check if dates are outside requested range
+                            if min_date.date() < current_date.date() or max_date.date() > chunk_end.date():
+                                self.logger.warning(f"⚠️  API returned conversations outside chunk range!")
+                                self.logger.warning(f"   Requested: {current_date.date()} to {chunk_end.date()}")
+                                self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
+
+                    all_conversations.extend(chunk_conversations)
+                    processed_days += (chunk_end - current_date).days + 1
+
+                    # Update progress
+                    if progress_callback:
+                        progress_callback(len(all_conversations), processed_days, total_days)
+
+                    self.logger.info(f"Chunk completed: {len(chunk_conversations)} conversations (total: {len(all_conversations)})")
+
+                    # Delay between chunks to respect rate limits
+                    if chunk_end < end_date:
+                        self.logger.debug(f"Waiting {self.chunk_delay}s before next chunk")
+                        await asyncio.sleep(self.chunk_delay)
+
+                    # Move to next chunk
+                    current_date = chunk_end + timedelta(days=1)
+
+                except Exception as e:
+                    self.logger.error(f"Chunk fetch failed for {current_date.date()}-{chunk_end.date()}: {e}")
+
+                    # Decide whether to continue or fail
+                    if len(all_conversations) > 0:
+                        self.logger.warning(f"Continuing with {len(all_conversations)} conversations already fetched")
+                        break
+                    else:
+                        self.logger.error("No conversations fetched, failing")
+                        raise FetchError(f"Failed to fetch chunk {current_date.date()}-{chunk_end.date()}: {e}") from e
+
+        finally:
+            # Ensure final progress callback with accurate counts
+            if progress_callback:
+                final_processed_days = min(total_days, processed_days)
+                progress_callback(len(all_conversations), final_processed_days, total_days)
         
         # Final verification of all fetched data
         if all_conversations:

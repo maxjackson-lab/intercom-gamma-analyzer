@@ -230,13 +230,24 @@ class DataPreprocessor:
         return customer_msgs
     
     def _normalize_timestamps(self, conv: Dict[str, Any]) -> Dict[str, Any]:
-        """Normalize timestamp fields to datetime objects."""
+        """
+        Normalize timestamp fields to timezone-aware UTC datetime objects (idempotent).
+
+        This method is idempotent - if a field is already a datetime, it ensures
+        it's timezone-aware UTC but doesn't re-parse it.
+        """
         timestamp_fields = ['created_at', 'updated_at', 'closed_at', 'last_contact_at']
-        
+
         for field in timestamp_fields:
             if field in conv and conv[field]:
                 try:
-                    if isinstance(conv[field], (int, float)):
+                    if isinstance(conv[field], datetime):
+                        # Already datetime - ensure it's timezone-aware UTC
+                        if conv[field].tzinfo is None:
+                            conv[field] = conv[field].replace(tzinfo=timezone.utc)
+                        else:
+                            conv[field] = conv[field].astimezone(timezone.utc)
+                    elif isinstance(conv[field], (int, float)):
                         # Unix timestamp
                         conv[field] = datetime.fromtimestamp(conv[field], tz=timezone.utc)
                     elif isinstance(conv[field], str):
@@ -245,7 +256,7 @@ class DataPreprocessor:
                 except Exception as e:
                     self.logger.warning(f"Failed to normalize timestamp {field}: {e}")
                     conv[field] = None
-        
+
         return conv
     
     def _normalize_custom_attributes(self, conv: Dict[str, Any]) -> Dict[str, Any]:
@@ -436,35 +447,39 @@ class DataPreprocessor:
             return "none"
     
     def _clean_conversation_text(
-        self, 
-        conversations: List[Dict[str, Any]], 
+        self,
+        conversations: List[Dict[str, Any]],
         stats: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Clean and standardize text content in conversations."""
+        """
+        Clean and standardize text content in conversations (idempotent).
+
+        Skips cleaning if body_cleaned flag is already present.
+        """
         cleaned_count = 0
-        
+
         for conv in conversations:
             # Clean conversation parts
             parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
             for part in parts:
-                if part.get('body'):
+                if part.get('body') and not part.get('body_cleaned'):
                     original_body = part['body']
                     cleaned_body = self._clean_text(original_body)
                     if cleaned_body != original_body:
                         part['body'] = cleaned_body
                         part['body_cleaned'] = True
                         cleaned_count += 1
-            
+
             # Clean source body
             source = conv.get('source', {})
-            if source.get('body'):
+            if source.get('body') and not source.get('body_cleaned'):
                 original_body = source['body']
                 cleaned_body = self._clean_text(original_body)
                 if cleaned_body != original_body:
                     source['body'] = cleaned_body
                     source['body_cleaned'] = True
                     cleaned_count += 1
-        
+
         stats["text_cleaned_count"] = cleaned_count
         return conversations
     

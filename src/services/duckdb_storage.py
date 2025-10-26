@@ -641,12 +641,12 @@ class DuckDBStorage:
         SELECT c.*, cc.subcategory, cc.confidence, cc.method
         FROM conversations c
         JOIN conversation_categories cc ON c.id = cc.conversation_id
-        WHERE cc.primary_category = ?
-        AND c.created_at >= ?
-        AND c.created_at <= ?
+        WHERE cc.primary_category = $category
+        AND c.created_at >= $start_date
+        AND c.created_at <= $end_date
         ORDER BY c.created_at DESC
         """
-        
+
         return self.query(sql, {
             'category': category,
             'start_date': start_date,
@@ -656,20 +656,20 @@ class DuckDBStorage:
     def get_technical_patterns(self, start_date: date, end_date: date) -> pd.DataFrame:
         """Get technical patterns in date range."""
         sql = """
-        SELECT 
+        SELECT
             tp.pattern_type,
             COUNT(*) as occurrence_count,
             COUNT(DISTINCT tp.conversation_id) as unique_conversations,
             STRING_AGG(DISTINCT tp.detected_keywords, ', ') as keywords
         FROM technical_patterns tp
         JOIN conversations c ON tp.conversation_id = c.id
-        WHERE c.created_at >= ?
-        AND c.created_at <= ?
+        WHERE c.created_at >= $start_date
+        AND c.created_at <= $end_date
         AND tp.pattern_value = true
         GROUP BY tp.pattern_type
         ORDER BY occurrence_count DESC
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -678,19 +678,19 @@ class DuckDBStorage:
     def get_escalations(self, start_date: date, end_date: date) -> pd.DataFrame:
         """Get escalation patterns in date range."""
         sql = """
-        SELECT 
+        SELECT
             e.escalated_to,
             COUNT(*) as escalation_count,
             AVG(c.handling_time) as avg_handling_time,
             STRING_AGG(DISTINCT e.escalation_notes, ' | ') as sample_notes
         FROM escalations e
         JOIN conversations c ON e.conversation_id = c.id
-        WHERE c.created_at >= ?
-        AND c.created_at <= ?
+        WHERE c.created_at >= $start_date
+        AND c.created_at <= $end_date
         GROUP BY e.escalated_to
         ORDER BY escalation_count DESC
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -699,8 +699,8 @@ class DuckDBStorage:
     def get_fin_analysis(self, start_date: date, end_date: date) -> pd.DataFrame:
         """Get Fin AI analysis in date range."""
         sql = """
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN ai_agent_participated THEN 'Fin Handled'
                 ELSE 'Human Only'
             END as interaction_type,
@@ -709,11 +709,11 @@ class DuckDBStorage:
             AVG(conversation_rating) as avg_rating,
             COUNT(CASE WHEN state = 'closed' THEN 1 END) as resolved_count
         FROM conversations
-        WHERE created_at >= ?
-        AND created_at <= ?
+        WHERE created_at >= $start_date
+        AND created_at <= $end_date
         GROUP BY ai_agent_participated
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -863,11 +863,11 @@ class DuckDBStorage:
     def get_canny_posts_by_date_range(self, start_date: date, end_date: date) -> pd.DataFrame:
         """Get Canny posts in date range."""
         sql = """
-        SELECT * FROM canny_posts 
-        WHERE created_at >= ? AND created_at <= ?
+        SELECT * FROM canny_posts
+        WHERE created_at >= $start_date AND created_at <= $end_date
         ORDER BY created_at DESC
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -876,20 +876,20 @@ class DuckDBStorage:
     def get_canny_sentiment_breakdown(self, start_date: date, end_date: date) -> pd.DataFrame:
         """Get Canny sentiment breakdown by status and category."""
         sql = """
-        SELECT 
+        SELECT
             status,
             category,
             sentiment,
             COUNT(*) as count,
             AVG(sentiment_confidence) as avg_confidence,
             AVG(engagement_score) as avg_engagement
-        FROM canny_posts 
-        WHERE created_at >= ? AND created_at <= ?
+        FROM canny_posts
+        WHERE created_at >= $start_date AND created_at <= $end_date
         AND sentiment IS NOT NULL
         GROUP BY status, category, sentiment
         ORDER BY count DESC
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -898,16 +898,16 @@ class DuckDBStorage:
     def get_canny_trending_posts(self, start_date: date, end_date: date, limit: int = 10) -> pd.DataFrame:
         """Get trending Canny posts."""
         sql = """
-        SELECT 
+        SELECT
             id, title, score, comment_count, engagement_score,
             vote_velocity, comment_velocity, sentiment, status, url
-        FROM canny_posts 
-        WHERE created_at >= ? AND created_at <= ?
+        FROM canny_posts
+        WHERE created_at >= $start_date AND created_at <= $end_date
         AND is_trending = true
         ORDER BY engagement_score DESC
-        LIMIT ?
+        LIMIT $limit
         """
-        
+
         return self.query(sql, {
             'start_date': start_date,
             'end_date': end_date,

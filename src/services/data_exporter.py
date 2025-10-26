@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 
 class DataExporter:
     """Service for exporting data to various formats."""
-    
+
     def __init__(self):
         self.output_dir = Path(settings.output_directory)
         self.output_dir.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
+        self.redact_sensitive = settings.redact_sensitive_outputs
     
     def export_conversations_to_excel(
         self, 
@@ -64,16 +65,21 @@ class DataExporter:
         return str(output_path)
     
     def export_conversations_to_csv(
-        self, 
-        conversations: List[Dict], 
+        self,
+        conversations: List[Dict],
         filename: str,
         split_by_category: bool = True
     ) -> List[str]:
-        """Export conversations to CSV files."""
+        """Export conversations to CSV files with optional sanitization."""
         self.logger.info(f"Exporting {len(conversations)} conversations to CSV")
-        
+
+        # Apply sanitization if enabled
+        if self.redact_sensitive:
+            self.logger.info("Applying sensitive data redaction to CSV exports")
+            conversations = [self._sanitize_dict(conv) for conv in conversations]
+
         output_files = []
-        
+
         if split_by_category:
             # Export different categories to separate CSV files
             categories = {
@@ -140,28 +146,38 @@ class DataExporter:
         return str(output_path)
     
     def export_raw_data_to_json(
-        self, 
-        conversations: List[Dict], 
+        self,
+        conversations: List[Dict],
         filename: str
     ) -> str:
-        """Export raw conversation data to JSON."""
+        """Export raw conversation data to JSON with optional sanitization."""
         self.logger.info(f"Exporting {len(conversations)} conversations to JSON")
-        
+
         output_path = self.output_dir / f"{filename}_raw.json"
-        
+
+        # Sanitize conversations if redaction is enabled
+        sanitized_conversations = []
+        if self.redact_sensitive:
+            self.logger.info("Applying sensitive data redaction to exports")
+            for conv in conversations:
+                sanitized_conversations.append(self._sanitize_dict(conv))
+        else:
+            sanitized_conversations = conversations
+
         # Add metadata
         export_data = {
             "metadata": {
                 "export_date": datetime.now().isoformat(),
                 "total_conversations": len(conversations),
-                "export_type": "raw_conversations"
+                "export_type": "raw_conversations",
+                "redacted": self.redact_sensitive
             },
-            "conversations": conversations
+            "conversations": sanitized_conversations
         }
-        
+
         with open(output_path, 'w') as f:
             json.dump(export_data, f, indent=2, default=str)
-        
+
         self.logger.info(f"JSON export completed: {output_path}")
         return str(output_path)
     
@@ -861,4 +877,111 @@ class DataExporter:
                     break
         
         return actions
+
+    def _sanitize_text(self, text: str) -> str:
+        """
+        Sanitize text by redacting emails and sensitive URL parameters.
+
+        Args:
+            text: Text to sanitize
+
+        Returns:
+            Sanitized text with redacted sensitive information
+        """
+        if not self.redact_sensitive or not text:
+            return text
+
+        import re
+
+        # Redact email addresses
+        text = re.sub(
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            '[EMAIL_REDACTED]',
+            text
+        )
+
+        # Redact sensitive URL query parameters (token, key, secret, password, api_key, auth)
+        sensitive_params = ['token', 'key', 'secret', 'password', 'api_key', 'auth', 'session', 'jwt']
+        for param in sensitive_params:
+            # Match param=value or param:value patterns
+            text = re.sub(
+                rf'({param}[=:])[^\s&]+',
+                r'\1[REDACTED]',
+                text,
+                flags=re.IGNORECASE
+            )
+
+        return text
+
+    def _sanitize_url(self, url: str) -> str:
+        """
+        Sanitize URL by removing sensitive query parameters.
+
+        Args:
+            url: URL to sanitize
+
+        Returns:
+            Sanitized URL with sensitive parameters removed
+        """
+        if not self.redact_sensitive or not url:
+            return url
+
+        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+
+        # Remove sensitive parameters
+        sensitive_params = ['token', 'key', 'secret', 'password', 'api_key', 'auth', 'session', 'jwt']
+        cleaned_params = {
+            k: ['[REDACTED]'] if k.lower() in sensitive_params else v
+            for k, v in params.items()
+        }
+
+        # Reconstruct URL
+        new_query = urlencode(cleaned_params, doseq=True)
+        sanitized = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+
+        return sanitized
+
+    def _sanitize_dict(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Recursively sanitize dictionary values.
+
+        Args:
+            data: Dictionary to sanitize
+
+        Returns:
+            Sanitized dictionary
+        """
+        if not self.redact_sensitive:
+            return data
+
+        sanitized = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                if 'url' in key.lower():
+                    sanitized[key] = self._sanitize_url(value)
+                else:
+                    sanitized[key] = self._sanitize_text(value)
+            elif isinstance(value, dict):
+                sanitized[key] = self._sanitize_dict(value)
+            elif isinstance(value, list):
+                sanitized[key] = [
+                    self._sanitize_dict(item) if isinstance(item, dict)
+                    else self._sanitize_text(item) if isinstance(item, str)
+                    else item
+                    for item in value
+                ]
+            else:
+                sanitized[key] = value
+
+        return sanitized
 

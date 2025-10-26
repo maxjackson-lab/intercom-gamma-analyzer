@@ -11,7 +11,7 @@ from pathlib import Path
 import json
 import pandas as pd
 
-from src.services.intercom_service import IntercomService
+from src.services.intercom_service_v2 import IntercomServiceV2
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.data_exporter import DataExporter
 
@@ -24,11 +24,11 @@ class ELTPipeline:
     def __init__(self, output_dir: str = "outputs"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
-        
-        self.intercom_service = IntercomService()
+
+        self.intercom_service = IntercomServiceV2()
         self.duckdb_storage = DuckDBStorage(self.output_dir / "conversations.duckdb")
         self.data_exporter = DataExporter()
-        
+
         # Raw data storage
         self.raw_data_dir = self.output_dir / "raw_data"
         self.raw_data_dir.mkdir(exist_ok=True)
@@ -36,75 +36,102 @@ class ELTPipeline:
     async def extract_and_load(self, start_date: Union[date, datetime], end_date: Union[date, datetime], max_pages: Optional[int] = None) -> Dict[str, Any]:
         """
         Extract conversations from Intercom and load into DuckDB.
-        
+
         Args:
             start_date: Start date for extraction
             end_date: End date for extraction
             max_pages: Maximum pages to fetch (for testing)
-        
+
         Returns:
             Dictionary with extraction statistics
         """
         logger.info(f"Starting ELT pipeline: {start_date} to {end_date}")
-        
+
         # Step 1: Extract from Intercom
+        extraction_start = datetime.now()
         conversations = await self._extract_conversations(start_date, end_date, max_pages)
-        
+        extraction_time = (datetime.now() - extraction_start).total_seconds()
+
         if not conversations:
             logger.warning("No conversations found for the specified date range")
             return {
                 'conversations_count': 0,
                 'date_range': f"{start_date} to {end_date}",
-                'extraction_time': 0,
+                'extraction_time': extraction_time,
                 'storage_time': 0
             }
-        
+
         # Step 2: Store raw JSON (for debugging/backup)
         raw_file = self._store_raw_json(conversations, start_date, end_date)
-        
+
         # Step 3: Load into DuckDB
-        start_time = datetime.now()
+        storage_start = datetime.now()
         self.duckdb_storage.store_conversations(conversations)
-        storage_time = (datetime.now() - start_time).total_seconds()
-        
+        storage_time = (datetime.now() - storage_start).total_seconds()
+
         # Step 4: Generate summary statistics
         stats = self._generate_extraction_stats(conversations, start_date, end_date)
         stats.update({
             'raw_file': str(raw_file),
+            'extraction_time': extraction_time,
             'storage_time': storage_time
         })
-        
+
         logger.info(f"ELT pipeline completed: {len(conversations)} conversations processed")
         return stats
     
     async def _extract_conversations(self, start_date: Union[date, datetime], end_date: Union[date, datetime], max_pages: Optional[int]) -> List[Dict]:
         """Extract conversations from Intercom API."""
         logger.info(f"Extracting conversations from {start_date} to {end_date}")
-        
+
         # Convert date to datetime if needed
         if isinstance(start_date, date) and not isinstance(start_date, datetime):
             start_date = datetime.combine(start_date, datetime.min.time())
         if isinstance(end_date, date) and not isinstance(end_date, datetime):
             end_date = datetime.combine(end_date, datetime.max.time())
-        
-        # Use improved Intercom service with chunking
+
+        # Use IntercomServiceV2 with max_conversations parameter
+        # Convert max_pages to rough conversation estimate (50 per page)
+        max_conversations = (max_pages * 50) if max_pages else None
         conversations = await self.intercom_service.fetch_conversations_by_date_range(
-            start_date, end_date, max_pages=max_pages
+            start_date, end_date, max_conversations=max_conversations
         )
-        
+
         logger.info(f"Extracted {len(conversations)} conversations")
         return conversations
     
     def _store_raw_json(self, conversations: List[Dict], start_date: date, end_date: date) -> Path:
-        """Store raw JSON data for backup and debugging."""
+        """
+        Store raw JSON data for backup and debugging with optional PII redaction.
+
+        Only stores if export_raw_data setting is enabled. When enabled, applies
+        PII redaction to protect sensitive information.
+        """
+        from src.config.settings import settings
+
+        if not settings.export_raw_data:
+            logger.info("Raw data export disabled (export_raw_data=False)")
+            # Return a placeholder path
+            return self.raw_data_dir / "export_disabled.json"
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"raw_conversations_{start_date}_{end_date}_{timestamp}.json"
         filepath = self.raw_data_dir / filename
-        
+
+        # Apply PII redaction if enabled
+        if settings.redact_sensitive_outputs:
+            logger.info("Applying PII redaction to raw data export")
+            from src.services.data_exporter import DataExporter
+            exporter = DataExporter()
+            sanitized_conversations = [exporter._sanitize_dict(conv) for conv in conversations]
+            export_data = sanitized_conversations
+        else:
+            export_data = conversations
+
         with open(filepath, 'w') as f:
-            json.dump(conversations, f, indent=2, default=str)
-        
-        logger.info(f"Raw data stored: {filepath}")
+            json.dump(export_data, f, indent=2, default=str)
+
+        logger.info(f"Raw data stored: {filepath} (redacted={settings.redact_sensitive_outputs})")
         return filepath
     
     def _generate_extraction_stats(self, conversations: List[Dict], start_date: date, end_date: date) -> Dict[str, Any]:
@@ -112,7 +139,6 @@ class ELTPipeline:
         stats = {
             'conversations_count': len(conversations),
             'date_range': f"{start_date} to {end_date}",
-            'extraction_time': 0,  # Will be set by caller
             'date_span_days': (end_date - start_date).days + 1,
             'avg_conversations_per_day': len(conversations) / max(1, (end_date - start_date).days + 1)
         }
@@ -199,7 +225,7 @@ class ELTPipeline:
         
         # Get conversations with technical patterns
         sql = """
-        SELECT 
+        SELECT
             c.*,
             tp.pattern_type,
             tp.pattern_value,
@@ -209,11 +235,11 @@ class ELTPipeline:
         FROM conversations c
         LEFT JOIN technical_patterns tp ON c.id = tp.conversation_id
         LEFT JOIN escalations e ON c.id = e.conversation_id
-        WHERE c.created_at >= ? AND c.created_at <= ?
+        WHERE c.created_at >= $start_date AND c.created_at <= $end_date
         AND (tp.pattern_value = true OR e.escalated_to IS NOT NULL)
         ORDER BY c.created_at DESC
         """
-        
+
         return self.duckdb_storage.query(sql, {
             'start_date': start_date,
             'end_date': end_date
@@ -244,12 +270,12 @@ class ELTPipeline:
         SELECT c.*, cc.primary_category, cc.subcategory
         FROM conversations c
         LEFT JOIN conversation_categories cc ON c.id = cc.conversation_id
-        WHERE c.admin_assignee_id = ?
-        AND c.created_at >= ?
-        AND c.created_at <= ?
+        WHERE c.admin_assignee_id = $agent_id
+        AND c.created_at >= $start_date
+        AND c.created_at <= $end_date
         ORDER BY c.created_at DESC
         """
-        
+
         return self.duckdb_storage.query(sql, {
             'agent_id': agent_id,
             'start_date': start_date,
@@ -259,16 +285,16 @@ class ELTPipeline:
     def get_data_summary(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """Get summary of available data."""
         sql = """
-        SELECT 
+        SELECT
             COUNT(*) as total_conversations,
             COUNT(DISTINCT admin_assignee_id) as unique_agents,
             COUNT(CASE WHEN ai_agent_participated THEN 1 END) as fin_conversations,
             AVG(handling_time) as avg_handling_time,
             AVG(conversation_rating) as avg_rating
         FROM conversations
-        WHERE created_at >= ? AND created_at <= ?
+        WHERE created_at >= $start_date AND created_at <= $end_date
         """
-        
+
         summary_df = self.duckdb_storage.query(sql, {
             'start_date': start_date,
             'end_date': end_date

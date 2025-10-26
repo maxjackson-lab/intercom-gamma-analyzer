@@ -14,6 +14,7 @@ from src.models.canny_models import (
     CannyBoard, CannyPost, CannyComment, CannyVote,
     CannyPostStatus
 )
+from src.utils.backoff import calculate_backoff_delay
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +22,22 @@ logger = logging.getLogger(__name__)
 class CannyClient:
     """Client for interacting with Canny API."""
     
-    def __init__(self):
+    def __init__(self, require_api_key: bool = False):
+        """
+        Initialize Canny client.
+
+        Args:
+            require_api_key: If True, raise ValueError immediately if no API key.
+                           If False (default), allow init and raise on first request.
+        """
         self.api_key = settings.canny_api_key
         self.base_url = settings.canny_base_url
         self.timeout = settings.canny_timeout
         self.max_retries = settings.canny_max_retries
-        
-        if not self.api_key:
-            raise ValueError("CANNY_API_KEY is required")
-        
+
+        if require_api_key and not self.api_key:
+            raise ValueError("CANNY_API_KEY is required but not configured")
+
         self.logger = logging.getLogger(__name__)
     
     async def _make_request_with_retry(
@@ -39,22 +47,26 @@ class CannyClient:
         method: str = "POST"
     ) -> Dict[str, Any]:
         """
-        Make API request with exponential backoff retry.
-        
+        Make API request with exponential backoff retry using standardized backoff utility.
+
         Args:
             endpoint: API endpoint (e.g., "boards/list")
             data: Request data including apiKey
             method: HTTP method (default: POST)
-            
+
         Returns:
             JSON response from API
-            
+
         Raises:
+            ValueError: If API key is not configured
             httpx.HTTPError: If all retries fail
         """
-        base_delay = 1.0
-        max_delay = 30.0
-        
+        if not self.api_key:
+            raise ValueError(
+                "CANNY_API_KEY is not configured. Please set the CANNY_API_KEY "
+                "environment variable or check settings before making requests."
+            )
+
         for attempt in range(self.max_retries):
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -68,27 +80,28 @@ class CannyClient:
                             f"{self.base_url}/{endpoint}",
                             params=data
                         )
-                    
+
                     # Handle rate limiting
                     if response.status_code == 429:
-                        retry_after = int(response.headers.get('Retry-After', base_delay * (2 ** attempt)))
-                        retry_after = min(retry_after, max_delay)
+                        retry_after = int(response.headers.get('Retry-After', 0))
+                        if retry_after == 0:
+                            retry_after = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
                         self.logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt + 1}/{self.max_retries})")
                         await asyncio.sleep(retry_after)
                         continue
-                    
+
                     # Raise for other HTTP errors
                     response.raise_for_status()
                     return response.json()
-                    
+
             except httpx.TimeoutException as e:
                 if attempt == self.max_retries - 1:
                     self.logger.error(f"Request timeout after {self.max_retries} attempts: {e}")
                     raise
-                delay = min(base_delay * (2 ** attempt), max_delay)
-                self.logger.warning(f"Request timeout. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
+                self.logger.warning(f"Request timeout. Retrying in {delay:.2f}s (attempt {attempt + 1}/{self.max_retries})")
                 await asyncio.sleep(delay)
-                
+
             except httpx.HTTPStatusError as e:
                 if attempt == self.max_retries - 1:
                     self.logger.error(f"HTTP error after {self.max_retries} attempts: {e}")
@@ -97,18 +110,18 @@ class CannyClient:
                 if 400 <= e.response.status_code < 500 and e.response.status_code != 429:
                     self.logger.error(f"Client error {e.response.status_code}: {e}")
                     raise
-                delay = min(base_delay * (2 ** attempt), max_delay)
-                self.logger.warning(f"HTTP error {e.response.status_code}. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
+                self.logger.warning(f"HTTP error {e.response.status_code}. Retrying in {delay:.2f}s (attempt {attempt + 1}/{self.max_retries})")
                 await asyncio.sleep(delay)
-                
+
             except httpx.HTTPError as e:
                 if attempt == self.max_retries - 1:
                     self.logger.error(f"HTTP error after {self.max_retries} attempts: {e}")
                     raise
-                delay = min(base_delay * (2 ** attempt), max_delay)
-                self.logger.warning(f"HTTP error. Retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
+                self.logger.warning(f"HTTP error. Retrying in {delay:.2f}s (attempt {attempt + 1}/{self.max_retries})")
                 await asyncio.sleep(delay)
-        
+
         raise Exception(f"Failed after {self.max_retries} retries")
     
     async def test_connection(self) -> bool:

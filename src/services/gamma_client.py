@@ -37,7 +37,7 @@ class GammaClient:
         """
         self.api_key = settings.gamma_api_key
         self.base_url = "https://public-api.gamma.app/v0.2"
-        self.timeout = 60
+        self.timeout = settings.gamma_timeout
         self.max_polls = max_polls
         self.poll_interval = poll_interval
         self.max_total_wait_seconds = max_total_wait_seconds

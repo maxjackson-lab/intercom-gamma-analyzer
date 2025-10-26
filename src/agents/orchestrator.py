@@ -267,16 +267,30 @@ class MultiAgentOrchestrator:
             raise
 
     def _get_agent_timeout(self, agent_name: str) -> float:
-        """Get timeout for specific agent from config or default."""
+        """
+        Get timeout for specific agent from config or default.
+
+        Agent names match their class names (DataAgent, CategoryAgent, etc.).
+        """
         # Default timeouts per agent type (in seconds)
+        # Keys must match agent.name which is typically the class name
         default_timeouts = {
-            'DataCollector': 180,      # 3 minutes for data fetching
-            'Categorization': 300,      # 5 minutes for categorization
-            'ExampleExtractor': 240,    # 4 minutes for examples
-            'InsightAgent': 300,        # 5 minutes for insights
-            'PresentationAgent': 600,   # 10 minutes for presentation generation
-            'SegmentationAgent': 300,   # 5 minutes for segmentation
-            'TrendAgent': 240           # 4 minutes for trends
+            'DataAgent': 180,                          # 3 minutes for data fetching
+            'CategoryAgent': 300,                       # 5 minutes for categorization
+            'SentimentAgent': 300,                      # 5 minutes for sentiment analysis
+            'InsightAgent': 300,                        # 5 minutes for insights
+            'PresentationAgent': 600,                   # 10 minutes for presentation generation
+            'SegmentationAgent': 300,                   # 5 minutes for segmentation
+            'TrendAgent': 240,                          # 4 minutes for trends
+            'TopicDetectionAgent': 300,                 # 5 minutes for topic detection
+            'SubTopicDetectionAgent': 300,              # 5 minutes for subtopic detection
+            'ExampleExtractionAgent': 240,              # 4 minutes for examples
+            'AgentPerformanceAgent': 240,               # 4 minutes for agent performance
+            'FinPerformanceAgent': 240,                 # 4 minutes for Fin performance
+            'TopicSentimentAgent': 300,                 # 5 minutes for topic sentiment
+            'OutputFormatterAgent': 180,                # 3 minutes for output formatting
+            'CrossPlatformCorrelationAgent': 300,       # 5 minutes for correlation
+            'CannyTopicDetectionAgent': 300,            # 5 minutes for Canny topics
         }
 
         # Try to get from settings/config
@@ -287,16 +301,98 @@ class MultiAgentOrchestrator:
         return default_timeouts.get(agent_name, 300)
     
     def _save_checkpoint(self, analysis_id: str, agent_name: str, result: Dict[str, Any]):
-        """Save agent result as checkpoint"""
+        """
+        Save agent result as checkpoint with atomic write and size/retention management.
+
+        Uses atomic write (temp file + rename) to prevent partial writes.
+        Enforces retention policy to prevent disk bloat.
+        """
+        from src.config.settings import settings
+        import tempfile
+
         checkpoint_file = self.checkpoint_dir / f"{analysis_id}_{agent_name}.json"
-        checkpoint_file.write_text(json.dumps(result, indent=2, default=str))
+
+        try:
+            # Atomic write: write to temp file then rename
+            with tempfile.NamedTemporaryFile(
+                mode='w',
+                dir=self.checkpoint_dir,
+                delete=False,
+                suffix='.tmp'
+            ) as tmp_file:
+                json.dump(result, tmp_file, indent=2, default=str)
+                tmp_path = Path(tmp_file.name)
+
+            # Atomic rename
+            tmp_path.replace(checkpoint_file)
+
+            self.logger.debug(f"Checkpoint saved: {checkpoint_file}")
+
+            # Enforce retention policy
+            max_checkpoints = getattr(settings, 'max_checkpoints', 100)
+            self._prune_old_checkpoints(max_checkpoints)
+
+        except Exception as e:
+            self.logger.error(f"Failed to save checkpoint {checkpoint_file}: {e}")
+            # Clean up temp file if it exists
+            if 'tmp_path' in locals() and tmp_path.exists():
+                tmp_path.unlink()
+            raise
     
     def _load_checkpoint(self, analysis_id: str, agent_name: str) -> Optional[Dict[str, Any]]:
-        """Load agent result from checkpoint"""
+        """
+        Load agent result from checkpoint with schema validation.
+
+        Returns:
+            Checkpoint data if valid, None otherwise
+        """
         checkpoint_file = self.checkpoint_dir / f"{analysis_id}_{agent_name}.json"
-        if checkpoint_file.exists():
-            return json.loads(checkpoint_file.read_text())
-        return None
+
+        if not checkpoint_file.exists():
+            return None
+
+        try:
+            data = json.loads(checkpoint_file.read_text())
+
+            # Validate basic schema
+            required_keys = ['agent_name', 'success', 'data']
+            if not all(key in data for key in required_keys):
+                self.logger.warning(f"Invalid checkpoint schema: {checkpoint_file}")
+                return None
+
+            self.logger.debug(f"Checkpoint loaded: {checkpoint_file}")
+            return data
+
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Failed to parse checkpoint {checkpoint_file}: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Failed to load checkpoint {checkpoint_file}: {e}")
+            return None
+
+    def _prune_old_checkpoints(self, max_checkpoints: int):
+        """
+        Remove old checkpoints to enforce retention policy.
+
+        Keeps the most recent max_checkpoints files based on modification time.
+        """
+        try:
+            checkpoints = sorted(
+                self.checkpoint_dir.glob("*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
+
+            if len(checkpoints) > max_checkpoints:
+                to_remove = checkpoints[max_checkpoints:]
+                for checkpoint in to_remove:
+                    checkpoint.unlink()
+                    self.logger.debug(f"Pruned old checkpoint: {checkpoint}")
+
+                self.logger.info(f"Pruned {len(to_remove)} old checkpoints (max={max_checkpoints})")
+
+        except Exception as e:
+            self.logger.warning(f"Failed to prune checkpoints: {e}")
     
     def _cleanup_checkpoint(self, analysis_id: str):
         """Remove checkpoints after successful completion"""

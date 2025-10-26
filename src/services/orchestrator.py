@@ -332,9 +332,9 @@ class AnalysisOrchestrator:
                     'summary': {}
                 }
             
-            # Fetch Canny posts if available
+            # Fetch Canny posts if available (guard behind API key check)
             canny_posts = []
-            if options.get('include_canny_data', True):
+            if options.get('include_canny_data', True) and settings.canny_api_key:
                 try:
                     from src.services.canny_client import CannyClient
                     canny_client = CannyClient()
@@ -346,6 +346,8 @@ class AnalysisOrchestrator:
                 except Exception as e:
                     self.logger.warning(f"Failed to fetch Canny data: {e}")
                     canny_posts = []
+            elif options.get('include_canny_data', True):
+                self.logger.info("Canny integration skipped: CANNY_API_KEY not configured")
             
             # Run story-driven analysis
             story_results = await self.story_driven_orchestrator.run_story_driven_analysis(
@@ -871,10 +873,17 @@ class AnalysisOrchestrator:
         
         # Check 1: Data completeness
         actual_count = len(conversations)
-        completeness_ratio = actual_count / max_conversations if max_conversations > 0 else 0
+
+        # Guard against None or zero max_conversations
+        if max_conversations is None or max_conversations == 0:
+            completeness_ratio = 1.0 if actual_count > 0 else 0.0
+        else:
+            completeness_ratio = actual_count / max_conversations
+
         validation_results['completeness_ratio'] = completeness_ratio
-        
-        if completeness_ratio < 0.8:
+
+        # Only check completeness if max_conversations is meaningful
+        if max_conversations and max_conversations > 0 and completeness_ratio < 0.8:
             validation_results['warnings'].append(
                 f"Only retrieved {actual_count}/{max_conversations} conversations ({completeness_ratio:.1%})"
             )
@@ -897,33 +906,45 @@ class AnalysisOrchestrator:
         
         validation_results['category_distribution'] = category_counts
         
-        # Check 3: Date range coverage
+        # Check 3: Date range coverage (using inclusive days)
         if conversations:
             dates = []
             for c in conversations:
                 if c.get('created_at'):
                     try:
                         # Handle different date formats
-                        date_str = c['created_at'].replace('Z', '+00:00')
-                        dates.append(datetime.fromisoformat(date_str))
+                        if isinstance(c['created_at'], datetime):
+                            dates.append(c['created_at'])
+                        elif isinstance(c['created_at'], str):
+                            date_str = c['created_at'].replace('Z', '+00:00')
+                            dates.append(datetime.fromisoformat(date_str))
                     except (ValueError, TypeError):
                         continue
-            
+
             if dates:
-                date_range_days = (max(dates) - min(dates)).days
-                expected_days = (end_date - start_date).days
-                
-                if date_range_days < expected_days * 0.5:
+                # Use inclusive day calculations: (max-min).days + 1
+                actual_date_range_days = (max(dates).date() - min(dates).date()).days + 1
+                expected_days = (end_date.date() - start_date.date()).days + 1
+
+                # Add tolerance window of 1 day for timezone edge cases
+                tolerance_days = 1
+                if actual_date_range_days < (expected_days * 0.5) - tolerance_days:
                     validation_results['warnings'].append(
-                        f"Date range coverage only {date_range_days}/{expected_days} days"
+                        f"Date range coverage only {actual_date_range_days}/{expected_days} days (inclusive)"
                     )
         
         # Calculate quality score
-        quality_factors = [
-            completeness_ratio >= 0.8,
+        quality_factors = []
+
+        # Only include completeness if max_conversations was specified
+        if max_conversations and max_conversations > 0:
+            quality_factors.append(completeness_ratio >= 0.8)
+
+        quality_factors.extend([
             len(validation_results['warnings']) == 0,
             len(category_counts) >= 2  # Reduced from 3 to 2 for smaller datasets
-        ]
-        validation_results['data_quality_score'] = sum(quality_factors) / len(quality_factors)
+        ])
+
+        validation_results['data_quality_score'] = sum(quality_factors) / len(quality_factors) if quality_factors else 0.0
         
         return validation_results

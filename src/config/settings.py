@@ -74,7 +74,15 @@ class Settings(BaseSettings):
     # Gamma Settings
     gamma_base_url: str = Field("https://gamma.app/api", env="GAMMA_BASE_URL")
     gamma_default_template: str = Field("presentation", env="GAMMA_DEFAULT_TEMPLATE")
-    
+    gamma_timeout: int = Field(60, env="GAMMA_TIMEOUT")
+
+    # Data Export & PII Settings
+    redact_sensitive_outputs: bool = Field(True, env="REDACT_SENSITIVE_OUTPUTS")
+    export_raw_data: bool = Field(False, env="EXPORT_RAW_DATA")
+
+    # Agent Checkpoint Settings
+    max_checkpoints: int = Field(100, env="MAX_CHECKPOINTS")
+
     @field_validator('default_tier1_countries', mode='before')
     @classmethod
     def parse_tier1_countries(cls, v):
