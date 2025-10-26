@@ -162,29 +162,31 @@ def analyze_formatting_quality(conversation: Dict[str, Any]) -> Dict[str, Any]:
         total_words += words
         
         # Good formatting indicators:
-        # 1. Has line breaks for long messages (>100 chars)
+        # 1. Has line breaks for long messages (>150 chars)
         # 2. Not a wall of text
         # 3. Appropriate use of paragraphs
         
-        has_proper_formatting = True
+        has_proper_formatting = False  # Default to False, must prove good formatting
         
-        # Check if message is too long without breaks
-        if len(clean_text) > 200:
-            # Should have at least one paragraph break
-            if '\n' not in message and '<p>' not in message:
+        # Short messages (<150 chars) get a pass
+        if len(clean_text) < 150:
+            has_proper_formatting = True
+        else:
+            # Long messages need paragraph breaks
+            # Check for paragraph indicators
+            has_paragraph_breaks = ('\n\n' in message or 
+                                  message.count('<p>') > 1 or 
+                                  message.count('\n') >= 2)
+            
+            if has_paragraph_breaks:
+                # Check for excessive line breaks (poor formatting)
+                if message.count('\n\n\n') > 0:
+                    has_proper_formatting = False
+                else:
+                    has_proper_formatting = True
+            else:
+                # No breaks in long message = wall of text
                 has_proper_formatting = False
-        
-        # Check for excessive line breaks (poor formatting)
-        if message.count('\n\n\n') > 0:
-            has_proper_formatting = False
-        
-        # Check for reasonable paragraph length
-        paragraphs = [p.strip() for p in re.split(r'\n\n|</?p>', message) if p.strip()]
-        if paragraphs:
-            avg_para_length = sum(len(p) for p in paragraphs) / len(paragraphs)
-            # Paragraphs should be 50-500 chars (reasonable range)
-            if all(50 <= len(p) <= 500 for p in paragraphs if len(p) > 20):
-                has_proper_formatting = True
         
         if has_proper_formatting:
             messages_with_proper_formatting += 1

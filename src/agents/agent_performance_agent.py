@@ -14,6 +14,7 @@ from datetime import datetime
 import numpy as np
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.agents.tools import ToolRegistry, AdminProfileLookupTool, QueryConversationsTool, CalculateFCRTool, CalculateCSATTool
 from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
@@ -41,14 +42,40 @@ class AgentPerformanceAgent(BaseAgent):
     }
     
     def __init__(self, agent_filter: str = 'horatio'):
+        # Setup tools before calling parent constructor
+        tool_registry = self._setup_tools()
+
         super().__init__(
             name=f"AgentPerformanceAgent_{agent_filter}",
             model="gpt-4o",
-            temperature=0.3
+            temperature=0.3,
+            tool_registry=tool_registry
         )
         self.agent_filter = agent_filter.lower()
         self.ai_client = get_ai_client()
-    
+
+        # Log tool setup after initialization
+        if self.tool_registry:
+            self.logger.info(f"Registered {len(self.tool_registry.tools)} tools for {self.name}")
+        else:
+            self.logger.warning(f"No tools registered for {self.name}")
+
+    def _setup_tools(self) -> ToolRegistry:
+        """Initialize and register all tools needed for agent performance analysis"""
+        try:
+            registry = ToolRegistry(enable_caching=True)
+
+            # Register all available tools
+            registry.register(AdminProfileLookupTool())
+            registry.register(QueryConversationsTool())
+            registry.register(CalculateFCRTool())
+            registry.register(CalculateCSATTool())
+
+            return registry
+        except Exception as e:
+            logger.warning(f"Failed to setup tools: {e}")
+            return None
+
     def get_agent_specific_instructions(self) -> str:
         """Agent performance analysis instructions"""
         agent_name = self.AGENT_PATTERNS.get(self.agent_filter, {}).get('name', self.agent_filter)
@@ -114,24 +141,28 @@ Focus areas:
         required = ['fcr_rate', 'median_resolution_hours', 'escalation_rate', 'performance_by_category']
         return all(k in result for k in required)
     
-    async def execute(self, context: AgentContext, individual_breakdown: bool = False, 
-                     analyze_troubleshooting: bool = False) -> AgentResult:
+    async def execute(self, context: AgentContext, individual_breakdown: bool = False,
+                      analyze_troubleshooting: bool = False, use_ai_tools: bool = False) -> AgentResult:
         """
         Execute agent performance analysis with optional individual breakdown.
-        
+
         Args:
             context: AgentContext with conversations and metadata
             individual_breakdown: If True, analyze each agent individually
             analyze_troubleshooting: If True, enable AI-powered troubleshooting analysis
-            
+            use_ai_tools: If True, use AI-driven tool execution instead of direct API calls
+
         Returns:
             AgentResult with team-level or individual-level analysis
         """
-        if not individual_breakdown:
+        if use_ai_tools and self.tool_registry:
+            # Use AI-driven tool execution
+            return await self.execute_with_tools(context)
+        elif not individual_breakdown:
             # Use existing team-level analysis
             return await self._execute_team_analysis(context)
         else:
-            # NEW: Individual agent analysis with taxonomy breakdown
+            # Individual agent analysis with taxonomy breakdown
             return await self._execute_individual_analysis(context, analyze_troubleshooting)
     
     async def _execute_team_analysis(self, context: AgentContext) -> AgentResult:
@@ -161,6 +192,14 @@ Focus areas:
                 agent_name, metrics, category_performance, examples
             )
             
+            # Calculate QA metrics
+            from src.utils.qa_analyzer import calculate_qa_metrics
+            qa_metrics_data = calculate_qa_metrics(
+                conversations, 
+                metrics['fcr_rate'], 
+                metrics.get('reopen_rate', 0)
+            )
+            
             # Prepare result
             result_data = {
                 'agent_name': agent_name,
@@ -179,19 +218,35 @@ Focus areas:
                 }
             }
             
+            # Add QA metrics if available
+            if qa_metrics_data:
+                result_data['avg_qa_overall'] = qa_metrics_data.get('overall_qa_score')
+                result_data['avg_qa_connection'] = qa_metrics_data.get('customer_connection_score')
+                result_data['avg_qa_communication'] = qa_metrics_data.get('communication_quality_score')
+                result_data['qa_metrics_summary'] = qa_metrics_data
+            
             self.validate_output(result_data)
             
             confidence = min(1.0, len(conversations) / 100)
             confidence_level = (ConfidenceLevel.HIGH if len(conversations) >= 100
-                              else ConfidenceLevel.MEDIUM if len(conversations) >= 30
-                              else ConfidenceLevel.LOW)
-            
+                               else ConfidenceLevel.MEDIUM if len(conversations) >= 30
+                               else ConfidenceLevel.LOW)
+
             execution_time = (datetime.now() - start_time).total_seconds()
-            
+
             self.logger.info(f"AgentPerformanceAgent: Completed in {execution_time:.2f}s")
             self.logger.info(f"   {agent_name} FCR: {metrics['fcr_rate']:.1%}")
             self.logger.info(f"   Escalation rate: {metrics['escalation_rate']:.1%}")
-            
+
+            # Add tool call summary to result data if tools were used
+            if self.tool_registry and self.tool_calls_made:
+                result_data['tool_calls_summary'] = self.get_tool_call_summary()
+
+            # Update sources to include tool executions if used
+            sources = [f"{agent_name} conversations", "Operational metrics", "LLM analysis"]
+            if self.tool_registry and self.tool_calls_made:
+                sources.append(f"Tool executions ({len(self.tool_calls_made)} calls)")
+
             return AgentResult(
                 agent_name=self.name,
                 success=True,
@@ -199,7 +254,7 @@ Focus areas:
                 confidence=confidence,
                 confidence_level=confidence_level,
                 limitations=[f"Based on {len(conversations)} conversations"] if len(conversations) < 100 else [],
-                sources=[f"{agent_name} conversations", "Operational metrics", "LLM analysis"],
+                sources=sources,
                 execution_time=execution_time,
                 token_count=0  # Will be updated after LLM call
             )
@@ -242,53 +297,76 @@ Focus areas:
                 f"({len(conversations)} conversations)"
             )
             
-            # Initialize services
-            intercom_service = IntercomServiceV2()
+            # Initialize services (no longer need admin_cache since using tools)
             duckdb_storage = DuckDBStorage()
-            admin_cache = AdminProfileCache(intercom_service, duckdb_storage)
             
             # Extract admin details for all conversations
             self.logger.info("Extracting admin profiles from conversations...")
             admin_details_map = {}
             all_admins_seen = {}  # Track ALL admins for debugging
-            
-            async with httpx.AsyncClient(timeout=60) as client:
-                for conv in conversations:
-                    # Extract admin IDs from conversation
-                    admin_ids = self._extract_admin_ids(conv)
-                    
-                    for admin_id in admin_ids:
-                        if admin_id not in admin_details_map:
-                            # Get public email if available
-                            public_email = self._get_public_email_for_admin(conv, admin_id)
-                            
-                            # Fetch profile with caching
-                            profile = await admin_cache.get_admin_profile(
-                                admin_id, 
-                                client,
-                                public_email
-                            )
-                            
-                            # Track all admins for debugging
-                            all_admins_seen[admin_id] = {
-                                'email': profile.email,
-                                'vendor': profile.vendor,
-                                'name': profile.name
-                            }
-                            
-                            # Only include if vendor matches
-                            if profile.vendor == self.agent_filter:
-                                admin_details_map[admin_id] = {
-                                    'id': profile.id,
-                                    'name': profile.name,
-                                    'email': profile.email,
-                                    'vendor': profile.vendor
-                                }
-                                
-                                # Attach to conversation for grouping
-                                if '_admin_details' not in conv:
-                                    conv['_admin_details'] = []
-                                conv['_admin_details'].append(admin_details_map[admin_id])
+
+            # Collect unique admin IDs and their public emails
+            unique_admins = {}
+            for conv in conversations:
+                admin_ids = self._extract_admin_ids(conv)
+                for admin_id in admin_ids:
+                    if admin_id not in unique_admins:
+                        public_email = self._get_public_email_for_admin(conv, admin_id)
+                        unique_admins[admin_id] = public_email
+
+            # Use tool-based lookups for admin profiles
+            import asyncio
+            tasks = []
+            for admin_id, public_email in unique_admins.items():
+                tasks.append(self.tool_registry.execute_tool(
+                    'lookup_admin_profile',
+                    admin_id=admin_id,
+                    public_email=public_email
+                ))
+
+            # Execute all lookups in parallel
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            for (admin_id, public_email), result in zip(unique_admins.items(), results):
+                if isinstance(result, Exception):
+                    self.logger.warning(f"Tool lookup failed for admin {admin_id}: {result}")
+                    continue
+
+                if not result.success:
+                    self.logger.warning(f"Tool lookup unsuccessful for admin {admin_id}: {result.error_message}")
+                    continue
+
+                # Extract data from tool result
+                data = result.data
+                admin_id_canonical = data['admin_id']  # Use admin_id field (id is deprecated)
+                email = data.get('email')
+                vendor = data.get('vendor')
+                name = data.get('name')
+
+                # Track all admins for debugging
+                all_admins_seen[admin_id] = {
+                    'email': email,
+                    'vendor': vendor,
+                    'name': name
+                }
+
+                # Only include if vendor matches
+                if vendor == self.agent_filter:
+                    admin_details_map[admin_id_canonical] = {
+                        'id': admin_id_canonical,  # Keep both for compatibility
+                        'admin_id': admin_id_canonical,
+                        'name': name,
+                        'email': email,
+                        'vendor': vendor
+                    }
+
+                    # Attach to conversations for grouping (find conversations with this admin)
+                    for conv in conversations:
+                        if admin_id in self._extract_admin_ids(conv):
+                            if '_admin_details' not in conv:
+                                conv['_admin_details'] = []
+                            conv['_admin_details'].append(admin_details_map[admin_id_canonical])
             
             # Enhanced logging for debugging
             self.logger.info(f"Found {len(admin_details_map)} {agent_name} agents")
@@ -324,8 +402,8 @@ Focus areas:
             
             # Analyze individual agents
             analyzer = IndividualAgentAnalyzer(
-                self.agent_filter, 
-                admin_cache, 
+                self.agent_filter,
+                None,  # No longer need admin_cache since using tools
                 duckdb_storage,
                 enable_troubleshooting_analysis=analyze_troubleshooting
             )
@@ -358,20 +436,31 @@ Focus areas:
             report.week_over_week_changes = wow_changes if wow_changes else None
             
             execution_time = (datetime.now() - start_time).total_seconds()
-            
+
             self.logger.info(f"Individual analysis completed in {execution_time:.2f}s")
             self.logger.info(f"   Analyzed {len(agent_metrics)} agents")
             self.logger.info(f"   {len(report.agents_needing_coaching)} need coaching")
             self.logger.info(f"   {len(report.agents_for_praise)} deserve praise")
-            
+
+            # Add tool call summary to result data
+            result_data = report.dict()
+            if self.tool_registry and self.tool_calls_made:
+                tool_summary = self.get_tool_call_summary()
+                result_data['tool_calls_summary'] = tool_summary
+
+            # Update sources to include tool executions if used
+            sources = [f"{agent_name} agents", "Taxonomy analysis", "Historical data"]
+            if self.tool_registry and self.tool_calls_made:
+                sources.append(f"Tool executions ({len(self.tool_calls_made)} calls)")
+
             return AgentResult(
                 agent_name=self.name,
                 success=True,
-                data=report.dict(),
+                data=result_data,
                 confidence=1.0,
                 confidence_level=ConfidenceLevel.HIGH,
                 limitations=[],
-                sources=[f"{agent_name} agents", "Taxonomy analysis", "Historical data"],
+                sources=sources,
                 execution_time=execution_time
             )
             
@@ -449,11 +538,26 @@ Focus areas:
         team_fcr = sum(a.fcr_rate * a.total_conversations for a in agent_metrics) / total_convs if total_convs else 0
         team_esc = sum(a.escalation_rate * a.total_conversations for a in agent_metrics) / total_convs if total_convs else 0
         
+        # Calculate team QA metrics (average across agents with QA data)
+        agents_with_qa = [a for a in agent_metrics if a.qa_metrics is not None]
+        if agents_with_qa:
+            team_qa_overall = sum(a.qa_metrics.overall_qa_score for a in agents_with_qa) / len(agents_with_qa)
+            team_qa_connection = sum(a.qa_metrics.customer_connection_score for a in agents_with_qa) / len(agents_with_qa)
+            team_qa_communication = sum(a.qa_metrics.communication_quality_score for a in agents_with_qa) / len(agents_with_qa)
+            team_qa_content = sum(a.qa_metrics.content_quality_score for a in agents_with_qa) / len(agents_with_qa)
+        else:
+            team_qa_overall = team_qa_connection = team_qa_communication = team_qa_content = None
+        
         team_metrics = {
             'total_conversations': total_convs,
             'team_fcr_rate': team_fcr,
             'team_escalation_rate': team_esc,
-            'total_agents': len(agent_metrics)
+            'total_agents': len(agent_metrics),
+            'team_qa_overall': team_qa_overall,
+            'team_qa_connection': team_qa_connection,
+            'team_qa_communication': team_qa_communication,
+            'team_qa_content': team_qa_content,
+            'agents_with_qa_metrics': len(agents_with_qa)
         }
         
         # Identify agents needing coaching (bottom 25% or coaching_priority = high)

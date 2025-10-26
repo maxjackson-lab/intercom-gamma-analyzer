@@ -1246,7 +1246,18 @@ def _display_individual_breakdown(data: Dict, vendor_name: str):
     console.print(f"   Total Agents: {team_metrics.get('total_agents', 0)}")
     console.print(f"   Total Conversations: {team_metrics.get('total_conversations', 0)}")
     console.print(f"   Team FCR: {team_metrics.get('team_fcr_rate', 0):.1%}")
-    console.print(f"   Team Escalation Rate: {team_metrics.get('team_escalation_rate', 0):.1%}\n")
+    console.print(f"   Team Escalation Rate: {team_metrics.get('team_escalation_rate', 0):.1%}")
+    
+    # Add team QA metrics if available
+    if team_metrics.get('team_qa_overall') is not None:
+        qa_overall = team_metrics.get('team_qa_overall', 0)
+        qa_color = "green" if qa_overall >= 0.8 else "yellow" if qa_overall >= 0.6 else "red"
+        console.print(f"   Team QA Score: [{qa_color}]{qa_overall:.2f}/1.0[/{qa_color}] "
+                     f"(Connection: {team_metrics.get('team_qa_connection', 0):.2f}, "
+                     f"Communication: {team_metrics.get('team_qa_communication', 0):.2f}, "
+                     f"Content: {team_metrics.get('team_qa_content', 0):.2f})")
+        console.print(f"   QA Metrics Available: {team_metrics.get('agents_with_qa_metrics', 0)}/{team_metrics.get('total_agents', 0)} agents")
+    console.print()
     
     # Highlights
     if data.get('highlights'):
@@ -1272,6 +1283,7 @@ def _display_individual_breakdown(data: Dict, vendor_name: str):
         table.add_column("Agent Name", width=20)
         table.add_column("Conversations", justify="right", width=13)
         table.add_column("FCR", justify="right", width=8)
+        table.add_column("QA Score", justify="right", width=10)
         table.add_column("Escalation", justify="right", width=11)
         table.add_column("Response Time", justify="right", width=13)
         table.add_column("Coaching", width=10)
@@ -1280,11 +1292,20 @@ def _display_individual_breakdown(data: Dict, vendor_name: str):
             coaching_priority = agent.get('coaching_priority', 'low')
             coaching_color = "red" if coaching_priority == "high" else "yellow" if coaching_priority == "medium" else "green"
             
+            # Get QA score if available
+            qa_metrics = agent.get('qa_metrics')
+            qa_score_display = "N/A"
+            if qa_metrics:
+                overall_qa = qa_metrics.get('overall_qa_score', 0)
+                qa_color = "green" if overall_qa >= 0.8 else "yellow" if overall_qa >= 0.6 else "red"
+                qa_score_display = f"[{qa_color}]{overall_qa:.2f}[/{qa_color}]"
+            
             table.add_row(
                 str(agent.get('fcr_rank', '?')),
                 agent.get('agent_name', 'Unknown'),
                 str(agent.get('total_conversations', 0)),
                 f"{agent.get('fcr_rate', 0):.1%}",
+                qa_score_display,
                 f"{agent.get('escalation_rate', 0):.1%}",
                 f"{agent.get('median_response_hours', 0):.1f}h",
                 f"[{coaching_color}]{coaching_priority.upper()}[/{coaching_color}]"
@@ -1300,6 +1321,24 @@ def _display_individual_breakdown(data: Dict, vendor_name: str):
         for agent in coaching_needed[:5]:  # Top 5
             console.print(f"\n   {agent.get('agent_name', 'Unknown')} ({agent.get('agent_email', '')})")
             console.print(f"   FCR: {agent.get('fcr_rate', 0):.1%}, Escalation: {agent.get('escalation_rate', 0):.1%}")
+            
+            # Add QA metrics if available
+            qa_metrics = agent.get('qa_metrics')
+            if qa_metrics:
+                overall_qa = qa_metrics.get('overall_qa_score', 0)
+                qa_color = "green" if overall_qa >= 0.8 else "yellow" if overall_qa >= 0.6 else "red"
+                console.print(f"   QA Score: [{qa_color}]{overall_qa:.2f}[/{qa_color}] "
+                            f"(Greeting: {qa_metrics.get('greeting_quality_score', 0):.2f}, "
+                            f"Grammar: {qa_metrics.get('avg_grammar_errors_per_message', 0):.1f} errors/msg, "
+                            f"Formatting: {qa_metrics.get('proper_formatting_rate', 0):.0%})")
+                
+                # Add QA-specific coaching points
+                if qa_metrics.get('greeting_quality_score', 1.0) < 0.6:
+                    console.print(f"   [yellow]→ Improve greetings: use customer names and warm opening[/yellow]")
+                if qa_metrics.get('avg_grammar_errors_per_message', 0) > 1.0:
+                    console.print(f"   [yellow]→ Reduce grammar errors ({qa_metrics.get('avg_grammar_errors_per_message', 0):.1f}/msg)[/yellow]")
+                if qa_metrics.get('proper_formatting_rate', 1.0) < 0.7:
+                    console.print(f"   [yellow]→ Use proper paragraph breaks and formatting[/yellow]")
             
             focus_areas = agent.get('coaching_focus_areas', [])
             if focus_areas:
@@ -1317,6 +1356,15 @@ def _display_individual_breakdown(data: Dict, vendor_name: str):
         for agent in praise_worthy[:5]:  # Top 5
             console.print(f"\n   {agent.get('agent_name', 'Unknown')} ({agent.get('agent_email', '')})")
             console.print(f"   FCR: {agent.get('fcr_rate', 0):.1%}, Rank: #{agent.get('fcr_rank', '?')}")
+            
+            # Add QA metrics if available
+            qa_metrics = agent.get('qa_metrics')
+            if qa_metrics:
+                overall_qa = qa_metrics.get('overall_qa_score', 0)
+                console.print(f"   [green]QA Score: {overall_qa:.2f}/1.0[/green] "
+                            f"(Greeting: {qa_metrics.get('greeting_quality_score', 0):.2f}, "
+                            f"Communication: {qa_metrics.get('communication_quality_score', 0):.2f}, "
+                            f"Content: {qa_metrics.get('content_quality_score', 0):.2f})")
             
             achievements = agent.get('praise_worthy_achievements', [])
             if achievements:
@@ -1539,6 +1587,15 @@ async def run_agent_performance_analysis(
             console.print(f"   First Contact Resolution: {data['fcr_rate']:.1%}")
             console.print(f"   Median Resolution Time: {data['median_resolution_hours']:.1f} hours")
             console.print(f"   Escalation Rate: {data['escalation_rate']:.1%}")
+            
+            # Add QA metrics if available
+            if data.get('avg_qa_overall') is not None:
+                qa_overall = data.get('avg_qa_overall', 0)
+                qa_color = "green" if qa_overall >= 0.8 else "yellow" if qa_overall >= 0.6 else "red"
+                console.print(f"   QA Score: [{qa_color}]{qa_overall:.2f}/1.0[/{qa_color}] "
+                            f"(Connection: {data.get('avg_qa_connection', 0):.2f}, "
+                            f"Communication: {data.get('avg_qa_communication', 0):.2f})")
+            
             console.print(f"   Confidence: {result.confidence_level.value}\n")
             
             if data.get('performance_by_category'):
@@ -1587,6 +1644,11 @@ async def run_agent_performance_analysis(
 - First Contact Resolution: {data['fcr_rate']:.1%}
 - Median Resolution Time: {data['median_resolution_hours']:.1f} hours
 - Escalation Rate: {data['escalation_rate']:.1%}
+
+**Quality Assurance (Automated)**:
+- Customer Connection Score: {data.get('avg_qa_connection', 'N/A') if isinstance(data.get('avg_qa_connection'), (int, float)) else 'N/A'}
+- Communication Quality Score: {data.get('avg_qa_communication', 'N/A') if isinstance(data.get('avg_qa_communication'), (int, float)) else 'N/A'}
+- Overall QA Score: {data.get('avg_qa_overall', 'N/A') if isinstance(data.get('avg_qa_overall'), (int, float)) else 'N/A'}
 
 ---
 
@@ -1850,7 +1912,21 @@ def _build_coaching_gamma_markdown(
 - First Contact Resolution: {team_metrics.get('team_fcr_rate', 0):.1%}
 - Escalation Rate: {team_metrics.get('team_escalation_rate', 0):.1%}
 
----
+"""
+    
+    # Add team QA metrics if available
+    if team_metrics.get('team_qa_overall') is not None:
+        markdown += f"""**Quality Assurance Scores** (Team Average):
+- Overall QA Score: {team_metrics.get('team_qa_overall', 0):.2f}/1.0
+- Customer Connection: {team_metrics.get('team_qa_connection', 0):.2f}/1.0
+- Communication Quality: {team_metrics.get('team_qa_communication', 0):.2f}/1.0
+- Content Quality: {team_metrics.get('team_qa_content', 0):.2f}/1.0
+
+_Based on {team_metrics.get('agents_with_qa_metrics', 0)} agents with sufficient message data_
+
+"""
+    
+    markdown += """---
 
 ## Highlights & Achievements
 
@@ -1876,6 +1952,13 @@ def _build_coaching_gamma_markdown(
             markdown += f"### {agent.get('agent_name', 'Unknown')}\n\n"
             markdown += f"**Performance**: {agent.get('fcr_rate', 0):.1%} FCR (Rank #{agent.get('fcr_rank', '?')})\n\n"
             
+            # Add QA metrics if available
+            qa_metrics = agent.get('qa_metrics')
+            if qa_metrics:
+                markdown += f"**Quality Scores**: QA {qa_metrics.get('overall_qa_score', 0):.2f}/1.0 "
+                markdown += f"(Greeting {qa_metrics.get('greeting_quality_score', 0):.2f}, "
+                markdown += f"Communication {qa_metrics.get('communication_quality_score', 0):.2f})\n\n"
+            
             for achievement in agent.get('praise_worthy_achievements', [])[:2]:
                 markdown += f"✓ {achievement}\n\n"
             
@@ -1888,7 +1971,30 @@ def _build_coaching_gamma_markdown(
         for agent in coaching_needed:
             markdown += f"### {agent.get('agent_name', 'Unknown')}\n\n"
             markdown += f"**Current Performance**: {agent.get('fcr_rate', 0):.1%} FCR\n\n"
-            markdown += f"**Focus Areas**:\n"
+            
+            # Add QA metrics if available
+            qa_metrics = agent.get('qa_metrics')
+            if qa_metrics:
+                markdown += f"**Quality Scores**: QA {qa_metrics.get('overall_qa_score', 0):.2f}/1.0 "
+                markdown += f"(Greeting {qa_metrics.get('greeting_quality_score', 0):.2f}, "
+                markdown += f"Communication {qa_metrics.get('communication_quality_score', 0):.2f})\n\n"
+                
+                # Add specific QA-based coaching points
+                qa_coaching = []
+                if qa_metrics.get('greeting_quality_score', 1.0) < 0.6:
+                    qa_coaching.append("Improve greeting quality: consistently greet customers and use their names")
+                if qa_metrics.get('avg_grammar_errors_per_message', 0) > 1.0:
+                    qa_coaching.append(f"Reduce grammar errors (currently {qa_metrics.get('avg_grammar_errors_per_message', 0):.1f} per message)")
+                if qa_metrics.get('proper_formatting_rate', 1.0) < 0.7:
+                    qa_coaching.append("Improve message formatting: use proper paragraph breaks")
+                
+                if qa_coaching:
+                    markdown += f"**Communication Quality Coaching**:\n"
+                    for coaching_point in qa_coaching:
+                        markdown += f"- {coaching_point}\n"
+                    markdown += "\n"
+            
+            markdown += f"**Performance Focus Areas**:\n"
             
             for area in agent.get('coaching_focus_areas', [])[:3]:
                 markdown += f"- {area}\n"

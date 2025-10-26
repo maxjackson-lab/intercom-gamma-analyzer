@@ -336,16 +336,16 @@ class OpenAIClient:
         try:
             prompt = f"""
             Explain the following trend data in business terms:
-            
+
             {trend_data}
-            
+
             Provide:
             - What the trends mean
             - Business implications
             - Why these trends might be occurring
             - What actions should be considered
             """
-            
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -361,10 +361,54 @@ class OpenAIClient:
                 max_tokens=800,
                 temperature=0.2
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
             self.logger.error(f"Failed to generate trend explanation: {e}")
             return "Trend explanation generation failed"
+
+    async def chat_completion_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: str = "auto",
+        model: Optional[str] = None,
+        temperature: Optional[float] = None
+    ) -> Any:
+        """
+        Create a chat completion with tool calling support.
+
+        Args:
+            messages: List of message dictionaries (OpenAI format)
+            tools: Optional list of tool definitions in OpenAI format
+            tool_choice: Tool choice strategy ("auto", "none", or specific tool)
+            model: Optional model override (defaults to self.model)
+            temperature: Optional temperature override (defaults to self.temperature)
+
+        Returns:
+            OpenAI ChatCompletion response object
+
+        Raises:
+            Exception: If API call fails
+        """
+        try:
+            call_params = {
+                "model": model or self.model,
+                "messages": messages,
+                "temperature": temperature if temperature is not None else self.temperature
+            }
+
+            # Add tools if provided
+            if tools:
+                call_params["tools"] = tools
+                call_params["tool_choice"] = tool_choice
+
+            response = await self.client.chat.completions.create(**call_params)
+
+            return response
+
+        except Exception as e:
+            self.logger.error(f"Chat completion with tools failed: {e}")
+            raise
 

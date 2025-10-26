@@ -32,6 +32,7 @@ class AuditTrail:
         self.warnings = []
         self.decisions = []
         self.data_quality_issues = []
+        self.tool_calls = []
     
     def step(self, phase: str, action: str, details: Dict[str, Any] = None):
         """
@@ -99,7 +100,7 @@ class AuditTrail:
     def data_quality_check(self, check_name: str, passed: bool, details: Dict[str, Any]):
         """
         Record a data quality check.
-        
+
         Args:
             check_name: Name of the check
             passed: Whether the check passed
@@ -112,9 +113,39 @@ class AuditTrail:
             'details': details
         }
         self.data_quality_issues.append(check_data)
-        
+
         status = "✅ PASSED" if passed else "❌ FAILED"
         self.logger.info(f"[DATA QUALITY] {check_name}: {status}")
+
+    def tool_call(self, tool_name: str, arguments: Dict[str, Any], result: Any, success: bool, execution_time_ms: float, error_message: str = None):
+        """
+        Record a tool execution in the audit trail.
+
+        Args:
+            tool_name: Name of the tool that was called (e.g., "lookup_admin_profile")
+            arguments: Arguments passed to the tool
+            result: Result data returned by the tool (if successful)
+            success: Whether the tool execution succeeded
+            execution_time_ms: Execution time in milliseconds
+            error_message: Error message if execution failed
+        """
+        tool_call_data = {
+            'timestamp': datetime.now().isoformat(),
+            'tool_name': tool_name,
+            'arguments': arguments,
+            'result': result,
+            'success': success,
+            'execution_time_ms': execution_time_ms,
+            'error_message': error_message
+        }
+        self.tool_calls.append(tool_call_data)
+
+        # Log the tool call
+        status = "SUCCESS" if success else "FAILED"
+        self.logger.info(f"[TOOL CALL] {tool_name} - {status} ({execution_time_ms:.1f}ms)")
+        if not success and error_message:
+            self.logger.warning(f"[TOOL CALL] {tool_name} - ERROR: {error_message}")
+        self.logger.debug(f"[TOOL CALL] Arguments: {arguments}")
     
     def generate_report(self) -> str:
         """
@@ -145,7 +176,18 @@ class AuditTrail:
             report_lines.append("**Phases Completed:**")
             for phase, count in phases.items():
                 report_lines.append(f"- {phase}: {count} steps")
-        
+
+            # Add tool call summary to executive summary
+            if self.tool_calls:
+                report_lines.append("\n**Tool Calls:**")
+                successful = sum(1 for tc in self.tool_calls if tc['success'])
+                failed = len(self.tool_calls) - successful
+                report_lines.append(f"- Total: {len(self.tool_calls)} ({successful} successful, {failed} failed)")
+
+                # List unique tools used
+                tools_used = set(tc['tool_name'] for tc in self.tool_calls)
+                report_lines.append(f"- Tools Used: {', '.join(tools_used)}")
+
         report_lines.append("\n---\n")
         
         # Data Quality Checks
@@ -190,7 +232,48 @@ class AuditTrail:
                 report_lines.append("")
             
             report_lines.append("---\n")
-        
+
+        # Tool Calls Section
+        if self.tool_calls:
+            report_lines.append("## 🔧 Tool Calls\n")
+
+            # Summary
+            successful_count = sum(1 for tc in self.tool_calls if tc['success'])
+            failed_count = len(self.tool_calls) - successful_count
+            total_time = sum(tc['execution_time_ms'] for tc in self.tool_calls)
+
+            report_lines.append(f"**Total Tool Calls:** {len(self.tool_calls)}")
+            report_lines.append(f"**Successful:** {successful_count}")
+            report_lines.append(f"**Failed:** {failed_count}")
+            report_lines.append(f"**Total Execution Time:** {total_time:.1f}ms\n")
+
+            # Individual tool calls
+            for i, tc in enumerate(self.tool_calls, 1):
+                status = "✅ SUCCESS" if tc['success'] else "❌ FAILED"
+                report_lines.append(f"### Tool Call #{i}: {tc['tool_name']} - {status}\n")
+                report_lines.append(f"**When:** {tc['timestamp']}")
+                report_lines.append(f"**Execution Time:** {tc['execution_time_ms']:.1f}ms\n")
+
+                # Arguments
+                report_lines.append("**Arguments:**")
+                for key, value in tc['arguments'].items():
+                    report_lines.append(f"  - {key}: `{value}`")
+
+                # Result or error
+                if tc['success']:
+                    report_lines.append("\n**Result:**")
+                    if isinstance(tc['result'], dict):
+                        for key, value in tc['result'].items():
+                            report_lines.append(f"  - {key}: `{value}`")
+                    else:
+                        report_lines.append(f"  - {tc['result']}")
+                else:
+                    report_lines.append(f"\n**Error:** {tc['error_message']}")
+
+                report_lines.append("")
+
+            report_lines.append("---\n")
+
         # Detailed Step-by-Step
         report_lines.append("## 📋 Detailed Step-by-Step Process\n")
         
@@ -267,7 +350,8 @@ class AuditTrail:
             'steps': self.steps,
             'decisions': self.decisions,
             'warnings': self.warnings,
-            'data_quality_checks': self.data_quality_issues
+            'data_quality_checks': self.data_quality_issues,
+            'tool_calls': self.tool_calls
         }
         
         with open(filepath, 'w') as f:
@@ -288,6 +372,11 @@ class AuditTrail:
         self.logger.info(f"Decisions: {len(self.decisions)}")
         self.logger.info(f"Warnings: {len(self.warnings)}")
         self.logger.info(f"Data Quality Checks: {len(self.data_quality_issues)}")
+        self.logger.info(f"Tool Calls: {len(self.tool_calls)}")
+        if self.tool_calls:
+            successful = sum(1 for tc in self.tool_calls if tc['success'])
+            self.logger.info(f"  Successful: {successful}")
+            self.logger.info(f"  Failed: {len(self.tool_calls) - successful}")
         
         if self.warnings:
             self.logger.warning("⚠️ WARNINGS:")
@@ -332,4 +421,24 @@ class AuditableAnalysis:
             json_path = self.audit.save_json()
             return markdown_path
         return None
+
+    def record_tool_calls_from_agent(self, agent_result: Any):
+        """
+        Convenience method to record all tool calls from an AgentResult
+
+        Args:
+            agent_result: AgentResult object containing tool_calls_made list
+        """
+        if hasattr(agent_result, 'data') and 'tool_calls_summary' in agent_result.data:
+            tool_calls = agent_result.data['tool_calls_summary'].get('calls', [])
+            for tc in tool_calls:
+                self.audit.tool_call(
+                    tool_name=tc['tool_name'],
+                    arguments=tc['arguments'],
+                    result=tc.get('result'),
+                    success=tc['success'],
+                    execution_time_ms=tc['execution_time_ms'],
+                    error_message=tc.get('error_message')
+                )
+            self.logger.info(f"Recorded {len(tool_calls)} tool calls from {agent_result.agent_name}")
 
