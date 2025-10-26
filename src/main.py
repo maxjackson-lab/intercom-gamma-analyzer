@@ -3728,6 +3728,8 @@ async def run_test_topic_based(conversations):
               default='topic-based', help='Analysis type when multi-agent enabled')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
               help='AI model to use (openai or claude). Defaults to config setting.')
+@click.option('--audit-trail', is_flag=True, default=False,
+              help='Enable audit trail logging for debugging and compliance')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def voice_of_customer_analysis(
     time_period: Optional[str],
