@@ -186,7 +186,11 @@ class TopicOrchestrator:
             
             segmentation_result = await self.segmentation_agent.execute(context)
             workflow_results['SegmentationAgent'] = _normalize_agent_result(segmentation_result)
-            
+
+            # Record tool calls from agent if audit is enabled
+            if self.audit:
+                self.audit.record_tool_calls_from_agent(segmentation_result)
+
             # Display agent result
             try:
                 display.display_agent_result('SegmentationAgent', _normalize_agent_result(segmentation_result), show_full_data)
@@ -237,7 +241,11 @@ class TopicOrchestrator:
             context.conversations = conversations  # Changed: detect topics for ALL conversations
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
-            
+
+            # Record tool calls from agent if audit is enabled
+            if self.audit:
+                self.audit.record_tool_calls_from_agent(topic_detection_result)
+
             # Display agent result
             try:
                 display.display_agent_result('TopicDetectionAgent', _normalize_agent_result(topic_detection_result), show_full_data)
@@ -297,7 +305,11 @@ class TopicOrchestrator:
                 
                 subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
                 workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
-                
+
+                # Record tool calls from agent if audit is enabled
+                if self.audit:
+                    self.audit.record_tool_calls_from_agent(subtopic_detection_result)
+
                 # Display agent result
                 try:
                     display.display_agent_result('SubTopicDetectionAgent', _normalize_agent_result(subtopic_detection_result), show_full_data)
