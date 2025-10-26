@@ -23,6 +23,62 @@ class AdminProfile(BaseModel):
         }
 
 
+class QAPerformanceMetrics(BaseModel):
+    """Quality Assurance metrics based on Gamma QA rubric - automated analysis"""
+    
+    # Customer Connection (automated detection)
+    greeting_present: bool = Field(description="Did agent greet customer in first message?")
+    customer_name_used: bool = Field(description="Did agent use customer's name?")
+    greeting_quality_score: float = Field(
+        ge=0, le=1, 
+        description="Quality of opening message (0-1)"
+    )
+    
+    # Communication Quality (automated text analysis)
+    avg_grammar_errors_per_message: float = Field(
+        ge=0,
+        description="Average grammar/spelling errors per agent message"
+    )
+    avg_message_length_words: int = Field(
+        ge=0,
+        description="Average message length in words"
+    )
+    proper_formatting_rate: float = Field(
+        ge=0, le=1,
+        description="% of messages with proper paragraph breaks"
+    )
+    
+    # Composite scores
+    customer_connection_score: float = Field(
+        ge=0, le=1,
+        description="Overall customer connection quality (greeting + name usage)"
+    )
+    communication_quality_score: float = Field(
+        ge=0, le=1,
+        description="Overall communication quality (grammar + formatting)"
+    )
+    
+    # Content quality (derived from existing metrics)
+    content_quality_score: float = Field(
+        ge=0, le=1,
+        description="Derived from FCR and reopen rates"
+    )
+    
+    # Overall QA Score (weighted average)
+    overall_qa_score: float = Field(
+        ge=0, le=1,
+        description="Weighted: Connection(30%) + Communication(35%) + Content(35%)"
+    )
+    
+    # Metadata
+    messages_analyzed: int = Field(
+        description="Number of agent messages analyzed for QA scoring"
+    )
+    conversations_sampled: int = Field(
+        description="Number of conversations included in QA analysis"
+    )
+
+
 class CategoryPerformance(BaseModel):
     """Performance metrics for a specific taxonomy category"""
     primary_category: str
@@ -73,6 +129,12 @@ class IndividualAgentMetrics(BaseModel):
     rating_distribution: Dict[str, int] = Field(
         default_factory=dict,
         description="Breakdown by star rating (1-5)"
+    )
+    
+    # QA metrics (quality assurance based on Gamma QA rubric)
+    qa_metrics: Optional[QAPerformanceMetrics] = Field(
+        None,
+        description="Quality assurance scores (greeting, grammar, formatting)"
     )
     
     # Troubleshooting metrics (effort and methodology)
@@ -212,7 +274,13 @@ class VendorPerformanceReport(BaseModel):
         None,
         description="Percentage changes in key metrics vs previous period"
     )
-    
+
+    # Tool call summary
+    tool_calls_summary: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Summary of tool calls made during analysis"
+    )
+
     # Summary
     highlights: List[str] = Field(
         default_factory=list,

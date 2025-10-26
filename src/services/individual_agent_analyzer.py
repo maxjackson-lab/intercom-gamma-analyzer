@@ -14,11 +14,13 @@ import numpy as np
 from src.models.agent_performance_models import (
     IndividualAgentMetrics,
     CategoryPerformance,
-    TeamTrainingNeed
+    TeamTrainingNeed,
+    QAPerformanceMetrics
 )
 from src.services.admin_profile_cache import AdminProfileCache
 from src.services.duckdb_storage import DuckDBStorage
 from src.config.taxonomy import taxonomy_manager
+from src.utils.qa_analyzer import calculate_qa_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +240,10 @@ class IndividualAgentAnalyzer:
                 'troubleshooting_consistency': 0.0
             }
         
+        # QA Metrics (automated quality analysis)
+        qa_metrics_data = calculate_qa_metrics(convs, fcr_rate, reopen_rate)
+        qa_metrics = QAPerformanceMetrics(**qa_metrics_data) if qa_metrics_data else None
+        
         return IndividualAgentMetrics(
             agent_id=agent_id,
             agent_name=agent_info.get('name', 'Unknown'),
@@ -256,6 +262,8 @@ class IndividualAgentAnalyzer:
             csat_survey_count=csat_survey_count,
             negative_csat_count=negative_csat_count,
             rating_distribution=rating_distribution,
+            # QA metrics (automated quality analysis)
+            qa_metrics=qa_metrics,
             # Troubleshooting metrics
             avg_troubleshooting_score=troubleshooting_metrics['avg_troubleshooting_score'],
             avg_diagnostic_questions=troubleshooting_metrics['avg_diagnostic_questions'],
