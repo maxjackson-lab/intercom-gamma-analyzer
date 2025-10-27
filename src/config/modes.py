@@ -2,6 +2,19 @@
 Analysis Mode Configuration Helper
 
 Provides centralized configuration for analysis modes and feature flags.
+
+Environment Variables:
+- ANALYSIS_MODE: Force a specific analysis mode ('standard' or 'multi-agent')
+- AI_MODEL: Default AI model to use ('openai' or 'claude')
+- MAX_CONCURRENT_TOPICS: Maximum number of topics to process concurrently (default: 5)
+  - Recommended range: 3-8
+  - Higher values increase throughput but use more resources
+  - Lower values reduce resource usage but increase total time
+  
+Examples:
+  - Small datasets (< 10 topics): MAX_CONCURRENT_TOPICS=3
+  - Medium datasets (10-50 topics): MAX_CONCURRENT_TOPICS=5 (default)
+  - Large datasets (> 50 topics): MAX_CONCURRENT_TOPICS=8
 """
 
 import os
@@ -12,6 +25,10 @@ from typing import Dict, Any, Optional
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+# Topic processing concurrency configuration
+MAX_CONCURRENT_TOPICS = int(os.getenv('MAX_CONCURRENT_TOPICS', '5'))
 
 
 class AnalysisMode(Enum):
@@ -78,6 +95,7 @@ class AnalysisModeConfig:
             },
             'multi_agent': {
                 'max_parallel_topics': 10,
+                'max_concurrent_topics': MAX_CONCURRENT_TOPICS,
                 'enable_llm_topic_discovery': True,
                 'enable_topic_metrics': True
             }
@@ -165,18 +183,19 @@ class AnalysisModeConfig:
         features = self.config.get('features', {})
         return features.get(feature_name, True)
     
-    def get_multi_agent_setting(self, setting_name: str) -> Any:
+    def get_multi_agent_setting(self, setting_name: str, default: Any = None) -> Any:
         """
         Get a multi-agent workflow setting.
         
         Args:
-            setting_name: Name of the setting (e.g., 'max_parallel_topics')
+            setting_name: Name of the setting (e.g., 'max_parallel_topics', 'max_concurrent_topics')
+            default: Default value if setting is not found
         
         Returns:
             Setting value
         """
         multi_agent_config = self.config.get('multi_agent', {})
-        return multi_agent_config.get(setting_name)
+        return multi_agent_config.get(setting_name, default)
     
     def get_visibility_setting(self, setting_name: str, default: Any = True) -> Any:
         """

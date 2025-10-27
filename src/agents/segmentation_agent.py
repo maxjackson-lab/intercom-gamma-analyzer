@@ -11,9 +11,10 @@ import logging
 import re
 from typing import Dict, Any, List
 from datetime import datetime
+from pydantic import ValidationError
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.models.analysis_models import CustomerTier
+from src.models.analysis_models import CustomerTier, SegmentationPayload
 
 logger = logging.getLogger(__name__)
 
@@ -200,13 +201,26 @@ Output: Segmented conversations with agent type labels
         return True
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        """Validate segmentation results"""
-        required_keys = ['paid_customer_conversations', 'paid_fin_resolved_conversations', 'free_fin_only_conversations']
-        for key in required_keys:
-            if key not in result:
-                self.logger.warning(f"Missing key: {key}")
-                return False
-        return True
+        """
+        Validate segmentation results using Pydantic model.
+        
+        Args:
+            result: Raw output dictionary to validate
+            
+        Returns:
+            True if validation passes
+            
+        Raises:
+            ValueError: If validation fails with clear error message
+        """
+        try:
+            # Use Pydantic model for validation
+            SegmentationPayload(**result)
+            return True
+        except ValidationError as e:
+            error_msg = f"Segmentation output validation failed: {e}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
     
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute conversation segmentation"""

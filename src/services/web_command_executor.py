@@ -33,19 +33,21 @@ class WebCommandExecutor:
     - Error handling and timeout management
     - Output buffering for download/display
     - Security: Command validation, bounded buffers, no shell execution
+    - Output filtering to strip secrets and sensitive data
     """
     
     # Security constants
     MAX_OUTPUT_LINES = 10000  # Maximum number of output lines to buffer
     MAX_ARG_LENGTH = 1024  # Maximum length of a single argument
     MAX_ARGS_COUNT = 100  # Maximum number of arguments
+    MAX_REQUEST_SIZE = 10 * 1024 * 1024  # 10MB max request payload
     
     # Command whitelist - only these commands are allowed
     ALLOWED_COMMANDS = {
         "python", "python3", "python3.9", "python3.10", "python3.11", "python3.12"
     }
     
-    # Command argument schemas - defines allowed patterns for specific commands
+    # Per-command argument schemas - defines allowed patterns for specific commands
     COMMAND_SCHEMAS = {
         "python": {
             "allowed_modules": {"src.main", "-m"},
@@ -54,11 +56,11 @@ class WebCommandExecutor:
                 "--help", "-h", "--version", "-v", "--verbose", "--test-mode", "--test-data-count",
                 # Output options
                 "--output-dir", "--output-format", "--generate-gamma",
-                # Date/time options
-                "--start-date", "--end-date", "--month", "--year", "--time-period", "--days", "--periods-back",
+                # Date/time options - with strict validation
+                "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
                 # Analysis options
-                "--multi-agent", "--analysis-type", "--tier1-countries",
-                "--focus-areas", "--focus-categories", "--custom-prompt", "--prompt-file",
+                "--multi-agent", "--analysis-type",
+                "--focus-areas", "--focus-categories",
                 "--max-conversations", "--parallel",
                 # Agent options
                 "--agent", "--agent-type", "--vendor", "--individual-breakdown", "--top-n",
@@ -72,6 +74,19 @@ class WebCommandExecutor:
                 "--audit-trail", "--analyze-troubleshooting",
                 # Other options
                 "--export-format", "--limit", "--category", "--subcategory"
+            },
+            # Per-flag validation schemas
+            "flag_schemas": {
+                "--time-period": {"type": "enum", "values": ["yesterday", "week", "month", "quarter", "year"]},
+                "--days": {"type": "int", "min": 1, "max": 365},
+                "--limit": {"type": "int", "min": 1, "max": 10000},
+                "--top-n": {"type": "int", "min": 1, "max": 100},
+                "--test-data-count": {"type": "int", "min": 1, "max": 10000},
+                "--agent": {"type": "enum", "values": ["horatio", "boldr", "escalated"]},
+                "--vendor": {"type": "enum", "values": ["horatio", "boldr"]},
+                "--analysis-type": {"type": "enum", "values": ["topic-based", "synthesis", "complete"]},
+                "--export-format": {"type": "enum", "values": ["json", "csv", "markdown"]},
+                "--category": {"type": "enum", "values": ["Billing", "Bug", "Product Question", "Account", "Feedback", "Agent/Buddy", "Workspace", "Privacy", "Chargeback", "Partnerships", "Promotions", "Abuse", "Unknown"]},
             }
         }
     }
@@ -84,6 +99,35 @@ class WebCommandExecutor:
     NUMBER_PATTERN = re.compile(r'^\d+$')
     IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9_\-]+$')
     
+    # Patterns for filtering sensitive data from output (aligned with audit_trail.py)
+    SENSITIVE_PATTERNS = [
+        # Email addresses
+        (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),
+        # Bearer tokens
+        (r'Bearer\s+[a-zA-Z0-9_\-\.]+', 'Bearer [TOKEN_REDACTED]'),
+        # API keys (20+ alphanumeric chars)
+        (r'\b[A-Za-z0-9_-]{20,}\b', '[API_KEY_REDACTED]'),
+        # Intercom conversation IDs (numeric)
+        (r'\bconversation_id["\s:]+\d+', 'conversation_id: [ID_REDACTED]'),
+        # Admin IDs in various formats
+        (r'\badmin_id["\s:]+\d+', 'admin_id: [ID_REDACTED]'),
+        # Environment variable secrets
+        (r'(API_KEY|SECRET|TOKEN|PASSWORD)\s*[:=]\s*[^\s]+', r'\1: [REDACTED]'),
+        # Hex tokens (32+ chars)
+        (r'\b[a-f0-9]{32,}\b', '[HEX_TOKEN_REDACTED]'),
+        # AWS credentials
+        (r'(AKIA[0-9A-Z]{16})', '[REDACTED_AWS_KEY]'),
+        # Generic secrets
+        (r'(sk_live_|sk_test_|pk_live_|pk_test_)[^\s\n]+', '[REDACTED_SECRET]'),
+    ]
+    
+    # Stack trace patterns to filter
+    STACK_TRACE_PATTERNS = [
+        r'Traceback \(most recent call last\):.*?(?=\n[A-Z]|\Z)',
+        r'File "[^"]+", line \d+.*',
+        r'^\s+at\s+.*',
+    ]
+    
     def __init__(self, max_output_lines: int = MAX_OUTPUT_LINES):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
@@ -93,6 +137,34 @@ class WebCommandExecutor:
     def generate_execution_id(self) -> str:
         """Generate unique execution ID."""
         return str(uuid.uuid4())
+    
+    def _filter_sensitive_output(self, text: str) -> str:
+        """
+        Filter sensitive data from output before sending to client.
+        
+        Removes:
+        - API keys and tokens
+        - AWS credentials
+        - Stack traces
+        - Other secrets
+        
+        Args:
+            text: Output text to filter
+            
+        Returns:
+            Filtered text with sensitive data redacted
+        """
+        filtered = text
+        
+        # Apply sensitive pattern filtering
+        for pattern, replacement in self.SENSITIVE_PATTERNS:
+            filtered = re.sub(pattern, replacement, filtered, flags=re.IGNORECASE)
+        
+        # Filter stack traces (multiline)
+        for pattern in self.STACK_TRACE_PATTERNS:
+            filtered = re.sub(pattern, '[STACK_TRACE_REDACTED]', filtered, flags=re.DOTALL | re.MULTILINE)
+        
+        return filtered
     
     def _validate_command_and_args(self, command: str, args: List[str]) -> tuple[str, List[str]]:
         """
@@ -131,8 +203,12 @@ class WebCommandExecutor:
         # Validate each argument
         validated_args = []
         schema = self.COMMAND_SCHEMAS.get(command, {})
+        flag_schemas = schema.get("flag_schemas", {})
         
-        for i, arg in enumerate(args):
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            
             # Must be a string
             if not isinstance(arg, str):
                 raise ValueError(f"Argument {i} must be a string, got {type(arg).__name__}")
@@ -160,24 +236,77 @@ class WebCommandExecutor:
                         raise ValueError(
                             f"Argument {i}: flag '{flag_name}' is not allowed for command '{command}'"
                         )
-                # If previous arg was a flag expecting a value, validate the value format
-                elif i > 0:
-                    prev_arg = validated_args[-1] if validated_args else None
-                    if prev_arg in {'--start-date', '--end-date'}:
-                        if not self.DATE_PATTERN.match(arg):
-                            raise ValueError(
-                                f"Argument {i}: expected date format YYYY-MM-DD, got '{arg}'"
-                            )
-                    elif prev_arg in {'--month', '--year'}:
-                        if not self.NUMBER_PATTERN.match(arg):
-                            raise ValueError(
-                                f"Argument {i}: expected numeric value for {prev_arg}, got '{arg}'"
-                            )
+                    
+                    # Validate flag value if schema exists
+                    if flag_name in flag_schemas:
+                        flag_schema = flag_schemas[flag_name]
+                        
+                        # Check if value is in the same arg (--flag=value) or next arg
+                        if '=' in arg:
+                            # Value is in same arg
+                            value = arg.split('=', 1)[1]
+                        elif i + 1 < len(args) and not args[i + 1].startswith('-'):
+                            # Value is in next arg
+                            value = args[i + 1]
+                            i += 1  # Skip next arg since we're consuming it
+                        else:
+                            # Flag expects a value but none provided
+                            raise ValueError(f"Argument {i}: flag '{flag_name}' requires a value")
+                        
+                        # Validate value based on schema
+                        self._validate_flag_value(flag_name, value, flag_schema)
+                    
+                    validated_args.append(arg)
+                else:
+                    # Regular argument (not a flag)
+                    validated_args.append(arg)
+            else:
+                validated_args.append(arg)
             
-            validated_args.append(arg)
+            i += 1
         
         self.logger.info(f"Validated command: {command_path} with {len(validated_args)} args")
         return command_path, validated_args
+    
+    def _validate_flag_value(self, flag_name: str, value: str, schema: Dict[str, Any]) -> None:
+        """
+        Validate a flag's value against its schema.
+        
+        Args:
+            flag_name: Name of the flag
+            value: Value to validate
+            schema: Schema definition for the flag
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        value_type = schema.get("type")
+        
+        if value_type == "enum":
+            allowed_values = schema.get("values", [])
+            if value not in allowed_values:
+                raise ValueError(
+                    f"Flag '{flag_name}' value '{value}' not allowed. "
+                    f"Allowed values: {', '.join(allowed_values)}"
+                )
+        
+        elif value_type == "int":
+            try:
+                int_value = int(value)
+            except ValueError:
+                raise ValueError(f"Flag '{flag_name}' requires integer value, got '{value}'")
+            
+            min_val = schema.get("min")
+            max_val = schema.get("max")
+            
+            if min_val is not None and int_value < min_val:
+                raise ValueError(f"Flag '{flag_name}' value {int_value} is below minimum {min_val}")
+            if max_val is not None and int_value > max_val:
+                raise ValueError(f"Flag '{flag_name}' value {int_value} exceeds maximum {max_val}")
+        
+        elif value_type == "date":
+            if not self.DATE_PATTERN.match(value):
+                raise ValueError(f"Flag '{flag_name}' requires date format YYYY-MM-DD, got '{value}'")
     
     def _get_project_root(self) -> Path:
         """
@@ -281,6 +410,7 @@ class WebCommandExecutor:
         
         Security: Commands are validated against a whitelist, arguments are sanitized,
         and processes are executed without shell=True to prevent injection attacks.
+        Output is filtered to remove sensitive data before sending to clients.
         
         Args:
             command: The command to execute (e.g., 'python')
@@ -376,16 +506,19 @@ class WebCommandExecutor:
                 process.stdout, process.stderr, execution_id
             ):
                 if line_data:  # Skip empty lines
+                    # Filter sensitive data from output
+                    filtered_data = self._filter_sensitive_output(line_data)
+                    
                     # Buffer output with bounded deque (automatically drops oldest)
                     self.execution_states[execution_id]["output_buffer"].append({
                         "type": stream_type,
-                        "data": line_data,
+                        "data": filtered_data,
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                     
                     yield {
                         "type": stream_type,
-                        "data": line_data,
+                        "data": filtered_data,
                         "execution_id": execution_id,
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     }

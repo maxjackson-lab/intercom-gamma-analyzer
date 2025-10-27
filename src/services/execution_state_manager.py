@@ -42,6 +42,8 @@ class ExecutionState:
     return_code: Optional[int] = None
     queue_position: Optional[int] = None
     gamma_metadata: Optional[Dict[str, Any]] = None  # Store Gamma generation metadata
+    audit_files: List[str] = field(default_factory=list)  # Track audit trail files
+    output_files: List[str] = field(default_factory=list)  # Track all output files
     max_output_buffer_size: int = 1000  # Maximum number of output entries to keep
     
     def __post_init__(self):
@@ -60,6 +62,7 @@ class ExecutionStateManager:
     - Automatic cleanup of old executions
     - Concurrent execution limits
     - State persistence for downloads
+    - Cancellation signal tracking
     """
     
     def __init__(self, max_concurrent: int = 5, max_queue_size: int = 20, persistence_dir: str = "/app/outputs/jobs"):
@@ -75,6 +78,7 @@ class ExecutionStateManager:
         self._executions: Dict[str, ExecutionState] = {}
         self._queue: List[str] = []  # List of execution IDs in queue order
         self._active: List[str] = []  # List of currently running execution IDs
+        self._cancellation_signals: Dict[str, bool] = {}  # Track cancellation requests
         
         # Thread safety
         self._lock = asyncio.Lock()
@@ -220,6 +224,75 @@ class ExecutionStateManager:
             if execution_id in self._executions:
                 self._executions[execution_id].output_buffer.append(output_data)
     
+    async def add_audit_file(self, execution_id: str, audit_file_path: str) -> bool:
+        """
+        Add audit file to execution state.
+        
+        Args:
+            execution_id: The execution ID
+            audit_file_path: Path to the audit file (relative or absolute)
+            
+        Returns:
+            True if added successfully, False otherwise
+        """
+        try:
+            async with self._lock:
+                if execution_id not in self._executions:
+                    self.logger.warning(f"Execution {execution_id} not found for audit file tracking")
+                    return False
+                
+                execution = self._executions[execution_id]
+                
+                # Extract filename from path
+                filename = Path(audit_file_path).name
+                
+                # Add to audit_files if not already present
+                if filename not in execution.audit_files:
+                    execution.audit_files.append(filename)
+                    self.logger.info(f"Added audit file {filename} to execution {execution_id}")
+                    
+                    # Also add to output_files
+                    if filename not in execution.output_files:
+                        execution.output_files.append(filename)
+                    
+                    # Save to disk
+                    self._save_to_disk(execution_id)
+                    
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Failed to add audit file for {execution_id}: {e}")
+            return False
+    
+    async def add_output_file(self, execution_id: str, file_path: str) -> bool:
+        """
+        Add output file to execution state.
+        
+        Args:
+            execution_id: The execution ID
+            file_path: Path to the output file
+            
+        Returns:
+            True if added successfully, False otherwise
+        """
+        try:
+            async with self._lock:
+                if execution_id not in self._executions:
+                    return False
+                
+                execution = self._executions[execution_id]
+                filename = Path(file_path).name
+                
+                if filename not in execution.output_files:
+                    execution.output_files.append(filename)
+                    self._save_to_disk(execution_id)
+                    
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Failed to add output file for {execution_id}: {e}")
+            return False
+    
     async def get_execution(self, execution_id: str) -> Optional[ExecutionState]:
         """Get execution state by ID."""
         async with self._lock:
@@ -246,23 +319,115 @@ class ExecutionStateManager:
                 return self._queue[0]
             return None
     
-    async def cleanup_old_executions(self, max_age_hours: int = 1):
-        """Clean up old completed executions."""
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+    async def cleanup_old_executions(
+        self,
+        max_age_days: int = 14,
+        max_count: int = 50,
+        cleanup_files: bool = True
+    ) -> Dict[str, int]:
+        """
+        Clean up old execution states and files based on retention policy.
         
+        Args:
+            max_age_days: Delete executions older than this many days (default: 14)
+            max_count: Keep at most this many recent executions (default: 50)
+            cleanup_files: Also delete associated output and audit files (default: True)
+        
+        Returns:
+            Dict with cleanup statistics:
+            - deleted_executions: Number of execution states deleted
+            - deleted_files: Number of files deleted
+            - remaining_executions: Number of executions remaining
+        """
         async with self._lock:
-            to_remove = []
-            for execution_id, execution in self._executions.items():
-                if (execution.status in [ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, 
-                                       ExecutionStatus.CANCELLED, ExecutionStatus.TIMEOUT, ExecutionStatus.ERROR] and
-                    execution.end_time and execution.end_time < cutoff_time):
-                    to_remove.append(execution_id)
+            now = datetime.now()
+            cutoff_date = now - timedelta(days=max_age_days)
             
-            for execution_id in to_remove:
-                del self._executions[execution_id]
+            # Get completed executions sorted by date (oldest first)
+            completed_executions = [
+                (exec_id, state) for exec_id, state in self._executions.items()
+                if state.status in [
+                    ExecutionStatus.COMPLETED,
+                    ExecutionStatus.FAILED,
+                    ExecutionStatus.CANCELLED,
+                    ExecutionStatus.TIMEOUT,
+                    ExecutionStatus.ERROR
+                ]
+            ]
             
-            if to_remove:
-                self.logger.info(f"Cleaned up {len(to_remove)} old executions")
+            completed_executions.sort(
+                key=lambda x: x[1].start_time,
+                reverse=False  # Oldest first
+            )
+            
+            deleted_count = 0
+            deleted_files = 0
+            kept_recent = set()
+            
+            # Keep last N executions regardless of age
+            if len(completed_executions) > max_count:
+                for exec_id, state in completed_executions[-max_count:]:
+                    kept_recent.add(exec_id)
+            
+            # Delete old executions
+            for exec_id, state in completed_executions:
+                # Skip if in "keep recent" set
+                if exec_id in kept_recent:
+                    continue
+                
+                # Check age
+                started_at = state.start_time
+                if started_at > cutoff_date:
+                    continue
+                
+                # Delete output files if requested
+                if cleanup_files:
+                    # Delete all tracked output files
+                    for filename in state.output_files:
+                        filepath = Path("/app/outputs") / filename
+                        if filepath.exists():
+                            try:
+                                filepath.unlink()
+                                deleted_files += 1
+                                self.logger.info(f"Deleted output file: {filename}")
+                            except Exception as e:
+                                self.logger.error(f"Failed to delete {filename}: {e}")
+                    
+                    # Delete audit files (if not already in output_files)
+                    for filename in state.audit_files:
+                        if filename not in state.output_files:
+                            filepath = Path("/app/outputs") / filename
+                            if filepath.exists():
+                                try:
+                                    filepath.unlink()
+                                    deleted_files += 1
+                                    self.logger.info(f"Deleted audit file: {filename}")
+                                except Exception as e:
+                                    self.logger.error(f"Failed to delete {filename}: {e}")
+                
+                # Delete persisted state file
+                state_file = self.persistence_dir / f"{exec_id}.json"
+                if state_file.exists():
+                    try:
+                        state_file.unlink()
+                        self.logger.info(f"Deleted state file: {state_file.name}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to delete state file {state_file}: {e}")
+                
+                # Remove from memory
+                del self._executions[exec_id]
+                deleted_count += 1
+            
+            self.logger.info(
+                f"Cleanup complete: Deleted {deleted_count} executions "
+                f"and {deleted_files} files. {len(self._executions)} executions remaining."
+            )
+            
+            return {
+                "deleted_executions": deleted_count,
+                "deleted_files": deleted_files,
+                "remaining_executions": len(self._executions)
+            }
     
     async def get_statistics(self) -> Dict[str, Any]:
         """Get execution statistics."""
@@ -300,11 +465,38 @@ class ExecutionStateManager:
             
             elif execution.status in [ExecutionStatus.STARTING, ExecutionStatus.RUNNING]:
                 # Mark for cancellation (actual cancellation handled by executor)
+                self._cancellation_signals[execution_id] = True
                 execution.status = ExecutionStatus.CANCELLED
                 self.logger.info(f"Marked execution {execution_id} for cancellation")
                 return True
             
             return False
+    
+    def request_cancellation(self, execution_id: str):
+        """Signal that execution should be cancelled (synchronous version for non-async contexts)."""
+        self._cancellation_signals[execution_id] = True
+        if execution_id in self._executions:
+            self.logger.info(f"Cancellation requested for execution {execution_id}")
+    
+    def is_cancelled(self, execution_id: str) -> bool:
+        """Check if execution has been cancelled."""
+        return self._cancellation_signals.get(execution_id, False)
+    
+    def mark_cancelled(self, execution_id: str):
+        """Mark execution as cancelled and clean up cancellation signal."""
+        if execution_id in self._cancellation_signals:
+            self._cancellation_signals.pop(execution_id, None)
+        self.logger.info(f"Execution {execution_id} marked as cancelled")
+    
+    def check_should_abort(self, execution_id: str):
+        """
+        Check if execution should abort.
+        Raises CancellationError if cancelled.
+        
+        This should be called periodically during long-running operations.
+        """
+        if self.is_cancelled(execution_id):
+            raise asyncio.CancelledError(f"Execution {execution_id} was cancelled")
     
     async def get_all_executions(self, limit: int = 100) -> List[ExecutionState]:
         """Get all executions (for admin/debugging purposes)."""
@@ -333,6 +525,8 @@ class ExecutionStateManager:
                 "return_code": execution.return_code,
                 "queue_position": execution.queue_position,
                 "gamma_metadata": execution.gamma_metadata,  # Include Gamma metadata
+                "audit_files": execution.audit_files,  # Include audit files
+                "output_files": execution.output_files,  # Include output files
                 "output_count": len(list(execution.output_buffer)) if execution.output_buffer else 0
             }
             
@@ -372,7 +566,9 @@ class ExecutionStateManager:
                         error_message=data.get("error_message"),
                         return_code=data.get("return_code"),
                         queue_position=data.get("queue_position"),
-                        gamma_metadata=data.get("gamma_metadata")  # Load Gamma metadata
+                        gamma_metadata=data.get("gamma_metadata"),  # Load Gamma metadata
+                        audit_files=data.get("audit_files", []),  # Load audit files
+                        output_files=data.get("output_files", [])  # Load output files
                     )
                     
                     self._executions[execution.execution_id] = execution

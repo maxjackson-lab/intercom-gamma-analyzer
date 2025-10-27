@@ -6,14 +6,39 @@ nested/work emails from admin objects.
 """
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
+import time
+from functools import wraps
 import httpx
 
 from src.models.agent_performance_models import AdminProfile
 from src.services.duckdb_storage import DuckDBStorage
 
 logger = logging.getLogger(__name__)
+
+
+def retry_with_backoff(max_retries=3, base_delay=1.0):
+    """Decorator for retry with exponential backoff"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return await func(self, *args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        self.logger.warning(f"All {max_retries} retry attempts failed for {func.__name__}: {e}")
+                        raise
+                    delay = base_delay * (2 ** attempt)
+                    self.logger.warning(
+                        f"Attempt {attempt + 1}/{max_retries} failed for {func.__name__}: {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    time.sleep(delay)
+            return None
+        return wrapper
+    return decorator
 
 
 class AdminProfileCache:
@@ -80,13 +105,14 @@ class AdminProfileCache:
         
         return profile
     
+    @retry_with_backoff(max_retries=3, base_delay=1.0)
     async def _fetch_from_api(
-        self, 
-        admin_id: str, 
+        self,
+        admin_id: str,
         client: httpx.AsyncClient,
         public_email: Optional[str] = None
     ) -> AdminProfile:
-        """Fetch admin profile from Intercom API"""
+        """Fetch admin profile from Intercom API with retry/backoff"""
         try:
             self.logger.info(f"Fetching admin profile from API: {admin_id}")
             response = await client.get(
@@ -160,10 +186,50 @@ class AdminProfileCache:
         except httpx.HTTPStatusError as e:
             self.logger.warning(f"HTTP error fetching admin {admin_id}: {e.response.status_code}")
             self.logger.warning(f"Response body: {e.response.text[:500]}")
-            return self._create_fallback_profile(admin_id, public_email)
+            return self._create_fallback_profile(admin_id, None, public_email)
         except Exception as e:
             self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
-            return self._create_fallback_profile(admin_id, public_email)
+            return self._create_fallback_profile(admin_id, None, public_email)
+    
+    def _extract_vendor_from_email(self, email: str) -> Optional[str]:
+        """
+        Extract vendor name from email domain.
+        
+        Known vendor domains:
+        - @horatio.ai, @hirehoratio.co → 'horatio'
+        - @boldr.co, @boldr.com, @boldrimpact.com → 'boldr'
+        - @escalated.* → 'escalated'
+        
+        Returns None for public domains (gmail, yahoo, etc.)
+        
+        Args:
+            email: Email address to extract vendor from
+            
+        Returns:
+            Vendor name or None for public domains or invalid emails
+        """
+        if not email or '@' not in email:
+            return None
+        
+        domain = email.split('@')[1].lower()
+        
+        # Public domains - not vendor-specific
+        public_domains = {'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'}
+        if domain in public_domains:
+            return None
+        
+        # Known vendor patterns
+        if 'horatio' in domain:
+            return 'horatio'
+        if 'boldr' in domain:
+            return 'boldr'
+        if 'escalated' in domain:
+            return 'escalated'
+        if 'gamma' in domain:
+            return 'gamma'
+        
+        # Unknown vendor domain - return first part of domain
+        return domain.split('.')[0]
     
     def _identify_vendor(self, email: str) -> str:
         """
@@ -173,7 +239,7 @@ class AdminProfileCache:
             email: Email address to classify
             
         Returns:
-            Vendor name: 'horatio', 'boldr', 'gamma', or 'unknown'
+            Vendor name: 'horatio', 'boldr', 'gamma', 'escalated', or 'unknown'
         """
         if not email or not isinstance(email, str):
             return "unknown"
@@ -194,9 +260,13 @@ class AdminProfileCache:
         vendor_domains = {
             'hirehoratio.co': 'horatio',
             'horatio.com': 'horatio',
+            'horatio.ai': 'horatio',
             'boldrimpact.com': 'boldr',
             'boldr.com': 'boldr',
+            'boldr.co': 'boldr',
             'gamma.app': 'gamma',
+            'escalated.com': 'escalated',
+            'escalated.io': 'escalated',
         }
         
         return vendor_domains.get(domain, 'unknown')
@@ -219,33 +289,76 @@ class AdminProfileCache:
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         return bool(re.match(email_pattern, email.strip()))
     
-    def _create_fallback_profile(self, admin_id: str, public_email: Optional[str] = None) -> AdminProfile:
+    def _create_fallback_profile(
+        self,
+        admin_id: str,
+        conversation_parts: Optional[List[Dict]] = None,
+        public_email: Optional[str] = None
+    ) -> AdminProfile:
         """
         Create fallback profile when API fetch fails.
         
-        IMPORTANT: Uses the email from conversation_parts directly, which may be
-        the work email (@hirehoratio.co) even if labeled as 'public_email' in our code.
+        Attempts to derive vendor from:
+        1. Email domain in conversation_parts (if provided)
+        2. public_email parameter
+        3. Default to 'unknown'
+        
+        Args:
+            admin_id: Admin ID
+            conversation_parts: Optional list of conversation parts to extract email from
+            public_email: Optional fallback email
+            
+        Returns:
+            AdminProfile with derived vendor information
         """
-        # Validate and clean public_email if provided
-        clean_email = ""
-        if public_email:
-            clean_email = public_email.strip()
-            if not self._validate_email(clean_email):
-                self.logger.warning(f"Invalid public_email format for admin {admin_id}: {public_email}")
-                clean_email = ""
+        vendor = None
+        email = None
         
-        vendor = self._identify_vendor(clean_email)
+        # Try to extract vendor from conversation parts
+        if conversation_parts:
+            for part in conversation_parts:
+                author = part.get('author', {})
+                if author.get('type') == 'admin' and str(author.get('id')) == str(admin_id):
+                    email = author.get('email')
+                    if email:
+                        vendor = self._extract_vendor_from_email(email)
+                        if vendor:
+                            self.logger.info(
+                                f"Derived vendor '{vendor}' from conversation_parts email for admin {admin_id}"
+                            )
+                        break
         
-        self.logger.info(
-            f"Created fallback profile for admin {admin_id}: "
-            f"email={clean_email}, vendor={vendor}"
-        )
+        # Fallback to public_email if no vendor found yet
+        if not vendor and public_email:
+            email = email or public_email
+            vendor = self._extract_vendor_from_email(public_email)
+            if vendor:
+                self.logger.info(
+                    f"Derived vendor '{vendor}' from public_email for admin {admin_id}"
+                )
+        
+        # Validate email
+        if email and not self._validate_email(email):
+            self.logger.warning(f"Invalid email format for admin {admin_id}: {email}")
+            email = public_email or f'admin{admin_id}@unknown.com'
+        elif not email:
+            email = public_email or f'admin{admin_id}@unknown.com'
+        
+        # Log vendor attribution result
+        if vendor:
+            self.logger.info(f"Successfully attributed vendor '{vendor}' for admin {admin_id}")
+        else:
+            self.logger.warning(
+                f"Vendor attribution gap for admin {admin_id} - using 'unknown'. "
+                f"Email: {email}"
+            )
+            vendor = 'unknown'
         
         return AdminProfile(
             id=admin_id,
-            name="Unknown",
-            email=clean_email,
-            public_email=public_email,
+            name=f'Admin {admin_id}',
+            email=email,
+            public_email=public_email or email,
             vendor=vendor,
             active=True,
             cached_at=datetime.now()

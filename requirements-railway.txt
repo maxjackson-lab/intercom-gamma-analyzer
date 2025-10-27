@@ -67,6 +67,9 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 sse-starlette>=1.6.5
 
+# Task scheduling for periodic cleanup
+APScheduler>=3.10.4
+
 # Chat interface dependencies (included for full functionality)
 sentence-transformers>=2.2.0
 faiss-cpu>=1.7.0

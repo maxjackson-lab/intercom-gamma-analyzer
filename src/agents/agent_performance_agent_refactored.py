@@ -178,7 +178,7 @@ Focus areas:
             return await self._execute_individual_analysis(context, analyze_troubleshooting)
     
     async def _execute_team_analysis(self, context: AgentContext) -> AgentResult:
-        """Execute team-level performance analysis using modular components"""
+        """Execute team-level performance analysis (original behavior)"""
         start_time = datetime.now()
         
         try:
@@ -287,13 +287,14 @@ Focus areas:
     
     async def _execute_individual_analysis(self, context: AgentContext, 
                                            analyze_troubleshooting: bool = False) -> AgentResult:
-        """Execute individual agent performance analysis with taxonomy breakdown using modular components"""
+        """Execute individual agent performance analysis with taxonomy breakdown"""
         start_time = datetime.now()
         
         try:
             from src.services.individual_agent_analyzer import IndividualAgentAnalyzer
             from src.services.duckdb_storage import DuckDBStorage
             from src.services.historical_performance_manager import HistoricalPerformanceManager
+            from src.models.agent_performance_models import VendorPerformanceReport
             
             self.validate_input(context)
             

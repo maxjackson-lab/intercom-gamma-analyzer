@@ -11,7 +11,7 @@ Purpose:
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
@@ -21,6 +21,17 @@ logger = logging.getLogger(__name__)
 
 class OutputFormatterAgent(BaseAgent):
     """Agent specialized in formatting output to match Hilary's format"""
+    
+    # Define expected agent outputs with required/optional flags
+    EXPECTED_AGENTS = {
+        'SegmentationAgent': {'required': True, 'key': 'segmentation'},
+        'TopicDetectionAgent': {'required': True, 'key': 'topics'},
+        'SubTopicDetectionAgent': {'required': False, 'key': 'subtopics'},
+        'TrendAgent': {'required': False, 'key': 'trends'},
+        'FinPerformanceAgent': {'required': False, 'key': 'fin_performance'},
+        'TopicSentiments': {'required': False, 'key': 'sentiments'},
+        'TopicExamples': {'required': False, 'key': 'examples'}
+    }
     
     def __init__(self):
         super().__init__(
@@ -66,16 +77,85 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         return "Agent results to format: All previous agents"
     
     def validate_input(self, context: AgentContext) -> bool:
-        """Validate input"""
-        required_agents = ['SegmentationAgent', 'TopicDetectionAgent']
-        for agent in required_agents:
-            if agent not in context.previous_results:
-                raise ValueError(f"Missing {agent} results")
+        """
+        Validate input with graceful handling of missing sections.
+        
+        Checks for required and optional agent outputs.
+        Logs warnings for missing sections but doesn't fail.
+        """
+        if not hasattr(context, 'previous_results') or context.previous_results is None:
+            raise ValueError("Missing previous_results in context")
+        
+        previous_results = context.previous_results
+        missing_agents = []
+        missing_optional = []
+        
+        # Check each expected agent
+        for agent_name, config in self.EXPECTED_AGENTS.items():
+            is_required = config['required']
+            
+            # Check if agent result exists in previous_results
+            if agent_name not in previous_results:
+                if is_required:
+                    missing_agents.append(agent_name)
+                else:
+                    missing_optional.append(agent_name)
+        
+        # Log warnings for missing optional sections
+        if missing_optional:
+            warning_msg = f"Missing optional agent outputs: {', '.join(missing_optional)}"
+            self.logger.warning(warning_msg)
+            
+            # Add to audit trail if available
+            if hasattr(self, 'audit') and self.audit:
+                self.audit.warning(
+                    "Missing Optional Sections",
+                    warning_msg,
+                    impact="Some sections will show placeholder messages"
+                )
+        
+        # Fail only if required sections are missing
+        if missing_agents:
+            error_msg = f"Missing required agent outputs: {', '.join(missing_agents)}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        self.logger.info(
+            f"Input validation complete. "
+            f"Present: {len(previous_results)}, "
+            f"Missing optional: {len(missing_optional)}"
+        )
+        
         return True
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
         """Validate formatted output"""
         return 'formatted_output' in result
+    
+    def _generate_missing_section_placeholder(self, section_name: str, agent_name: str) -> str:
+        """
+        Generate placeholder message for missing section.
+        
+        Args:
+            section_name: Name of the missing section (e.g., "Trend Analysis")
+            agent_name: Name of the agent that should have provided data
+        
+        Returns:
+            Markdown-formatted placeholder message
+        """
+        return f"""
+## {section_name}
+
+> ⚠️ **Section Unavailable**
+>
+> The {agent_name} did not complete successfully or was not run.
+> This section has been omitted from the report.
+>
+> To include this section, ensure the {agent_name} runs successfully
+> before the OutputFormatterAgent.
+
+---
+"""
     
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute output formatting"""
@@ -241,7 +321,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     if tier_comparison:
                         comparison_card = self._format_tier_comparison_card(tier_comparison)
                         output_sections.append(comparison_card)
-
+ 
                     # Add LLM insights if available (tier-based branch)
                     llm_insights = fin_performance.get('llm_insights')
                     if llm_insights:
@@ -254,6 +334,13 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     output_sections.append("")
                     fin_card = self._format_fin_card(fin_performance)
                     output_sections.append(fin_card)
+            else:
+                # Fin performance data missing - add placeholder
+                placeholder = self._generate_missing_section_placeholder(
+                    "Fin AI Performance Analysis",
+                    "FinPerformanceAgent"
+                )
+                output_sections.append(placeholder)
             
             # Combine all sections
             formatted_output = '\n'.join(output_sections)

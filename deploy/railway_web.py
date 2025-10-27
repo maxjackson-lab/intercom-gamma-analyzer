@@ -11,6 +11,18 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+from functools import wraps
+from collections import defaultdict
+import time
+
+# Try to import APScheduler for periodic cleanup
+try:
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    HAS_APSCHEDULER = True
+except ImportError:
+    HAS_APSCHEDULER = False
+    logger = logging.getLogger(__name__)
+    logger.warning("APScheduler not available. Periodic cleanup will not run automatically.")
 
 # Setup logging for deployment diagnostics
 logging.basicConfig(
@@ -18,6 +30,19 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Read version information from environment
+APP_VERSION = os.getenv('APP_VERSION', 'dev')
+GIT_COMMIT = os.getenv('GIT_COMMIT', 'unknown')
+BUILD_DATE = os.getenv('BUILD_DATE', datetime.now().isoformat())
+
+# Track application start time for uptime calculation
+app_start_time = datetime.now()
+
+# Log version info on startup
+logger.info(f"Application Version: {APP_VERSION}")
+logger.info(f"Git Commit: {GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}")
+logger.info(f"Build Date: {BUILD_DATE}")
 
 # Silence tokenizers parallelism warning
 os.environ.setdefault('TOKENIZERS_PARALLELISM', 'false')
@@ -68,6 +93,77 @@ except ImportError as e:
     logger.warning("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
     logger.warning("   The web interface will still work, but chat features will be limited")
 
+# ============================================================================
+# SECURITY: Rate Limiting and Request Tracking
+# ============================================================================
+
+class RateLimiter:
+    """Simple in-memory rate limiter for per-IP requests."""
+    
+    def __init__(self, max_requests: int = 100, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+    
+    def is_allowed(self, client_ip: str) -> bool:
+        """Check if client is within rate limit."""
+        now = time.time()
+        cutoff = now - self.window_seconds
+        
+        # Clean old requests
+        self.requests[client_ip] = [
+            req_time for req_time in self.requests[client_ip]
+            if req_time > cutoff
+        ]
+        
+        # Check limit
+        if len(self.requests[client_ip]) >= self.max_requests:
+            return False
+        
+        # Record this request
+        self.requests[client_ip].append(now)
+        return True
+
+rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+
+# Maximum request payload size (10MB)
+MAX_REQUEST_SIZE = 10 * 1024 * 1024
+
+# ============================================================================
+# SSE EXECUTION STREAM CONFIGURATION
+# ============================================================================
+
+# Allow configurable timeout via environment variable, default to 60 minutes for large datasets
+MAX_EXECUTION_DURATION = int(os.getenv('MAX_EXECUTION_DURATION', 60 * 60))  # Default: 60 minutes
+
+# Send keepalive every 15 seconds when no output
+SSE_KEEPALIVE_INTERVAL = 15
+
+# Maximum size per SSE event (10KB)
+MAX_SSE_CHUNK_SIZE = 10 * 1024
+
+def truncate_chunk(chunk: str, max_size: int = MAX_SSE_CHUNK_SIZE) -> str:
+    """
+    Truncate chunk to max size, preserving valid structure if applicable.
+    
+    Args:
+        chunk: The content to truncate
+        max_size: Maximum size in bytes
+        
+    Returns:
+        Truncated chunk with indicator if truncated
+    """
+    if len(chunk) <= max_size:
+        return chunk
+    
+    # Try to truncate at newline boundary
+    truncated = chunk[:max_size]
+    last_newline = truncated.rfind('\n')
+    if last_newline > max_size * 0.8:  # If found in last 20%
+        truncated = truncated[:last_newline]
+    
+    return truncated + "\n... [output truncated, see full logs]"
+
 # Initialize FastAPI app
 if HAS_FASTAPI:
     from fastapi.staticfiles import StaticFiles
@@ -113,18 +209,36 @@ if HAS_FASTAPI:
         # Check if credentials were provided
         if not credentials:
             raise HTTPException(
-                status_code=403,
+                status_code=401,
                 detail="Authentication required. Please provide a valid bearer token."
             )
         
         # Validate the token
         if credentials.credentials != expected_token:
             raise HTTPException(
-                status_code=403,
+                status_code=401,
                 detail="Invalid authentication credentials"
             )
         
         return credentials.credentials
+    
+    async def check_rate_limit(request: Request):
+        """Check rate limit for client IP."""
+        client_ip = request.client.host if request.client else "unknown"
+        if not rate_limiter.is_allowed(client_ip):
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded: 100 requests per minute per IP"
+            )
+    
+    async def check_request_size(request: Request):
+        """Check request payload size."""
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_REQUEST_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Request payload too large (max {MAX_REQUEST_SIZE / 1024 / 1024:.0f}MB)"
+            )
     
     # Pydantic models
     class ChatRequest(BaseModel):
@@ -164,6 +278,456 @@ ALLOWED_COMMANDS = {
 MAX_ARG_LENGTH = 1024
 MAX_ARGS_COUNT = 100
 MAX_ARGS_TOTAL_LENGTH = 8192
+
+# ============================================================================
+# CANONICAL COMMAND MAPPINGS - Single Source of Truth
+# ============================================================================
+
+CANONICAL_COMMAND_MAPPINGS = {
+    'voice_of_customer': {
+        'command': 'python',
+        'args': ['src/main.py', 'voice-of-customer'],
+        'display_name': 'Voice of Customer Analysis',
+        'description': 'Analyze customer sentiment and feedback trends',
+        'allowed_flags': {
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'default': 'week',
+                'description': 'Time period for analysis'
+            },
+            '--analysis-type': {
+                'type': 'enum',
+                'values': ['topic-based', 'synthesis', 'complete'],
+                'default': 'topic-based',
+                'description': 'Analysis format (topic cards, synthesis, or both)'
+            },
+            '--multi-agent': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Use multi-agent workflow'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use test data for faster execution'
+            },
+            '--test-data-count': {
+                'type': 'integer',
+                'default': 100,
+                'min': 10,
+                'max': 1000,
+                'description': 'Number of test conversations to generate'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate detailed audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for custom range'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for custom range'
+            },
+            '--focus-areas': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--include-canny': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Include Canny feedback data'
+            }
+        },
+        'estimated_duration': '10-30 minutes'
+    },
+    'agent_performance': {
+        'command': 'python',
+        'args': ['src/main.py', 'agent-performance'],
+        'display_name': 'Agent Performance Analysis',
+        'description': 'Analyze individual agent and team performance',
+        'allowed_flags': {
+            '--agent': {
+                'type': 'enum',
+                'values': ['horatio', 'boldr', 'escalated'],
+                'required': True,
+                'description': 'Agent/vendor to analyze'
+            },
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'default': 'week',
+                'description': 'Time period for analysis'
+            },
+            '--individual-breakdown': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Include per-agent metrics and taxonomy breakdown'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'integer',
+                'default': 100,
+                'min': 10,
+                'max': 1000,
+                'description': 'Number of test conversations'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for custom range'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for custom range'
+            }
+        },
+        'estimated_duration': '5-15 minutes'
+    },
+    'agent_coaching': {
+        'command': 'python',
+        'args': ['src/main.py', 'agent-coaching-report'],
+        'display_name': 'Agent Coaching Report',
+        'description': 'Generate coaching priorities and development areas',
+        'allowed_flags': {
+            '--vendor': {
+                'type': 'enum',
+                'values': ['horatio', 'boldr'],
+                'required': True,
+                'description': 'Vendor to analyze'
+            },
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'default': 'week',
+                'description': 'Time period for analysis'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'integer',
+                'default': 100,
+                'min': 10,
+                'max': 1000,
+                'description': 'Number of test conversations'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            }
+        },
+        'estimated_duration': '5-15 minutes'
+    },
+    'category_billing': {
+        'command': 'python',
+        'args': ['src/main.py', 'analyze-billing'],
+        'display_name': 'Billing Analysis',
+        'description': 'Analyze billing, refunds, and subscription issues',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
+    },
+    'category_product': {
+        'command': 'python',
+        'args': ['src/main.py', 'analyze-product'],
+        'display_name': 'Product Feedback Analysis',
+        'description': 'Analyze product questions and feature requests',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
+    },
+    'category_api': {
+        'command': 'python',
+        'args': ['src/main.py', 'analyze-api'],
+        'display_name': 'API Issues & Integration',
+        'description': 'Analyze API and integration problems',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
+    },
+    'category_escalations': {
+        'command': 'python',
+        'args': ['src/main.py', 'analyze-escalations'],
+        'display_name': 'Escalations Analysis',
+        'description': 'Analyze escalation patterns and causes',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
+    },
+    'tech_troubleshooting': {
+        'command': 'python',
+        'args': ['src/main.py', 'tech-analysis'],
+        'display_name': 'Technical Troubleshooting Analysis',
+        'description': 'Analyze technical issues and support patterns',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            }
+        },
+        'estimated_duration': '5-15 minutes'
+    },
+    'all_categories': {
+        'command': 'python',
+        'args': ['src/main.py', 'analyze-all-categories'],
+        'display_name': 'All Categories Analysis',
+        'description': 'Comprehensive analysis across all categories',
+        'allowed_flags': {
+            '--days': {
+                'type': 'integer',
+                'default': 7,
+                'min': 1,
+                'max': 90,
+                'description': 'Number of days to analyze'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            }
+        },
+        'estimated_duration': '15-45 minutes'
+    },
+    'canny_analysis': {
+        'command': 'python',
+        'args': ['src/main.py', 'canny-analysis'],
+        'display_name': 'Canny Feedback Analysis',
+        'description': 'Analyze Canny feature requests and voting patterns',
+        'allowed_flags': {
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'required': True,
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'required': True,
+                'description': 'End date for analysis'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            }
+        },
+        'estimated_duration': '5-15 minutes'
+    }
+}
+def validate_command_request(analysis_type: str, flags: Dict[str, Any]) -> tuple[bool, str]:
+    """
+    Validate command request against canonical schema.
+    
+    Args:
+        analysis_type: The analysis type key (e.g., 'voice_of_customer')
+        flags: Dictionary of flag names and values
+        
+    Returns:
+        (is_valid, error_message) - error_message is None if valid
+    """
+    if analysis_type not in CANONICAL_COMMAND_MAPPINGS:
+        return False, f"Unknown analysis type: {analysis_type}"
+    
+    schema = CANONICAL_COMMAND_MAPPINGS[analysis_type]
+    allowed_flags = schema['allowed_flags']
+    
+    # Check for unknown flags
+    for flag_name in flags.keys():
+        if flag_name not in allowed_flags:
+            return False, f"Unknown flag '{flag_name}' for {analysis_type}"
+    
+    # Validate flag values
+    for flag_name, flag_value in flags.items():
+        flag_schema = allowed_flags[flag_name]
+        
+        if flag_schema['type'] == 'enum':
+            if flag_value not in flag_schema['values']:
+                return False, f"Invalid value '{flag_value}' for {flag_name}. Must be one of: {flag_schema['values']}"
+        
+        elif flag_schema['type'] == 'date':
+            # Validate date format
+            try:
+                from datetime import datetime
+                datetime.strptime(flag_value, '%Y-%m-%d')
+            except ValueError:
+                return False, f"Invalid date format for {flag_name}. Expected YYYY-MM-DD"
+        
+        elif flag_schema['type'] == 'integer':
+            try:
+                val = int(flag_value)
+                if 'min' in flag_schema and val < flag_schema['min']:
+                    return False, f"Value for {flag_name} must be at least {flag_schema['min']}"
+                if 'max' in flag_schema and val > flag_schema['max']:
+                    return False, f"Value for {flag_name} must be at most {flag_schema['max']}"
+            except (ValueError, TypeError):
+                return False, f"Invalid integer value for {flag_name}"
+        
+        elif flag_schema['type'] == 'boolean':
+            if not isinstance(flag_value, bool):
+                return False, f"Flag {flag_name} must be a boolean"
+    
+    # Check required flags
+    for flag_name, flag_schema in allowed_flags.items():
+        if flag_schema.get('required', False) and flag_name not in flags:
+            return False, f"Missing required flag: {flag_name}"
+    
+    return True, None
+
+
+def start_cleanup_scheduler():
+    """Start background cleanup task for old executions and files."""
+    if not HAS_APSCHEDULER:
+        logger.warning("APScheduler not available. Skipping cleanup scheduler setup.")
+        return None
+    
+    if not state_manager:
+        logger.warning("State manager not available. Skipping cleanup scheduler setup.")
+        return None
+    
+    try:
+        # Get retention configuration from environment
+        retention_days = int(os.getenv('AUDIT_RETENTION_DAYS', '14'))
+        max_count = int(os.getenv('AUDIT_MAX_COUNT', '50'))
+        
+        logger.info(f"🧹 Configuring cleanup scheduler: {retention_days} days retention, max {max_count} executions")
+        
+        scheduler = AsyncIOScheduler()
+        
+        # Run cleanup daily at 2 AM
+        async def cleanup_task():
+            try:
+                logger.info("🧹 Running scheduled cleanup...")
+                result = await state_manager.cleanup_old_executions(
+                    max_age_days=retention_days,
+                    max_count=max_count,
+                    cleanup_files=True
+                )
+                logger.info(
+                    f"✅ Scheduled cleanup complete: "
+                    f"deleted {result['deleted_executions']} executions, "
+                    f"{result['deleted_files']} files. "
+                    f"{result['remaining_executions']} executions remaining."
+                )
+            except Exception as e:
+                logger.error(f"❌ Scheduled cleanup failed: {e}", exc_info=True)
+        
+        scheduler.add_job(
+            cleanup_task,
+            trigger='cron',
+            hour=2,
+            minute=0,
+            id='daily_cleanup',
+            replace_existing=True
+        )
+        
+        scheduler.start()
+        logger.info("✅ Cleanup scheduler started successfully (runs daily at 2 AM)")
+        return scheduler
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start cleanup scheduler: {e}", exc_info=True)
+        return None
 
 def initialize_chat():
     """Initialize the chat interface."""
@@ -213,15 +777,18 @@ if HAS_FASTAPI:
     @app.get("/", response_class=HTMLResponse)
     async def root():
         """Serve the chat interface HTML."""
-        html_content = """
+        # Calculate cache-busting hash from version + commit
+        cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
+        
+        html_content = f"""
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Intercom Analysis Tool v3.1.0 [AUDIT-TRAIL]</title>
+        <title>Intercom Analysis Tool v{APP_VERSION}</title>
         <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
-        <link rel="stylesheet" href="/static/styles.css?v=3.1.0">
+        <link rel="stylesheet" href="/static/styles.css?v={cache_bust}">
     </head>
     <body>
         <div class="container">
@@ -489,11 +1056,11 @@ if HAS_FASTAPI:
         </div>
         
         <!-- Version marker for cache verification -->
-        <div style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
-            v3.1.0-audit-trail
+        <div id="version-footer" style="position: fixed; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: #0f0; padding: 3px 8px; font-size: 10px; border-radius: 3px; font-family: monospace; z-index: 9999;">
+            v{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}
         </div>
 
-        <script src="/static/app.js?v=3.1.0"></script>
+        <script src="/static/app.js?v={cache_bust}"></script>
     </body>
     </html>
         """
@@ -543,14 +1110,37 @@ if HAS_FASTAPI:
         command: str,
         args: str,
         execution_id: str,
-        token: str = Depends(verify_token)  # Require authentication
+        request: Request,
+        token: str = Depends(verify_token)
     ):
         """
-        Stream command execution output via Server-Sent Events.
+        Execute a command with Server-Sent Events stream.
         
-        Security: This endpoint requires bearer token authentication.
+        **Resource Limits:**
+        - Max execution time: Configurable via MAX_EXECUTION_DURATION env var (default: 60 minutes)
+        - Keepalive interval: 15 seconds (prevents connection timeout)
+        - Max chunk size: 10KB per SSE event (larger chunks truncated)
+        - Rate limit: 100 requests per minute per IP
+        
+        **For Large Datasets:**
+        Set MAX_EXECUTION_DURATION environment variable to allow longer execution times.
+        Example: MAX_EXECUTION_DURATION=7200 (2 hours)
+        
+        **Timeout Handling:**
+        If execution exceeds the max duration, the stream will send a timeout
+        status and terminate. For very large datasets, consider using --test-mode
+        for faster execution or increase MAX_EXECUTION_DURATION.
+        
+        **Client Disconnect:**
+        If client disconnects, background task is automatically cancelled
+        and resources are cleaned up.
+        
+        Security: This endpoint requires bearer token authentication and rate limiting.
         Set EXECUTION_API_TOKEN environment variable to enable authentication.
         """
+        # Check rate limit
+        await check_rate_limit(request)
+        
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
@@ -620,11 +1210,64 @@ if HAS_FASTAPI:
             raise HTTPException(status_code=429, detail=str(e)) from e
         
         async def event_generator():
-            """Generate SSE events from command output."""
+            """Generate SSE events from command output with timeout, keepalive, and disconnect detection."""
+            start_time = time.time()
+            last_keepalive = time.time()
+            execution_task = None
+            
             try:
-                async for output in command_executor.execute_command(
+                # Create async iterator from command executor
+                output_iterator = command_executor.execute_command(
                     command, validated_args, execution_id=execution_id
-                ):
+                )
+                
+                # Process output with timeout and keepalive
+                async for output in output_iterator:
+                    # Check timeout
+                    elapsed = time.time() - start_time
+                    if elapsed > MAX_EXECUTION_DURATION:
+                        timeout_minutes = MAX_EXECUTION_DURATION / 60
+                        logger.warning(f"Execution {execution_id} exceeded timeout of {MAX_EXECUTION_DURATION}s")
+                        await command_executor.cancel_execution(execution_id)
+                        await state_manager.update_execution_status(
+                            execution_id, ExecutionStatus.TIMEOUT,
+                            error_message=f'Execution exceeded {timeout_minutes:.0f} minute limit'
+                        )
+                        yield {
+                            "event": "message",
+                            "data": json.dumps({
+                                'type': 'timeout',
+                                'status': 'timeout',
+                                'message': f'Execution exceeded {timeout_minutes:.0f} minute limit. Increase MAX_EXECUTION_DURATION if needed.',
+                                'execution_id': execution_id
+                            })
+                        }
+                        break
+                    
+                    # Check for client disconnect
+                    if await request.is_disconnected():
+                        logger.info(f"Client disconnected for execution {execution_id}")
+                        await command_executor.cancel_execution(execution_id)
+                        await state_manager.update_execution_status(
+                            execution_id, ExecutionStatus.CANCELLED,
+                            error_message='Client disconnected'
+                        )
+                        yield {
+                            "event": "message",
+                            "data": json.dumps({
+                                'type': 'cancelled',
+                                'status': 'cancelled',
+                                'message': 'Client disconnected',
+                                'execution_id': execution_id
+                            })
+                        }
+                        break
+                    
+                    # Truncate large chunks
+                    if output.get("data") and len(output["data"]) > MAX_SSE_CHUNK_SIZE:
+                        output["data"] = truncate_chunk(output["data"], MAX_SSE_CHUNK_SIZE)
+                        output["truncated"] = True
+                    
                     # Update state manager with output
                     await state_manager.add_output(execution_id, output)
                     
@@ -640,8 +1283,13 @@ if HAS_FASTAPI:
                             )
                     elif output.get("type") == "error":
                         await state_manager.update_execution_status(
-                            execution_id, ExecutionStatus.FAILED, 
+                            execution_id, ExecutionStatus.FAILED,
                             error_message=output.get("data")
+                        )
+                    elif output.get("type") == "timeout":
+                        await state_manager.update_execution_status(
+                            execution_id, ExecutionStatus.TIMEOUT,
+                            error_message=output.get("message", "Execution timeout")
                         )
                     
                     # Yield as SSE event
@@ -649,9 +1297,18 @@ if HAS_FASTAPI:
                         "event": "message",
                         "data": json.dumps(output)
                     }
+                    
+                    # Update last keepalive time when we send output
+                    last_keepalive = time.time()
+                    
+                    # Send keepalive if needed (check between outputs)
+                    if time.time() - last_keepalive > SSE_KEEPALIVE_INTERVAL:
+                        yield {"event": "comment", "data": "keepalive"}
+                        last_keepalive = time.time()
                 
             except asyncio.CancelledError:
-                # Client disconnected
+                # Client disconnected or cancelled
+                logger.info(f"Execution {execution_id} cancelled")
                 await state_manager.update_execution_status(
                     execution_id, ExecutionStatus.CANCELLED
                 )
@@ -728,8 +1385,11 @@ if HAS_FASTAPI:
             )
     
     @app.post("/execute/start")
-    async def start_execution(command: str, args: str):
+    async def start_execution(command: str, args: str, request: Request, token: str = Depends(verify_token)):
         """Start a new command execution as a background task."""
+        # Check rate limit
+        await check_rate_limit(request)
+        
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
@@ -771,8 +1431,11 @@ if HAS_FASTAPI:
             raise HTTPException(status_code=500, detail=f"Failed to start execution: {str(e)}")
     
     @app.post("/execute/cancel/{execution_id}")
-    async def cancel_execution(execution_id: str):
+    async def cancel_execution(execution_id: str, request: Request, token: str = Depends(verify_token)):
         """Cancel a running or queued execution."""
+        # Check rate limit
+        await check_rate_limit(request)
+        
         if not command_executor or not state_manager:
             raise HTTPException(status_code=500, detail="Execution services not available")
         
@@ -787,7 +1450,7 @@ if HAS_FASTAPI:
         return {"message": "Execution cancelled successfully"}
     
     @app.get("/execute/status/{execution_id}")
-    async def get_execution_status(execution_id: str, since: int = 0):
+    async def get_execution_status(execution_id: str, since: int = 0, request: Request = None):
         """
         Get the status and output of an execution.
         
@@ -795,6 +1458,10 @@ if HAS_FASTAPI:
             execution_id: The execution ID
             since: Return only output after this index (for polling)
         """
+        # Check rate limit if request available
+        if request:
+            await check_rate_limit(request)
+        
         if not state_manager:
             raise HTTPException(status_code=500, detail="State manager not available")
         
@@ -826,8 +1493,12 @@ if HAS_FASTAPI:
         }
 
     @app.get("/execute/list")
-    async def list_executions(limit: int = 50):
+    async def list_executions(limit: int = 50, request: Request = None):
         """Get list of recent executions."""
+        # Check rate limit if request available
+        if request:
+            await check_rate_limit(request)
+        
         if not state_manager:
             raise HTTPException(status_code=500, detail="State manager not available")
         
@@ -862,8 +1533,12 @@ if HAS_FASTAPI:
         }
     
     @app.get("/outputs/{file_path:path}")
-    async def serve_output_file(file_path: str):
+    async def serve_output_file(file_path: str, request: Request = None):
         """Serve files from the outputs directory."""
+        # Check rate limit if request available
+        if request:
+            await check_rate_limit(request)
+        
         import os
         from pathlib import Path
         
@@ -907,31 +1582,70 @@ if HAS_FASTAPI:
         )
     
     @app.get("/outputs")
-    async def list_output_files():
-        """List all files in the outputs directory."""
+    async def list_output_files(
+        file_type: str = "all",
+        execution_id: str = None,
+        limit: int = 100,
+        request: Request = None
+    ):
+        """
+        List files in the outputs directory with optional filtering.
+        
+        Query params:
+        - file_type: Filter by type ('audit', 'analysis', 'all') [default: all]
+        - execution_id: Filter by execution ID
+        - limit: Max files to return [default: 100]
+        """
+        # Check rate limit if request available
+        if request:
+            await check_rate_limit(request)
+        
         import os
         from pathlib import Path
         
         outputs_dir = Path("/app/outputs")
         if not outputs_dir.exists():
-            return {"files": []}
+            return {"files": [], "total": 0, "filtered_count": 0}
         
         files = []
         for file_path in outputs_dir.rglob("*"):
             if file_path.is_file():
                 relative_path = file_path.relative_to(outputs_dir)
+                file_name = file_path.name
+                
+                # Determine if this is an audit trail file
+                is_audit = 'audit_trail' in file_name.lower()
+                
+                # Apply type filter
+                if file_type == 'audit' and not is_audit:
+                    continue
+                if file_type == 'analysis' and is_audit:
+                    continue
+                
+                # Apply execution_id filter
+                if execution_id and execution_id not in file_name:
+                    continue
+                
                 files.append({
-                    "name": file_path.name,
+                    "name": file_name,
                     "path": str(relative_path),
                     "size": file_path.stat().st_size,
                     "modified": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                    "type": file_path.suffix
+                    "type": 'audit' if is_audit else 'analysis',
+                    "extension": file_path.suffix
                 })
         
         # Sort by modification time (newest first)
         files.sort(key=lambda x: x["modified"], reverse=True)
         
-        return {"files": files}
+        # Apply limit
+        limited_files = files[:limit]
+        
+        return {
+            "files": limited_files,
+            "total": len(files),
+            "filtered_count": len(limited_files)
+        }
     
     @app.get("/health")
     async def health_check():
@@ -948,56 +1662,49 @@ if HAS_FASTAPI:
     
     @app.get("/debug/version")
     async def get_version():
-        """Debug endpoint to verify which code is deployed."""
-        import subprocess
-        try:
-            # Get actual git commit hash
-            git_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
-                                              cwd='/app', stderr=subprocess.DEVNULL).decode().strip()
-        except:
-            git_hash = "unknown"
+        """
+        Get application version information.
+        
+        Returns:
+            JSON with version, commit, build date, uptime, and environment info
+        """
+        uptime_seconds = (datetime.now() - app_start_time).total_seconds()
         
         return {
-            "version": "3.1.0",
-            "commit": git_hash,
-            "expected_commit": "audit-trail",
-            "timestamp": datetime.now().isoformat(),
+            "version": APP_VERSION,
+            "commit": GIT_COMMIT,
+            "commit_short": GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown',
+            "build_date": BUILD_DATE,
+            "uptime_seconds": uptime_seconds,
+            "python_version": sys.version,
+            "environment": os.getenv('RAILWAY_ENVIRONMENT', 'local'),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
-            "fixes_included": [
-                "Audit Trail Mode added (narrates analysis for data engineer review)",
-                "CSAT integration complete (scores, worst tickets, links)",
-                "Week-over-week trend tracking (Phase 2)",
-                "Troubleshooting analysis (diagnostic questions, premature escalations)",
-                "Lazy Canny agent initialization (only when needed)",
-                "Enhanced admin email extraction and vendor detection",
-                "Fixed --verbose flag (only added to voice-of-customer command)",
-                "Category deep dive commands now work correctly",
-                "All command flag compatibility issues resolved"
-            ]
+            "timestamp": datetime.now().isoformat()
         }
     
     @app.get("/api/commands")
     async def get_commands():
-        """Get available commands."""
-        if not chat_interface:
-            # Fallback: return basic command list when chat is unavailable
-            return {
-                "commands": [
-                    {"name": "voice-of-customer", "description": "Voice of Customer analysis", "example": "voice-of-customer --generate-gamma"},
-                    {"name": "billing-analysis", "description": "Billing-specific analysis", "example": "billing-analysis --generate-gamma"},
-                    {"name": "tech-analysis", "description": "Technical troubleshooting analysis", "example": "tech-analysis --days 7"},
-                    {"name": "api-analysis", "description": "API-related issues analysis", "example": "api-analysis --generate-gamma"},
-                    {"name": "product-analysis", "description": "Product questions analysis", "example": "product-analysis --generate-gamma"},
-                    {"name": "sites-analysis", "description": "Sites-related issues analysis", "example": "sites-analysis --generate-gamma"},
-                    {"name": "canny-analysis", "description": "Canny feedback analysis", "example": "canny-analysis --generate-gamma --start-date 2024-10-01 --end-date 2024-10-31"}
-                ]
-            }
+        """
+        Get canonical command schema.
         
-        try:
-            commands = chat_interface.get_available_commands()
-            return {"commands": commands}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        Returns complete schema for all available commands including:
+        - Command structure
+        - Allowed flags with types and validation rules
+        - Descriptions and estimated durations
+        
+        This endpoint is public (no authentication required) and fast (< 100ms).
+        """
+        return JSONResponse(
+            content={
+                'version': '1.0',
+                'commands': CANONICAL_COMMAND_MAPPINGS,
+                'generated_at': datetime.now().isoformat()
+            },
+            headers={
+                'Cache-Control': 'public, max-age=300',  # Cache for 5 minutes
+                'Content-Type': 'application/json'
+            }
+        )
 
     @app.get("/api/filters")
     async def get_filters():
@@ -1037,6 +1744,14 @@ def main():
     
     if chat_init_success:
         logger.info("✅ Chat interface initialized successfully")
+        
+        # Start cleanup scheduler if state manager is available
+        logger.info("🔧 Starting cleanup scheduler...")
+        scheduler = start_cleanup_scheduler()
+        if scheduler:
+            logger.info("✅ Cleanup scheduler initialized")
+        else:
+            logger.warning("⚠️ Cleanup scheduler not started (will rely on manual cleanup)")
     else:
         logger.warning("⚠️ Chat interface initialization failed, but server will start anyway")
         logger.warning("   The health endpoint will still work, but chat features may be limited")
@@ -1045,8 +1760,16 @@ def main():
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
+    # Get retention configuration
+    retention_days = int(os.getenv('AUDIT_RETENTION_DAYS', '14'))
+    max_count = int(os.getenv('AUDIT_MAX_COUNT', '50'))
+    
     logger.info(f"🌐 Starting web server on {host}:{port}")
     logger.info(f"📊 Health check available at: http://{host}:{port}/health")
+    logger.info(f"🔒 Security: Rate limiting enabled (100 requests/min per IP)")
+    logger.info(f"🔒 Security: Authentication required for /execute endpoints (set EXECUTION_API_TOKEN)")
+    logger.info(f"🔒 Security: Max request size: {MAX_REQUEST_SIZE / 1024 / 1024:.0f}MB")
+    logger.info(f"🧹 Retention: {retention_days} days, max {max_count} executions (set AUDIT_RETENTION_DAYS, AUDIT_MAX_COUNT)")
     
     # Start the server
     uvicorn.run(

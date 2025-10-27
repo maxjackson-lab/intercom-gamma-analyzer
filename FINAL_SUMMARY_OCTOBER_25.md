@@ -22,8 +22,11 @@
 - ✅ Survey counts and negative rating counts
 - ✅ Top/Bottom performers by satisfaction
 - ✅ **Worst CSAT ticket links for coaching** ⭐
-- ✅ Customer complaint excerpts
+  - **Requires:** `--individual-breakdown` flag
+  - **Available in:** Agent performance mode only
+- ✅ Customer complaint excerpts (in agent reports)
 - ✅ Red flags (Reopened/Escalated)
+- ✅ CSAT included in Fin AI performance (Free/Paid tiers)
 
 ### **3. Week-over-Week Trends** (v3.0.6)
 - ✅ Historical snapshot storage in DuckDB
@@ -39,6 +42,10 @@
 - ✅ Consistency measurements
 - ✅ Controllable vs Uncontrollable classification
 - ✅ `--analyze-troubleshooting` flag
+  - **Requires:** `--individual-breakdown` AND `--analyze-troubleshooting` flags
+  - **Available in:** Agent performance mode only
+  - **Not included in:** VoC/Hilary format reports
+  - **Performance impact:** +90 seconds analysis time (GPT-4o-mini API calls)
 
 ### **5. Audit Trail System** (v3.1.0-v3.1.1) 
 - ✅ Core service (`audit_trail.py`)
@@ -148,6 +155,52 @@ Step 4 (39.0s): Segmented into Free/Paid
 | Audit Trail / Methodology | ❌ | ✅ **AUTOMATIC!** |
 
 **You actually have MORE than Horatio provides!**
+
+---
+
+## 📋 **Feature Scope & Limitations**
+
+### **Agent Performance Features**
+**Available In:**
+- ✅ `agent-performance` command with `--individual-breakdown`
+- ✅ Agent coaching reports
+
+**Includes:**
+- CSAT scores and worst ticket links
+- Troubleshooting analysis (with `--analyze-troubleshooting` flag)
+- Category/subcategory performance breakdown
+- Week-over-week trends
+
+**Not Included In:**
+- ❌ VoC/Hilary format reports (customer-focused)
+- ❌ Team-level agent performance (requires individual breakdown)
+
+### **VoC (Voice of Customer) Features**
+**Available In:**
+- ✅ `voc` command (Hilary format)
+- ✅ Gamma presentations
+
+**Includes:**
+- Customer topic analysis
+- Fin AI performance (with CSAT)
+- Sentiment analysis
+- Example conversations
+
+**Not Included:**
+- ❌ Agent troubleshooting analysis (use agent performance mode instead)
+- ❌ Individual agent CSAT (use agent performance mode instead)
+
+### **Fin AI Performance Features**
+**Available In:**
+- ✅ VoC reports
+- ✅ Agent performance reports
+
+**Includes:**
+- ✅ **CSAT metrics** (Free tier and Paid tier separately)
+- ✅ Resolution rate by tier
+- ✅ Knowledge gap detection
+- ✅ Sub-topic performance breakdown
+- ✅ Rating eligibility tracking (≥2 responses requirement)
 
 ---
 

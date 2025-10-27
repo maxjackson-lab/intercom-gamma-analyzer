@@ -43,6 +43,7 @@ Fixed critical bugs and implemented 3 major feature phases in one day!
 - Negative CSAT Count (1-2 star ratings)
 - Rating Distribution (full breakdown)
 - **Worst CSAT Examples with Intercom Links** ⭐
+  - **Requires:** `--individual-breakdown` flag in agent performance mode
 
 **Features:**
 - Top CSAT performers highlighted
@@ -100,6 +101,11 @@ Lorna: FCR 65% (↓ -10% vs last week) ⚠️
 ## 🔍 **Phase 3: Troubleshooting Analysis (v3.0.7)** ⭐ **YOUR MAIN FOCUS**
 
 **Implemented:** AI-powered analysis of agent troubleshooting methodology
+
+**Requirements:**
+- Must use `--individual-breakdown` AND `--analyze-troubleshooting` flags
+- Only available in agent performance mode (not VoC analysis)
+- Adds approximately 90 seconds to analysis time
 
 **User's Priority:**
 > "what troubleshooting they are doing is it consistent... If they escalate without asking technical troubleshooting, how much they troubleshoot - that's kind of my big focus for them honestly"
@@ -172,8 +178,9 @@ python src/main.py agent-performance --agent horatio --individual-breakdown --ti
 **Includes:**
 - ✅ FCR, escalation rate, response time
 - ✅ CSAT scores and ratings
-- ✅ Worst CSAT ticket links
+- ✅ Worst CSAT ticket links (with --individual-breakdown)
 - ✅ Week-over-week trends (after 2nd week)
+- ⚠️ **Note:** Requires --individual-breakdown for CSAT features
 
 ### **Deep Troubleshooting Analysis (Slower, More Insight)**
 ```bash

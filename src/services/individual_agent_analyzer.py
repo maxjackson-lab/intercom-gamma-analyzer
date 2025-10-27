@@ -38,11 +38,12 @@ class IndividualAgentAnalyzer:
     FAIR_ESCALATION = 0.20
     
     def __init__(
-        self, 
-        vendor: str, 
-        admin_cache: AdminProfileCache, 
+        self,
+        vendor: str,
+        admin_cache: AdminProfileCache,
         duckdb_storage: Optional[DuckDBStorage] = None,
-        enable_troubleshooting_analysis: bool = False
+        enable_troubleshooting_analysis: bool = False,
+        audit=None
     ):
         """
         Initialize individual agent analyzer.
@@ -52,18 +53,20 @@ class IndividualAgentAnalyzer:
             admin_cache: AdminProfileCache instance
             duckdb_storage: Optional DuckDB storage
             enable_troubleshooting_analysis: Enable AI-powered troubleshooting analysis (slower)
+            audit: Optional AuditTrail instance for detailed logging
         """
         self.vendor = vendor
         self.admin_cache = admin_cache
         self.storage = duckdb_storage
         self.enable_troubleshooting_analysis = enable_troubleshooting_analysis
+        self.audit = audit
         self.logger = logging.getLogger(__name__)
         self.taxonomy = taxonomy_manager
         
         # Initialize troubleshooting analyzer if enabled
         if enable_troubleshooting_analysis:
             from src.services.troubleshooting_analyzer import TroubleshootingAnalyzer
-            self.troubleshooting_analyzer = TroubleshootingAnalyzer()
+            self.troubleshooting_analyzer = TroubleshootingAnalyzer(audit=audit)
         else:
             self.troubleshooting_analyzer = None
     
@@ -86,8 +89,40 @@ class IndividualAgentAnalyzer:
             f"Analyzing {len(admin_details_map)} agents from {len(conversations)} conversations"
         )
         
+        if self.audit:
+            self.audit.step("Individual Agent Analysis", "analysis",
+                          f"Starting analysis of {len(admin_details_map)} {self.vendor} agents",
+                          {
+                              'vendor': self.vendor,
+                              'agent_count': len(admin_details_map),
+                              'total_conversations': len(conversations),
+                              'troubleshooting_analysis_enabled': self.enable_troubleshooting_analysis
+                          })
+        
         # Group conversations by agent
         conversations_by_agent = self._group_by_agent(conversations, admin_details_map)
+        
+        if self.audit:
+            # Record vendor attribution success
+            assigned_convs = sum(len(convs) for convs in conversations_by_agent.values())
+            unassigned_convs = len(conversations) - assigned_convs
+            attribution_rate = (assigned_convs / len(conversations) * 100) if len(conversations) > 0 else 0
+            
+            self.audit.step("Individual Agent Analysis", "analysis",
+                          "Agent grouping completed",
+                          {
+                              'agents_with_conversations': len(conversations_by_agent),
+                              'conversations_assigned': assigned_convs,
+                              'conversations_unassigned': unassigned_convs,
+                              'attribution_rate_pct': f"{attribution_rate:.1f}%"
+                          })
+            
+            if attribution_rate < 95:
+                self.audit.data_quality_check(
+                    "Vendor Attribution Rate",
+                    f"{attribution_rate:.1f}% of conversations attributed to agents",
+                    "limited" if attribution_rate >= 85 else "poor"
+                )
         
         # Calculate metrics for each agent
         agent_metrics = []
@@ -113,11 +148,138 @@ class IndividualAgentAnalyzer:
         
         self.logger.info(f"Analyzed {len(agent_metrics)} agents")
         
+        # Record aggregate performance patterns
+        if self.audit and agent_metrics:
+            # Calculate aggregate stats
+            avg_fcr = sum(a.fcr_rate for a in agent_metrics) / len(agent_metrics)
+            avg_escalation = sum(a.escalation_rate for a in agent_metrics) / len(agent_metrics)
+            avg_csat = sum(a.csat_score for a in agent_metrics if a.csat_score > 0) / len([a for a in agent_metrics if a.csat_score > 0]) if any(a.csat_score > 0 for a in agent_metrics) else 0
+            
+            # Count agents by performance level
+            high_priority_coaching = len([a for a in agent_metrics if a.coaching_priority == "high"])
+            below_fcr_threshold = len([a for a in agent_metrics if a.fcr_rate < self.FAIR_FCR])
+            below_escalation_threshold = len([a for a in agent_metrics if a.escalation_rate > self.FAIR_ESCALATION])
+            low_csat = len([a for a in agent_metrics if a.csat_score > 0 and a.csat_score < 3.5])
+            
+            self.audit.step("Individual Agent Analysis", "analysis",
+                          f"Completed analysis of {len(agent_metrics)} agents",
+                          {
+                              'agents_analyzed': len(agent_metrics),
+                              'avg_fcr_rate': f"{avg_fcr:.1%}",
+                              'avg_escalation_rate': f"{avg_escalation:.1%}",
+                              'avg_csat_score': f"{avg_csat:.2f}" if avg_csat > 0 else "N/A",
+                              'high_priority_coaching_needed': high_priority_coaching,
+                              'below_fcr_threshold': below_fcr_threshold,
+                              'high_escalation_rate': below_escalation_threshold,
+                              'low_csat_count': low_csat
+                          })
+            
+            # Log performance concerns
+            performance_flags = []
+            if below_fcr_threshold > len(agent_metrics) * 0.3:
+                performance_flags.append(f"{below_fcr_threshold} agents below {self.FAIR_FCR:.0%} FCR threshold")
+            if below_escalation_threshold > len(agent_metrics) * 0.3:
+                performance_flags.append(f"{below_escalation_threshold} agents above {self.FAIR_ESCALATION:.0%} escalation threshold")
+            if low_csat > len(agent_metrics) * 0.2:
+                performance_flags.append(f"{low_csat} agents with CSAT < 3.5")
+            
+            if performance_flags:
+                self.audit.step("Individual Agent Analysis", "analysis",
+                              f"Performance concerns: {len(performance_flags)} patterns identified",
+                              {'concerns': performance_flags})
+        
         return agent_metrics
     
+    def _extract_vendor_from_email(self, email: str) -> Optional[str]:
+        """
+        Extract vendor name from email domain.
+        
+        Known vendor domains:
+        - @horatio.ai, @hirehoratio.co → 'horatio'
+        - @boldr.co, @boldr.com, @boldrimpact.com → 'boldr'
+        - @escalated.* → 'escalated'
+        
+        Returns None for public domains (gmail, yahoo, etc.)
+        
+        Args:
+            email: Email address to extract vendor from
+            
+        Returns:
+            Vendor name or None for public domains or invalid emails
+        """
+        if not email or '@' not in email:
+            return None
+        
+        domain = email.split('@')[1].lower()
+        
+        # Public domains - not vendor-specific
+        public_domains = {'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'}
+        if domain in public_domains:
+            return None
+        
+        # Known vendor patterns
+        if 'horatio' in domain:
+            return 'horatio'
+        if 'boldr' in domain:
+            return 'boldr'
+        if 'escalated' in domain:
+            return 'escalated'
+        if 'gamma' in domain:
+            return 'gamma'
+        
+        # Unknown vendor domain - return first part of domain
+        return domain.split('.')[0]
+    
+    def _get_agent_vendor(self, admin_profile: Dict, conversation: Dict) -> str:
+        """
+        Get agent vendor with fallback to conversation data.
+        
+        Priority:
+        1. admin_profile['vendor'] if present and not 'unknown'
+        2. Derive from email in conversation_parts
+        3. Default to 'unknown'
+        
+        Args:
+            admin_profile: Admin profile dict
+            conversation: Conversation dict with conversation_parts
+            
+        Returns:
+            Vendor name
+        """
+        # Try profile vendor first
+        if admin_profile and admin_profile.get('vendor') and admin_profile.get('vendor') != 'unknown':
+            return admin_profile['vendor']
+        
+        # Fallback: extract from conversation parts
+        admin_id = admin_profile.get('id') if admin_profile else None
+        if admin_id:
+            conv_parts = conversation.get('conversation_parts', {})
+            if isinstance(conv_parts, dict):
+                parts_list = conv_parts.get('conversation_parts', [])
+            elif isinstance(conv_parts, list):
+                parts_list = conv_parts
+            else:
+                parts_list = []
+            
+            for part in parts_list:
+                author = part.get('author', {})
+                if author.get('type') == 'admin' and str(author.get('id')) == str(admin_id):
+                    email = author.get('email')
+                    if email:
+                        vendor = self._extract_vendor_from_email(email)
+                        if vendor:
+                            self.logger.debug(
+                                f"Derived vendor '{vendor}' from email in conversation_parts for admin {admin_id}"
+                            )
+                            return vendor
+        
+        # Log attribution failure
+        self.logger.warning(f"Failed to determine vendor for admin {admin_id} - using 'unknown'")
+        return 'unknown'
+    
     def _group_by_agent(
-        self, 
-        conversations: List[Dict], 
+        self,
+        conversations: List[Dict],
         admin_details_map: Dict[str, Dict]
     ) -> Dict[str, List[Dict]]:
         """Group conversations by agent ID"""
@@ -211,6 +373,21 @@ class IndividualAgentAnalyzer:
         # Identify strengths and weaknesses
         strong_cats, weak_cats = self._identify_category_strengths_weaknesses(perf_by_category)
         strong_subcats, weak_subcats = self._identify_subcategory_strengths_weaknesses(perf_by_subcategory)
+        
+        # Log per-agent summary to audit
+        if self.audit:
+            self.audit.step("Individual Agent Analysis", "analysis",
+                          f"Agent metrics calculated: {agent_info.get('name', 'Unknown')}",
+                          {
+                              'agent_name': agent_info.get('name', 'Unknown'),
+                              'total_conversations': len(convs),
+                              'fcr_rate': f"{fcr_rate:.1%}",
+                              'escalation_rate': f"{escalation_rate:.1%}",
+                              'csat_score': f"{csat_score:.2f}" if csat_score > 0 else "N/A",
+                              'categories_analyzed': len(perf_by_category),
+                              'strong_categories': len(strong_cats),
+                              'weak_categories': len(weak_cats)
+                          })
         
         # Find example conversations
         best_example = self._find_best_example(fcr_convs)

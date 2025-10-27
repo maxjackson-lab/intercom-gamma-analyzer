@@ -10,8 +10,9 @@ Purpose:
 
 import logging
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
+from pydantic import ValidationError
 
 from src.agents.base_agent import AgentContext
 from src.agents.segmentation_agent import SegmentationAgent
@@ -27,6 +28,13 @@ from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelation
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.utils.agent_output_display import get_display
 from src.config.modes import get_analysis_mode_config
+from src.models.analysis_models import (
+    SegmentationPayload,
+    TopicDetectionResult,
+    SubtopicDetectionResult,
+    FinAnalysisPayload,
+    TrendAnalysisPayload
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,12 +86,15 @@ class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
     def __init__(self, ai_factory: AIModelFactory = None, audit_trail=None):
+        #Audit trail for detailed narration
+        self.audit = audit_trail
+        
         self.segmentation_agent = SegmentationAgent()
         self.topic_detection_agent = TopicDetectionAgent()
         self.subtopic_detection_agent = SubTopicDetectionAgent()
         self.topic_sentiment_agent = TopicSentimentAgent()
         self.example_extraction_agent = ExampleExtractionAgent()
-        self.fin_performance_agent = FinPerformanceAgent()
+        self.fin_performance_agent = FinPerformanceAgent(audit=self.audit)
         self.trend_agent = TrendAgent()
         self.output_formatter_agent = OutputFormatterAgent()
         
@@ -92,10 +103,13 @@ class TopicOrchestrator:
         self._canny_topic_detection_agent = None
         self._cross_platform_correlation_agent = None
         
-        #Audit trail for detailed narration
-        self.audit = audit_trail
-        
         self.logger = logging.getLogger(__name__)
+        
+        # Concurrency control
+        config = get_analysis_mode_config()
+        max_concurrent = config.get_multi_agent_setting('max_concurrent_topics') or 5
+        self.topic_semaphore = asyncio.Semaphore(max_concurrent)
+        self.logger.info(f"Topic processing concurrency limit: {max_concurrent}")
     
     @property
     def canny_topic_detection_agent(self):
@@ -197,9 +211,24 @@ class TopicOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to display SegmentationAgent result: {e}")
             
-            paid_conversations = segmentation_result.data.get('paid_customer_conversations', [])
-            free_fin_only_conversations = segmentation_result.data.get('free_fin_only_conversations', [])
-            paid_fin_resolved_conversations = segmentation_result.data.get('paid_fin_resolved_conversations', [])
+            # Validate and parse segmentation result with typed payload
+            try:
+                segmentation_payload = SegmentationPayload(**segmentation_result.data)
+                self.logger.debug("✅ SegmentationPayload validation passed")
+            except ValidationError as e:
+                self.logger.warning(f"⚠️ SegmentationPayload validation failed: {e}")
+                # Continue with raw data but log warning
+                segmentation_payload = None
+            
+            # Extract data (use typed payload if available, otherwise raw data)
+            if segmentation_payload:
+                paid_conversations = segmentation_payload.paid_customer_conversations
+                free_fin_only_conversations = segmentation_payload.free_fin_only_conversations
+                paid_fin_resolved_conversations = segmentation_payload.paid_fin_resolved_conversations
+            else:
+                paid_conversations = segmentation_result.data.get('paid_customer_conversations', [])
+                free_fin_only_conversations = segmentation_result.data.get('free_fin_only_conversations', [])
+                paid_fin_resolved_conversations = segmentation_result.data.get('paid_fin_resolved_conversations', [])
 
             self.logger.info(f"   ✅ Paid: {len(paid_conversations)} (Human: {len(paid_conversations) - len(paid_fin_resolved_conversations)}, Fin-resolved: {len(paid_fin_resolved_conversations)})")
             self.logger.info(f"   ✅ Free (Fin-only): {len(free_fin_only_conversations)}")
@@ -252,8 +281,22 @@ class TopicOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to display TopicDetectionAgent result: {e}")
             
-            topic_dist = topic_detection_result.data.get('topic_distribution', {})
-            topics_by_conv = topic_detection_result.data.get('topics_by_conversation', {})
+            # Validate and parse topic detection result with typed payload
+            try:
+                topic_payload = TopicDetectionResult(**topic_detection_result.data)
+                self.logger.debug("✅ TopicDetectionResult validation passed")
+            except ValidationError as e:
+                self.logger.warning(f"⚠️ TopicDetectionResult validation failed: {e}")
+                topic_payload = None
+            
+            # Extract data (use typed payload if available, otherwise raw data)
+            if topic_payload:
+                topic_dist = topic_payload.topic_distribution
+                topics_by_conv = topic_payload.topics_by_conversation
+            else:
+                topic_dist = topic_detection_result.data.get('topic_distribution', {})
+                topics_by_conv = topic_detection_result.data.get('topics_by_conversation', {})
+            
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
             
             if self.audit:
@@ -295,6 +338,7 @@ class TopicOrchestrator:
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")
             subtopics_data = {}
             subtopic_detection_result = None
+            subtopic_payload: Optional[SubtopicDetectionResult] = None
             subtopic_start_time = datetime.now()
             try:
                 subtopic_context = context.model_copy()
@@ -316,7 +360,15 @@ class TopicOrchestrator:
                 except Exception as e:
                     logger.warning(f"Failed to display SubTopicDetectionAgent result: {e}")
                 
-                subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
+                # Validate and parse subtopic detection result with typed payload
+                try:
+                    subtopic_payload = SubtopicDetectionResult(**subtopic_detection_result.data)
+                    self.logger.debug("✅ SubtopicDetectionResult validation passed")
+                    subtopics_data = subtopic_payload.subtopics_by_tier1_topic
+                except ValidationError as e:
+                    self.logger.warning(f"⚠️ SubtopicDetectionResult validation failed: {e}")
+                    subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
+                
                 self.logger.info(f"   ✅ Detected sub-topics for {len(subtopics_data)} Tier 1 topics")
             except Exception as e:
                 self.logger.error(f"   ❌ SubTopicDetectionAgent failed: {e}", exc_info=True)
@@ -404,52 +456,68 @@ class TopicOrchestrator:
                         conversations_by_topic_full[topic_name] = []
                     conversations_by_topic_full[topic_name].append(conv)
             
-            # Process all topics in parallel for efficiency
-            async def process_topic(topic_name: str, topic_stats: Dict):
-                """Process a single topic with sentiment + examples. Always returns (topic_name, result, result) or (topic_name, exception, None)."""
-                try:
-                    topic_convs = conversations_by_topic_full.get(topic_name, [])
+            # Process all topics in parallel for efficiency with concurrency control
+            async def process_topic_with_semaphore(
+                topic_name: str,
+                topic_stats: Dict,
+                topic_num: int,
+                total_topics: int
+            ):
+                """
+                Process a single topic with sentiment + examples using concurrency control.
+                Always returns (topic_name, result, result) or (topic_name, exception, None).
+                """
+                async with self.topic_semaphore:
+                    # Log when topic starts (indicates queueing if delayed)
+                    self.logger.info(
+                        f"   Processing topic {topic_num}/{total_topics}: {topic_name}"
+                    )
                     
-                    # Skip topics with no conversations
-                    if len(topic_convs) == 0:
-                        self.logger.info(f"   Skipping {topic_name}: 0 conversations")
-                        return topic_name, None, None
-                    
-                    self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
-                    
-                    # Sentiment for this topic
-                    topic_context = context.model_copy()
-                    topic_context.metadata = {
-                        'current_topic': topic_name,
-                        'topic_conversations': topic_convs,
-                        'sentiment_insight': ''
-                    }
-                    
-                    sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
-                    
-                    # Examples for this topic
-                    topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
-                    examples_result = await self.example_extraction_agent.execute(topic_context)
-                    
-                    self.logger.info(f"   ✅ {topic_name}: Sentiment + {len(examples_result.data.get('examples', []))} examples")
-                    
-                    return topic_name, sentiment_result, examples_result
-                except Exception as e:
-                    # Wrap exception to preserve topic_name
-                    self.logger.error(f"   ❌ {topic_name}: Processing failed - {e}", exc_info=True)
-                    return topic_name, e, None
+                    try:
+                        topic_convs = conversations_by_topic_full.get(topic_name, [])
+                        
+                        # Skip topics with no conversations
+                        if len(topic_convs) == 0:
+                            self.logger.info(f"   Skipping {topic_name}: 0 conversations")
+                            return topic_name, None, None
+                        
+                        self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
+                        
+                        # Sentiment for this topic
+                        topic_context = context.model_copy()
+                        topic_context.metadata = {
+                            'current_topic': topic_name,
+                            'topic_conversations': topic_convs,
+                            'sentiment_insight': ''
+                        }
+                        
+                        sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
+                        
+                        # Examples for this topic
+                        topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
+                        examples_result = await self.example_extraction_agent.execute(topic_context)
+                        
+                        self.logger.info(f"   ✅ Completed topic {topic_num}/{total_topics}: {topic_name} - {len(examples_result.data.get('examples', []))} examples")
+                        
+                        return topic_name, sentiment_result, examples_result
+                    except Exception as e:
+                        # Wrap exception to preserve topic_name
+                        self.logger.error(f"   ❌ {topic_name}: Processing failed - {e}", exc_info=True)
+                        return topic_name, e, None
             
-            # Process all topics in parallel (skip zero-volume topics)
-            self.logger.info(f"   Processing {len(topic_dist)} topics in parallel...")
+            # Process all topics in parallel (skip zero-volume topics) with concurrency control
+            self.logger.info(f"   Processing {len(topic_dist)} topics in parallel (max {self.topic_semaphore._value} concurrent)...")
             topic_tasks = []
+            topic_num = 0
             for name, stats in topic_dist.items():
                 volume = stats.get('volume', 0)
                 if volume == 0:
                     self.logger.info(f"   ⏭️  Skipping topic '{name}': zero volume (LLM-discovered with no matches)")
                     continue
-                topic_tasks.append(process_topic(name, stats))
+                topic_num += 1
+                topic_tasks.append(process_topic_with_semaphore(name, stats, topic_num, len(topic_dist)))
             
-            self.logger.info(f"   Created {len(topic_tasks)} topic processing tasks")
+            self.logger.info(f"   Created {len(topic_tasks)} topic processing tasks (concurrency limit: {self.topic_semaphore._value})")
             topic_results = await asyncio.gather(*topic_tasks)
             
             # Initialize per-topic tracking
@@ -494,6 +562,17 @@ class TopicOrchestrator:
             
             # PHASE 4: Fin Analysis (on free and paid fin-resolved conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
+            
+            if self.audit:
+                self.audit.step("Phase 4: Fin Analysis", "analysis",
+                              f"Starting Fin AI performance evaluation on {len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)} conversations",
+                              {
+                                  'free_tier_conversations': len(free_fin_only_conversations),
+                                  'paid_tier_conversations': len(paid_fin_resolved_conversations),
+                                  'total_fin_conversations': len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)
+                              })
+            
+            fin_start_time = datetime.now()
             fin_context = context.model_copy()
             fin_context.metadata = {
                 'free_fin_conversations': free_fin_only_conversations,
@@ -508,6 +587,29 @@ class TopicOrchestrator:
             }
             fin_result = await self.fin_performance_agent.execute(fin_context)
             workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
+            
+            fin_execution_time = (datetime.now() - fin_start_time).total_seconds()
+            
+            # Validate and parse Fin analysis result with typed payload
+            fin_payload: Optional[FinAnalysisPayload] = None
+            try:
+                fin_payload = FinAnalysisPayload(**fin_result.data)
+                self.logger.debug("✅ FinAnalysisPayload validation passed")
+            except ValidationError as e:
+                self.logger.warning(f"⚠️ FinAnalysisPayload validation failed: {e}")
+            
+            if self.audit:
+                fin_data = _normalize_agent_result(fin_result).get('data', {})
+                self.audit.step("Phase 4: Fin Analysis", "analysis",
+                              f"Completed Fin AI performance evaluation in {fin_execution_time:.1f}s",
+                              {
+                                  'execution_time_seconds': fin_execution_time,
+                                  'total_analyzed': fin_data.get('total_fin_conversations', 0),
+                                  'free_tier_resolution_rate': fin_data.get('free_tier', {}).get('resolution_rate', 0),
+                                  'paid_tier_resolution_rate': fin_data.get('paid_tier', {}).get('resolution_rate', 0),
+                                  'success': fin_result.success if hasattr(fin_result, 'success') else True,
+                                  'payload_validation': 'passed' if fin_payload else 'failed'
+                              })
             
             # Display agent result
             try:
@@ -576,6 +678,16 @@ class TopicOrchestrator:
             
             # PHASE 5: Trend Analysis
             self.logger.info("📈 Phase 5: Trend Analysis")
+            
+            if self.audit:
+                self.audit.step("Phase 5: Trend Analysis", "analysis",
+                              "Starting historical trend analysis",
+                              {
+                                  'current_week': week_id,
+                                  'topics_to_analyze': len(topic_dist)
+                              })
+            
+            trend_start_time = datetime.now()
             trend_context = context.model_copy()
             trend_context.metadata = {
                 'current_week_results': {
@@ -587,6 +699,27 @@ class TopicOrchestrator:
             trend_result = await self.trend_agent.execute(trend_context)
             workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
             
+            trend_execution_time = (datetime.now() - trend_start_time).total_seconds()
+            
+            # Validate and parse trend analysis result with typed payload
+            trend_payload: Optional[TrendAnalysisPayload] = None
+            try:
+                trend_payload = TrendAnalysisPayload(**trend_result.data)
+                self.logger.debug("✅ TrendAnalysisPayload validation passed")
+            except ValidationError as e:
+                self.logger.warning(f"⚠️ TrendAnalysisPayload validation failed: {e}")
+            
+            if self.audit:
+                trend_data = _normalize_agent_result(trend_result).get('data', {})
+                self.audit.step("Phase 5: Trend Analysis", "analysis",
+                              f"Completed trend analysis in {trend_execution_time:.1f}s",
+                              {
+                                  'execution_time_seconds': trend_execution_time,
+                                  'trends_identified': len(trend_data.get('trends', [])),
+                                  'success': trend_result.success if hasattr(trend_result, 'success') else True,
+                                  'payload_validation': 'passed' if trend_payload else 'failed'
+                              })
+            
             # Display agent result
             try:
                 display.display_agent_result('TrendAgent', _normalize_agent_result(trend_result), show_full_data)
@@ -597,6 +730,16 @@ class TopicOrchestrator:
             
             # PHASE 6: Format Output
             self.logger.info("📝 Phase 6: Output Formatting")
+            
+            if self.audit:
+                self.audit.step("Phase 6: Output Formatting", "formatting",
+                              "Starting final output formatting",
+                              {
+                                  'agents_completed': len(workflow_results),
+                                  'topics_processed': len(topic_dist)
+                              })
+            
+            output_start_time = datetime.now()
             output_context = context.model_copy()
             # Ensure OutputFormatterAgent receives full conversation set
             output_context.conversations = conversations
@@ -617,6 +760,16 @@ class TopicOrchestrator:
             
             formatter_result = await self.output_formatter_agent.execute(output_context)
             workflow_results['OutputFormatterAgent'] = _normalize_agent_result(formatter_result)
+            
+            output_execution_time = (datetime.now() - output_start_time).total_seconds()
+            
+            if self.audit:
+                self.audit.step("Phase 6: Output Formatting", "formatting",
+                              f"Completed output formatting in {output_execution_time:.1f}s",
+                              {
+                                  'execution_time_seconds': output_execution_time,
+                                  'success': formatter_result.success if hasattr(formatter_result, 'success') else True
+                              })
             
             # Display agent result
             try:
@@ -674,6 +827,14 @@ class TopicOrchestrator:
             
             self.logger.info(f"🎉 TopicOrchestrator: Complete in {total_time:.1f}s")
             self.logger.info(f"   Topics: {len(topic_dist)}, Paid: {len(paid_conversations)}, Free: {len(free_fin_only_conversations)}")
+            
+            # Save audit report at completion
+            if self.audit:
+                try:
+                    audit_path = self.audit.save_report()
+                    self.logger.info(f"📋 Audit trail saved to: {audit_path}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to save audit report: {e}")
             
             return final_output
             

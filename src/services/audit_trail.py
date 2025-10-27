@@ -10,9 +10,25 @@ Generates a comprehensive audit report showing:
 - What transformations were applied
 - What metrics were calculated and how
 - What AI calls were made and what they returned
+
+PII Scrubbing:
+By default, sensitive data is automatically redacted before storage:
+- Email addresses → [EMAIL_REDACTED]
+- Bearer tokens → Bearer [TOKEN_REDACTED]
+- API keys → [API_KEY_REDACTED]
+- Conversation/Admin IDs → [ID_REDACTED]
+
+To disable scrubbing (not recommended for production):
+- Set environment variable: SCRUB_AUDIT_DATA=false
+- Or pass scrub_pii=False to constructor
+
+Configuration:
+- SCRUB_AUDIT_DATA: Enable/disable PII scrubbing (default: true)
 """
 
 import logging
+import os
+import re
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
@@ -22,9 +38,32 @@ logger = logging.getLogger(__name__)
 
 
 class AuditTrail:
-    """Records and narrates the analysis process for auditing"""
+    """
+    Records and narrates the analysis process for auditing.
     
-    def __init__(self, output_dir: str = "outputs"):
+    Features:
+    - Step-by-step execution tracking
+    - Decision logging with rationale
+    - Data quality checks
+    - Tool call tracking with PII scrubbing
+    - Warning and error tracking
+    
+    PII Scrubbing:
+    By default, sensitive data is automatically redacted before storage:
+    - Email addresses → [EMAIL_REDACTED]
+    - Bearer tokens → Bearer [TOKEN_REDACTED]
+    - API keys → [API_KEY_REDACTED]
+    - Conversation/Admin IDs → [ID_REDACTED]
+    
+    To disable scrubbing (not recommended for production):
+    - Set environment variable: SCRUB_AUDIT_DATA=false
+    - Or pass scrub_pii=False to constructor
+    
+    Configuration:
+    - SCRUB_AUDIT_DATA: Enable/disable PII scrubbing (default: true)
+    """
+    
+    def __init__(self, output_dir: str = "outputs", scrub_pii: bool = None):
         self.steps = []
         self.start_time = datetime.now()
         self.output_dir = Path(output_dir)
@@ -33,6 +72,29 @@ class AuditTrail:
         self.decisions = []
         self.data_quality_issues = []
         self.tool_calls = []
+        
+        # PII scrubbing config (default to True for security)
+        if scrub_pii is None:
+            scrub_pii = os.getenv('SCRUB_AUDIT_DATA', 'true').lower() == 'true'
+        self.scrub_pii = scrub_pii
+        
+        # Define sensitive patterns
+        self.sensitive_patterns = [
+            # Email addresses
+            (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),
+            # Bearer tokens
+            (r'Bearer\s+[a-zA-Z0-9_\-\.]+', 'Bearer [TOKEN_REDACTED]'),
+            # API keys (20+ alphanumeric chars)
+            (r'\b[A-Za-z0-9_-]{20,}\b', '[API_KEY_REDACTED]'),
+            # Intercom conversation IDs (numeric)
+            (r'\bconversation_id["\s:]+\d+', 'conversation_id: [ID_REDACTED]'),
+            # Admin IDs in various formats
+            (r'\badmin_id["\s:]+\d+', 'admin_id: [ID_REDACTED]'),
+            # Environment variable secrets
+            (r'(API_KEY|SECRET|TOKEN|PASSWORD)\s*[:=]\s*[^\s]+', r'\1: [REDACTED]'),
+            # Hex tokens (32+ chars)
+            (r'\b[a-f0-9]{32,}\b', '[HEX_TOKEN_REDACTED]'),
+        ]
     
     def step(self, phase: str, action: str, details: Dict[str, Any] = None):
         """
@@ -117,9 +179,39 @@ class AuditTrail:
         status = "✅ PASSED" if passed else "❌ FAILED"
         self.logger.info(f"[DATA QUALITY] {check_name}: {status}")
 
+    def _scrub_sensitive_data(self, data: Any, preserve_structure: bool = True) -> Any:
+        """
+        Recursively scrub sensitive data from any structure.
+        
+        Args:
+            data: Data to scrub (dict, list, str, or primitive)
+            preserve_structure: Keep data structure intact (default: True)
+        
+        Returns:
+            Scrubbed copy of data
+        """
+        if not self.scrub_pii:
+            return data
+        
+        if isinstance(data, dict):
+            return {k: self._scrub_sensitive_data(v, preserve_structure) for k, v in data.items()}
+        
+        elif isinstance(data, list):
+            return [self._scrub_sensitive_data(item, preserve_structure) for item in data]
+        
+        elif isinstance(data, str):
+            scrubbed = data
+            for pattern, replacement in self.sensitive_patterns:
+                scrubbed = re.sub(pattern, replacement, scrubbed, flags=re.IGNORECASE)
+            return scrubbed
+        
+        else:
+            # Primitives (int, float, bool, None) pass through
+            return data
+    
     def tool_call(self, tool_name: str, arguments: Dict[str, Any], result: Any, success: bool, execution_time_ms: float, error_message: str = None):
         """
-        Record a tool execution in the audit trail.
+        Record a tool execution in the audit trail with PII scrubbing.
 
         Args:
             tool_name: Name of the tool that was called (e.g., "lookup_admin_profile")
@@ -129,23 +221,30 @@ class AuditTrail:
             execution_time_ms: Execution time in milliseconds
             error_message: Error message if execution failed
         """
+        # Scrub sensitive data before storing
+        scrubbed_arguments = self._scrub_sensitive_data(arguments)
+        scrubbed_result = self._scrub_sensitive_data(result)
+        scrubbed_error = self._scrub_sensitive_data(error_message) if error_message else None
+        
         tool_call_data = {
             'timestamp': datetime.now().isoformat(),
             'tool_name': tool_name,
-            'arguments': arguments,
-            'result': result,
+            'arguments': scrubbed_arguments,
+            'result': scrubbed_result,
             'success': success,
             'execution_time_ms': execution_time_ms,
-            'error_message': error_message
+            'error_message': scrubbed_error,
+            '_scrubbed': self.scrub_pii  # Flag to indicate if scrubbing was applied
         }
         self.tool_calls.append(tool_call_data)
 
-        # Log the tool call
-        status = "SUCCESS" if success else "FAILED"
-        self.logger.info(f"[TOOL CALL] {tool_name} - {status} ({execution_time_ms:.1f}ms)")
-        if not success and error_message:
-            self.logger.warning(f"[TOOL CALL] {tool_name} - ERROR: {error_message}")
-        self.logger.debug(f"[TOOL CALL] Arguments: {arguments}")
+        # Log the tool call (use scrubbed data)
+        if success:
+            self.logger.info(f"[TOOL CALL] {tool_name} - SUCCESS ({execution_time_ms:.1f}ms)")
+        else:
+            self.logger.warning(f"[TOOL CALL] {tool_name} - FAILED: {scrubbed_error}")
+        
+        self.logger.debug(f"[TOOL CALL] Scrubbed Arguments: {scrubbed_arguments}")
     
     def generate_report(self) -> str:
         """
@@ -236,6 +335,9 @@ class AuditTrail:
         # Tool Calls Section
         if self.tool_calls:
             report_lines.append("## 🔧 Tool Calls\n")
+            
+            if self.scrub_pii:
+                report_lines.append("*Note: Sensitive data has been redacted for security*\n")
 
             # Summary
             successful_count = sum(1 for tc in self.tool_calls if tc['success'])
@@ -247,7 +349,7 @@ class AuditTrail:
             report_lines.append(f"**Failed:** {failed_count}")
             report_lines.append(f"**Total Execution Time:** {total_time:.1f}ms\n")
 
-            # Individual tool calls
+            # Individual tool calls (data is already scrubbed in tool_call(), just display it)
             for i, tc in enumerate(self.tool_calls, 1):
                 status = "✅ SUCCESS" if tc['success'] else "❌ FAILED"
                 report_lines.append(f"### Tool Call #{i}: {tc['tool_name']} - {status}\n")
@@ -384,6 +486,15 @@ class AuditTrail:
                 self.logger.warning(f"  - {w['issue']}")
         
         self.logger.info("=" * 80)
+    
+    def set_scrubbing_enabled(self, enabled: bool):
+        """Enable or disable PII scrubbing"""
+        self.scrub_pii = enabled
+        self.logger.info(f"PII scrubbing {'enabled' if enabled else 'disabled'}")
+    
+    def is_scrubbing_enabled(self) -> bool:
+        """Check if PII scrubbing is enabled"""
+        return self.scrub_pii
 
 
 class AuditableAnalysis:

@@ -1,5 +1,11 @@
-// VERSION MARKER: v3.1.0-audit-trail - If you see this, the latest code is deployed
-console.log('✅ JavaScript v3.1.0-audit-trail loaded successfully - Audit trail mode added');
+// Dynamic version loaded from server
+console.log('✅ JavaScript loaded successfully');
+
+// Global command schema from server
+let commandSchema = null;
+
+// Global version info
+let versionInfo = null;
 
 // Global error handler - catch all JavaScript errors and display them
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -13,9 +19,56 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
 
 // Check system status and load recent jobs on page load
 window.onload = function() {
+    loadCommandSchema();
+    loadVersionInfo();
     checkSystemStatus();
     loadRecentJobs();
 };
+
+async function loadCommandSchema() {
+    try {
+        console.log('📡 Fetching command schema from server...');
+        const response = await fetch('/api/commands');
+        const data = await response.json();
+        commandSchema = data.commands;
+        console.log('✅ Loaded command schema:', commandSchema);
+        console.log(`📊 Schema version: ${data.version}, generated at: ${data.generated_at}`);
+    } catch (error) {
+        console.error('❌ Failed to load command schema:', error);
+        console.warn('⚠️  Falling back to hard-coded command logic');
+        // commandSchema will remain null, triggering fallback behavior
+    }
+}
+
+async function loadVersionInfo() {
+    try {
+        console.log('📡 Fetching version info from server...');
+        const response = await fetch('/debug/version');
+        const version = await response.json();
+        versionInfo = version;
+        
+        // Display in footer
+        const footer = document.getElementById('version-footer');
+        if (footer) {
+            footer.innerHTML = `
+                <span class="version-info" title="Version: ${version.version}, Commit: ${version.commit}, Build: ${version.build_date}">
+                    v${version.version} (${version.commit_short})
+                </span>
+            `;
+        }
+        
+        // Log to console
+        console.log(`✅ App Version: ${version.version} (${version.commit_short})`);
+        console.log(`📅 Build Date: ${version.build_date}`);
+        console.log(`⏱️  Uptime: ${(version.uptime_seconds / 3600).toFixed(1)} hours`);
+        console.log(`🐍 Python: ${version.python_version.split(' ')[0]}`);
+        console.log(`🌍 Environment: ${version.environment}`);
+        
+    } catch (error) {
+        console.error('❌ Failed to load version info:', error);
+        // Keep the hardcoded version in the footer if fetch fails
+    }
+}
 
 async function checkSystemStatus() {
     try {
@@ -99,6 +152,10 @@ async function resumeJob(executionId) {
         // Fetch current status
         const response = await fetch(`/execute/status/${executionId}`);
         if (!response.ok) {
+            if (response.status === 401) {
+                showAuthError('Authentication required. Please provide valid credentials.');
+                return;
+            }
             throw new Error(`Failed to fetch job status: ${response.status}`);
         }
         
@@ -254,6 +311,14 @@ async function sendMessage() {
             body: JSON.stringify({ query: query })
         });
         
+        if (response.status === 401) {
+            showAuthError('Authentication required. Please provide valid credentials.');
+            input.disabled = false;
+            button.disabled = false;
+            button.textContent = 'Send';
+            return;
+        }
+        
         const data = await response.json();
         
         // DEBUG: Log the actual response structure
@@ -333,6 +398,16 @@ async function executeCommand(command, args) {
             method: 'POST'
         });
         
+        if (startResponse.status === 401) {
+            showAuthError('Authentication required. Please provide valid credentials.');
+            return;
+        }
+        
+        if (startResponse.status === 429) {
+            showRateLimitError('Too many requests. Please wait before trying again.');
+            return;
+        }
+        
         if (!startResponse.ok) {
             const errorData = await startResponse.json();
             throw new Error(errorData.detail || `Start execution failed: ${startResponse.status}`);
@@ -383,11 +458,23 @@ async function executeCommand(command, args) {
     }
 }
 
+let lastActivityTime = Date.now();
+
 function startPolling() {
+    // Reset last activity time
+    lastActivityTime = Date.now();
+    
     // Poll every 1 second for updates
     pollingInterval = setInterval(async () => {
         try {
             const response = await fetch(`/execute/status/${currentExecutionId}?since=${outputIndex}`);
+            
+            if (response.status === 401) {
+                stopPolling();
+                showAuthError('Authentication session expired. Please refresh and try again.');
+                return;
+            }
+            
             const data = await response.json();
             
             // Update output
@@ -396,10 +483,11 @@ function startPolling() {
                     appendTerminalOutput(outputItem);
                 });
                 outputIndex = data.output_length;
+                lastActivityTime = Date.now();
             }
             
             // Check if execution is complete
-            if (data.status === 'completed' || data.status === 'failed' || data.status === 'error' || data.status === 'cancelled') {
+            if (data.status === 'completed' || data.status === 'failed' || data.status === 'error' || data.status === 'cancelled' || data.status === 'timeout') {
                 stopPolling();
                 
                 const executionSpinner = document.getElementById('executionSpinner');
@@ -438,6 +526,17 @@ function startPolling() {
                     // Parse and display agent results in Summary tab
                     updateAgentResultsSummary(fullOutput);
                     
+                    // Check for audit trail files and display them
+                    displayAuditTrailBadge(fullOutput);
+                    
+                } else if (data.status === 'timeout') {
+                    executionStatus.className = 'status-badge failed';
+                    executionStatus.textContent = 'Timeout';
+                    showTimeoutError(data.error_message || 'Execution exceeded maximum duration. Increase MAX_EXECUTION_DURATION if needed.');
+                } else if (data.status === 'cancelled') {
+                    executionStatus.className = 'status-badge warning';
+                    executionStatus.textContent = 'Cancelled';
+                    showCancelledMessage('Execution was cancelled.');
                 } else {
                     executionStatus.className = 'status-badge failed';
                     executionStatus.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
@@ -448,6 +547,20 @@ function startPolling() {
             // Continue polling despite errors
         }
     }, 1000); // Poll every 1 second
+    
+    // Monitor for stalled connections
+    const stallCheckInterval = setInterval(() => {
+        if (!pollingInterval) {
+            clearInterval(stallCheckInterval);
+            return;
+        }
+        
+        const timeSinceActivity = Date.now() - lastActivityTime;
+        if (timeSinceActivity > 60000) {  // 1 minute without activity
+            console.warn('No activity for 1 minute, connection may be stalled');
+            // Could show warning or attempt reconnect
+        }
+    }, 10000); // Check every 10 seconds
 }
 
 function stopPolling() {
@@ -463,9 +576,48 @@ function appendTerminalOutput(data) {
     const executionStatus = document.getElementById('executionStatus');
     const cancelButton = document.getElementById('cancelButton');
     
+    // Handle timeout status
+    if (data.type === 'timeout' || data.status === 'timeout') {
+        executionSpinner.style.display = 'none';
+        executionStatus.className = 'status-badge failed';
+        executionStatus.textContent = 'Timeout';
+        cancelButton.style.display = 'none';
+        
+        showTimeoutError(data.message || 'Execution exceeded maximum duration. Increase MAX_EXECUTION_DURATION if needed.');
+        
+        if (currentEventSource) {
+            currentEventSource.close();
+            currentEventSource = null;
+        }
+        stopPolling();
+        return;
+    }
+    
+    // Handle cancelled status
+    if (data.type === 'cancelled' || data.status === 'cancelled') {
+        executionSpinner.style.display = 'none';
+        executionStatus.className = 'status-badge warning';
+        executionStatus.textContent = 'Cancelled';
+        cancelButton.style.display = 'none';
+        
+        showCancelledMessage(data.message || 'Execution was cancelled');
+        
+        if (currentEventSource) {
+            currentEventSource.close();
+            currentEventSource = null;
+        }
+        stopPolling();
+        return;
+    }
+    
     // Create line element
     const line = document.createElement('div');
     line.className = `terminal-line ${data.type}`;
+    
+    // Add truncation indicator if present
+    if (data.truncated) {
+        line.className += ' truncated';
+    }
     
     // Convert ANSI codes to HTML
     const htmlContent = ansiUp.ansi_to_html(data.data || '');
@@ -473,6 +625,9 @@ function appendTerminalOutput(data) {
     
     terminalOutput.appendChild(line);
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    
+    // Update last activity time
+    lastActivityTime = Date.now();
     
     // Update status based on output type
     if (data.type === 'status') {
@@ -510,9 +665,14 @@ async function cancelExecution() {
     try {
         stopPolling();
         
-        await fetch(`/execute/cancel/${currentExecutionId}`, {
+        const response = await fetch(`/execute/cancel/${currentExecutionId}`, {
             method: 'POST'
         });
+        
+        if (response.status === 401) {
+            showAuthError('Authentication required to cancel execution.');
+            return;
+        }
         
         const executionSpinner = document.getElementById('executionSpinner');
         const executionStatus = document.getElementById('executionStatus');
@@ -547,6 +707,76 @@ function showDownloadLinks() {
         </div>
     `;
     executionResults.style.display = 'block';
+}
+
+function showAuthError(message) {
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (terminalOutput) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'terminal-line error';
+        errorDiv.style.cssText = 'background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 12px; margin: 10px 0; border-radius: 4px;';
+        errorDiv.innerHTML = `<strong>🔐 Authentication Error:</strong> ${message}`;
+        terminalOutput.appendChild(errorDiv);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+    
+    const executionStatus = document.getElementById('executionStatus');
+    if (executionStatus) {
+        executionStatus.className = 'status-badge failed';
+        executionStatus.textContent = 'Auth Failed';
+    }
+}
+
+function showRateLimitError(message) {
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (terminalOutput) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'terminal-line error';
+        errorDiv.style.cssText = 'background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 12px; margin: 10px 0; border-radius: 4px;';
+        errorDiv.innerHTML = `<strong>⏱️ Rate Limit:</strong> ${message}`;
+        terminalOutput.appendChild(errorDiv);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+}
+
+function showTimeoutError(message) {
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (terminalOutput) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'terminal-line error';
+        errorDiv.style.cssText = 'background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 12px; margin: 10px 0; border-radius: 4px;';
+        
+        let htmlContent = `<strong>⏰ Timeout:</strong> ${message}`;
+        
+        // Add configuration tips if the message mentions exceeded limit
+        if (message && message.includes('exceeded')) {
+            htmlContent += `<br><br><div style="margin-top: 10px; padding: 10px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 4px;">
+                <strong>💡 Tip:</strong> Set MAX_EXECUTION_DURATION environment variable to a higher value for large datasets.<br>
+                <strong>Example:</strong> MAX_EXECUTION_DURATION=7200 (for 2 hours)<br><br>
+                <strong>Recommended Timeouts:</strong><br>
+                • Small (&lt; 1,000 conversations): 1800 (30 min)<br>
+                • Medium (1,000-5,000): 3600 (60 min)<br>
+                • Large (5,000-10,000): 7200 (2 hours)<br>
+                • Very Large (&gt; 10,000): 14400 (4 hours)
+            </div>`;
+        }
+        
+        errorDiv.innerHTML = htmlContent;
+        terminalOutput.appendChild(errorDiv);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+}
+
+function showCancelledMessage(message) {
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (terminalOutput) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'terminal-line warning';
+        messageDiv.style.cssText = 'background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 12px; margin: 10px 0; border-radius: 4px;';
+        messageDiv.innerHTML = `<strong>🚫 Cancelled:</strong> ${message}`;
+        terminalOutput.appendChild(messageDiv);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
 }
 
 function parseGammaLinks(output) {
@@ -830,6 +1060,75 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function validateAgainstSchema(analysisTypeKey, flags) {
+    /**
+     * Validate command flags against server schema.
+     *
+     * @param {string} analysisTypeKey - Schema key for analysis type
+     * @param {Object} flags - Flags to validate
+     * @returns {Object} {valid: boolean, error: string|null}
+     */
+    if (!commandSchema) {
+        console.warn('⚠️  Schema not loaded, skipping validation');
+        return {valid: true}; // Allow execution if schema not loaded
+    }
+    
+    if (!commandSchema[analysisTypeKey]) {
+        return {valid: false, error: `Unknown analysis type: ${analysisTypeKey}`};
+    }
+    
+    const config = commandSchema[analysisTypeKey];
+    const allowedFlags = config.allowed_flags;
+    
+    // Check for unknown flags
+    for (const flagName of Object.keys(flags)) {
+        if (!(flagName in allowedFlags)) {
+            return {valid: false, error: `Unknown flag: ${flagName} for ${analysisTypeKey}`};
+        }
+    }
+    
+    // Check required flags
+    for (const [flagName, flagSchema] of Object.entries(allowedFlags)) {
+        if (flagSchema.required && !(flagName in flags)) {
+            return {valid: false, error: `Missing required flag: ${flagName}`};
+        }
+    }
+    
+    // Validate flag values
+    for (const [flagName, flagValue] of Object.entries(flags)) {
+        const flagSchema = allowedFlags[flagName];
+        
+        if (flagSchema.type === 'enum' && !flagSchema.values.includes(flagValue)) {
+            return {
+                valid: false,
+                error: `Invalid value '${flagValue}' for ${flagName}. Must be one of: ${flagSchema.values.join(', ')}`
+            };
+        }
+        
+        if (flagSchema.type === 'integer') {
+            const val = parseInt(flagValue);
+            if (isNaN(val)) {
+                return {valid: false, error: `Invalid integer value for ${flagName}`};
+            }
+            if (flagSchema.min !== undefined && val < flagSchema.min) {
+                return {valid: false, error: `${flagName} must be at least ${flagSchema.min}`};
+            }
+            if (flagSchema.max !== undefined && val > flagSchema.max) {
+                return {valid: false, error: `${flagName} must be at most ${flagSchema.max}`};
+            }
+        }
+        
+        if (flagSchema.type === 'date') {
+            // Basic date format validation
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(flagValue)) {
+                return {valid: false, error: `Invalid date format for ${flagName}. Expected YYYY-MM-DD`};
+            }
+        }
+    }
+    
+    return {valid: true};
+}
+
 // Form-based analysis execution handler
 function runAnalysis() {
     // Get form values with validation
@@ -859,67 +1158,81 @@ function runAnalysis() {
     const isVerbose = verboseLogging ? verboseLogging.checked : false;
     const isAuditMode = auditMode ? auditMode.checked : false;
     
+    // Map UI analysis type to schema key
+    const analysisTypeMap = {
+        'voice-of-customer-hilary': 'voice_of_customer',
+        'voice-of-customer-synthesis': 'voice_of_customer',
+        'voice-of-customer-complete': 'voice_of_customer',
+        'agent-performance-horatio-team': 'agent_performance',
+        'agent-performance-boldr-team': 'agent_performance',
+        'agent-performance-horatio-individual': 'agent_performance',
+        'agent-performance-boldr-individual': 'agent_performance',
+        'agent-performance-escalated': 'agent_performance',
+        'agent-coaching-horatio': 'agent_coaching',
+        'agent-coaching-boldr': 'agent_coaching',
+        'analyze-billing': 'category_billing',
+        'analyze-product': 'category_product',
+        'analyze-api': 'category_api',
+        'analyze-escalations': 'category_escalations',
+        'tech-analysis': 'tech_troubleshooting',
+        'analyze-all-categories': 'all_categories',
+        'canny-analysis': 'canny_analysis'
+    };
+    
+    const schemaKey = analysisTypeMap[analysisValue];
+    if (!schemaKey) {
+        alert(`Unknown analysis type: ${analysisValue}`);
+        return;
+    }
+    
+    // Build flags object for validation
+    const flags = {};
+    
     // Build command based on analysis type
     let command = '';
     let args = [];
     
-    // Map analysis type to command
+    // Map analysis type to command (keeping existing logic for now)
     if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
-        args.push('--multi-agent', '--analysis-type', 'topic-based');
+        flags['--multi-agent'] = true;
+        flags['--analysis-type'] = 'topic-based';
     } else if (analysisValue === 'voice-of-customer-synthesis') {
         command = 'voice-of-customer';
-        args.push('--multi-agent', '--analysis-type', 'synthesis');
+        flags['--multi-agent'] = true;
+        flags['--analysis-type'] = 'synthesis';
     } else if (analysisValue === 'voice-of-customer-complete') {
         command = 'voice-of-customer';
-        args.push('--multi-agent', '--analysis-type', 'complete');
+        flags['--multi-agent'] = true;
+        flags['--analysis-type'] = 'complete';
     } else if (analysisValue === 'agent-performance-horatio-team') {
         command = 'agent-performance';
-        args.push('--agent', 'horatio');
-        // Team overview - no individual breakdown
+        flags['--agent'] = 'horatio';
     } else if (analysisValue === 'agent-performance-boldr-team') {
         command = 'agent-performance';
-        args.push('--agent', 'boldr');
-        // Team overview - no individual breakdown
+        flags['--agent'] = 'boldr';
     } else if (analysisValue === 'agent-performance-horatio-individual') {
         command = 'agent-performance';
-        args.push('--agent', 'horatio', '--individual-breakdown');
+        flags['--agent'] = 'horatio';
+        flags['--individual-breakdown'] = true;
     } else if (analysisValue === 'agent-performance-boldr-individual') {
         command = 'agent-performance';
-        args.push('--agent', 'boldr', '--individual-breakdown');
+        flags['--agent'] = 'boldr';
+        flags['--individual-breakdown'] = true;
     } else if (analysisValue === 'agent-coaching-horatio') {
         command = 'agent-coaching-report';
-        args.push('--vendor', 'horatio');
+        flags['--vendor'] = 'horatio';
     } else if (analysisValue === 'agent-coaching-boldr') {
         command = 'agent-coaching-report';
-        args.push('--vendor', 'boldr');
+        flags['--vendor'] = 'boldr';
     } else if (analysisValue === 'agent-performance-escalated') {
         command = 'agent-performance';
-        args.push('--agent', 'escalated');
+        flags['--agent'] = 'escalated';
     } else {
         command = analysisValue;
     }
     
-    // Add time period or custom dates
-    // Commands that support --time-period flag (newer multi-agent commands)
-    const supportsTimePeriod = [
-        'voice-of-customer',
-        'agent-performance',
-        'agent-coaching-report',
-        'canny-analysis'
-    ];
-    
-    // Commands that only support --days or --start-date/--end-date (legacy category commands)
-    const categoryDeepDiveCommands = [
-        'analyze-billing',
-        'analyze-product',
-        'analyze-api',
-        'analyze-sites',
-        'analyze-escalations',
-        'tech-analysis',
-        'analyze-all-categories'
-    ];
-    
+    // Add time period flags
     if (timeValue === 'custom') {
         const startDate = document.getElementById('startDate');
         const endDate = document.getElementById('endDate');
@@ -929,59 +1242,75 @@ function runAnalysis() {
             return;
         }
         
-        args.push('--start-date', startDate.value, '--end-date', endDate.value);
-    } else if (supportsTimePeriod.includes(command)) {
-        // Use --time-period for commands that support it
-        args.push('--time-period', timeValue);
-    } else if (categoryDeepDiveCommands.includes(command)) {
-        // Convert time period to --days for legacy commands
-        const dayMap = {
-            'yesterday': 1,
-            'week': 7,
-            'month': 30
-        };
-        const days = dayMap[timeValue] || 7;
-        args.push('--days', String(days));
+        flags['--start-date'] = startDate.value;
+        flags['--end-date'] = endDate.value;
     } else {
-        // Default: use --time-period
-        args.push('--time-period', timeValue);
+        // Check if command supports --time-period or --days
+        const supportsTimePeriod = ['voice-of-customer', 'agent-performance', 'agent-coaching-report', 'canny-analysis'];
+        const categoryDeepDiveCommands = ['analyze-billing', 'analyze-product', 'analyze-api', 'analyze-sites', 'analyze-escalations', 'tech-analysis', 'analyze-all-categories'];
+        
+        if (supportsTimePeriod.includes(command)) {
+            flags['--time-period'] = timeValue;
+        } else if (categoryDeepDiveCommands.includes(command)) {
+            const dayMap = {'yesterday': 1, 'week': 7, 'month': 30};
+            flags['--days'] = dayMap[timeValue] || 7;
+        } else {
+            flags['--time-period'] = timeValue;
+        }
     }
     
     // Add data source flags
     if (sourceValue === 'canny') {
         command = 'canny-analysis';
     } else if (sourceValue === 'both') {
-        args.push('--include-canny');
+        flags['--include-canny'] = true;
     }
     
-    // Add taxonomy filter if selected (only for commands that support it)
-    if (filterValue && supportsTimePeriod.includes(command)) {
-        args.push('--focus-areas', filterValue);
+    // Add taxonomy filter if selected
+    if (filterValue) {
+        flags['--focus-areas'] = filterValue;
     }
     
     // Add output format
     if (formatValue === 'gamma') {
-        args.push('--generate-gamma');
+        flags['--generate-gamma'] = true;
     }
     
-    // Add test mode flags (only for commands that support it)
-    const supportsTestMode = ['voice-of-customer', 'agent-performance', 'agent-coaching-report'];
-    if (isTestMode && supportsTestMode.includes(command)) {
-        args.push('--test-mode');
-        args.push('--test-data-count', testCount);
+    // Add test mode flags
+    if (isTestMode) {
+        flags['--test-mode'] = true;
+        flags['--test-data-count'] = parseInt(testCount);
     }
     
-    // Add verbose logging (only voice-of-customer supports this flag at command level)
-    const supportsVerbose = ['voice-of-customer'];
-    if (isVerbose && supportsVerbose.includes(command)) {
-        args.push('--verbose');
+    // Add verbose logging
+    if (isVerbose) {
+        flags['--verbose'] = true;
     }
     
-    // Add audit trail mode (supported by voice-of-customer and agent-performance commands)
-    const supportsAuditTrail = ['voice-of-customer', 'agent-performance', 'agent-coaching-report'];
-    if (isAuditMode && supportsAuditTrail.includes(command)) {
-        args.push('--audit-trail');
+    // Add audit trail mode
+    if (isAuditMode) {
+        flags['--audit-trail'] = true;
     }
+    
+    // Validate flags against schema
+    const validation = validateAgainstSchema(schemaKey, flags);
+    if (!validation.valid) {
+        alert(`Validation Error: ${validation.error}`);
+        console.error('❌ Validation failed:', validation.error);
+        return;
+    }
+    
+    // Convert flags object to args array
+    args = [];
+    for (const [flagName, flagValue] of Object.entries(flags)) {
+        if (typeof flagValue === 'boolean' && flagValue) {
+            args.push(flagName);
+        } else if (typeof flagValue !== 'boolean') {
+            args.push(flagName, String(flagValue));
+        }
+    }
+    
+    console.log('✅ Validation passed. Executing command:', command, args);
     
     // Show terminal container and execute
     const terminalContainer = document.getElementById('terminalContainer');
@@ -1096,26 +1425,71 @@ function updateAnalysisTabs(output) {
         // Parse and populate Files tab
         const allFileMatches = output.matchAll(/(?:📁|saved|exported|generated).*?:\s*([^\n]+\.(json|md|txt|pdf|csv))/gi);
         const allFiles = [];
+        const auditFiles = [];
+        
         for (const match of allFileMatches) {
             const filePath = match[1].trim();
             const ext = match[2].toUpperCase();
             const fileName = filePath.split('/').pop();
-            allFiles.push({ path: filePath, type: ext, name: fileName });
+            const fileInfo = { path: filePath, type: ext, name: fileName };
+            
+            // Check if this is an audit trail file
+            if (fileName.includes('audit_trail')) {
+                auditFiles.push(fileInfo);
+            }
+            
+            allFiles.push(fileInfo);
         }
         
         if (allFiles.length > 0) {
             const filesListContainer = document.querySelector('#filesList .files-list');
             if (filesListContainer) {
-                // Group files by type
+                let html = '';
+                
+                // Show audit trail section first if available
+                if (auditFiles.length > 0) {
+                    html += `
+                        <div class="tab-section audit-trail-section">
+                            <h3>📋 Audit Trail</h3>
+                            <p class="audit-description" style="color: #a78bfa; font-size: 13px; margin-bottom: 15px;">
+                                Detailed execution log with decisions, data quality checks, and timestamps.
+                            </p>
+                            <div class="file-list">
+                    `;
+                    
+                    auditFiles.forEach(file => {
+                        html += `
+                            <div class="download-item" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #8b5cf6;">
+                                <div class="file-details">
+                                    <span class="file-icon-small">📋</span>
+                                    <span class="file-name-small">${file.name}</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="downloadFile('${file.path}')" class="download-btn-small">
+                                        📥 Download
+                                    </button>
+                                    <a href="/outputs/${file.path}" target="_blank" class="download-btn-small" style="text-decoration: none;">
+                                        👁️ View
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += '</div></div>';
+                }
+                
+                // Group remaining files by type (excluding audit trails)
+                const regularFiles = allFiles.filter(f => !f.name.includes('audit_trail'));
                 const filesByType = {
-                    'JSON': allFiles.filter(f => f.type === 'JSON'),
-                    'MD': allFiles.filter(f => f.type === 'MD'),
-                    'TXT': allFiles.filter(f => f.type === 'TXT'),
-                    'PDF': allFiles.filter(f => f.type === 'PDF'),
-                    'CSV': allFiles.filter(f => f.type === 'CSV')
+                    'JSON': regularFiles.filter(f => f.type === 'JSON'),
+                    'MD': regularFiles.filter(f => f.type === 'MD'),
+                    'TXT': regularFiles.filter(f => f.type === 'TXT'),
+                    'PDF': regularFiles.filter(f => f.type === 'PDF'),
+                    'CSV': regularFiles.filter(f => f.type === 'CSV')
                 };
                 
-                let html = '<div class="tab-section"><h3>📦 All Generated Files</h3>';
+                html += '<div class="tab-section"><h3>📦 All Generated Files</h3>';
                 
                 for (const [type, files] of Object.entries(filesByType)) {
                     if (files.length > 0) {
@@ -1208,6 +1582,27 @@ async function viewJSON(filePath) {
             document.body.appendChild(modal);
             modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
         } else {
+
+// Display audit trail badge if audit files are detected
+function displayAuditTrailBadge(output) {
+    try {
+        // Look for audit trail file mentions in output
+        const auditMatch = output.match(/audit_trail_[^\s]+\.md/i);
+        if (auditMatch) {
+            const terminalTitle = document.getElementById('terminalTitle');
+            if (terminalTitle && !terminalTitle.querySelector('.audit-badge')) {
+                const badge = document.createElement('span');
+                badge.className = 'badge audit-badge';
+                badge.style.cssText = 'background: rgba(139, 92, 246, 0.2); color: #a78bfa; margin-left: 10px; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;';
+                badge.textContent = '📋 Audit Trail Available';
+                badge.title = 'Detailed execution audit trail generated';
+                terminalTitle.appendChild(badge);
+            }
+        }
+    } catch (error) {
+        console.error('Error displaying audit trail badge:', error);
+    }
+}
             alert('Failed to load JSON file');
         }
     } catch (error) {

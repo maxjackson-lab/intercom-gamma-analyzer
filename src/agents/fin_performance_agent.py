@@ -14,10 +14,12 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime
 from collections import defaultdict
+from pydantic import ValidationError
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
-from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
+from src.services.fin_escalation_analyzer import FinEscalationAnalyzer, is_fin_resolved, has_knowledge_gap
+from src.models.analysis_models import FinAnalysisPayload
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 class FinPerformanceAgent(BaseAgent):
     """Agent specialized in Fin AI performance analysis with LLM insights"""
     
-    def __init__(self):
+    def __init__(self, audit=None):
         super().__init__(
             name="FinPerformanceAgent",
             model="gpt-4o",
@@ -37,6 +39,7 @@ class FinPerformanceAgent(BaseAgent):
         if hasattr(self.ai_client, 'model'):
             self.ai_client.model = self.model
         self.escalation_analyzer = FinEscalationAnalyzer()
+        self.audit = audit
     
     def get_agent_specific_instructions(self) -> str:
         """Fin performance agent instructions"""
@@ -111,24 +114,26 @@ Calculate tier-specific metrics:
         return True
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        """Validate Fin analysis results"""
-        # Support both old format (backward compatibility) and new tier-based format
-        has_old_format = 'resolution_rate' in result and 'knowledge_gaps_count' in result
-        has_new_format = 'free_tier' in result or 'paid_tier' in result
-
-        # Validate sub-topic structure if present
-        if has_new_format:
-            for tier_key in ['free_tier', 'paid_tier']:
-                if tier_key in result and result[tier_key]:
-                    subtopic_data = result[tier_key].get('performance_by_subtopic')
-                    if subtopic_data is not None:
-                        if not isinstance(subtopic_data, dict):
-                            return False
-                        for tier1_topic, subtopics in subtopic_data.items():
-                            if not isinstance(subtopics, dict) or 'tier2' not in subtopics or 'tier3' not in subtopics:
-                                return False
-
-        return has_old_format or has_new_format
+        """
+        Validate Fin analysis results using Pydantic model.
+        
+        Args:
+            result: Raw output dictionary to validate
+            
+        Returns:
+            True if validation passes
+            
+        Raises:
+            ValueError: If validation fails with clear error message
+        """
+        try:
+            # Use Pydantic model for validation
+            FinAnalysisPayload(**result)
+            return True
+        except ValidationError as e:
+            error_msg = f"Fin analysis output validation failed: {e}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
     
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute Fin performance analysis"""
@@ -167,6 +172,15 @@ Calculate tier-specific metrics:
             self.logger.info(f"   Free tier (Fin-only): {total_free} conversations")
             self.logger.info(f"   Paid tier (Fin-resolved): {total_paid} conversations")
             
+            if self.audit:
+                self.audit.step("FIN Performance Analysis", "analysis",
+                              "Starting FIN performance evaluation",
+                              {
+                                  'total_conversations': total,
+                                  'free_tier': total_free,
+                                  'paid_tier': total_paid
+                              })
+            
             # Calculate tier-specific metrics
             if total == 0:
                 result_data = {
@@ -180,6 +194,21 @@ Calculate tier-specific metrics:
                     'note': 'No Fin AI conversations found'
                 }
             else:
+                # Record resolution definition decision
+                if self.audit:
+                    self.audit.decision(
+                        "What resolution definition should be used for Fin AI?",
+                        "Using strict resolution criteria: no admin response + (closed OR ≤2 user responses) + no bad rating",
+                        "This ensures we only count true Fin resolutions where customer was satisfied and didn't need human help",
+                        {
+                            'criteria': [
+                                'No admin response (Fin handled alone)',
+                                'Either closed OR ≤2 user responses',
+                                'No bad rating (rating ≥3 or None)'
+                            ]
+                        }
+                    )
+                
                 # Calculate metrics for each tier
                 free_tier_metrics = self._calculate_tier_metrics(free_fin_conversations, 'Free', subtopics_data) if total_free > 0 else {}
                 paid_tier_metrics = self._calculate_tier_metrics(paid_fin_conversations, 'Paid', subtopics_data) if total_paid > 0 else {}
@@ -200,6 +229,52 @@ Calculate tier-specific metrics:
                     # Tier comparison insights
                     'tier_comparison': self._compare_tiers(free_tier_metrics, paid_tier_metrics) if total_free > 0 and total_paid > 0 else None
                 }
+                
+                # Data quality checks
+                if self.audit:
+                    # CSAT coverage check
+                    free_csat_coverage = (free_tier_metrics.get('rated_count', 0) / total_free * 100) if total_free > 0 else 0
+                    paid_csat_coverage = (paid_tier_metrics.get('rated_count', 0) / total_paid * 100) if total_paid > 0 else 0
+                    overall_csat_coverage = ((free_tier_metrics.get('rated_count', 0) + paid_tier_metrics.get('rated_count', 0)) / total * 100) if total > 0 else 0
+                    
+                    csat_status = "good" if overall_csat_coverage >= 30 else "limited" if overall_csat_coverage >= 15 else "poor"
+                    
+                    self.audit.data_quality_check(
+                        "CSAT Coverage",
+                        f"{overall_csat_coverage:.1f}% of conversations have CSAT ratings",
+                        csat_status
+                    )
+                    
+                    self.audit.step("FIN Performance Analysis", "analysis",
+                                  f"Data quality assessment: CSAT coverage {csat_status}",
+                                  {
+                                      'overall_csat_coverage_pct': f"{overall_csat_coverage:.1f}%",
+                                      'free_tier_csat_coverage_pct': f"{free_csat_coverage:.1f}%",
+                                      'paid_tier_csat_coverage_pct': f"{paid_csat_coverage:.1f}%",
+                                      'eligible_for_rating': free_tier_metrics.get('rating_eligible_count', 0) + paid_tier_metrics.get('rating_eligible_count', 0),
+                                      'actually_rated': free_tier_metrics.get('rated_count', 0) + paid_tier_metrics.get('rated_count', 0)
+                                  })
+                    
+                    # Record aggregate performance patterns
+                    free_res = free_tier_metrics.get('resolution_rate', 0)
+                    paid_res = paid_tier_metrics.get('resolution_rate', 0)
+                    free_gaps = free_tier_metrics.get('knowledge_gap_rate', 0)
+                    paid_gaps = paid_tier_metrics.get('knowledge_gap_rate', 0)
+                    
+                    performance_flags = []
+                    if free_res < 0.5:
+                        performance_flags.append(f"Free tier below 50% resolution threshold ({free_res:.1%})")
+                    if paid_res < 0.5:
+                        performance_flags.append(f"Paid tier below 50% resolution threshold ({paid_res:.1%})")
+                    if free_gaps > 0.3:
+                        performance_flags.append(f"High knowledge gap rate in free tier ({free_gaps:.1%})")
+                    if paid_gaps > 0.3:
+                        performance_flags.append(f"High knowledge gap rate in paid tier ({paid_gaps:.1%})")
+                    
+                    if performance_flags:
+                        self.audit.step("FIN Performance Analysis", "analysis",
+                                      f"Performance concerns identified: {len(performance_flags)} issues",
+                                      {'issues': performance_flags})
             
             # Add LLM interpretation of Fin performance
             if total > 0:
@@ -225,6 +300,18 @@ Calculate tier-specific metrics:
                 if total_paid > 0:
                     paid_res = paid_tier_metrics.get('resolution_rate', 0)
                     self.logger.info(f"   Paid tier resolution rate: {paid_res:.1%}")
+                
+                # Record final summary in audit
+                if self.audit:
+                    self.audit.step("FIN Performance Analysis", "analysis",
+                                  f"Completed FIN analysis in {execution_time:.2f}s",
+                                  {
+                                      'execution_time_seconds': execution_time,
+                                      'free_tier_resolution': f"{free_tier_metrics.get('resolution_rate', 0):.1%}" if total_free > 0 else "N/A",
+                                      'paid_tier_resolution': f"{paid_tier_metrics.get('resolution_rate', 0):.1%}" if total_paid > 0 else "N/A",
+                                      'total_knowledge_gaps': (free_tier_metrics.get('knowledge_gaps_count', 0) + paid_tier_metrics.get('knowledge_gaps_count', 0)),
+                                      'topics_analyzed': len(free_tier_metrics.get('performance_by_topic', {}).keys()) if total_free > 0 else 0
+                                  })
             
             return AgentResult(
                 agent_name=self.name,
@@ -267,51 +354,32 @@ Calculate tier-specific metrics:
         if total == 0:
             return {}
 
-        # Resolution rate - UPDATED LOGIC per user requirements
-        # Fin resolved = No admin response AND (closed OR ≤2 user responses) AND no bad rating
+        # Resolution rate - Using standardized is_fin_resolved() helper
         resolved_by_fin = []
         escalated = []
         
         for c in conversations:
             conv_id = c.get('id')
             
-            # Check if admin actually responded (most reliable signal)
+            # Use standardized resolution detection
+            fin_resolved = is_fin_resolved(c)
+            
+            # DEBUG logging to trace Fin resolution logic
             parts = c.get('conversation_parts', {}).get('conversation_parts', [])
             admin_parts = [p for p in parts if p.get('author', {}).get('type') == 'admin']
             user_parts = [p for p in parts if p.get('author', {}).get('type') == 'user']
-            has_admin_response = len(admin_parts) > 0
-            user_response_count = len(user_parts)
             
-            # Check state and rating
-            is_closed = c.get('state') == 'closed'
-            
-            # CRITICAL: conversation_rating is a DICT, not an int!
             rating_data = c.get('conversation_rating')
             if isinstance(rating_data, dict):
                 rating = rating_data.get('rating')
-            elif isinstance(rating_data, (int, float)):
-                rating = rating_data  # Legacy format
             else:
-                rating = None
+                rating = rating_data if isinstance(rating_data, (int, float)) else None
             
-            has_bad_rating = rating is not None and rating < 3
-            
-            # Fin resolution criteria (per user requirements):
-            # 1. No admin response (Fin handled alone)
-            # 2. Either closed OR customer responded ≤2 times (didn't engage much)
-            # 3. No bad rating (rating ≥3 or None)
-            fin_resolved = (
-                not has_admin_response and
-                (is_closed or user_response_count <= 2) and
-                not has_bad_rating
-            )
-            
-            # DEBUG logging to trace Fin resolution logic
             self.logger.debug(
                 f"Fin resolution check for {conv_id}: "
-                f"admin_response={has_admin_response}, "
-                f"user_responses={user_response_count}, "
-                f"closed={is_closed}, "
+                f"admin_response={len(admin_parts) > 0}, "
+                f"user_responses={len(user_parts)}, "
+                f"closed={c.get('state') == 'closed'}, "
                 f"rating={rating}, "
                 f"detected_topics={c.get('detected_topics', [])}, "
                 f"→ {'RESOLVED' if fin_resolved else 'ESCALATED/FAILED'}"
@@ -325,67 +393,31 @@ Calculate tier-specific metrics:
         resolution_rate = len(resolved_by_fin) / total if total > 0 else 0
         self.logger.info(f"{tier_name} tier: {len(resolved_by_fin)} resolved ({resolution_rate:.1%}), {len(escalated)} escalated/failed")
 
-        # Knowledge gaps - UPDATED LOGIC per user requirements
-        # Knowledge gap = Low rating OR complaining/negative sentiment OR gives up
+        # Knowledge gaps - Using standardized has_knowledge_gap() helper
         knowledge_gaps = []
         
         for c in conversations:
             conv_id = c.get('id')
-            text = c.get('full_text', '').lower()
             
-            # Extract rating (handle dict format)
-            rating_data = c.get('conversation_rating')
-            if isinstance(rating_data, dict):
-                rating = rating_data.get('rating')
-                rating_remark = rating_data.get('remark', '')
-            elif isinstance(rating_data, (int, float)):
-                rating = rating_data
-                rating_remark = ''
-            else:
-                rating = None
-                rating_remark = ''
-            
-            has_knowledge_gap = False
-            gap_reason = []
-            
-            # Signal 1: Low rating (1-2 stars)
-            if rating is not None and rating < 3:
-                has_knowledge_gap = True
-                gap_reason.append(f"low_rating({rating})")
-            
-            # Signal 2: Explicit negative feedback (including rating remarks!)
-            negative_phrases = [
-                'incorrect', 'wrong', 'not helpful', 'didn\'t help',
-                'not what i asked', 'that doesn\'t answer', 'still confused',
-                'that doesn\'t work', 'doesn\'t solve', 'not working',
-                'still does not work', 'still doesn\'t work'  # From example
-            ]
-            # Check both conversation text AND rating remark
-            combined_text = text + ' ' + rating_remark.lower()
-            if any(phrase in combined_text for phrase in negative_phrases):
-                has_knowledge_gap = True
-                gap_reason.append("negative_feedback")
-            
-            # Signal 3: Frustration/giving up indicators
-            frustration_phrases = [
-                'frustrated', 'annoyed', 'waste of time', 'useless',
-                'giving up', 'never mind', 'forget it', 'this is ridiculous'
-            ]
-            if any(phrase in text for phrase in frustration_phrases):
-                has_knowledge_gap = True
-                gap_reason.append("frustration")
-            
-            # Signal 4: Long conversation with no resolution (>8 messages still open)
-            stats = c.get('statistics', {})
-            parts_count = stats.get('count_conversation_parts', 0)
-            is_closed = c.get('state') == 'closed'
-            if parts_count > 8 and not is_closed:
-                has_knowledge_gap = True
-                gap_reason.append(f"long_unresolved({parts_count}_msgs)")
-            
-            if has_knowledge_gap:
+            # Use standardized knowledge gap detection
+            if has_knowledge_gap(c):
                 knowledge_gaps.append(c)
-                self.logger.debug(f"Knowledge gap detected for {conv_id}: {', '.join(gap_reason)}")
+                
+                # DEBUG logging to show reason
+                text = c.get('full_text', '').lower()
+                rating_data = c.get('conversation_rating')
+                if isinstance(rating_data, dict):
+                    rating = rating_data.get('rating')
+                else:
+                    rating = rating_data if isinstance(rating_data, (int, float)) else None
+                
+                parts = c.get('conversation_parts', {}).get('conversation_parts', [])
+                admin_intervened = any(p.get('author', {}).get('type') == 'admin' for p in parts)
+                
+                self.logger.debug(
+                    f"Knowledge gap detected for {conv_id}: "
+                    f"admin_intervened={admin_intervened}, rating={rating}"
+                )
         
         self.logger.info(f"{tier_name} tier knowledge gaps: {len(knowledge_gaps)} ({len(knowledge_gaps)/total*100:.1f}%)")
 
@@ -675,39 +707,22 @@ Insights:"""
         ratings = []
         
         for c in conversations:
-            # Check resolution (updated logic)
-            parts = c.get('conversation_parts', {}).get('conversation_parts', [])
-            admin_parts = [p for p in parts if p.get('author', {}).get('type') == 'admin']
-            user_parts = [p for p in parts if p.get('author', {}).get('type') == 'user']
-            has_admin_response = len(admin_parts) > 0
-            is_closed = c.get('state') == 'closed'
-            
-            # Extract rating (handle dict format)
-            rating_data = c.get('conversation_rating')
-            if isinstance(rating_data, dict):
-                rating = rating_data.get('rating')
-                rating_remark = rating_data.get('remark', '')
-            else:
-                rating = rating_data if isinstance(rating_data, (int, float)) else None
-                rating_remark = ''
-            
-            has_bad_rating = rating is not None and rating < 3
-            
-            # Fin resolved = No admin + (closed OR ≤2 user responses) + no bad rating
-            if not has_admin_response and (is_closed or len(user_parts) <= 2) and not has_bad_rating:
+            # Use standardized resolution and knowledge gap detection
+            if is_fin_resolved(c):
                 resolved_convs.append(c)
             else:
                 escalation_convs.append(c)
             
-            # Knowledge gap = Low rating OR negative sentiment
-            text = c.get('full_text', '').lower()
-            combined_text = text + ' ' + (rating_remark.lower() if rating_remark else '')
-            
-            if (rating is not None and rating < 3) or \
-               any(phrase in combined_text for phrase in ['incorrect', 'wrong', 'not helpful', 'still doesn\'t work', 'frustrated']):
+            if has_knowledge_gap(c):
                 gap_convs.append(c)
             
             # Collect ratings
+            rating_data = c.get('conversation_rating')
+            if isinstance(rating_data, dict):
+                rating = rating_data.get('rating')
+            else:
+                rating = rating_data if isinstance(rating_data, (int, float)) else None
+            
             if rating is not None:
                 ratings.append(rating)
         

@@ -1,59 +1,50 @@
 """
 Main CLI application for Intercom to Gamma analysis tool.
+
+This is the main entry point for the CLI application. The actual command
+implementations have been refactored into modular components in src/cli/
+for better maintainability and testability.
 """
 
 import asyncio
-import json
 import logging
 import os
 import sys
 import warnings
-from datetime import datetime, date, timedelta
-from typing import List, Optional, Dict
-from pathlib import Path
+from datetime import datetime
+from typing import Optional
 
 # Suppress urllib3 SSL warning
 warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL 1.1.1+')
 
 import click
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.table import Table
 from rich.panel import Panel
 
-# Proper package imports - run with: python -m src.main
-# Entry point also configured in pyproject.toml as 'intercom-analyzer'
+# Import modular CLI components
+from src.cli.commands import (
+    voice_analysis,
+    trend_analysis,
+    custom_analysis,
+    data_export,
+    technical_analysis,
+    agent_performance,
+    comprehensive_analysis,
+    voice_of_customer,
+    canny_analysis
+)
+from src.cli.runners import (
+    run_topic_based_analysis,
+    run_synthesis_analysis,
+    run_complete_multi_agent_analysis,
+    run_topic_based_analysis_custom,
+    run_synthesis_analysis_custom,
+    run_complete_analysis_custom
+)
+from src.cli.utils import show_system_info, validate_inputs
+
+# Core imports for basic functionality
 from src.config.settings import settings
-from src.services.intercom_service import IntercomService
-from src.services.intercom_service_v2 import IntercomServiceV2
-from src.services.elt_pipeline import ELTPipeline
-from src.config.taxonomy import taxonomy_manager
-from src.services.metrics_calculator import MetricsCalculator
-from src.services.openai_client import OpenAIClient
-from src.services.gamma_client import GammaClient
-from src.services.data_exporter import DataExporter
-from src.services.query_builder import QueryBuilder, GeneralQueryService
-from src.services.chunked_fetcher import ChunkedFetcher
-from src.services.data_preprocessor import DataPreprocessor
-from src.services.category_filters import CategoryFilters
-from src.services.gamma_generator import GammaGenerator
-from src.services.orchestrator import AnalysisOrchestrator
-from src.analyzers.voice_analyzer import VoiceAnalyzer
-from src.analyzers.trend_analyzer import TrendAnalyzer
-from src.analyzers.base_category_analyzer import BaseCategoryAnalyzer
-from src.analyzers.billing_analyzer import BillingAnalyzer
-from src.analyzers.product_analyzer import ProductAnalyzer
-from src.analyzers.sites_analyzer import SitesAnalyzer
-from src.analyzers.api_analyzer import ApiAnalyzer
-from src.analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
-from src.analyzers.canny_analyzer import CannyAnalyzer
-from src.services.ai_model_factory import AIModelFactory, AIModel
-from src.services.agent_feedback_separator import AgentFeedbackSeparator
-from src.services.historical_data_manager import HistoricalDataManager
-from src.services.canny_client import CannyClient
-from src.services.canny_preprocessor import CannyPreprocessor
-from src.models.analysis_models import AnalysisRequest, AnalysisMode
-from src.utils.time_utils import detect_period_type
 from src.utils.logger import setup_logging
 from src.utils.cli_help import help_system
 
@@ -85,47 +76,31 @@ def cli(verbose: bool, output_dir: str):
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
-@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard', 
+@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard',
               help='Analysis type: standard (single), topic-based (Hilary format), synthesis (insights)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
               help='AI model to use (openai or claude). Defaults to config setting.')
 def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str, ai_model: Optional[str]):
     """Generate Voice of Customer analysis for monthly executive reports"""
-    
-    # Set AI model if specified
-    if ai_model:
-        os.environ['AI_MODEL'] = ai_model
-        console.print(f"[cyan]Using AI model: {ai_model}[/cyan]")
-    
+
     # Parse tier1 countries
     tier1_list = []
     if tier1_countries:
         tier1_list = [country.strip() for country in tier1_countries.split(',')]
     else:
         tier1_list = settings.default_tier1_countries
-    
-    console.print(f"[bold green]Voice of Customer Analysis[/bold green]")
-    console.print(f"Month: {month}/{year}")
-    console.print(f"Tier 1 Countries: {', '.join(tier1_list)}")
-    
-    # This branch is multi-agent only
-    # Route based on analysis type (default: topic-based)
-    if not multi_agent:
-        console.print("[yellow]ℹ️  Note: This branch uses multi-agent by default. Use main branch for single-agent.[/yellow]")
-        analysis_type = analysis_type or 'topic-based'  # Force multi-agent
-    
-    if analysis_type == 'topic-based':
-        console.print("[bold yellow]📋 Topic-Based Multi-Agent Analysis[/bold yellow]")
-        console.print("Format: Hilary's VoC Cards - Per-topic sentiment with examples\n")
-        asyncio.run(run_topic_based_analysis(month, year, tier1_list, generate_gamma, output_format))
-    elif analysis_type == 'synthesis':
-        console.print("[bold yellow]🧠 Synthesis Multi-Agent Analysis[/bold yellow]")  
-        console.print("Format: Cross-category insights and strategic recommendations\n")
-        asyncio.run(run_synthesis_analysis(month, year, tier1_list, generate_gamma, output_format))
-    else:  # complete
-        console.print("[bold yellow]🎯 Complete Multi-Agent Analysis[/bold yellow]")
-        console.print("Includes: Topic-based cards + Synthesis insights\n")
-        asyncio.run(run_complete_multi_agent_analysis(month, year, tier1_list, generate_gamma, output_format))
+
+    # Use modular command implementation
+    asyncio.run(voice_analysis(
+        month=month,
+        year=year,
+        tier1_countries=tier1_list,
+        generate_gamma=generate_gamma,
+        output_format=output_format,
+        multi_agent=multi_agent,
+        analysis_type=analysis_type,
+        ai_model=ai_model
+    ))
 
 
 @cli.command()
@@ -135,38 +110,24 @@ def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma:
 @click.option('--custom-prompt', help='Custom analysis instructions')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
-def trends(start_date: str, end_date: str, focus_areas: Optional[str], custom_prompt: Optional[str], 
-           generate_gamma: bool, output_format: str):
+def trends(start_date: str, end_date: str, focus_areas: Optional[str],
+           custom_prompt: Optional[str], generate_gamma: bool, output_format: str):
     """Generate general purpose trend analysis for any time period"""
-    
-    # Parse dates (keep as datetime objects for pipeline compatibility)
-    try:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-    except ValueError:
-        console.print("[red]Error: Invalid date format. Use YYYY-MM-DD[/red]")
-        sys.exit(1)
-    
+
     # Parse focus areas
     focus_list = []
     if focus_areas:
         focus_list = [area.strip() for area in focus_areas.split(',')]
-    
-    console.print(f"[bold green]Trend Analysis[/bold green]")
-    console.print(f"Date Range: {start_date} to {end_date}")
-    console.print(f"Focus Areas: {', '.join(focus_list) if focus_list else 'General trends'}")
-    
-    # Create analysis request
-    request = AnalysisRequest(
-        mode=AnalysisMode.TREND_ANALYSIS,
-        start_date=start_dt,
-        end_date=end_dt,
+
+    # Use modular command implementation
+    asyncio.run(trend_analysis(
+        start_date=start_date,
+        end_date=end_date,
         focus_areas=focus_list,
-        custom_instructions=custom_prompt
-    )
-    
-    # Run analysis
-    asyncio.run(run_trend_analysis(request, generate_gamma, output_format))
+        custom_prompt=custom_prompt,
+        generate_gamma=generate_gamma,
+        output_format=output_format
+    ))
 
 
 @cli.command()
@@ -214,7 +175,7 @@ def custom(prompt_file: str, start_date: str, end_date: str, generate_gamma: boo
 def test():
     """Test API connections and configuration"""
     console.print("[bold green]Testing API Connections[/bold green]")
-    
+
     # Test Intercom connection
     with Progress(
         SpinnerColumn(),
@@ -222,7 +183,7 @@ def test():
         console=console
     ) as progress:
         task = progress.add_task("Testing Intercom API...", total=None)
-        
+
         try:
             intercom_service = IntercomService()
             # Test with a simple request
@@ -231,7 +192,7 @@ def test():
         except Exception as e:
             progress.update(task, description=f"❌ Intercom API connection failed: {e}")
             return
-    
+
     # Test OpenAI connection
     with Progress(
         SpinnerColumn(),
@@ -239,7 +200,7 @@ def test():
         console=console
     ) as progress:
         task = progress.add_task("Testing OpenAI API...", total=None)
-        
+
         try:
             openai_client = OpenAIClient()
             test_result = asyncio.run(openai_client.test_connection())
@@ -247,7 +208,7 @@ def test():
         except Exception as e:
             progress.update(task, description=f"❌ OpenAI API connection failed: {e}")
             return
-    
+
     # Test Gamma connection (if API key is provided)
     if settings.gamma_api_key:
         with Progress(
@@ -256,7 +217,7 @@ def test():
             console=console
         ) as progress:
             task = progress.add_task("Testing Gamma API...", total=None)
-            
+
             try:
                 gamma_client = GammaClient()
                 test_result = asyncio.run(gamma_client.test_connection())
@@ -264,9 +225,16 @@ def test():
             except Exception as e:
                 progress.update(task, description=f"❌ Gamma API connection failed: {e}")
                 return
-    
+
     console.print("\n[bold green]All API connections successful![/bold green]")
     console.print("You can now run analysis commands.")
+
+
+@cli.command()
+def system_info():
+    """Show system information for debugging"""
+    console.print("[bold green]System Information[/bold green]")
+    show_system_info()
 
 
 @cli.command()
@@ -416,23 +384,34 @@ def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str
 @click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
 @click.option('--start-date', help='Start date (YYYY-MM-DD)')
 @click.option('--end-date', help='End date (YYYY-MM-DD)')
-def analyze_agent(agent: str, days: int, start_date: Optional[str], end_date: Optional[str]):
+@click.option('--individual-breakdown', is_flag=True, help='Show individual agent breakdown')
+@click.option('--focus-categories', help='Focus on specific categories')
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--analyze-troubleshooting', is_flag=True, help='Analyze troubleshooting patterns')
+def analyze_agent(agent: str, days: int, start_date: Optional[str], end_date: Optional[str],
+                 individual_breakdown: bool, focus_categories: Optional[str], generate_gamma: bool,
+                 analyze_troubleshooting: bool):
     """Agent-specific performance analysis"""
-    
-    console.print(f"[bold green]Agent Performance Analysis: {agent}[/bold green]")
-    
+
     # Calculate date range
     if start_date and end_date:
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-        console.print(f"Analyzing from {start_date} to {end_date}")
     else:
         end_dt = datetime.now()
         start_dt = end_dt - timedelta(days=days)
-        console.print(f"Analyzing last {days} days of conversations")
-    
-    # Run agent analysis
-    asyncio.run(run_agent_analysis(agent, start_dt, end_dt))
+
+    # Use modular command implementation
+    asyncio.run(agent_performance(
+        agent=agent,
+        individual_breakdown=individual_breakdown,
+        time_period=None,
+        start_date=start_date,
+        end_date=end_date,
+        focus_categories=focus_categories,
+        generate_gamma=generate_gamma,
+        analyze_troubleshooting=analyze_troubleshooting
+    ))
 
 
 # Secondary Commands (VoC Reports)

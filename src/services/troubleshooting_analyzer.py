@@ -34,9 +34,10 @@ class TroubleshootingAnalyzer:
         ]
     }
     
-    def __init__(self):
+    def __init__(self, audit=None):
         self.ai_client = get_ai_client()
         self.logger = logging.getLogger(__name__)
+        self.audit = audit
     
     async def analyze_conversation_troubleshooting(
         self, 
@@ -102,6 +103,18 @@ class TroubleshootingAnalyzer:
             analysis['conversation_id'] = conversation.get('id')
             analysis['escalated'] = escalated
             analysis['category'] = f"{category}>{subcategory}" if subcategory else category
+            
+            # Log to audit if available
+            if self.audit:
+                self.audit.step("Troubleshooting Analysis", "analysis",
+                              f"Analyzed conversation {conversation.get('id')}",
+                              {
+                                  'conversation_id': conversation.get('id'),
+                                  'troubleshooting_score': analysis.get('troubleshooting_score', 0),
+                                  'diagnostic_questions': analysis.get('diagnostic_questions_count', 0),
+                                  'premature_escalation': analysis.get('premature_escalation', False),
+                                  'issue_type': analysis.get('issue_type', 'unknown')
+                              })
             
             self.logger.debug(
                 f"Analyzed conversation {conversation.get('id')}: "
@@ -232,6 +245,14 @@ Return JSON with this EXACT structure:
         - Consistency score (variance in effort)
         """
         try:
+            if self.audit:
+                self.audit.step("Troubleshooting Pattern Analysis", "analysis",
+                              f"Starting troubleshooting pattern analysis for agent: {agent_name}",
+                              {
+                                  'agent_name': agent_name,
+                                  'total_conversations': len(conversations)
+                              })
+            
             analyses = []
             
             # Analyze each conversation (focus on escalated and low-CSAT ones)
@@ -239,6 +260,15 @@ Return JSON with this EXACT structure:
                 c for c in conversations
                 if self._is_priority_for_analysis(c)
             ]
+            
+            if self.audit:
+                self.audit.step("Troubleshooting Pattern Analysis", "analysis",
+                              f"Identified {len(priority_convs)} priority conversations for analysis",
+                              {
+                                  'priority_conversations': len(priority_convs),
+                                  'analysis_limit': 10,
+                                  'selection_criteria': ['escalated', 'low_csat', 'reopened']
+                              })
             
             # Limit to 10 conversations for performance
             for conv in priority_convs[:10]:
@@ -282,7 +312,7 @@ Return JSON with this EXACT structure:
             if premature_rate < 0.2:
                 strengths.append("Appropriate escalation judgment")
             
-            return {
+            result = {
                 'agent_name': agent_name,
                 'conversations_analyzed': len(analyses),
                 'avg_troubleshooting_score': round(avg_score, 2),
@@ -294,6 +324,40 @@ Return JSON with this EXACT structure:
                 'strengths': strengths,
                 'detailed_analyses': analyses  # For examples
             }
+            
+            # Log aggregate findings to audit
+            if self.audit:
+                self.audit.step("Troubleshooting Pattern Analysis", "analysis",
+                              f"Completed pattern analysis for {agent_name}",
+                              {
+                                  'agent_name': agent_name,
+                                  'conversations_analyzed': len(analyses),
+                                  'avg_score': f"{avg_score:.2f}",
+                                  'avg_questions': f"{avg_questions:.1f}",
+                                  'premature_escalation_rate': f"{premature_rate:.1%}",
+                                  'consistency_score': f"{consistency_score:.2f}",
+                                  'issues_count': len(issues),
+                                  'strengths_count': len(strengths)
+                              })
+                
+                # Record data quality check
+                if len(analyses) < 3:
+                    self.audit.data_quality_check(
+                        "Troubleshooting Analysis Sample Size",
+                        f"Only {len(analyses)} priority conversations analyzed for {agent_name}",
+                        "limited"
+                    )
+                
+                # Record pattern detection decisions
+                if issues:
+                    self.audit.decision(
+                        f"What troubleshooting issues were detected for {agent_name}?",
+                        f"{len(issues)} patterns identified: {', '.join(issues[:3])}",
+                        f"Based on analysis of {len(analyses)} conversations with avg score {avg_score:.2f}",
+                        {'all_issues': issues}
+                    )
+            
+            return result
             
         except Exception as e:
             self.logger.error(f"Failed to analyze agent pattern: {e}")

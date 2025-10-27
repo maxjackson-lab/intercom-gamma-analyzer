@@ -382,6 +382,8 @@ def mock_context_with_all_results(
 ) -> AgentContext:
     """Create AgentContext with all previous_results populated including sub-topics."""
     return AgentContext(
+        analysis_id="test-all-results",
+        analysis_type="weekly",
         conversations=[{'id': f'conv_{i}'} for i in range(250)],
         start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
         end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
@@ -423,6 +425,8 @@ def mock_context_without_subtopics(
 ) -> AgentContext:
     """Create AgentContext without SubTopicDetectionAgent results (backward compatibility)."""
     return AgentContext(
+        analysis_id="test-no-subtopics",
+        analysis_type="weekly",
         conversations=[{'id': f'conv_{i}'} for i in range(250)],
         start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
         end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
@@ -459,11 +463,15 @@ def test_validate_input_success(agent, mock_context_with_all_results):
 def test_validate_input_missing_required_agent(agent):
     """Verify validation fails when required agent is missing."""
     context = AgentContext(
+        analysis_id="test-missing",
+        analysis_type="weekly",
         conversations=[],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
         previous_results={'SegmentationAgent': {'data': {}}}  # Missing TopicDetectionAgent
     )
     
-    with pytest.raises(ValueError, match="Missing TopicDetectionAgent results"):
+    with pytest.raises(ValueError, match="Missing required agent outputs"):
         agent.validate_input(context)
 
 
@@ -894,4 +902,316 @@ def test_subtopic_metrics_sorting_by_resolution_rate(agent, mock_fin_performance
     invoice_idx = card.index('Invoice: 75.0%')
     
     assert refund_idx < invoice_idx
+
+
+# ============================================================================
+# GRACEFUL DEGRADATION TESTS
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_missing_segmentation_agent(agent):
+    """Test formatter handles missing SegmentationAgent output"""
+    context = AgentContext(
+        analysis_id="test-001",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(100)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'TopicDetectionAgent': {
+                'data': {'topic_distribution': {'Billing': {'volume': 10, 'percentage': 10.0}}}
+            },
+            # 'SegmentationAgent': missing
+        }
+    )
+    
+    # Should return error result (SegmentationAgent is required)
+    result = await agent.execute(context)
+    assert result.success is False
+    assert "Missing required agent" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_missing_topic_detection_agent(agent):
+    """Test formatter fails when TopicDetectionAgent output missing"""
+    context = AgentContext(
+        analysis_id="test-002",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(100)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {
+                'data': {'segmentation_summary': {'paid_count': 50, 'free_count': 50}}
+            },
+            # 'TopicDetectionAgent': missing (required)
+        }
+    )
+    
+    # Should return error result (topics are required)
+    result = await agent.execute(context)
+    assert result.success is False
+    assert "Missing required agent" in result.error_message
+
+
+@pytest.mark.asyncio
+async def test_missing_trend_agent(agent, mock_segmentation_result, mock_topic_detection_result):
+    """Test formatter handles missing TrendAgent output"""
+    context = AgentContext(
+        analysis_id="test-003",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            'TopicSentiments': {
+                'Billing Issues': {'data': {'sentiment_insight': 'Frustrated'}}
+            },
+            'TopicExamples': {
+                'Billing Issues': {'data': {'examples': []}}
+            },
+            # 'TrendAgent': missing (optional)
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should not crash and should not show trend indicators
+    assert 'Billing Issues' in output
+    assert result.data['has_trend_data'] is False
+
+
+@pytest.mark.asyncio
+async def test_missing_fin_agent(agent, mock_segmentation_result, mock_topic_detection_result):
+    """Test formatter handles missing FinPerformanceAgent output"""
+    context = AgentContext(
+        analysis_id="test-004",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            'TopicSentiments': {
+                'Billing Issues': {'data': {'sentiment_insight': 'Frustrated'}}
+            },
+            'TopicExamples': {
+                'Billing Issues': {'data': {'examples': []}}
+            },
+            # 'FinPerformanceAgent': missing (optional)
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should include placeholder message
+    assert 'Fin AI Performance Analysis' in output
+    assert 'Section Unavailable' in output
+    assert 'FinPerformanceAgent' in output
+    assert '⚠️' in output
+
+
+@pytest.mark.asyncio
+async def test_missing_subtopic_agent(agent, mock_segmentation_result, mock_topic_detection_result):
+    """Test formatter handles missing SubTopicDetectionAgent output"""
+    context = AgentContext(
+        analysis_id="test-005",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            'TopicSentiments': {
+                'Billing Issues': {'data': {'sentiment_insight': 'Frustrated'}}
+            },
+            'TopicExamples': {
+                'Billing Issues': {'data': {'examples': []}}
+            },
+            # 'SubTopicDetectionAgent': missing (optional)
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should not crash, should not show sub-topic sections
+    assert 'Billing Issues' in output
+    assert 'Sub-Topic Breakdown' not in output
+
+
+@pytest.mark.asyncio
+async def test_all_sections_present(agent, mock_context_with_all_results):
+    """Test formatter works normally when all sections present"""
+    result = await agent.execute(mock_context_with_all_results)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should not include placeholder messages
+    assert 'Section Unavailable' not in output
+    assert '⚠️' not in output or '⭐' in output  # ⭐ is for ratings, ⚠️ should only be in placeholders
+
+
+@pytest.mark.asyncio
+async def test_placeholder_message_format(agent):
+    """Test placeholder messages are properly formatted"""
+    placeholder = agent._generate_missing_section_placeholder(
+        "Test Section",
+        "TestAgent"
+    )
+    
+    # Should be markdown formatted
+    assert '##' in placeholder  # Heading
+    assert '⚠️' in placeholder  # Warning icon
+    assert 'Section Unavailable' in placeholder
+    assert 'TestAgent' in placeholder
+    assert '---' in placeholder  # Separator
+    assert 'did not complete successfully or was not run' in placeholder
+    assert 'ensure the TestAgent runs successfully' in placeholder
+
+
+@pytest.mark.asyncio
+async def test_warnings_logged_for_missing(agent, mock_segmentation_result, mock_topic_detection_result, caplog):
+    """Test warnings are logged for missing optional sections"""
+    import logging
+    caplog.set_level(logging.WARNING)
+    
+    context = AgentContext(
+        analysis_id="test-007",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            # Missing: TrendAgent, FinPerformanceAgent, SubTopicDetectionAgent, TopicSentiments, TopicExamples
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    # Should log warning
+    assert any('Missing optional' in record.message for record in caplog.records)
+    # Should still succeed
+    assert result.success is True
+
+
+@pytest.mark.asyncio
+async def test_missing_multiple_optional_agents(agent, mock_segmentation_result, mock_topic_detection_result):
+    """Test formatter handles multiple missing optional sections"""
+    context = AgentContext(
+        analysis_id="test-008",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            # Missing: All optional agents
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should include FIN placeholder
+    assert 'Section Unavailable' in output
+    assert 'FinPerformanceAgent' in output
+
+
+@pytest.mark.asyncio
+async def test_empty_fin_performance_data(agent, mock_segmentation_result, mock_topic_detection_result):
+    """Test formatter handles empty FinPerformanceAgent data"""
+    context = AgentContext(
+        analysis_id="test-009",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+            'TopicSentiments': {},
+            'TopicExamples': {},
+            'FinPerformanceAgent': {'data': {}},  # Empty data
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    output = result.data.get('formatted_output', '')
+    # Should show placeholder for empty FIN data
+    assert 'Section Unavailable' in output or 'Fin AI Performance Analysis' in output
+
+
+@pytest.mark.asyncio
+async def test_validate_input_info_logging(agent, mock_segmentation_result, mock_topic_detection_result, caplog):
+    """Test validate_input logs info about present and missing sections"""
+    import logging
+    caplog.set_level(logging.INFO)
+    
+    context = AgentContext(
+        analysis_id="test-010",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(250)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {'data': mock_segmentation_result},
+            'TopicDetectionAgent': {'data': mock_topic_detection_result},
+        }
+    )
+    
+    agent.validate_input(context)
+    
+    # Should log validation complete message with counts
+    assert any('Input validation complete' in record.message for record in caplog.records)
+    assert any('Present:' in record.message and 'Missing optional:' in record.message for record in caplog.records)
+
+
+def test_expected_agents_configuration(agent):
+    """Test EXPECTED_AGENTS configuration is properly defined"""
+    expected_agents = agent.EXPECTED_AGENTS
+    
+    # Verify structure
+    assert isinstance(expected_agents, dict)
+    assert len(expected_agents) > 0
+    
+    # Verify required agents
+    assert expected_agents['SegmentationAgent']['required'] is True
+    assert expected_agents['TopicDetectionAgent']['required'] is True
+    
+    # Verify optional agents
+    assert expected_agents['SubTopicDetectionAgent']['required'] is False
+    assert expected_agents['TrendAgent']['required'] is False
+    assert expected_agents['FinPerformanceAgent']['required'] is False
+    
+    # Verify all have keys
+    for agent_name, config in expected_agents.items():
+        assert 'required' in config
+        assert 'key' in config
+        assert isinstance(config['required'], bool)
+        assert isinstance(config['key'], str)
 

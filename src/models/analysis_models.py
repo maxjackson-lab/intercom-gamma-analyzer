@@ -443,3 +443,199 @@ class GammaPresentationResponse(BaseModel):
     error_message: Optional[str] = None
     generation_time_seconds: float = 0.0
 
+
+# ============================================================================
+# INTER-AGENT PAYLOAD CONTRACTS
+# ============================================================================
+
+
+class SegmentationPayload(BaseModel):
+    """
+    Output from SegmentationAgent.
+    
+    Represents conversation segmentation by customer tier and agent type.
+    """
+    paid_customer_conversations: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="All paid tier conversations"
+    )
+    paid_fin_resolved_conversations: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Paid tier conversations resolved by Fin only"
+    )
+    free_fin_only_conversations: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Free tier conversations (Fin-only)"
+    )
+    unknown_tier: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Conversations with unknown tier"
+    )
+    agent_distribution: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Count of conversations by agent type"
+    )
+    segmentation_summary: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Summary statistics for segmentation"
+    )
+    
+    @validator('agent_distribution')
+    def validate_agent_types(cls, v):
+        """Ensure only valid agent types are present"""
+        valid_types = {'escalated', 'horatio', 'boldr', 'fin_ai', 'fin_resolved', 'unknown'}
+        invalid_keys = set(v.keys()) - valid_types
+        if invalid_keys:
+            raise ValueError(f"Invalid agent types: {invalid_keys}")
+        return v
+
+
+class TopicDetectionResult(BaseModel):
+    """
+    Output from TopicDetectionAgent.
+    
+    Represents detected topics with conversation assignments.
+    """
+    topics: List[Dict[str, Any]] = Field(
+        description="List of detected topics with metadata"
+    )
+    topic_distribution: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Distribution of conversations across topics"
+    )
+    topics_by_conversation: Dict[str, List[Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description="Mapping of conversation IDs to assigned topics"
+    )
+    unassigned_conversations: List[str] = Field(
+        default_factory=list,
+        description="Conversations that couldn't be assigned to a topic"
+    )
+    detection_metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Metadata about the detection process"
+    )
+    confidence_scores: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Confidence scores for each topic"
+    )
+    
+    @validator('topics')
+    def validate_topics_structure(cls, v):
+        """Ensure each topic has required fields"""
+        for topic in v:
+            if 'name' not in topic:
+                raise ValueError(f"Topic missing required 'name' field")
+        return v
+    
+    @validator('confidence_scores')
+    def validate_confidence_range(cls, v):
+        """Ensure confidence scores are between 0 and 1"""
+        for topic, score in v.items():
+            if not 0 <= score <= 1:
+                raise ValueError(f"Confidence score for {topic} must be between 0 and 1, got {score}")
+        return v
+
+
+class SubtopicDetectionResult(BaseModel):
+    """
+    Output from SubtopicDetectionAgent.
+    
+    Represents detected subtopics within parent topics.
+    """
+    subtopics_by_tier1_topic: Dict[str, Dict[str, Any]] = Field(
+        description="Nested mapping: parent_topic -> {tier2: {...}, tier3: {...}}"
+    )
+    subtopic_metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Metadata about subtopic detection"
+    )
+    
+    @validator('subtopics_by_tier1_topic')
+    def validate_subtopics_structure(cls, v):
+        """Ensure subtopics have required tier structure"""
+        for parent_topic, subtopic_data in v.items():
+            if not isinstance(subtopic_data, dict):
+                raise ValueError(f"Subtopic data for {parent_topic} must be a dict")
+            if 'tier2' not in subtopic_data or 'tier3' not in subtopic_data:
+                raise ValueError(f"Subtopic data for {parent_topic} must contain 'tier2' and 'tier3' keys")
+        return v
+
+
+class FinAnalysisPayload(BaseModel):
+    """
+    Output from FinPerformanceAgent.
+    
+    Represents FIN performance analysis results with tier-based breakdown.
+    """
+    total_fin_conversations: int = Field(
+        ge=0,
+        description="Total conversations analyzed"
+    )
+    total_free_tier: int = Field(
+        ge=0,
+        description="Total free tier conversations"
+    )
+    total_paid_tier: int = Field(
+        ge=0,
+        description="Total paid tier conversations"
+    )
+    free_tier: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Free tier performance metrics"
+    )
+    paid_tier: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Paid tier performance metrics"
+    )
+    tier_comparison: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Comparison between tiers"
+    )
+    llm_insights: Optional[str] = Field(
+        None,
+        description="LLM-generated insights about Fin performance"
+    )
+    
+    @validator('free_tier', 'paid_tier')
+    def validate_tier_metrics(cls, v):
+        """Ensure tier metrics have required fields"""
+        if v:  # Only validate if not empty
+            required_fields = {'resolution_rate', 'knowledge_gaps_count', 'performance_by_topic'}
+            missing = required_fields - set(v.keys())
+            if missing:
+                raise ValueError(f"Tier metrics missing required fields: {missing}")
+        return v
+
+
+class TrendAnalysisPayload(BaseModel):
+    """
+    Output from TrendAgent.
+    
+    Represents trend analysis results over time.
+    """
+    trends: List[Dict[str, Any]] = Field(
+        description="List of detected trends with metadata"
+    )
+    week_over_week_changes: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Percentage changes week-over-week"
+    )
+    trending_topics: List[str] = Field(
+        default_factory=list,
+        description="Topics with significant trend changes"
+    )
+    analysis_period: Dict[str, str] = Field(
+        description="Start and end dates of analysis"
+    )
+    trend_insights: Optional[str] = Field(
+        None,
+        description="Natural language insights about trends"
+    )
+    
+    @validator('analysis_period')
+    def validate_period_fields(cls, v):
+        """Ensure period has required date fields"""
+        if 'start_date' not in v or 'end_date' not in v:
+            raise ValueError("analysis_period must contain 'start_date' and 'end_date'")
+        return v

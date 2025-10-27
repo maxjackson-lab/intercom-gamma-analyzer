@@ -3,6 +3,7 @@ Tests for AdminProfileCache service.
 """
 
 import pytest
+import logging
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, MagicMock
 import httpx
@@ -248,4 +249,207 @@ class TestAdminProfileCache:
             cached_at=None
         )
         assert cache._is_cache_valid(no_timestamp) is False
+    
+    @pytest.mark.asyncio
+    async def test_api_failure_with_conversation_parts_fallback(self, mock_intercom_service):
+        """Test fallback profile creation with conversation_parts when API fails"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Mock client with error
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("API error"))
+        
+        # Simulate conversation parts with agent email
+        conversation_parts = [
+            {
+                'author': {
+                    'type': 'admin',
+                    'id': '123',
+                    'email': 'agent@horatio.ai'
+                }
+            }
+        ]
+        
+        # Patch _create_fallback_profile to accept conversation_parts
+        original_fallback = cache._create_fallback_profile
+        
+        async def patched_get(admin_id, client, public_email=None):
+            try:
+                return await cache._fetch_from_api(admin_id, client, public_email)
+            except:
+                return cache._create_fallback_profile(admin_id, conversation_parts, public_email)
+        
+        profile = await patched_get('123', mock_client)
+        
+        assert isinstance(profile, AdminProfile)
+        assert profile.id == '123'
+        # Should derive vendor from email in conversation_parts
+        assert profile.vendor == 'horatio'
+    
+    @pytest.mark.asyncio
+    async def test_public_email_no_vendor_mapping(self, mock_intercom_service):
+        """Public emails (gmail, yahoo) should not map to vendors"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        conversation_parts = [
+            {
+                'author': {
+                    'type': 'admin',
+                    'id': '456',
+                    'email': 'agent@gmail.com'
+                }
+            }
+        ]
+        
+        profile = cache._create_fallback_profile('456', conversation_parts)
+        
+        # Public domain should not be treated as vendor
+        assert profile.vendor == 'unknown'
+        assert profile.email == 'agent@gmail.com'
+    
+    def test_extract_vendor_from_email_known_vendors(self, mock_intercom_service):
+        """Test vendor extraction from various known email domains"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        test_cases = [
+            ('agent@horatio.ai', 'horatio'),
+            ('agent@hirehoratio.co', 'horatio'),
+            ('support@boldr.co', 'boldr'),
+            ('team@boldrimpact.com', 'boldr'),
+            ('admin@escalated.com', 'escalated'),
+            ('user@gamma.app', 'gamma'),
+        ]
+        
+        for email, expected_vendor in test_cases:
+            vendor = cache._extract_vendor_from_email(email)
+            assert vendor == expected_vendor, f"Failed for {email}: got {vendor}, expected {expected_vendor}"
+    
+    def test_extract_vendor_from_email_public_domains(self, mock_intercom_service):
+        """Test that public domains return None"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        public_emails = [
+            'user@gmail.com',
+            'user@yahoo.com',
+            'user@outlook.com',
+            'user@hotmail.com',
+            'user@icloud.com'
+        ]
+        
+        for email in public_emails:
+            vendor = cache._extract_vendor_from_email(email)
+            assert vendor is None, f"Public domain {email} should return None, got {vendor}"
+    
+    def test_extract_vendor_from_email_custom_domains(self, mock_intercom_service):
+        """Test that custom/unknown domains extract base domain name"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        test_cases = [
+            ('admin@customvendor.com', 'customvendor'),
+            ('support@mycompany.io', 'mycompany'),
+            ('team@newvendor.co', 'newvendor'),
+        ]
+        
+        for email, expected_vendor in test_cases:
+            vendor = cache._extract_vendor_from_email(email)
+            assert vendor == expected_vendor, f"Failed for {email}: got {vendor}, expected {expected_vendor}"
+    
+    def test_extract_vendor_from_email_edge_cases(self, mock_intercom_service):
+        """Test edge cases for vendor extraction"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Invalid emails should return None
+        assert cache._extract_vendor_from_email('') is None
+        assert cache._extract_vendor_from_email('not-an-email') is None
+        assert cache._extract_vendor_from_email('@example.com') is None
+        assert cache._extract_vendor_from_email(None) is None
+    
+    @pytest.mark.asyncio
+    async def test_retry_on_api_failure(self, mock_intercom_service):
+        """Test retry logic with exponential backoff"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Track call count
+        call_count = 0
+        
+        # Mock client that fails twice then succeeds
+        async def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            
+            if call_count < 3:
+                # First 2 attempts fail
+                raise httpx.HTTPError("Temporary API error")
+            
+            # Third attempt succeeds
+            mock_response = Mock()
+            mock_response.json = Mock(return_value={
+                'type': 'admin',
+                'id': '123',
+                'name': 'Test Admin',
+                'email': 'test@horatio.ai',
+                'away_mode_enabled': False
+            })
+            mock_response.raise_for_status = Mock()
+            return mock_response
+        
+        mock_client = AsyncMock()
+        mock_client.get = mock_get
+        
+        # Should retry and eventually succeed
+        profile = await cache.get_admin_profile('123', mock_client)
+        
+        assert call_count == 3  # Failed twice, succeeded on third try
+        assert profile.name == 'Test Admin'
+        assert profile.vendor == 'horatio'
+    
+    @pytest.mark.asyncio
+    async def test_retry_exhaustion_fallback(self, mock_intercom_service):
+        """Test that after all retries fail, fallback profile is created"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Mock client that always fails
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Persistent API error"))
+        
+        # Should exhaust retries and create fallback
+        profile = await cache.get_admin_profile('123', mock_client, public_email='fallback@horatio.ai')
+        
+        assert isinstance(profile, AdminProfile)
+        assert profile.id == '123'
+        # Should still derive vendor from public_email
+        assert profile.vendor == 'horatio'
+    
+    def test_fallback_profile_vendor_attribution_logging(self, mock_intercom_service, caplog):
+        """Test that vendor attribution gaps are logged"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        # Create fallback without any email info
+        with caplog.at_level(logging.WARNING):
+            profile = cache._create_fallback_profile('999', None, None)
+        
+        assert profile.vendor == 'unknown'
+        # Check that warning was logged
+        assert any('Vendor attribution gap' in record.message for record in caplog.records)
+    
+    def test_fallback_profile_successful_attribution_logging(self, mock_intercom_service, caplog):
+        """Test that successful vendor attribution is logged"""
+        cache = AdminProfileCache(mock_intercom_service, None)
+        
+        conversation_parts = [
+            {
+                'author': {
+                    'type': 'admin',
+                    'id': '123',
+                    'email': 'agent@boldr.co'
+                }
+            }
+        ]
+        
+        with caplog.at_level(logging.INFO):
+            profile = cache._create_fallback_profile('123', conversation_parts)
+        
+        assert profile.vendor == 'boldr'
+        # Check that success was logged
+        assert any('Derived vendor' in record.message and 'boldr' in record.message for record in caplog.records)
 

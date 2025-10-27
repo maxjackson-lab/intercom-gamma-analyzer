@@ -622,3 +622,183 @@ class FinEscalationAnalyzer:
         }
         
         return summary
+
+
+def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
+    """
+    Determine if a FIN conversation is considered resolved.
+    
+    Resolution Criteria (ALL must be true):
+    1. No admin response in conversation_parts (admin_assignee_id is None OR no parts with admin author)
+    2. Conversation state is 'closed' OR user sent ≤2 messages (low engagement)
+    3. No negative CSAT rating (rating >= 3 if present, or no rating)
+    4. No reopens (waiting_since count ≤ 1)
+    
+    Edge Cases:
+    - Missing CSAT: Treated as neutral (doesn't block resolution)
+    - Missing state: Treated as open (blocks resolution unless ≤2 user messages)
+    - Missing reopens: Treated as 0 (doesn't block resolution)
+    
+    Knowledge Gap Detection:
+    - If not resolved AND admin intervened: Potential knowledge gap
+    - If not resolved AND negative CSAT: Likely knowledge gap
+    
+    Args:
+        conversation: Dict with keys: conversation_parts, state, rating, waiting_since, admin_assignee_id
+        
+    Returns:
+        bool: True if conversation meets all resolution criteria
+    """
+    # Signal 1: Check if admin actually responded (most reliable signal)
+    parts = conversation.get('conversation_parts', {})
+    if isinstance(parts, dict):
+        parts_list = parts.get('conversation_parts', [])
+    else:
+        parts_list = parts if isinstance(parts, list) else []
+    
+    admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
+    user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
+    
+    has_admin_response = len(admin_parts) > 0
+    user_response_count = len(user_parts)
+    
+    # If admin responded, Fin didn't resolve it alone
+    if has_admin_response:
+        return False
+    
+    # Signal 2: Check state or low engagement (closed OR ≤2 user responses)
+    is_closed = conversation.get('state') == 'closed'
+    low_engagement = user_response_count <= 2
+    
+    if not is_closed and not low_engagement:
+        # Still open with high engagement = not resolved
+        return False
+    
+    # Signal 3: Check for negative CSAT rating
+    # Handle both dict and direct value formats
+    rating_data = conversation.get('conversation_rating')
+    if isinstance(rating_data, dict):
+        rating = rating_data.get('rating')
+    elif isinstance(rating_data, (int, float)):
+        rating = rating_data
+    else:
+        rating = None
+    
+    has_bad_rating = rating is not None and rating < 3
+    if has_bad_rating:
+        return False
+    
+    # Signal 4: Check for reopens (waiting_since is used as proxy)
+    # waiting_since count > 1 means conversation was reopened
+    stats = conversation.get('statistics', {})
+    
+    # Handle None or malformed statistics gracefully
+    if stats is None or not isinstance(stats, dict):
+        waiting_since = 0
+    else:
+        waiting_since = stats.get('count_reopens', 0)
+    
+    # Some systems might use 'waiting_since' directly
+    if 'waiting_since' in conversation:
+        waiting_since = conversation.get('waiting_since', 0)
+    
+    if waiting_since > 1:
+        # Multiple reopens = Fin didn't resolve it properly
+        return False
+    
+    # All checks passed - Fin resolved it!
+    return True
+
+
+def has_knowledge_gap(conversation: Dict[str, Any]) -> bool:
+    """
+    Detect if unresolved conversation indicates a knowledge gap.
+    
+    Indicators:
+    - Not resolved by FIN (is_fin_resolved returns False)
+    - AND (admin intervened OR negative CSAT OR negative feedback)
+    
+    Knowledge gaps represent cases where:
+    1. Fin provided incorrect or incomplete information
+    2. Customer explicitly complained about Fin's response
+    3. Human had to correct Fin's answer
+    4. Customer expressed frustration or gave up
+    
+    Args:
+        conversation: Dict with conversation data
+        
+    Returns:
+        bool: True if conversation indicates a knowledge gap
+    """
+    # First check: If Fin resolved it successfully, no knowledge gap
+    if is_fin_resolved(conversation):
+        return False
+    
+    # Extract conversation text and rating
+    text = conversation.get('full_text', '').lower()
+    
+    # Extract rating (handle dict format)
+    rating_data = conversation.get('conversation_rating')
+    if isinstance(rating_data, dict):
+        rating = rating_data.get('rating')
+        rating_remark = rating_data.get('remark', '')
+    elif isinstance(rating_data, (int, float)):
+        rating = rating_data
+        rating_remark = ''
+    else:
+        rating = None
+        rating_remark = ''
+    
+    # Signal 1: Admin intervened (Fin couldn't handle it alone)
+    parts = conversation.get('conversation_parts', {})
+    if isinstance(parts, dict):
+        parts_list = parts.get('conversation_parts', [])
+    else:
+        parts_list = parts if isinstance(parts, list) else []
+    
+    admin_intervened = any(
+        p.get('author', {}).get('type') == 'admin' 
+        for p in parts_list
+    )
+    
+    # Signal 2: Negative CSAT (1-2 stars)
+    negative_csat = rating is not None and rating < 3
+    
+    # Signal 3: Explicit negative feedback in text or rating remarks
+    negative_phrases = [
+        'incorrect', 'wrong', 'not helpful', 'didn\'t help',
+        'not what i asked', 'that doesn\'t answer', 'still confused',
+        'that doesn\'t work', 'doesn\'t solve', 'not working',
+        'still does not work', 'still doesn\'t work'
+    ]
+    
+    combined_text = text + ' ' + (rating_remark.lower() if rating_remark else '')
+    has_negative_feedback = any(phrase in combined_text for phrase in negative_phrases)
+    
+    # Signal 4: Frustration or giving up
+    frustration_phrases = [
+        'frustrated', 'annoyed', 'waste of time', 'useless',
+        'giving up', 'never mind', 'forget it', 'this is ridiculous'
+    ]
+    has_frustration = any(phrase in text for phrase in frustration_phrases)
+    
+    # Signal 5: Long unresolved conversation (>8 messages, still open)
+    stats = conversation.get('statistics', {})
+    
+    # Handle None or malformed statistics gracefully
+    if stats is None or not isinstance(stats, dict):
+        parts_count = 0
+    else:
+        parts_count = stats.get('count_conversation_parts', 0)
+    
+    is_closed = conversation.get('state') == 'closed'
+    long_unresolved = parts_count > 8 and not is_closed
+    
+    # Knowledge gap if any strong indicator is present
+    return (
+        admin_intervened or 
+        negative_csat or 
+        has_negative_feedback or 
+        has_frustration or 
+        long_unresolved
+    )
