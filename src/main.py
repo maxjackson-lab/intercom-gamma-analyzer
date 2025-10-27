@@ -3159,6 +3159,8 @@ async def run_canny_analysis(
     output_dir: str
 ):
     """Run Canny product feedback analysis."""
+    from src.utils.time_utils import detect_period_type
+    
     try:
         console.print(f"[bold blue]Starting Canny Analysis[/bold blue]")
         console.print(f"Date Range: {start_date} to {end_date}")
@@ -3309,6 +3311,8 @@ async def run_voc_analysis(
     output_dir: str
 ):
     """Run Voice of Customer analysis."""
+    from src.utils.time_utils import detect_period_type
+    
     try:
         console.print(f"[bold blue]Starting Voice of Customer Analysis[/bold blue]")
         console.print(f"Date Range: {start_date} to {end_date}")
@@ -3966,6 +3970,7 @@ async def run_topic_based_analysis_custom(
     from src.services.chunked_fetcher import ChunkedFetcher
     from src.services.gamma_generator import GammaGenerator
     from src.services.audit_trail import AuditTrail
+    from src.utils.time_utils import detect_period_type
     
     # Initialize audit trail if enabled
     audit = None
@@ -4197,6 +4202,7 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
     try:
         from src.agents.topic_orchestrator import TopicOrchestrator
         from src.services.chunked_fetcher import ChunkedFetcher
+        from src.utils.time_utils import detect_period_type
         
         # Calculate date range for the month
         from calendar import monthrange
