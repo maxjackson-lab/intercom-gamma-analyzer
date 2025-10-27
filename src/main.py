@@ -405,18 +405,78 @@ def find_macros(min_occurrences: int, days: int, start_date: Optional[str], end_
 @click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
 @click.option('--start-date', help='Start date (YYYY-MM-DD)')
 @click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter']),
+              help='Time period shortcut (overrides days)')
 @click.option('--detailed', is_flag=True, help='Generate detailed performance report')
-def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str], detailed: bool):
+@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json', 'excel']), default='markdown',
+              help='Output format for results')
+@click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
+@click.option('--test-data-count', type=str, default='100',
+              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str], time_period: Optional[str],
+                   detailed: bool, generate_gamma: bool, output_format: str, test_mode: bool,
+                   test_data_count: str, verbose: bool, audit_trail: bool):
     """Analyze Fin → human handoffs and effectiveness"""
     
     console.print(f"[bold green]Fin Escalation Analysis[/bold green]")
     
+    # Enable verbose logging if requested
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+    
+    # Parse test data count
+    test_data_presets = {
+        'micro': 100,
+        'small': 500,
+        'medium': 1000,
+        'large': 5000,
+        'xlarge': 10000
+    }
+    
+    try:
+        if test_data_count.lower() in test_data_presets:
+            test_data_count_int = test_data_presets[test_data_count.lower()]
+            preset_label = test_data_count.lower()
+        else:
+            test_data_count_int = int(test_data_count)
+            preset_label = None
+    except ValueError:
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'[/red]")
+        return
+    
+    # Test mode indication
+    if test_mode:
+        preset_info = f" ({preset_label})" if preset_label else ""
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
+    
+    # Audit trail indication
+    if audit_trail:
+        console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+    
     # Calculate date range
-    if start_date and end_date:
+    if time_period:
+        from datetime import timedelta
+        end_dt = datetime.now()
+        if time_period == 'week':
+            start_dt = end_dt - timedelta(weeks=1)
+        elif time_period == 'month':
+            start_dt = end_dt - timedelta(days=30)
+        elif time_period == 'quarter':
+            start_dt = end_dt - timedelta(days=90)
+        console.print(f"Analyzing {time_period}: {start_dt.date()} to {end_dt.date()}")
+    elif start_date and end_date:
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
         end_dt = datetime.strptime(end_date, '%Y-%m-%d')
         console.print(f"Analyzing from {start_date} to {end_date}")
     else:
+        from datetime import timedelta
         end_dt = datetime.now()
         start_dt = end_dt - timedelta(days=days)
         console.print(f"Analyzing last {days} days of conversations")
@@ -3586,8 +3646,10 @@ async def run_voc_analysis(
 
 
 @cli.command(name='canny-analysis')
-@click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter']),
+              help='Time period shortcut (overrides start/end dates)')
 @click.option('--board-id', help='Specific Canny board ID (optional)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai', 
               help='AI model to use for sentiment analysis')
@@ -3599,33 +3661,102 @@ async def run_voc_analysis(
               help='Include votes in analysis')
 @click.option('--generate-gamma', is_flag=True, default=False,
               help='Generate Gamma presentation from results')
+@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json', 'excel']), default='markdown',
+              help='Output format for results')
+@click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
+@click.option('--test-data-count', type=str, default='100',
+              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def canny_analysis(
-    start_date: str,
-    end_date: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
     board_id: Optional[str],
     ai_model: str,
     enable_fallback: bool,
     include_comments: bool,
     include_votes: bool,
     generate_gamma: bool,
+    output_format: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
     output_dir: str
 ):
     """
     Analyze Canny product feedback with sentiment analysis.
     
     Examples:
-        # Analyze all boards
+        # Analyze last week
+        python src/main.py canny-analysis --time-period week
+        
+        # Analyze specific dates
         python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31
         
-        # Analyze specific board
-        python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31 --board-id 12345
-        
-        # Use Claude with Gamma generation
-        python src/main.py canny-analysis --start-date 2024-01-01 --end-date 2024-01-31 --ai-model claude --generate-gamma
+        # Test mode with verbose logging
+        python src/main.py canny-analysis --time-period week --test-mode --verbose
     """
     console.print(f"[bold]Canny Product Feedback Analysis[/bold]")
-    console.print(f"Date Range: {start_date} to {end_date}")
+    
+    # Enable verbose logging if requested
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+    
+    # Parse test data count
+    test_data_presets = {
+        'micro': 100,
+        'small': 500,
+        'medium': 1000,
+        'large': 5000,
+        'xlarge': 10000
+    }
+    
+    try:
+        if test_data_count.lower() in test_data_presets:
+            test_data_count_int = test_data_presets[test_data_count.lower()]
+            preset_label = test_data_count.lower()
+        else:
+            test_data_count_int = int(test_data_count)
+            preset_label = None
+    except ValueError:
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'[/red]")
+        return
+    
+    # Test mode indication
+    if test_mode:
+        preset_info = f" ({preset_label})" if preset_label else ""
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock posts{preset_info})[/yellow]")
+    
+    # Audit trail indication
+    if audit_trail:
+        console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+    
+    # Calculate date range
+    if time_period:
+        from datetime import timedelta
+        end_dt = datetime.now()
+        if time_period == 'week':
+            start_dt = end_dt - timedelta(weeks=1)
+        elif time_period == 'month':
+            start_dt = end_dt - timedelta(days=30)
+        elif time_period == 'quarter':
+            start_dt = end_dt - timedelta(days=90)
+        start_date = start_dt.strftime('%Y-%m-%d')
+        end_date = end_dt.strftime('%Y-%m-%d')
+        console.print(f"Analyzing {time_period}: {start_date} to {end_date}")
+    elif start_date and end_date:
+        console.print(f"Date Range: {start_date} to {end_date}")
+    else:
+        console.print("[red]Error: Provide either --time-period or both --start-date and --end-date[/red]")
+        return
+    
     console.print(f"AI Model: {ai_model}")
     console.print(f"Board ID: {board_id or 'All boards'}")
     console.print(f"Comments: {'included' if include_comments else 'excluded'}")
@@ -3948,18 +4079,28 @@ def voice_of_customer_analysis(
 @click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
 @click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json', 'excel']), default='markdown',
+              help='Output format for results')
 @click.option('--analyze-troubleshooting', is_flag=True, 
               help='Enable AI-powered troubleshooting analysis (slower, analyzes diagnostic questions and escalation patterns)')
 @click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
-@click.option('--test-data-count', type=int, default=100, help='Number of test conversations to generate (with --test-mode)')
+@click.option('--test-data-count', type=str, default='100', 
+              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], start_date: Optional[str], 
-                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool,
-                     analyze_troubleshooting: bool = False, test_mode: bool = False, test_data_count: int = 100,
-                     verbose: bool = False, audit_trail: bool = False):
+                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool, output_format: str,
+                     analyze_troubleshooting: bool = False, test_mode: bool = False, test_data_count: str = '100',
+                     verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze support agent/team performance with operational metrics"""
     from datetime import timedelta
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
     
     # Calculate dates
     if time_period:
@@ -3982,6 +4123,26 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     
     agent_name = {'horatio': 'Horatio', 'boldr': 'Boldr', 'escalated': 'Senior Staff'}.get(agent, agent)
     
+    # Parse test data count (supports presets or custom numbers)
+    test_data_presets = {
+        'micro': 100,
+        'small': 500,
+        'medium': 1000,
+        'large': 5000,
+        'xlarge': 10000
+    }
+    
+    try:
+        if test_data_count.lower() in test_data_presets:
+            test_data_count_int = test_data_presets[test_data_count.lower()]
+            preset_label = test_data_count.lower()
+        else:
+            test_data_count_int = int(test_data_count)
+            preset_label = None
+    except ValueError:
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge)[/red]")
+        return
+    
     # Enable verbose logging if requested
     if verbose:
         import logging
@@ -3992,7 +4153,9 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     
     # Test mode indication
     if test_mode:
-        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count} mock conversations)[/yellow]")
+        preset_info = f" ({preset_label})" if preset_label else ""
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
+        console.print(f"[dim]   No API calls will be made - using generated test data[/dim]")
     
     # Audit trail indication
     if audit_trail:
@@ -4011,7 +4174,7 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     
     asyncio.run(run_agent_performance_analysis(
         agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown,
-        analyze_troubleshooting, test_mode, test_data_count, audit_trail
+        analyze_troubleshooting, test_mode, test_data_count_int, audit_trail
     ))
 
 
