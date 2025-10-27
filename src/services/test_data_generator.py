@@ -190,8 +190,11 @@ class TestDataGenerator:
             else:
                 if not include_paid_tier:
                     continue
-                # 95% human support, 5% Fin-resolved for paid tier
-                if random.random() < 0.95:
+                # REALITY: ALL paid conversations start with Fin/Support Sal
+                # ~75% Fin resolves successfully (no human escalation)
+                # ~25% escalate to human (Horatio, Boldr, Senior Staff)
+                if random.random() < 0.25:
+                    # 25% escalate to human
                     conv = self._create_human_conversation(
                         conv_id=f'test_paid_{i}',
                         tier=tier,
@@ -200,6 +203,7 @@ class TestDataGenerator:
                         index=i
                     )
                 else:
+                    # 75% Fin resolves successfully
                     conv = self._create_fin_conversation(
                         conv_id=f'test_paid_fin_{i}',
                         tier=tier,
@@ -431,7 +435,7 @@ class TestDataGenerator:
             'priority': 'normal',
             'admin_assignee_id': admin_id,
             'conversation_rating': rating,
-            'ai_agent_participated': False,
+            'ai_agent_participated': True,  # ALL paid conversations start with Fin, then escalate to human
             'custom_attributes': custom_attrs,
             'statistics': {
                 'time_to_admin_reply': random.randint(300, 3600),

@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.models.analysis_models import CustomerTier, SegmentationPayload
+from src.services.fin_escalation_analyzer import is_fin_resolved
 
 logger = logging.getLogger(__name__)
 
@@ -570,7 +571,11 @@ Output: Segmented conversations with agent type labels
         
         # Check for admin response in conversation parts
         # CRITICAL: Support Sal (Fin AI) appears as author.type='admin', not 'bot'!
-        # Strategy: Check ai_agent_participated FIRST to identify Fin, then check for human admins
+        # Strategy: 
+        # 1. Check if escalated to known human (Horatio/Boldr already checked above)
+        # 2. If ai_participated but no human found, check resolution criteria
+        # 3. Only mark fin_resolved if it meets ALL criteria from is_fin_resolved()
+        
         parts_list = conv.get('conversation_parts', {}).get('conversation_parts', [])
         admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
         bot_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'bot']
@@ -578,48 +583,85 @@ Output: Segmented conversations with agent type labels
         has_bot_response = len(bot_parts) > 0
         
         # If ai_agent_participated=True → Fin was involved
-        # Check if it escalated to human or Fin resolved alone
         if ai_participated:
-            # Fin participated - check if escalated to real human
-            # If admin responded AND ai_participated, need to determine if admin is Support Sal or real human
-            # Real humans will have identifiable emails (@hirehoratio.co, @boldrimpact.com, or known staff)
-            # Support Sal admins won't match those patterns
-            
-            # If we already identified Horatio/Boldr/Escalated above, we wouldn't be here
-            # So if we're here with admin response, it's likely Support Sal
+            # Check if escalated to real human (not Support Sal)
             if has_admin_response:
-                # Check if any admin email matches known human patterns
+                # Check if any admin email indicates real human (not Support Sal)
                 human_admin_found = False
                 for part in admin_parts:
                     author_email = part.get('author', {}).get('email', '').lower()
-                    author_name = part.get('author', {}).get('name', '').lower()
                     
-                    # Check for human patterns (not already caught above)
-                    if author_email and not author_email.startswith('support'):
-                        # Has an email that's not "support@..." → likely human
-                        if '@' in author_email and not 'fin' in author_email and not 'sal' in author_email:
+                    # Real human indicators:
+                    # - Has @hirehoratio.co, @boldrimpact.com, @gamma.app (but not already caught above)
+                    # - Not support@, not fin@, not sal@
+                    if author_email and '@' in author_email:
+                        if not any(x in author_email for x in ['support', 'fin', 'sal', 'bot']):
                             human_admin_found = True
                             break
                 
                 if human_admin_found:
-                    self.logger.debug(f"Paid tier customer {conv_id} escalated to unidentified human admin (has non-Fin email)")
+                    self.logger.debug(f"Paid tier: Escalated to unidentified human (email doesn't match Fin patterns)")
+                    return 'paid', 'unknown'
+            
+            # If we're here: ai_participated=True and either no admin OR admin is Support Sal
+            # Now check if Fin actually RESOLVED it (not just handled it)
+            # Use resolution criteria from is_fin_resolved() but adapted for our context
+            
+            # We've already checked for human escalation above (that would return early)
+            # Now check the other resolution signals:
+            
+            # Signal 2: State or engagement
+            user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
+            is_closed = conv.get('state') == 'closed'
+            low_engagement = len(user_parts) <= 2
+            
+            # Signal 3: CSAT rating
+            rating_data = conv.get('conversation_rating')
+            if isinstance(rating_data, dict):
+                rating = rating_data.get('rating')
+            elif isinstance(rating_data, (int, float)):
+                rating = rating_data
+            else:
+                rating = None
+            has_bad_rating = rating is not None and rating < 3
+            
+            # Signal 4: Reopens
+            stats = conv.get('statistics', {})
+            if stats and isinstance(stats, dict):
+                reopens = stats.get('count_reopens', 0)
+            else:
+                reopens = 0
+            
+            # Check if Fin successfully resolved
+            if (is_closed or low_engagement) and not has_bad_rating and reopens <= 1:
+                self.logger.debug(f"Paid tier: Fin RESOLVED (closed={is_closed}, low_eng={low_engagement}, good_rating={not has_bad_rating}, reopens={reopens})")
+                return 'paid', 'fin_resolved'
+            else:
+                # Fin handled but didn't meet resolution criteria
+                # This could mean:
+                # 1. Still open with high engagement (customer not satisfied)
+                # 2. Bad CSAT rating (customer unhappy)
+                # 3. Multiple reopens (issue not resolved)
+                # In these cases, if admin is present, assume it escalated to human
+                self.logger.debug(f"Paid tier: Fin handled but failed resolution (closed={is_closed}, low_eng={low_engagement}, bad_rating={has_bad_rating}, reopens={reopens})")
+                
+                if has_admin_response:
+                    # Admin present + failed resolution = likely escalated to human
+                    self.logger.debug(f"  → Treating as escalated to human (admin present, Fin didn't resolve)")
                     return 'paid', 'unknown'
                 else:
-                    self.logger.debug(f"Paid tier customer {conv_id} resolved by Support Sal/Fin (admin type but ai_participated=True, no human email)")
+                    # No admin, Fin failed to resolve - knowledge gap but no human took over
+                    self.logger.debug(f"  → Marking as fin_resolved despite failure (no human escalation detected)")
                     return 'paid', 'fin_resolved'
-            else:
-                # AI participated, no admin response (only bot response)
-                self.logger.debug(f"Paid tier customer {conv_id} resolved by Fin AI only (bot author)")
-                return 'paid', 'fin_resolved'
         
         # ai_agent_participated=False but has admin response → Real human handled without Fin
         if has_admin_response:
-            self.logger.debug(f"Paid customer with human admin response (ai_participated=False) in conversation {conv_id}")
-            return 'paid', 'unknown'  # Real human but can't identify which
+            self.logger.debug(f"Paid customer: Human admin (ai_participated=False)")
+            return 'paid', 'unknown'
         
         # No AI, no admin → edge case
         if has_bot_response:
-            self.logger.debug(f"Paid tier customer {conv_id} has bot response but ai_participated=False - treating as fin_resolved")
+            self.logger.debug(f"Paid tier: Bot response but ai_participated=False")
             return 'paid', 'fin_resolved'
 
         # Cannot determine
