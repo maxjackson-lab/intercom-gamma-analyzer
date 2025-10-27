@@ -1372,8 +1372,11 @@ async def run_agent_performance_analysis(
     end_date: datetime, 
     focus_categories: Optional[str] = None,
     generate_gamma: bool = False,
+    individual_breakdown: bool = False,
     analyze_troubleshooting: bool = False,
-    individual_breakdown: bool = False
+    test_mode: bool = False,
+    test_data_count: int = 100,
+    audit_trail: bool = False
 ):
     """Run comprehensive agent performance analysis with optional Gamma generation."""
     try:
@@ -1392,15 +1395,26 @@ async def run_agent_performance_analysis(
         if focus_categories:
             console.print(f"Focus: {focus_categories}\n")
         
-        # Fetch conversations
-        console.print("📥 Fetching conversations...")
-        fetcher = ChunkedFetcher()
-        all_conversations = await fetcher.fetch_conversations_chunked(
-            start_date=start_date,
-            end_date=end_date
-        )
-        
-        console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
+        # Fetch conversations (or generate test data)
+        if test_mode:
+            console.print(f"🧪 [yellow]TEST MODE: Generating {test_data_count} mock conversations for {agent_name}...[/yellow]")
+            from src.services.test_data_generator import TestDataGenerator
+            generator = TestDataGenerator()
+            all_conversations = generator.generate_conversations(
+                count=test_data_count,
+                start_date=start_date,
+                end_date=end_date,
+                agent_filter=agent  # Generate data specific to this agent
+            )
+            console.print(f"   ✅ Generated {len(all_conversations)} test conversations\n")
+        else:
+            console.print("📥 Fetching conversations...")
+            fetcher = ChunkedFetcher()
+            all_conversations = await fetcher.fetch_conversations_chunked(
+                start_date=start_date,
+                end_date=end_date
+            )
+            console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
         
         # Filter by agent email domain
         console.print(f"🔍 Filtering conversations for {agent_name}...")
@@ -3851,9 +3865,14 @@ def voice_of_customer_analysis(
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--analyze-troubleshooting', is_flag=True, 
               help='Enable AI-powered troubleshooting analysis (slower, analyzes diagnostic questions and escalation patterns)')
+@click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
+@click.option('--test-data-count', type=int, default=100, help='Number of test conversations to generate (with --test-mode)')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], start_date: Optional[str], 
                      end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool,
-                     analyze_troubleshooting: bool = False):
+                     analyze_troubleshooting: bool = False, test_mode: bool = False, test_data_count: int = 100,
+                     verbose: bool = False, audit_trail: bool = False):
     """Analyze support agent/team performance with operational metrics"""
     from datetime import timedelta
     
@@ -3878,6 +3897,22 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     
     agent_name = {'horatio': 'Horatio', 'boldr': 'Boldr', 'escalated': 'Senior Staff'}.get(agent, agent)
     
+    # Enable verbose logging if requested
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+    
+    # Test mode indication
+    if test_mode:
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count} mock conversations)[/yellow]")
+    
+    # Audit trail indication
+    if audit_trail:
+        console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+    
     console.print(f"[bold green]{agent_name} Performance Analysis[/bold green]")
     console.print(f"Date Range: {start_date} to {end_date}")
     if individual_breakdown:
@@ -3891,7 +3926,7 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     
     asyncio.run(run_agent_performance_analysis(
         agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown,
-        analyze_troubleshooting
+        analyze_troubleshooting, test_mode, test_data_count, audit_trail
     ))
 
 
