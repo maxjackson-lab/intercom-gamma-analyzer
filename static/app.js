@@ -1301,12 +1301,16 @@ function runAnalysis() {
     }
     
     // Convert flags object to args array
+    // Each flag with a value must be immediately followed by its value
     args = [];
     for (const [flagName, flagValue] of Object.entries(flags)) {
-        if (typeof flagValue === 'boolean' && flagValue) {
+        if (typeof flagValue === 'boolean') {
+            if (flagValue) {
+                args.push(flagName);
+            }
+        } else {
             args.push(flagName);
-        } else if (typeof flagValue !== 'boolean') {
-            args.push(flagName, String(flagValue));
+            args.push(String(flagValue));
         }
     }
     

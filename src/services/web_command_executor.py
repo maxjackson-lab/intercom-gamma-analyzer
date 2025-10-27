@@ -243,20 +243,25 @@ class WebCommandExecutor:
                         
                         # Check if value is in the same arg (--flag=value) or next arg
                         if '=' in arg:
-                            # Value is in same arg
+                            # Value is in same arg (e.g., --flag=value)
                             value = arg.split('=', 1)[1]
+                            # Validate value based on schema
+                            self._validate_flag_value(flag_name, value, flag_schema)
+                            validated_args.append(arg)  # Append the whole --flag=value
                         elif i + 1 < len(args) and not args[i + 1].startswith('-'):
-                            # Value is in next arg
+                            # Value is in next arg (e.g., --flag value)
                             value = args[i + 1]
-                            i += 1  # Skip next arg since we're consuming it
+                            # Validate value based on schema
+                            self._validate_flag_value(flag_name, value, flag_schema)
+                            validated_args.append(arg)  # Append the flag
+                            validated_args.append(value)  # Append the value
+                            i += 1  # Skip next arg since we already added it
                         else:
                             # Flag expects a value but none provided
                             raise ValueError(f"Argument {i}: flag '{flag_name}' requires a value")
-                        
-                        # Validate value based on schema
-                        self._validate_flag_value(flag_name, value, flag_schema)
-                    
-                    validated_args.append(arg)
+                    else:
+                        # Boolean flag or flag without schema (no value expected)
+                        validated_args.append(arg)
                 else:
                     # Regular argument (not a flag)
                     validated_args.append(arg)
