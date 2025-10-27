@@ -81,7 +81,7 @@ class WebCommandExecutor:
                 "--days": {"type": "int", "min": 1, "max": 365},
                 "--limit": {"type": "int", "min": 1, "max": 10000},
                 "--top-n": {"type": "int", "min": 1, "max": 100},
-                "--test-data-count": {"type": "int", "min": 1, "max": 10000},
+                "--test-data-count": {"type": "int", "min": 1, "max": 25000},
                 "--agent": {"type": "enum", "values": ["horatio", "boldr", "escalated"]},
                 "--vendor": {"type": "enum", "values": ["horatio", "boldr"]},
                 "--analysis-type": {"type": "enum", "values": ["topic-based", "synthesis", "complete"]},

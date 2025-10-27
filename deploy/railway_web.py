@@ -321,7 +321,7 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'integer',
                 'default': 100,
                 'min': 10,
-                'max': 1000,
+                'max': 25000,
                 'description': 'Number of test conversations to generate'
             },
             '--audit-trail': {
@@ -393,7 +393,7 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'integer',
                 'default': 100,
                 'min': 10,
-                'max': 1000,
+                'max': 25000,
                 'description': 'Number of test conversations'
             },
             '--audit-trail': {
@@ -446,7 +446,7 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'integer',
                 'default': 100,
                 'min': 10,
-                'max': 1000,
+                'max': 25000,
                 'description': 'Number of test conversations'
             },
             '--audit-trail': {
