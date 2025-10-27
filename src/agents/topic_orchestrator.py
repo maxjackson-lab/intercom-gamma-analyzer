@@ -301,17 +301,35 @@ class TopicOrchestrator:
             
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
             
-            # Fix malformed topic_distribution (handle case where values are dicts instead of ints)
-            # This can happen when TopicDetectionResult validation fails
-            if topic_dist and isinstance(next(iter(topic_dist.values()), None), dict):
-                self.logger.warning("⚠️ topic_distribution has dict values, extracting counts")
-                topic_dist = {topic: (details.get('count', 0) if isinstance(details, dict) else details) 
-                             for topic, details in topic_dist.items()}
+            # Normalize topic_distribution to ensure consistent structure
+            # TopicDetectionAgent can return either:
+            # - Proper format: {topic: {'volume': N, ...}}
+            # - Legacy format: {topic: N}
+            # We need dict format for downstream processing
+            normalized_topic_dist = {}
+            for topic, value in topic_dist.items():
+                if isinstance(value, dict):
+                    # Already correct format
+                    normalized_topic_dist[topic] = value
+                elif isinstance(value, int):
+                    # Convert int to dict format
+                    normalized_topic_dist[topic] = {'volume': value}
+                else:
+                    self.logger.warning(f"Unexpected topic value type for {topic}: {type(value)}")
+                    normalized_topic_dist[topic] = {'volume': 0}
+            
+            topic_dist = normalized_topic_dist
             
             if self.audit:
-                # Safely get top topics (handle both int and dict values)
+                # Get top topics (now all values are dicts with 'volume' key)
                 try:
-                    top_topics_list = list(sorted(topic_dist.items(), key=lambda x: (x[1] if isinstance(x[1], int) else 0), reverse=True)[:5])
+                    top_topics_list = list(sorted(
+                        topic_dist.items(), 
+                        key=lambda x: x[1].get('volume', 0), 
+                        reverse=True
+                    )[:5])
+                    # Format for audit log (topic, volume)
+                    top_topics_list = [(topic, stats.get('volume', 0)) for topic, stats in top_topics_list]
                 except Exception as e:
                     self.logger.warning(f"Could not sort top topics: {e}")
                     top_topics_list = []
