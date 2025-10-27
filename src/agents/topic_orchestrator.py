@@ -637,16 +637,18 @@ class TopicOrchestrator:
             
             if self.audit:
                 fin_data = _normalize_agent_result(fin_result).get('data', {})
-                self.audit.step("Phase 4: Fin Analysis", "analysis",
-                              f"Completed Fin AI performance evaluation in {fin_execution_time:.1f}s",
-                              {
-                                  'execution_time_seconds': fin_execution_time,
-                                  'total_analyzed': fin_data.get('total_fin_conversations', 0),
-                                  'free_tier_resolution_rate': fin_data.get('free_tier', {}).get('resolution_rate', 0),
-                                  'paid_tier_resolution_rate': fin_data.get('paid_tier', {}).get('resolution_rate', 0),
-                                  'success': fin_result.success if hasattr(fin_result, 'success') else True,
-                                  'payload_validation': 'passed' if fin_payload else 'failed'
-                              })
+                self.audit.step(
+                    "Phase 4: Fin Analysis",
+                    f"Completed Fin AI performance evaluation in {fin_execution_time:.1f}s",
+                    {
+                        'execution_time_seconds': fin_execution_time,
+                        'total_analyzed': fin_data.get('total_fin_conversations', 0),
+                        'free_tier_resolution_rate': fin_data.get('free_tier', {}).get('resolution_rate', 0),
+                        'paid_tier_resolution_rate': fin_data.get('paid_tier', {}).get('resolution_rate', 0),
+                        'success': fin_result.success if hasattr(fin_result, 'success') else True,
+                        'payload_validation': 'passed' if fin_payload else 'failed'
+                    }
+                )
             
             # Display agent result
             try:
@@ -717,12 +719,14 @@ class TopicOrchestrator:
             self.logger.info("📈 Phase 5: Trend Analysis")
             
             if self.audit:
-                self.audit.step("Phase 5: Trend Analysis", "analysis",
-                              "Starting historical trend analysis",
-                              {
-                                  'current_week': week_id,
-                                  'topics_to_analyze': len(topic_dist)
-                              })
+                self.audit.step(
+                    "Phase 5: Trend Analysis",
+                    "Starting historical trend analysis",
+                    {
+                        'current_week': week_id,
+                        'topics_to_analyze': len(topic_dist)
+                    }
+                )
             
             trend_start_time = datetime.now()
             trend_context = context.model_copy()
@@ -748,14 +752,16 @@ class TopicOrchestrator:
             
             if self.audit:
                 trend_data = _normalize_agent_result(trend_result).get('data', {})
-                self.audit.step("Phase 5: Trend Analysis", "analysis",
-                              f"Completed trend analysis in {trend_execution_time:.1f}s",
-                              {
-                                  'execution_time_seconds': trend_execution_time,
-                                  'trends_identified': len(trend_data.get('trends', [])),
-                                  'success': trend_result.success if hasattr(trend_result, 'success') else True,
-                                  'payload_validation': 'passed' if trend_payload else 'failed'
-                              })
+                self.audit.step(
+                    "Phase 5: Trend Analysis",
+                    f"Completed trend analysis in {trend_execution_time:.1f}s",
+                    {
+                        'execution_time_seconds': trend_execution_time,
+                        'trends_identified': len(trend_data.get('trends', [])),
+                        'success': trend_result.success if hasattr(trend_result, 'success') else True,
+                        'payload_validation': 'passed' if trend_payload else 'failed'
+                    }
+                )
             
             # Display agent result
             try:
@@ -769,12 +775,14 @@ class TopicOrchestrator:
             self.logger.info("📝 Phase 6: Output Formatting")
             
             if self.audit:
-                self.audit.step("Phase 6: Output Formatting", "formatting",
-                              "Starting final output formatting",
-                              {
-                                  'agents_completed': len(workflow_results),
-                                  'topics_processed': len(topic_dist)
-                              })
+                self.audit.step(
+                    "Phase 6: Output Formatting",
+                    "Starting final output formatting",
+                    {
+                        'agents_completed': len(workflow_results),
+                        'topics_processed': len(topic_dist)
+                    }
+                )
             
             output_start_time = datetime.now()
             output_context = context.model_copy()
@@ -801,12 +809,14 @@ class TopicOrchestrator:
             output_execution_time = (datetime.now() - output_start_time).total_seconds()
             
             if self.audit:
-                self.audit.step("Phase 6: Output Formatting", "formatting",
-                              f"Completed output formatting in {output_execution_time:.1f}s",
-                              {
-                                  'execution_time_seconds': output_execution_time,
-                                  'success': formatter_result.success if hasattr(formatter_result, 'success') else True
-                              })
+                self.audit.step(
+                    "Phase 6: Output Formatting",
+                    f"Completed output formatting in {output_execution_time:.1f}s",
+                    {
+                        'execution_time_seconds': output_execution_time,
+                        'success': formatter_result.success if hasattr(formatter_result, 'success') else True
+                    }
+                )
             
             # Display agent result
             try:

@@ -173,7 +173,7 @@ Calculate tier-specific metrics:
             self.logger.info(f"   Paid tier (Fin-resolved): {total_paid} conversations")
             
             if self.audit:
-                self.audit.step("FIN Performance Analysis", "analysis",
+                self.audit.step("FIN Performance Analysis",
                               "Starting FIN performance evaluation",
                               {
                                   'total_conversations': total,
@@ -245,7 +245,7 @@ Calculate tier-specific metrics:
                         csat_status
                     )
                     
-                    self.audit.step("FIN Performance Analysis", "analysis",
+                    self.audit.step("FIN Performance Analysis",
                                   f"Data quality assessment: CSAT coverage {csat_status}",
                                   {
                                       'overall_csat_coverage_pct': f"{overall_csat_coverage:.1f}%",
@@ -272,7 +272,7 @@ Calculate tier-specific metrics:
                         performance_flags.append(f"High knowledge gap rate in paid tier ({paid_gaps:.1%})")
                     
                     if performance_flags:
-                        self.audit.step("FIN Performance Analysis", "analysis",
+                        self.audit.step("FIN Performance Analysis",
                                       f"Performance concerns identified: {len(performance_flags)} issues",
                                       {'issues': performance_flags})
             
@@ -303,7 +303,7 @@ Calculate tier-specific metrics:
                 
                 # Record final summary in audit
                 if self.audit:
-                    self.audit.step("FIN Performance Analysis", "analysis",
+                    self.audit.step("FIN Performance Analysis",
                                   f"Completed FIN analysis in {execution_time:.2f}s",
                                   {
                                       'execution_time_seconds': execution_time,
