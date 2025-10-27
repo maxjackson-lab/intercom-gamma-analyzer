@@ -61,7 +61,7 @@ TEST_FLAGS = [
     click.option('--test-mode', is_flag=True, 
                  help='Use mock data instead of API calls'),
     click.option('--test-data-count', type=str, default='100',
-                 help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number'),
+                 help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000), xxlarge(20000) or custom number'),
 ]
 
 DEBUG_FLAGS = [
@@ -413,7 +413,7 @@ def find_macros(min_occurrences: int, days: int, start_date: Optional[str], end_
               help='Output format for results')
 @click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
 @click.option('--test-data-count', type=str, default='100',
-              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number')
+              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000), xxlarge(20000) or custom number')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str], time_period: Optional[str],
@@ -437,7 +437,8 @@ def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str
         'small': 500,
         'medium': 1000,
         'large': 5000,
-        'xlarge': 10000
+        'xlarge': 10000,
+        'xxlarge': 20000
     }
     
     try:
@@ -3665,7 +3666,7 @@ async def run_voc_analysis(
               help='Output format for results')
 @click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
 @click.option('--test-data-count', type=str, default='100',
-              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number')
+              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000), xxlarge(20000) or custom number')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 @click.option('--output-dir', default='outputs', help='Output directory')
@@ -3715,7 +3716,8 @@ def canny_analysis(
         'small': 500,
         'medium': 1000,
         'large': 5000,
-        'xlarge': 10000
+        'xlarge': 10000,
+        'xxlarge': 20000
     }
     
     try:
@@ -4020,11 +4022,12 @@ def voice_of_customer_analysis(
     
     # Parse test data count (supports presets or custom numbers)
     test_data_presets = {
-        'micro': 100,      # 1 hour of data
-        'small': 500,      # Few hours
-        'medium': 1000,    # ~1 day
-        'large': 5000,     # ~1 week (realistic)
-        'xlarge': 10000    # 2 weeks
+        'micro': 100,       # 1 hour of data
+        'small': 500,       # Few hours
+        'medium': 1000,     # ~1 day
+        'large': 5000,      # ~1 week (realistic)
+        'xlarge': 10000,    # 2 weeks
+        'xxlarge': 20000    # 1 month
     }
     
     try:
@@ -4037,7 +4040,7 @@ def voice_of_customer_analysis(
             test_data_count_int = int(test_data_count)
             preset_label = None
     except ValueError:
-        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge)[/red]")
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge, xxlarge)[/red]")
         return
     
     # Test mode indication
@@ -4140,7 +4143,7 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
             test_data_count_int = int(test_data_count)
             preset_label = None
     except ValueError:
-        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge)[/red]")
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge, xxlarge)[/red]")
         return
     
     # Enable verbose logging if requested

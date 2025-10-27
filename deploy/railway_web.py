@@ -931,10 +931,13 @@ if HAS_FASTAPI:
                         <label style="display: block; margin-bottom: 8px; font-size: 13px;">
                             Test Data Volume:
                             <select id="testDataCount" style="margin-left: 8px; padding: 4px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb;">
-                                <option value="50">50 conversations (fast test)</option>
-                                <option value="100" selected>100 conversations (realistic)</option>
-                                <option value="500">500 conversations (full test)</option>
-                                <option value="1000">1,000 conversations (stress test)</option>
+                                <option value="50">50 conversations (quick test)</option>
+                                <option value="100" selected>100 conversations (1 hour)</option>
+                                <option value="500">500 conversations (few hours)</option>
+                                <option value="1000">1,000 conversations (~1 day)</option>
+                                <option value="5000">5,000 conversations (~1 week) ⭐</option>
+                                <option value="10000">10,000 conversations (2 weeks)</option>
+                                <option value="20000">20,000 conversations (1 month)</option>
                             </select>
                         </label>
                         <label style="display: flex; align-items: center; margin-top: 8px; cursor: pointer;">
