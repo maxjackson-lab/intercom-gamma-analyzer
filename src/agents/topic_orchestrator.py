@@ -203,7 +203,8 @@ class TopicOrchestrator:
 
             # Record tool calls from agent if audit is enabled
             if self.audit:
-                self.audit.record_tool_calls_from_agent(segmentation_result)
+                if hasattr(self.audit, 'record_tool_calls_from_agent'):
+                    self.audit.record_tool_calls_from_agent(segmentation_result)
 
             # Display agent result
             try:
@@ -273,7 +274,8 @@ class TopicOrchestrator:
 
             # Record tool calls from agent if audit is enabled
             if self.audit:
-                self.audit.record_tool_calls_from_agent(topic_detection_result)
+                if hasattr(self.audit, 'record_tool_calls_from_agent'):
+                    self.audit.record_tool_calls_from_agent(topic_detection_result)
 
             # Display agent result
             try:
@@ -352,7 +354,8 @@ class TopicOrchestrator:
 
                 # Record tool calls from agent if audit is enabled
                 if self.audit:
-                    self.audit.record_tool_calls_from_agent(subtopic_detection_result)
+                    if hasattr(self.audit, 'record_tool_calls_from_agent'):
+                        self.audit.record_tool_calls_from_agent(subtopic_detection_result)
 
                 # Display agent result
                 try:

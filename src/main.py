@@ -3700,8 +3700,8 @@ async def run_test_topic_based(conversations):
               help='Generate Gamma presentation from results')
 @click.option('--test-mode', is_flag=True, default=False,
               help='🧪 Use mock test data instead of Intercom API (fast, no API calls)')
-@click.option('--test-data-count', type=int, default=100,
-              help='Number of test conversations to generate (only with --test-mode)')
+@click.option('--test-data-count', type=str, default='100',
+              help='Number of test conversations or preset (100, 500, 1000, 5000, 10000, or custom number)')
 @click.option('--verbose', is_flag=True, default=False,
               help='Enable verbose DEBUG logging to see detailed agent decision-making')
 @click.option('--separate-agent-feedback', is_flag=True, default=True,
@@ -3726,7 +3726,7 @@ def voice_of_customer_analysis(
     canny_board_id: Optional[str],
     generate_gamma: bool,
     test_mode: bool,
-    test_data_count: int,
+    test_data_count: str,
     verbose: bool,
     separate_agent_feedback: bool,
     multi_agent: bool,
@@ -3827,10 +3827,35 @@ def voice_of_customer_analysis(
             logging.getLogger(module).setLevel(logging.DEBUG)
         console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
     
+    # Parse test data count (supports presets or custom numbers)
+    test_data_presets = {
+        'micro': 100,      # 1 hour of data
+        'small': 500,      # Few hours
+        'medium': 1000,    # ~1 day
+        'large': 5000,     # ~1 week (realistic)
+        'xlarge': 10000    # 2 weeks
+    }
+    
+    try:
+        # Check if it's a preset name
+        if test_data_count.lower() in test_data_presets:
+            test_data_count_int = test_data_presets[test_data_count.lower()]
+            preset_label = test_data_count.lower()
+        else:
+            # Try to parse as number
+            test_data_count_int = int(test_data_count)
+            preset_label = None
+    except ValueError:
+        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge)[/red]")
+        return
+    
     # Test mode indication
     if test_mode:
-        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count} mock conversations)[/yellow]")
+        preset_info = f" ({preset_label})" if preset_label else ""
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
         console.print(f"[dim]   No API calls will be made - using generated test data[/dim]")
+        if test_data_count_int >= 5000:
+            console.print(f"[dim]   💡 Note: Large datasets may take 1-3 minutes to process[/dim]")
     
     # Set AI model if specified
     if ai_model:
@@ -3845,7 +3870,7 @@ def voice_of_customer_analysis(
     start_dt, end_dt = get_date_range_pacific(start_date, end_date)
     
     if analysis_type == 'topic-based':
-        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count, audit_trail))
+        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count_int, audit_trail))
     elif analysis_type == 'synthesis':
         asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail))
     else:  # complete
@@ -3997,7 +4022,7 @@ async def run_topic_based_analysis_custom(
     end_date: datetime, 
     generate_gamma: bool,
     test_mode: bool = False,
-    test_data_count: int = 100,
+    test_data_count: str = "100",
     audit_trail: bool = False
 ):
     """Run topic-based analysis with custom date range"""
@@ -4025,7 +4050,7 @@ async def run_topic_based_analysis_custom(
         from src.services.test_data_generator import TestDataGenerator
         generator = TestDataGenerator()
         conversations = generator.generate_conversations(
-            count=test_data_count,
+            count=int(test_data_count),
             start_date=start_date,
             end_date=end_date
         )
