@@ -13,7 +13,7 @@ import sys
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List, Any
 
 # Suppress urllib3 SSL warning
 warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL 1.1.1+')
@@ -27,6 +27,7 @@ from rich.panel import Panel
 
 # Core imports for basic functionality
 from src.config.settings import settings
+from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from src.utils.logger import setup_logging
 from src.utils.cli_help import help_system
 
