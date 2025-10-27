@@ -568,19 +568,58 @@ Output: Segmented conversations with agent type labels
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'boldr'
         
-        # Check for human admin (generic) - verify actual admin response in conversation parts
-        # Fix: Don't rely on admin_assignee_id alone (assignment ≠ response)
+        # Check for admin response in conversation parts
+        # CRITICAL: Support Sal (Fin AI) appears as author.type='admin', not 'bot'!
+        # Strategy: Check ai_agent_participated FIRST to identify Fin, then check for human admins
         parts_list = conv.get('conversation_parts', {}).get('conversation_parts', [])
         admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
+        bot_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'bot']
         has_admin_response = len(admin_parts) > 0
+        has_bot_response = len(bot_parts) > 0
         
-        if has_admin_response:
-            self.logger.debug(f"Paid customer with actual admin response detected in conversation {conv_id}")
-            return 'paid', 'unknown'  # Has human but can't identify which
-
-        # AI-only conversation (paid tier)
+        # If ai_agent_participated=True → Fin was involved
+        # Check if it escalated to human or Fin resolved alone
         if ai_participated:
-            self.logger.debug(f"Paid tier customer {conv_id} resolved by Fin AI only (no human escalation)")
+            # Fin participated - check if escalated to real human
+            # If admin responded AND ai_participated, need to determine if admin is Support Sal or real human
+            # Real humans will have identifiable emails (@hirehoratio.co, @boldrimpact.com, or known staff)
+            # Support Sal admins won't match those patterns
+            
+            # If we already identified Horatio/Boldr/Escalated above, we wouldn't be here
+            # So if we're here with admin response, it's likely Support Sal
+            if has_admin_response:
+                # Check if any admin email matches known human patterns
+                human_admin_found = False
+                for part in admin_parts:
+                    author_email = part.get('author', {}).get('email', '').lower()
+                    author_name = part.get('author', {}).get('name', '').lower()
+                    
+                    # Check for human patterns (not already caught above)
+                    if author_email and not author_email.startswith('support'):
+                        # Has an email that's not "support@..." → likely human
+                        if '@' in author_email and not 'fin' in author_email and not 'sal' in author_email:
+                            human_admin_found = True
+                            break
+                
+                if human_admin_found:
+                    self.logger.debug(f"Paid tier customer {conv_id} escalated to unidentified human admin (has non-Fin email)")
+                    return 'paid', 'unknown'
+                else:
+                    self.logger.debug(f"Paid tier customer {conv_id} resolved by Support Sal/Fin (admin type but ai_participated=True, no human email)")
+                    return 'paid', 'fin_resolved'
+            else:
+                # AI participated, no admin response (only bot response)
+                self.logger.debug(f"Paid tier customer {conv_id} resolved by Fin AI only (bot author)")
+                return 'paid', 'fin_resolved'
+        
+        # ai_agent_participated=False but has admin response → Real human handled without Fin
+        if has_admin_response:
+            self.logger.debug(f"Paid customer with human admin response (ai_participated=False) in conversation {conv_id}")
+            return 'paid', 'unknown'  # Real human but can't identify which
+        
+        # No AI, no admin → edge case
+        if has_bot_response:
+            self.logger.debug(f"Paid tier customer {conv_id} has bot response but ai_participated=False - treating as fin_resolved")
             return 'paid', 'fin_resolved'
 
         # Cannot determine
