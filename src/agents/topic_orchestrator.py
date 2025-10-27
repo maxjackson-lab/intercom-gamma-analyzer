@@ -301,11 +301,25 @@ class TopicOrchestrator:
             
             self.logger.info(f"   ✅ Detected {len(topic_dist)} topics across all tiers")
             
+            # Fix malformed topic_distribution (handle case where values are dicts instead of ints)
+            # This can happen when TopicDetectionResult validation fails
+            if topic_dist and isinstance(next(iter(topic_dist.values()), None), dict):
+                self.logger.warning("⚠️ topic_distribution has dict values, extracting counts")
+                topic_dist = {topic: (details.get('count', 0) if isinstance(details, dict) else details) 
+                             for topic, details in topic_dist.items()}
+            
             if self.audit:
+                # Safely get top topics (handle both int and dict values)
+                try:
+                    top_topics_list = list(sorted(topic_dist.items(), key=lambda x: (x[1] if isinstance(x[1], int) else 0), reverse=True)[:5])
+                except Exception as e:
+                    self.logger.warning(f"Could not sort top topics: {e}")
+                    top_topics_list = []
+                
                 self.audit.step("Phase 2: Topic Detection", f"Completed topic classification - {len(topic_dist)} topics detected", {
                     'topics_detected': len(topic_dist),
                     'conversations_classified': len(topics_by_conv),
-                    'top_topics': list(sorted(topic_dist.items(), key=lambda x: x[1], reverse=True)[:5]),
+                    'top_topics': top_topics_list,
                     'execution_time_seconds': topic_detection_result.execution_time
                 })
             
