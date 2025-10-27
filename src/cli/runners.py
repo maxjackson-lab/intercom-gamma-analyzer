@@ -16,6 +16,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from src.config.settings import settings
+from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from src.services.intercom_service import IntercomService
 from src.services.intercom_service_v2 import IntercomServiceV2
 from src.services.metrics_calculator import MetricsCalculator
@@ -889,5 +890,131 @@ async def run_canny_analysis(
             'success': False,
             'error': str(e)
         }
-        
-       
+
+
+# Helper/Display Functions (stubs - need implementation)
+
+def display_voice_results(results: Any):
+    """Display voice analysis results."""
+    console.print("[bold green]Voice Analysis Results:[/bold green]")
+    console.print(results)
+
+
+def display_trend_results(results: Any):
+    """Display trend analysis results."""
+    console.print("[bold green]Trend Analysis Results:[/bold green]")
+    console.print(results)
+
+
+def display_custom_results(results: Any):
+    """Display custom analysis results."""
+    console.print("[bold green]Custom Analysis Results:[/bold green]")
+    console.print(results)
+
+
+def _display_individual_breakdown(data: Dict[str, Any], agent_name: str):
+    """Display individual agent breakdown."""
+    console.print(f"\n[bold]Individual {agent_name} Agent Breakdown:[/bold]")
+    
+    agents = data.get('agents', [])
+    console.print(f"Total agents: {len(agents)}\n")
+    
+    for agent in agents[:10]:  # Show top 10
+        console.print(f"  {agent.get('name', 'Unknown')}: {agent.get('conversations', 0)} conversations")
+
+
+def save_json_output(results: Any, filename: str):
+    """Save results as JSON."""
+    from src.cli.utils import save_outputs
+    save_outputs(results, filename, output_format='json')
+
+
+def save_markdown_output(results: Any, filename: str):
+    """Save results as Markdown."""
+    from src.cli.utils import save_outputs
+    save_outputs(results, filename, output_format='markdown')
+
+
+def get_output_files(filename: str) -> List[str]:
+    """Get list of output files for a given base filename."""
+    output_dir = Path(settings.output_directory)
+    matches = list(output_dir.glob(f"{filename}*"))
+    return [str(m) for m in matches]
+
+
+async def run_voc_analysis(
+    start_date: str,
+    end_date: str, 
+    ai_model: str,
+    enable_fallback: bool,
+    include_trends: bool,
+    include_canny: bool,
+    canny_board_id: Optional[str],
+    generate_gamma: bool,
+    separate_agent_feedback: bool,
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: int,
+    audit_trail: bool
+) -> Dict[str, Any]:
+    """Run VoC analysis (topic-based)."""
+    console.print("[yellow]VoC topic-based analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
+
+
+async def run_topic_based_analysis(
+    month: int,
+    year: int,
+    tier1_list: List[str],
+    generate_gamma: bool,
+    output_format: str
+) -> Dict[str, Any]:
+    """Run topic-based multi-agent analysis."""
+    console.print("[yellow]Topic-based analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
+
+
+async def run_synthesis_analysis(
+    month: int,
+    year: int,
+    tier1_list: List[str],
+    generate_gamma: bool,
+    output_format: str
+) -> Dict[str, Any]:
+    """Run synthesis multi-agent analysis."""
+    console.print("[yellow]Synthesis analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
+
+
+async def run_synthesis_analysis_custom(
+    start_dt: datetime,
+    end_dt: datetime,
+    generate_gamma: bool,
+    audit_trail: bool
+) -> Dict[str, Any]:
+    """Run custom synthesis analysis."""
+    console.print("[yellow]Custom synthesis analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
+
+
+async def run_complete_multi_agent_analysis(
+    month: int,
+    year: int,
+    tier1_list: List[str],
+    generate_gamma: bool,
+    output_format: str
+) -> Dict[str, Any]:
+    """Run complete multi-agent analysis."""
+    console.print("[yellow]Complete multi-agent analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
+
+
+async def run_complete_analysis_custom(
+    start_dt: datetime,
+    end_dt: datetime,
+    generate_gamma: bool,
+    audit_trail: bool
+) -> Dict[str, Any]:
+    """Run custom complete analysis."""
+    console.print("[yellow]Custom complete analysis not yet implemented in CLI module[/yellow]")
+    return {'success': False, 'error': 'Not implemented'}
