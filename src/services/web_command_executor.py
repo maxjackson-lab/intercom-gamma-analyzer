@@ -105,20 +105,18 @@ class WebCommandExecutor:
         (r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL_REDACTED]'),
         # Bearer tokens
         (r'Bearer\s+[a-zA-Z0-9_\-\.]+', 'Bearer [TOKEN_REDACTED]'),
-        # API keys (20+ alphanumeric chars)
-        (r'\b[A-Za-z0-9_-]{20,}\b', '[API_KEY_REDACTED]'),
+        # Specific API key patterns (not generic long strings that could be function names)
+        (r'(sk_live_|sk_test_|pk_live_|pk_test_|rk_live_|rk_test_)[^\s\n]+', '[API_KEY_REDACTED]'),
+        # AWS credentials
+        (r'(AKIA[0-9A-Z]{16})', '[AWS_KEY_REDACTED]'),
         # Intercom conversation IDs (numeric)
         (r'\bconversation_id["\s:]+\d+', 'conversation_id: [ID_REDACTED]'),
         # Admin IDs in various formats
         (r'\badmin_id["\s:]+\d+', 'admin_id: [ID_REDACTED]'),
-        # Environment variable secrets
+        # Environment variable secrets (key=value format)
         (r'(API_KEY|SECRET|TOKEN|PASSWORD)\s*[:=]\s*[^\s]+', r'\1: [REDACTED]'),
-        # Hex tokens (32+ chars)
+        # Pure hex tokens (32+ chars, lowercase only - less likely to catch function names)
         (r'\b[a-f0-9]{32,}\b', '[HEX_TOKEN_REDACTED]'),
-        # AWS credentials
-        (r'(AKIA[0-9A-Z]{16})', '[REDACTED_AWS_KEY]'),
-        # Generic secrets
-        (r'(sk_live_|sk_test_|pk_live_|pk_test_)[^\s\n]+', '[REDACTED_SECRET]'),
     ]
     
     # Stack trace patterns to filter

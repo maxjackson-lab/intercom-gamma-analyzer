@@ -543,7 +543,7 @@ class AuditableAnalysis:
         if hasattr(agent_result, 'data') and 'tool_calls_summary' in agent_result.data:
             tool_calls = agent_result.data['tool_calls_summary'].get('calls', [])
             for tc in tool_calls:
-                self.audit.tool_call(
+                self.tool_call(
                     tool_name=tc['tool_name'],
                     arguments=tc['arguments'],
                     result=tc.get('result'),
