@@ -348,8 +348,8 @@ class TestDataGenerator:
                     }
                 ]
             },
-            # Add tier info for segmentation
-            '_test_tier': tier
+            # Add tier info for segmentation (top-level field expected by SegmentationAgent)
+            'tier': tier
         }
     
     def _create_human_conversation(
@@ -478,7 +478,7 @@ class TestDataGenerator:
                     }
                 ]
             },
-            '_test_tier': tier,
+            'tier': tier,
             '_test_agent_type': agent_type
         }
     
@@ -489,7 +489,7 @@ class TestDataGenerator:
         agent_counts = defaultdict(int)
         
         for conv in conversations:
-            tier = conv.get('_test_tier', 'Unknown')
+            tier = conv.get('tier', 'Unknown')
             tier_counts[tier] += 1
             
             if conv.get('ai_agent_participated'):
