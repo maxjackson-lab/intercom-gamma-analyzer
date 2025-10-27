@@ -145,7 +145,6 @@ class WebCommandExecutor:
         Removes:
         - API keys and tokens
         - AWS credentials
-        - Stack traces
         - Other secrets
         
         Args:
@@ -160,9 +159,10 @@ class WebCommandExecutor:
         for pattern, replacement in self.SENSITIVE_PATTERNS:
             filtered = re.sub(pattern, replacement, filtered, flags=re.IGNORECASE)
         
-        # Filter stack traces (multiline)
-        for pattern in self.STACK_TRACE_PATTERNS:
-            filtered = re.sub(pattern, '[STACK_TRACE_REDACTED]', filtered, flags=re.DOTALL | re.MULTILINE)
+        # Stack trace filtering DISABLED for easier debugging
+        # Uncomment to re-enable in production:
+        # for pattern in self.STACK_TRACE_PATTERNS:
+        #     filtered = re.sub(pattern, '[STACK_TRACE_REDACTED]', filtered, flags=re.DOTALL | re.MULTILINE)
         
         return filtered
     
