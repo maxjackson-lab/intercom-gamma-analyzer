@@ -12,6 +12,7 @@ import os
 import sys
 import warnings
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 # Suppress urllib3 SSL warning
@@ -21,27 +22,8 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-# Import modular CLI components
-from src.cli.commands import (
-    voice_analysis,
-    trend_analysis,
-    custom_analysis,
-    data_export,
-    technical_analysis,
-    agent_performance,
-    comprehensive_analysis,
-    voice_of_customer,
-    canny_analysis
-)
-from src.cli.runners import (
-    run_topic_based_analysis,
-    run_synthesis_analysis,
-    run_complete_multi_agent_analysis,
-    run_topic_based_analysis_custom,
-    run_synthesis_analysis_custom,
-    run_complete_analysis_custom
-)
-from src.cli.utils import show_system_info, validate_inputs
+# Note: CLI module exists but implementations are still in this file for now
+# TODO: Complete migration to src/cli/ module structure
 
 # Core imports for basic functionality
 from src.config.settings import settings
@@ -69,65 +51,67 @@ def cli(verbose: bool, output_dir: str):
     ))
 
 
-@cli.command()
-@click.option('--month', type=int, required=True, help='Month (1-12)')
-@click.option('--year', type=int, required=True, help='Year')
-@click.option('--tier1-countries', help='Comma-separated tier 1 countries')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
-@click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
-@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard',
-              help='Analysis type: standard (single), topic-based (Hilary format), synthesis (insights)')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
-              help='AI model to use (openai or claude). Defaults to config setting.')
-def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str, ai_model: Optional[str]):
-    """Generate Voice of Customer analysis for monthly executive reports"""
+# DISABLED: This command uses unfinished CLI refactoring - use 'voice-of-customer' instead
+# @cli.command()
+# @click.option('--month', type=int, required=True, help='Month (1-12)')
+# @click.option('--year', type=int, required=True, help='Year')
+# @click.option('--tier1-countries', help='Comma-separated tier 1 countries')
+# @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+# @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
+# @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode (premium quality, 3-5x cost)')
+# @click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis']), default='standard',
+#               help='Analysis type: standard (single), topic-based (Hilary format), synthesis (insights)')
+# @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+#               help='AI model to use (openai or claude). Defaults to config setting.')
+# def voice(month: int, year: int, tier1_countries: Optional[str], generate_gamma: bool, output_format: str, multi_agent: bool, analysis_type: str, ai_model: Optional[str]):
+#     """Generate Voice of Customer analysis for monthly executive reports"""
+#
+#     # Parse tier1 countries
+#     tier1_list = []
+#     if tier1_countries:
+#         tier1_list = [country.strip() for country in tier1_countries.split(',')]
+#     else:
+#         tier1_list = settings.default_tier1_countries
+#
+#     # Use modular command implementation
+#     asyncio.run(voice_analysis(
+#         month=month,
+#         year=year,
+#         tier1_countries=tier1_list,
+#         generate_gamma=generate_gamma,
+#         output_format=output_format,
+#         multi_agent=multi_agent,
+#         analysis_type=analysis_type,
+#         ai_model=ai_model
+#     ))
 
-    # Parse tier1 countries
-    tier1_list = []
-    if tier1_countries:
-        tier1_list = [country.strip() for country in tier1_countries.split(',')]
-    else:
-        tier1_list = settings.default_tier1_countries
 
-    # Use modular command implementation
-    asyncio.run(voice_analysis(
-        month=month,
-        year=year,
-        tier1_countries=tier1_list,
-        generate_gamma=generate_gamma,
-        output_format=output_format,
-        multi_agent=multi_agent,
-        analysis_type=analysis_type,
-        ai_model=ai_model
-    ))
-
-
-@cli.command()
-@click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
-@click.option('--focus-areas', help='Comma-separated focus areas (e.g., billing,product,escalations)')
-@click.option('--custom-prompt', help='Custom analysis instructions')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
-def trends(start_date: str, end_date: str, focus_areas: Optional[str],
-           custom_prompt: Optional[str], generate_gamma: bool, output_format: str):
-    """Generate general purpose trend analysis for any time period"""
-
-    # Parse focus areas
-    focus_list = []
-    if focus_areas:
-        focus_list = [area.strip() for area in focus_areas.split(',')]
-
-    # Use modular command implementation
-    asyncio.run(trend_analysis(
-        start_date=start_date,
-        end_date=end_date,
-        focus_areas=focus_list,
-        custom_prompt=custom_prompt,
-        generate_gamma=generate_gamma,
-        output_format=output_format
-    ))
+# DISABLED: This command uses unfinished CLI refactoring
+# @cli.command()
+# @click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
+# @click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
+# @click.option('--focus-areas', help='Comma-separated focus areas (e.g., billing,product,escalations)')
+# @click.option('--custom-prompt', help='Custom analysis instructions')
+# @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+# @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json']), default='markdown')
+# def trends(start_date: str, end_date: str, focus_areas: Optional[str],
+#            custom_prompt: Optional[str], generate_gamma: bool, output_format: str):
+#     """Generate general purpose trend analysis for any time period"""
+#
+#     # Parse focus areas
+#     focus_list = []
+#     if focus_areas:
+#         focus_list = [area.strip() for area in focus_areas.split(',')]
+#
+#     # Use modular command implementation
+#     asyncio.run(trend_analysis(
+#         start_date=start_date,
+#         end_date=end_date,
+#         focus_areas=focus_list,
+#         custom_prompt=custom_prompt,
+#         generate_gamma=generate_gamma,
+#         output_format=output_format
+#     ))
 
 
 @cli.command()
@@ -379,39 +363,40 @@ def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str
     # Run Fin analysis
     asyncio.run(run_fin_analysis(start_dt, end_dt, detailed))
 
-@cli.command(name='analyze-agent')
-@click.option('--agent', required=True, help='Agent name to analyze (e.g., "Dae-Ho")')
-@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
-@click.option('--start-date', help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', help='End date (YYYY-MM-DD)')
-@click.option('--individual-breakdown', is_flag=True, help='Show individual agent breakdown')
-@click.option('--focus-categories', help='Focus on specific categories')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-@click.option('--analyze-troubleshooting', is_flag=True, help='Analyze troubleshooting patterns')
-def analyze_agent(agent: str, days: int, start_date: Optional[str], end_date: Optional[str],
-                 individual_breakdown: bool, focus_categories: Optional[str], generate_gamma: bool,
-                 analyze_troubleshooting: bool):
-    """Agent-specific performance analysis"""
-
-    # Calculate date range
-    if start_date and end_date:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-    else:
-        end_dt = datetime.now()
-        start_dt = end_dt - timedelta(days=days)
-
-    # Use modular command implementation
-    asyncio.run(agent_performance(
-        agent=agent,
-        individual_breakdown=individual_breakdown,
-        time_period=None,
-        start_date=start_date,
-        end_date=end_date,
-        focus_categories=focus_categories,
-        generate_gamma=generate_gamma,
-        analyze_troubleshooting=analyze_troubleshooting
-    ))
+# DISABLED: This command uses unfinished CLI refactoring - use 'agent-performance' instead
+# @cli.command(name='analyze-agent')
+# @click.option('--agent', required=True, help='Agent name to analyze (e.g., "Dae-Ho")')
+# @click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+# @click.option('--start-date', help='Start date (YYYY-MM-DD)')
+# @click.option('--end-date', help='End date (YYYY-MM-DD)')
+# @click.option('--individual-breakdown', is_flag=True, help='Show individual agent breakdown')
+# @click.option('--focus-categories', help='Focus on specific categories')
+# @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+# @click.option('--analyze-troubleshooting', is_flag=True, help='Analyze troubleshooting patterns')
+# def analyze_agent(agent: str, days: int, start_date: Optional[str], end_date: Optional[str],
+#                  individual_breakdown: bool, focus_categories: Optional[str], generate_gamma: bool,
+#                  analyze_troubleshooting: bool):
+#     """Agent-specific performance analysis"""
+#
+#     # Calculate date range
+#     if start_date and end_date:
+#         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+#         end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+#     else:
+#         end_dt = datetime.now()
+#         start_dt = end_dt - timedelta(days=days)
+#
+#     # Use modular command implementation
+#     asyncio.run(agent_performance(
+#         agent=agent,
+#         individual_breakdown=individual_breakdown,
+#         time_period=None,
+#         start_date=start_date,
+#         end_date=end_date,
+#         focus_categories=focus_categories,
+#         generate_gamma=generate_gamma,
+#         analyze_troubleshooting=analyze_troubleshooting
+#     ))
 
 
 # Secondary Commands (VoC Reports)
