@@ -568,9 +568,14 @@ Output: Segmented conversations with agent type labels
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
             return 'paid', 'boldr'
         
-        # Check for human admin (generic)
-        if conv.get('admin_assignee_id') or admin_emails:
-            self.logger.debug(f"Generic paid customer detected (unknown agent type) in conversation {conv_id}")
+        # Check for human admin (generic) - verify actual admin response in conversation parts
+        # Fix: Don't rely on admin_assignee_id alone (assignment ≠ response)
+        parts_list = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
+        has_admin_response = len(admin_parts) > 0
+        
+        if has_admin_response:
+            self.logger.debug(f"Paid customer with actual admin response detected in conversation {conv_id}")
             return 'paid', 'unknown'  # Has human but can't identify which
 
         # AI-only conversation (paid tier)

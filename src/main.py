@@ -34,6 +34,66 @@ from src.utils.cli_help import help_system
 console = Console()
 
 
+# ===== CLI FLAGS UNIFICATION (Phase 1) =====
+# Define reusable flag groups for consistent behavior across all commands
+# These will be applied to commands in Phase 2
+
+DEFAULT_FLAGS = [
+    click.option('--start-date', help='Start date (YYYY-MM-DD)'),
+    click.option('--end-date', help='End date (YYYY-MM-DD)'),
+    click.option('--time-period', 
+                 type=click.Choice(['week', 'month', 'quarter']),
+                 help='Time period shortcut'),
+]
+
+OUTPUT_FLAGS = [
+    click.option('--generate-gamma', is_flag=True, 
+                 help='Generate Gamma presentation'),
+    click.option('--output-format', 
+                 type=click.Choice(['gamma', 'markdown', 'json', 'excel']),
+                 default='markdown',
+                 help='Output format for results'),
+    click.option('--output-dir', default='outputs',
+                 help='Directory for output files'),
+]
+
+TEST_FLAGS = [
+    click.option('--test-mode', is_flag=True, 
+                 help='Use mock data instead of API calls'),
+    click.option('--test-data-count', type=str, default='100',
+                 help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000) or custom number'),
+]
+
+DEBUG_FLAGS = [
+    click.option('--verbose', is_flag=True, 
+                 help='Enable DEBUG level logging'),
+    click.option('--audit-trail', is_flag=True,
+                 help='Enable audit trail narration'),
+]
+
+ANALYSIS_FLAGS = [
+    click.option('--multi-agent', is_flag=True,
+                 help='Use multi-agent analysis workflow'),
+    click.option('--analysis-type',
+                 type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete']),
+                 default='topic-based',
+                 help='Type of analysis to perform'),
+    click.option('--ai-model',
+                 type=click.Choice(['openai', 'claude']),
+                 default=None,
+                 help='AI model to use for analysis'),
+]
+
+# Helper function to apply flag groups (Phase 2 will use this)
+def apply_flags(flag_list):
+    """Decorator to apply a list of click options to a command"""
+    def decorator(func):
+        for option in reversed(flag_list):
+            func = option(func)
+        return func
+    return decorator
+
+
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
 @click.option('--output-dir', default='outputs', help='Output directory for reports')
