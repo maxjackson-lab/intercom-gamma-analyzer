@@ -299,8 +299,13 @@ class AuditTrail:
                 
                 if check['details']:
                     report_lines.append("**Results:**")
-                    for key, value in check['details'].items():
-                        report_lines.append(f"- {key}: {value}")
+                    # Handle both dict and string details
+                    if isinstance(check['details'], dict):
+                        for key, value in check['details'].items():
+                            report_lines.append(f"- {key}: {value}")
+                    else:
+                        # Details is a string, just append it
+                        report_lines.append(f"- {check['details']}")
                 report_lines.append("")
             
             report_lines.append("---\n")
