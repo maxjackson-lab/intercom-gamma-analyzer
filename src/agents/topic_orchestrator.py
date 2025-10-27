@@ -599,13 +599,15 @@ class TopicOrchestrator:
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
             
             if self.audit:
-                self.audit.step("Phase 4: Fin Analysis", "analysis",
-                              f"Starting Fin AI performance evaluation on {len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)} conversations",
-                              {
-                                  'free_tier_conversations': len(free_fin_only_conversations),
-                                  'paid_tier_conversations': len(paid_fin_resolved_conversations),
-                                  'total_fin_conversations': len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)
-                              })
+                self.audit.step(
+                    "Phase 4: Fin Analysis",
+                    f"Starting Fin AI performance evaluation on {len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)} conversations",
+                    {
+                        'free_tier_conversations': len(free_fin_only_conversations),
+                        'paid_tier_conversations': len(paid_fin_resolved_conversations),
+                        'total_fin_conversations': len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)
+                    }
+                )
             
             fin_start_time = datetime.now()
             fin_context = context.model_copy()
