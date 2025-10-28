@@ -2269,9 +2269,16 @@ def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optiona
 @click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def analyze_product(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int]):
+                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
     """Analyze product conversations (export issues, bugs, feature requests)."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     if not start_date:
         start_date = datetime.now() - timedelta(days=days)
     if not end_date:
@@ -2286,9 +2293,16 @@ def analyze_product(days: int, start_date: Optional[datetime], end_date: Optiona
 @click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                 generate_gamma: bool, max_conversations: Optional[int]):
+                 generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
     """Analyze sites conversations (domain, publishing, education)."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     if not start_date:
         start_date = datetime.now() - timedelta(days=days)
     if not end_date:
@@ -2303,9 +2317,16 @@ def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[
 @click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-               generate_gamma: bool, max_conversations: Optional[int]):
+               generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
     """Analyze API conversations (authentication, integration, performance)."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     if not start_date:
         start_date = datetime.now() - timedelta(days=days)
     if not end_date:
@@ -2321,9 +2342,16 @@ def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[da
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentations')
 @click.option('--parallel', is_flag=True, help='Run analyses in parallel')
 @click.option('--max-conversations', type=int, help='Maximum conversations per category')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def analyze_all_categories(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                          generate_gamma: bool, parallel: bool, max_conversations: Optional[int]):
+                          generate_gamma: bool, parallel: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
     """Analyze all 4 main categories (Billing, Product, Sites, API)."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     if not start_date:
         start_date = datetime.now() - timedelta(days=days)
     if not end_date:
