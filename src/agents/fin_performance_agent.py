@@ -256,19 +256,19 @@ Calculate tier-specific metrics:
                                   })
                     
                     # Record aggregate performance patterns
-                    free_res = free_tier_metrics.get('resolution_rate', 0)
-                    paid_res = paid_tier_metrics.get('resolution_rate', 0)
-                    free_gaps = free_tier_metrics.get('knowledge_gap_rate', 0)
-                    paid_gaps = paid_tier_metrics.get('knowledge_gap_rate', 0)
+                    free_res = free_tier_metrics.get('resolution_rate', 0) or 0
+                    paid_res = paid_tier_metrics.get('resolution_rate', 0) or 0
+                    free_gaps = free_tier_metrics.get('knowledge_gap_rate', 0) or 0
+                    paid_gaps = paid_tier_metrics.get('knowledge_gap_rate', 0) or 0
                     
                     performance_flags = []
-                    if free_res < 0.5:
+                    if free_res is not None and free_res < 0.5:
                         performance_flags.append(f"Free tier below 50% resolution threshold ({free_res:.1%})")
-                    if paid_res < 0.5:
+                    if paid_res is not None and paid_res < 0.5:
                         performance_flags.append(f"Paid tier below 50% resolution threshold ({paid_res:.1%})")
-                    if free_gaps > 0.3:
+                    if free_gaps is not None and free_gaps > 0.3:
                         performance_flags.append(f"High knowledge gap rate in free tier ({free_gaps:.1%})")
-                    if paid_gaps > 0.3:
+                    if paid_gaps is not None and paid_gaps > 0.3:
                         performance_flags.append(f"High knowledge gap rate in paid tier ({paid_gaps:.1%})")
                     
                     if performance_flags:
