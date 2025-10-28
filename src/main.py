@@ -372,8 +372,14 @@ def show_categories():
 @click.option('--end-date', help='End date (YYYY-MM-DD)')
 @click.option('--max-pages', type=int, help='Maximum pages to fetch (for testing)')
 @click.option('--generate-ai-report', is_flag=True, help='Generate AI-powered insights report')
-def tech_analysis(days: int, start_date: Optional[str], end_date: Optional[str], max_pages: Optional[int], generate_ai_report: bool):
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+def tech_analysis(days: int, start_date: Optional[str], end_date: Optional[str], max_pages: Optional[int], generate_ai_report: bool, verbose: bool = False, audit_trail: bool = False):
     """Analyze technical troubleshooting patterns in Intercom conversations"""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
     
     console.print(f"[bold green]Technical Troubleshooting Analysis[/bold green]")
     
@@ -2951,6 +2957,8 @@ async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetim
 @click.option('--include-technical-analysis', is_flag=True, default=True, help='Include technical pattern analysis')
 @click.option('--include-macro-analysis', is_flag=True, default=True, help='Include macro opportunity analysis')
 @click.option('--output-dir', default='outputs', help='Output directory for results')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def comprehensive_analysis(
     start_date: str,
     end_date: str,
@@ -2962,9 +2970,15 @@ def comprehensive_analysis(
     include_fin_analysis: bool,
     include_technical_analysis: bool,
     include_macro_analysis: bool,
-    output_dir: str
+    output_dir: str,
+    verbose: bool = False,
+    audit_trail: bool = False
 ):
     """Run comprehensive analysis across all categories and components."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
     try:
         # Parse dates
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')
@@ -4237,8 +4251,15 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
               help='Time period for analysis')
 @click.option('--top-n', default=3, help='Number of top/bottom performers to highlight')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool):
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool, verbose: bool = False, audit_trail: bool = False):
     """Generate coaching-focused report with individual agent performance and taxonomy breakdown"""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     from datetime import timedelta
     
     # Calculate date range
