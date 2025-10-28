@@ -34,6 +34,20 @@ from src.utils.cli_help import help_system
 console = Console()
 
 
+# ===== HELPER FUNCTIONS =====
+def setup_verbose_logging():
+    """Enable DEBUG level logging for all relevant modules."""
+    import logging
+    logging.getLogger().setLevel(logging.DEBUG)
+    for module in ['agents', 'services', 'src.agents', 'src.services']:
+        logging.getLogger(module).setLevel(logging.DEBUG)
+    console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+
+def show_audit_trail_enabled():
+    """Display audit trail enabled message."""
+    console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+
+
 # ===== CLI FLAGS UNIFICATION (Phase 1) =====
 # Define reusable flag groups for consistent behavior across all commands
 # These will be applied to commands in Phase 2
@@ -2231,9 +2245,16 @@ async def run_pattern_analysis(pattern: str, start_date: datetime, end_date: dat
 @click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
+@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int]):
+                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
     """Analyze billing conversations (refunds, invoices, credits, discounts)."""
+    if verbose:
+        setup_verbose_logging()
+    if audit_trail:
+        show_audit_trail_enabled()
+    
     if not start_date:
         start_date = datetime.now() - timedelta(days=days)
     if not end_date:
