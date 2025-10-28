@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
 from rich.console import Console
 from rich.table import Table
@@ -96,7 +96,7 @@ async def main():
     
     # Fetch recent conversations
     console.print("📥 Fetching last 100 conversations from Intercom...")
-    service = IntercomServiceV2()
+    service = IntercomSDKService()
     
     end_date = datetime.now()
     start_date = end_date - timedelta(days=1)  # Just yesterday

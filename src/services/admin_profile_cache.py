@@ -10,7 +10,6 @@ from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
 import time
 from functools import wraps
-import httpx
 
 from src.models.agent_performance_models import AdminProfile
 from src.services.duckdb_storage import DuckDBStorage
@@ -68,7 +67,7 @@ class AdminProfileCache:
     async def get_admin_profile(
         self, 
         admin_id: str, 
-        client: httpx.AsyncClient,
+        client = None,  # client parameter kept for backward compatibility but not used
         public_email: Optional[str] = None
     ) -> AdminProfile:
         """
@@ -76,7 +75,7 @@ class AdminProfileCache:
         
         Args:
             admin_id: Intercom admin ID
-            client: HTTP client for API calls
+            client: Deprecated, kept for backward compatibility
             public_email: Optional public/display email from conversation
             
         Returns:
@@ -109,18 +108,18 @@ class AdminProfileCache:
     async def _fetch_from_api(
         self,
         admin_id: str,
-        client: httpx.AsyncClient,
+        client,  # No longer needs to be httpx.AsyncClient
         public_email: Optional[str] = None
     ) -> AdminProfile:
-        """Fetch admin profile from Intercom API with retry/backoff"""
+        """Fetch admin profile from Intercom API with retry/backoff using SDK"""
         try:
             self.logger.info(f"Fetching admin profile from API: {admin_id}")
-            response = await client.get(
-                f"{self.intercom_service.base_url}/admins/{admin_id}",
-                headers=self.intercom_service.headers
-            )
-            response.raise_for_status()
-            data = response.json()
+            
+            # Use SDK to fetch admin details
+            admin = await self.intercom_service.client.admins.find(admin_id)
+            
+            # Convert SDK model to dict
+            data = self.intercom_service._model_to_dict(admin)
             
             # Log full API response for debugging
             self.logger.debug(f"Admin API response for {admin_id}: {data}")
@@ -183,12 +182,15 @@ class AdminProfileCache:
             
             return profile
             
-        except httpx.HTTPStatusError as e:
-            self.logger.warning(f"HTTP error fetching admin {admin_id}: {e.response.status_code}")
-            self.logger.warning(f"Response body: {e.response.text[:500]}")
-            return self._create_fallback_profile(admin_id, None, public_email)
         except Exception as e:
-            self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
+            # SDK ApiError will be caught here
+            from intercom.core.api_error import ApiError
+            if isinstance(e, ApiError):
+                self.logger.warning(f"API error fetching admin {admin_id}: {e.status_code}")
+                if e.body:
+                    self.logger.warning(f"Response body: {str(e.body)[:500]}")
+            else:
+                self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
             return self._create_fallback_profile(admin_id, None, public_email)
     
     def _extract_vendor_from_email(self, email: str) -> Optional[str]:

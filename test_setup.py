@@ -15,7 +15,9 @@ def test_imports():
     print("Testing imports...")
     
     try:
-        from intercom_client import IntercomClient, IntercomAPIError
+        from src.services.intercom_sdk_service import IntercomSDKService
+        from intercom.core.api_error import ApiError
+        import asyncio
         from text_analyzer import TextAnalyzer
         from trend_analyzer import TrendAnalyzer
         from report_generator import ReportGenerator
@@ -53,10 +55,12 @@ def test_intercom_connection():
         from dotenv import load_dotenv
         load_dotenv()
         
-        from intercom_client import IntercomClient
+        from src.services.intercom_sdk_service import IntercomSDKService
+        import asyncio
         access_token = os.getenv('INTERCOM_ACCESS_TOKEN')
         
-        client = IntercomClient(access_token=access_token)
+        service = IntercomSDKService()
+        asyncio.run(service.test_connection())
         print("✅ Intercom API connection successful")
         return True
     except Exception as e:

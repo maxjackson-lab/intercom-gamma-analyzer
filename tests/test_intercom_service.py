@@ -8,15 +8,15 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 
 
-class TestIntercomServiceV2:
+class TestIntercomSDKService:
     """Test cases for Intercom service V2."""
     
     def test_initialization(self):
         """Test service initialization."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         assert service.access_token is not None
         assert service.base_url == "https://api.intercom.io"
@@ -30,7 +30,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_test_connection_success(self):
         """Test successful connection test."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             mock_response = MagicMock()
@@ -44,7 +44,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_test_connection_failure(self):
         """Test connection test failure."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             mock_client.return_value.__aenter__.return_value.get.side_effect = httpx.HTTPStatusError(
@@ -57,7 +57,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_date_range_success(self):
         """Test successful conversation fetching."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         # Mock response data
         mock_response_data = {
@@ -85,7 +85,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_with_pagination(self):
         """Test conversation fetching with pagination."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         # Mock first page response
         first_page_data = {
@@ -116,7 +116,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_with_max_pages(self):
         """Test conversation fetching with page limit."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         mock_response_data = {
             "conversations": [
@@ -142,7 +142,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_timeout_retry(self):
         """Test conversation fetching with timeout and retry."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # First call times out, second succeeds
@@ -165,7 +165,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_rate_limit_retry(self):
         """Test conversation fetching with rate limit and retry."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # First call rate limited, second succeeds
@@ -195,7 +195,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_text_search(self):
         """Test conversation fetching by text search query."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         mock_response_data = {
             "conversations": [
@@ -216,7 +216,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_tag(self):
         """Test conversation fetching by tag query."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch.object(service, '_fetch_with_pagination') as mock_fetch:
             mock_fetch.return_value = []
@@ -230,7 +230,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_topic(self):
         """Test conversation fetching by topic query."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch.object(service, '_fetch_with_pagination') as mock_fetch:
             mock_fetch.return_value = []
@@ -244,7 +244,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_agent(self):
         """Test conversation fetching by agent query."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch.object(service, '_fetch_with_pagination') as mock_fetch:
             mock_fetch.return_value = []
@@ -258,7 +258,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_invalid(self):
         """Test conversation fetching with invalid query type."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with pytest.raises(ValueError, match="Invalid query type"):
             await service.fetch_conversations_by_query("invalid_type")
@@ -266,7 +266,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_with_pagination_success(self):
         """Test generic pagination fetching."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         mock_response_data = {
             "conversations": [
@@ -293,7 +293,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_with_pagination_timeout_retry(self):
         """Test pagination fetching with timeout retry."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # First call times out, second succeeds
@@ -318,7 +318,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_with_pagination_rate_limit_retry(self):
         """Test pagination fetching with rate limit retry."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # First call rate limited, second succeeds
@@ -350,7 +350,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_fetch_with_pagination_max_retries(self):
         """Test pagination fetching with max retries exceeded."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # All calls timeout
@@ -368,7 +368,7 @@ class TestIntercomServiceV2:
     
     def test_query_parameter_construction(self):
         """Test that query parameters are constructed correctly."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         start_date = datetime(2023, 11, 1)
         end_date = datetime(2023, 11, 2)
@@ -383,7 +383,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_http_error_handling(self):
         """Test HTTP error handling."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # Mock HTTP error
@@ -405,7 +405,7 @@ class TestIntercomServiceV2:
     @pytest.mark.asyncio
     async def test_generic_error_handling(self):
         """Test generic error handling."""
-        service = IntercomServiceV2()
+        service = IntercomSDKService()
         
         with patch('httpx.AsyncClient') as mock_client:
             # Mock generic error

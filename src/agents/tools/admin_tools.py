@@ -1,8 +1,7 @@
 from src.agents.tools.base_tool import BaseTool, ToolDefinition, ToolParameter, ToolResult
 from src.services.admin_profile_cache import AdminProfileCache
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.duckdb_storage import DuckDBStorage
-import httpx
 import logging
 from typing import Optional
 
@@ -31,7 +30,7 @@ class AdminProfileLookupTool(BaseTool):
             name="lookup_admin_profile",
             description="Look up admin/agent profile from Intercom API including email and vendor affiliation (horatio, boldr, gamma). Uses cached data when available. Returns 'admin_id' as canonical identifier; 'id' field is deprecated but included for backward compatibility."
         )
-        self.intercom_service = IntercomServiceV2()
+        self.intercom_service = IntercomSDKService()
         
         # Initialize storage with graceful fallback
         try:
@@ -70,8 +69,8 @@ class AdminProfileLookupTool(BaseTool):
             return ToolResult(success=False, data=None, error_message="admin_id is required")
 
         try:
-            async with httpx.AsyncClient(timeout=self.intercom_service.timeout) as client:
-                profile = await self.cache.get_admin_profile(admin_id, client, public_email)
+            # No longer needs httpx.AsyncClient - SDK handles it internally
+            profile = await self.cache.get_admin_profile(admin_id, None, public_email)
 
             result_dict = {
                 "admin_id": profile.id,  # CANONICAL: Use this field for all new code

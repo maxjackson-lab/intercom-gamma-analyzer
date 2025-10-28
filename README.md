@@ -5,7 +5,18 @@ A comprehensive Python application that extracts Intercom conversation data and 
 1. **Voice of Customer Analysis** - Monthly executive reports with specific metrics and insights
 2. **General Purpose Trend Analysis** - Flexible reports for any time period with customizable focus areas
 
-> **⚡ Latest Update (v3.0.3):** Fixed critical bug where all category deep dive commands (Billing, Product, API, etc.) were failing in the web UI. Commands now correctly receive `--days` instead of unsupported `--time-period` flag. See [CATEGORY_DEEP_DIVE_FIX.md](CATEGORY_DEEP_DIVE_FIX.md) for details.
+> **⚡ Latest Update (v3.1.0):** Migrated to official Intercom Python SDK for improved reliability, type safety, and future compatibility. All custom Intercom API clients have been replaced with the official `python-intercom` SDK, providing better error handling, automatic pagination, and built-in retry logic.
+
+## 🏗️ **Architecture**
+
+This tool now uses the **official Intercom Python SDK** (`python-intercom`) for all API interactions, providing:
+- Type-safe Pydantic models for all API entities
+- Built-in pagination with `AsyncPager` support
+- Comprehensive error handling with specific exception types
+- Automatic rate limiting and retry logic
+- Modern async/await patterns for efficient data fetching
+
+The SDK integration is wrapped in `IntercomSDKService` which maintains backward compatibility with existing analyzers and services while leveraging the official SDK's capabilities.
 
 ## 🎯 **Key Features**
 

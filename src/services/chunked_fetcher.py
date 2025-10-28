@@ -10,7 +10,7 @@ from typing import List, Dict, Optional, Any, AsyncGenerator
 from pathlib import Path
 import json
 
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.data_preprocessor import DataPreprocessor
 from src.utils.time_utils import to_utc_datetime, ensure_date
 
@@ -29,15 +29,15 @@ class ChunkedFetcher:
     - Memory-efficient processing
     """
     
-    def __init__(self, intercom_service: Optional[IntercomServiceV2] = None, enable_preprocessing: bool = True):
+    def __init__(self, intercom_service: Optional[IntercomSDKService] = None, enable_preprocessing: bool = True):
         """
         Initialize chunked fetcher.
         
         Args:
-            intercom_service: Intercom service instance (optional)
+            intercom_service: Intercom SDK service instance (optional)
             enable_preprocessing: Whether to preprocess conversations (default: True)
         """
-        self.intercom_service = intercom_service or IntercomServiceV2()
+        self.intercom_service = intercom_service or IntercomSDKService()
         self.preprocessor = DataPreprocessor() if enable_preprocessing else None
         self.enable_preprocessing = enable_preprocessing
         self.logger = logging.getLogger(__name__)

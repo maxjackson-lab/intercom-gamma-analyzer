@@ -30,6 +30,7 @@ from src.config.settings import settings
 from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from src.utils.logger import setup_logging
 from src.utils.cli_help import help_system
+from src.services.intercom_sdk_service import IntercomSDKService
 
 console = Console()
 
@@ -244,7 +245,7 @@ def test():
         task = progress.add_task("Testing Intercom API...", total=None)
 
         try:
-            intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
             # Test with a simple request
             test_result = asyncio.run(intercom_service.test_connection())
             progress.update(task, description="✅ Intercom API connection successful")
@@ -775,7 +776,7 @@ async def run_voice_analysis(request: AnalysisRequest, generate_gamma: bool, out
     """Run Voice of Customer analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
@@ -819,7 +820,7 @@ async def run_trend_analysis(request: AnalysisRequest, generate_gamma: bool, out
     """Run trend analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
@@ -863,7 +864,7 @@ async def run_custom_analysis(request: AnalysisRequest, generate_gamma: bool, ou
     """Run custom analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
@@ -980,7 +981,7 @@ async def run_data_export(start_date, end_date, export_format: str, max_pages: O
     """Run data export."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         data_exporter = DataExporter()
         
         # Fetch conversations
@@ -1058,7 +1059,7 @@ async def run_technical_analysis(days: int, max_pages: Optional[int], generate_a
     """Run technical troubleshooting analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         data_exporter = DataExporter()
         openai_client = OpenAIClient() if generate_ai_report else None
         
@@ -1153,7 +1154,7 @@ async def run_general_query(query_type: Optional[str], suggestion: Optional[str]
     """Run general query."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+            intercom_service = IntercomSDKService()
         data_exporter = DataExporter()
         query_service = GeneralQueryService(intercom_service, data_exporter)
         

@@ -15,7 +15,7 @@ from datetime import datetime
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.services.intercom_service import IntercomService
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
 from rich.console import Console
 from rich.table import Table
@@ -223,7 +223,7 @@ async def main():
     console.print("[bold cyan]🔍 Analyzing Specific Conversations for Fin Logic[/bold cyan]\n")
     
     # Fetch conversations
-    service = IntercomService()
+    service = IntercomSDKService()
     
     analyses = []
     for conv_id, label in zip(conv_ids, labels):

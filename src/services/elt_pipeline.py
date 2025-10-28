@@ -11,7 +11,7 @@ from pathlib import Path
 import json
 import pandas as pd
 
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.data_exporter import DataExporter
 
@@ -25,7 +25,7 @@ class ELTPipeline:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
 
-        self.intercom_service = IntercomServiceV2()
+        self.intercom_service = IntercomSDKService()
         self.duckdb_storage = DuckDBStorage(self.output_dir / "conversations.duckdb")
         self.data_exporter = DataExporter()
 
@@ -90,7 +90,7 @@ class ELTPipeline:
         if isinstance(end_date, date) and not isinstance(end_date, datetime):
             end_date = datetime.combine(end_date, datetime.max.time())
 
-        # Use IntercomServiceV2 with max_conversations parameter
+        # Use IntercomSDKService with max_conversations parameter
         # Convert max_pages to rough conversation estimate (50 per page)
         max_conversations = (max_pages * 50) if max_pages else None
         conversations = await self.intercom_service.fetch_conversations_by_date_range(

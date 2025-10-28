@@ -365,7 +365,7 @@ def test_datetime_range():
     return start_datetime, end_datetime
 
 
-class MockIntercomService:
+class MockIntercomSDKService:
     """Mock Intercom service for testing."""
     
     def __init__(self, conversations: List[Dict] = None):
@@ -425,7 +425,7 @@ class MockDataExporter:
 @pytest.fixture
 def mock_intercom_service(sample_conversations):
     """Mock Intercom service fixture."""
-    return MockIntercomService(sample_conversations)
+    return MockIntercomSDKService(sample_conversations)
 
 
 @pytest.fixture

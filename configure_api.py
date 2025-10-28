@@ -63,9 +63,11 @@ def test_connection(token):
         # Add src to path
         sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
         
-        from intercom_client import IntercomClient
+        from src.services.intercom_sdk_service import IntercomSDKService
+        import asyncio
         
-        client = IntercomClient(access_token=token)
+        service = IntercomSDKService()
+        asyncio.run(service.test_connection())
         print("✅ Connection successful!")
         return True
         

@@ -63,7 +63,8 @@ def test_imports():
         # Add src to path
         sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
         
-        from intercom_client import IntercomClient
+        from src.services.intercom_sdk_service import IntercomSDKService
+        import asyncio
         from text_analyzer import TextAnalyzer
         from trend_analyzer import TrendAnalyzer
         from report_generator import ReportGenerator

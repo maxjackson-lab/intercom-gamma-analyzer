@@ -17,8 +17,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from src.config.settings import settings
 from src.models.analysis_models import AnalysisRequest, AnalysisMode
-from src.services.intercom_service import IntercomService
-from src.services.intercom_service_v2 import IntercomServiceV2
+from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.metrics_calculator import MetricsCalculator
 from src.services.openai_client import OpenAIClient
 from src.services.gamma_client import GammaClient, GammaAPIError
@@ -57,7 +56,7 @@ async def run_voice_analysis(request: AnalysisRequest, generate_gamma: bool, out
     """Run Voice of Customer analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+        intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
