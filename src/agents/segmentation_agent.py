@@ -500,12 +500,17 @@ Output: Segmented conversations with agent type labels
         # Step 3: Paid tier classification (only reached for PRO/PLUS/ULTRA)
         text = conv.get('full_text', '').lower()
         ai_participated = conv.get('ai_agent_participated', False)
+        
+        # Get ai_agent object with resolution data (per Intercom SDK spec)
+        ai_agent = conv.get('ai_agent', {})
+        ai_resolution_state = ai_agent.get('resolution_state') if ai_agent else None
 
         # Log conversation data for debugging
         self.logger.debug(
             f"Classifying paid tier conversation {conv_id}: "
             f"admin_assignee_id={conv.get('admin_assignee_id')}, "
-            f"ai_participated={ai_participated}"
+            f"ai_participated={ai_participated}, "
+            f"ai_resolution_state={ai_resolution_state}"
         )
         
         # Extract admin emails from conversation parts and any assignee fields
@@ -598,74 +603,67 @@ Output: Segmented conversations with agent type labels
         
         # If ai_agent_participated=True → Fin was involved
         if ai_participated:
-            # Check if escalated to real human (not Support Sal)
-            if has_admin_response:
-                # Check if any admin email indicates real human (not Support Sal)
-                human_admin_found = False
-                for part in admin_parts:
-                    author_email = part.get('author', {}).get('email', '').lower()
-                    
-                    # Real human indicators:
-                    # - Has @hirehoratio.co, @boldrimpact.com, @gamma.app (but not already caught above)
-                    # - Not support@, not fin@, not sal@
-                    if author_email and '@' in author_email:
-                        if not any(x in author_email for x in ['support', 'fin', 'sal', 'bot']):
-                            human_admin_found = True
-                            break
+            # PRIMARY: Use Intercom's official ai_agent.resolution_state field (SDK spec)
+            # This is the authoritative source from Intercom about whether Fin resolved it
+            if ai_resolution_state:
+                self.logger.debug(f"Paid tier: Using ai_agent.resolution_state={ai_resolution_state}")
                 
-                if human_admin_found:
-                    self.logger.debug(f"Paid tier: Escalated to unidentified human (email doesn't match Fin patterns)")
-                    return 'paid', 'unknown'
-            
-            # If we're here: ai_participated=True and either no admin OR admin is Support Sal
-            # Now check if Fin actually RESOLVED it (not just handled it)
-            # Use resolution criteria from is_fin_resolved() but adapted for our context
-            
-            # We've already checked for human escalation above (that would return early)
-            # Now check the other resolution signals:
-            
-            # Signal 2: State or engagement
-            user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
-            is_closed = conv.get('state') == 'closed'
-            low_engagement = len(user_parts) <= 2
-            
-            # Signal 3: CSAT rating
-            rating_data = conv.get('conversation_rating')
-            if isinstance(rating_data, dict):
-                rating = rating_data.get('rating')
-            elif isinstance(rating_data, (int, float)):
-                rating = rating_data
-            else:
-                rating = None
-            has_bad_rating = rating is not None and rating < 3
-            
-            # Signal 4: Reopens
-            stats = conv.get('statistics', {})
-            if stats and isinstance(stats, dict):
-                reopens = stats.get('count_reopens', 0)
-            else:
-                reopens = 0
-            
-            # Check if Fin successfully resolved
-            if (is_closed or low_engagement) and not has_bad_rating and reopens <= 1:
-                self.logger.debug(f"Paid tier: Fin RESOLVED (closed={is_closed}, low_eng={low_engagement}, good_rating={not has_bad_rating}, reopens={reopens})")
-                return 'paid', 'fin_resolved'
-            else:
-                # Fin handled but didn't meet resolution criteria
-                # This could mean:
-                # 1. Still open with high engagement (customer not satisfied)
-                # 2. Bad CSAT rating (customer unhappy)
-                # 3. Multiple reopens (issue not resolved)
-                # In these cases, if admin is present, assume it escalated to human
-                self.logger.debug(f"Paid tier: Fin handled but failed resolution (closed={is_closed}, low_eng={low_engagement}, bad_rating={has_bad_rating}, reopens={reopens})")
+                # Check if escalated to known human agents first (takes priority)
+                # If we already detected Horatio/Boldr/Escalated above, we wouldn't be here
                 
-                if has_admin_response:
-                    # Admin present + failed resolution = likely escalated to human
-                    self.logger.debug(f"  → Treating as escalated to human (admin present, Fin didn't resolve)")
-                    return 'paid', 'unknown'
+                if ai_resolution_state.lower() in ['resolved', 'completed', 'closed']:
+                    # Intercom says Fin resolved it - trust the SDK
+                    self.logger.debug(f"Paid tier: Fin RESOLVED per Intercom SDK (resolution_state={ai_resolution_state})")
+                    return 'paid', 'fin_resolved'
+                elif ai_resolution_state.lower() in ['escalated', 'handed_off', 'transferred']:
+                    # Intercom says it was escalated - check if to known agent or unknown
+                    self.logger.debug(f"Paid tier: Escalated per Intercom SDK (resolution_state={ai_resolution_state})")
+                    # Check for human admin emails to identify which agent
+                    if has_admin_response:
+                        for part in admin_parts:
+                            author_email = part.get('author', {}).get('email', '').lower()
+                            if author_email and '@' in author_email:
+                                if not any(x in author_email for x in ['support', 'fin', 'sal', 'bot']):
+                                    return 'paid', 'unknown'  # Real human escalation
+                    return 'paid', 'unknown'  # Escalated but can't identify agent
                 else:
-                    # No admin, Fin failed to resolve - knowledge gap but no human took over
-                    self.logger.debug(f"  → Marking as fin_resolved despite failure (no human escalation detected)")
+                    # Unknown resolution state - fall back to heuristics
+                    self.logger.debug(f"Paid tier: Unknown resolution_state '{ai_resolution_state}', using fallback logic")
+            
+            # FALLBACK: If no ai_resolution_state, use heuristics (legacy conversations)
+            if ai_resolution_state is None:
+                self.logger.debug(f"Paid tier: No ai_resolution_state, using fallback heuristics")
+                
+                # Check state, engagement, CSAT, reopens
+                user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
+                is_closed = conv.get('state') == 'closed'
+                low_engagement = len(user_parts) <= 2
+                
+                rating_data = conv.get('conversation_rating')
+                if isinstance(rating_data, dict):
+                    rating = rating_data.get('rating')
+                elif isinstance(rating_data, (int, float)):
+                    rating = rating_data
+                else:
+                    rating = None
+                has_bad_rating = rating is not None and rating < 3
+                
+                stats = conv.get('statistics', {})
+                reopens = stats.get('count_reopens', 0) if stats and isinstance(stats, dict) else 0
+                
+                # Check for human escalation indicators
+                if has_admin_response:
+                    # Has admin + failed resolution signals = escalated
+                    if not is_closed or has_bad_rating or reopens > 1:
+                        self.logger.debug(f"Paid tier: Fallback - escalated (admin present, poor resolution signals)")
+                        return 'paid', 'unknown'
+                
+                # No human escalation + good signals = Fin resolved
+                if (is_closed or low_engagement) and not has_bad_rating and reopens <= 1:
+                    self.logger.debug(f"Paid tier: Fallback - Fin resolved (good resolution signals)")
+                    return 'paid', 'fin_resolved'
+                else:
+                    self.logger.debug(f"Paid tier: Fallback - Fin resolved (default, ai_participated=True)")
                     return 'paid', 'fin_resolved'
         
         # ai_agent_participated=False but has admin response → Real human handled without Fin
