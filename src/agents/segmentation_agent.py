@@ -538,9 +538,9 @@ Output: Segmented conversations with agent type labels
         
         # Log extracted admin emails for debugging
         if admin_emails:
-            self.logger.debug(f"Found {len(admin_emails)} admin emails: {admin_emails}")
+            self.logger.debug(f"Conversation {conv_id}: Found {len(admin_emails)} admin emails: {admin_emails}")
         else:
-            self.logger.debug("No admin emails found in conversation")
+            self.logger.debug(f"Conversation {conv_id}: No admin emails found (might be Support Sal or bot)")
         
         # Check for escalation (senior staff)
         for name in self.escalation_names:
@@ -551,14 +551,28 @@ Output: Segmented conversations with agent type labels
                 if name.replace(' ', '.') in email or name.replace(' ', '') in email:
                     return 'paid', 'escalated'
         
-        # Check for Tier 1 agents via email domains (use endswith for exact matching)
+        # Check for Tier 1 agents via email domains (use contains for flexibility)
         for email in admin_emails:
-            if email.endswith('@hirehoratio.co'):
-                self.logger.debug(f"Horatio agent detected via email: {email}")
+            self.logger.debug(f"Checking email for agent type: {email}")
+            
+            # Horatio detection (multiple possible domain formats)
+            if 'horatio' in email or 'hirehoratio' in email:
+                self.logger.info(f"✓ Horatio agent detected via email: {email}")
                 return 'paid', 'horatio'
-            if email.endswith('@boldrimpact.com'):
-                self.logger.debug(f"Boldr agent detected via email: {email}")
+            # Boldr detection (multiple possible domain formats)
+            if 'boldr' in email:
+                self.logger.info(f"✓ Boldr agent detected via email: {email}")
                 return 'paid', 'boldr'
+            # Gamma internal staff (not already caught by escalation check)
+            if 'gamma.app' in email:
+                # Check if it's one of the known senior staff (already checked above)
+                # If we're here, it's other Gamma staff, treat as human support
+                self.logger.info(f"✓ Gamma staff detected via email: {email}")
+                return 'paid', 'unknown'
+            
+            # Log emails that don't match patterns (for debugging)
+            if email and '@' in email:
+                self.logger.debug(f"  Email '{email}' doesn't match known agent patterns")
         
         # Fallback to text patterns
         if re.search(self.tier1_patterns['horatio'], text):
