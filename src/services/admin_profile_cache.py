@@ -5,10 +5,10 @@ Caches Intercom admin profiles to avoid repeated API calls and extract
 nested/work emails from admin objects.
 """
 
+import asyncio
 import logging
 from typing import Dict, Optional, List, Any
 from datetime import datetime, timedelta
-import time
 from functools import wraps
 
 from src.models.agent_performance_models import AdminProfile
@@ -34,7 +34,7 @@ def retry_with_backoff(max_retries=3, base_delay=1.0):
                         f"Attempt {attempt + 1}/{max_retries} failed for {func.__name__}: {e}. "
                         f"Retrying in {delay}s..."
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
             return None
         return wrapper
     return decorator

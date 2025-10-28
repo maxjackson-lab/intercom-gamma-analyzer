@@ -109,7 +109,7 @@ async def run_trend_analysis(request: AnalysisRequest, generate_gamma: bool, out
     """Run trend analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+        intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
@@ -162,7 +162,7 @@ async def run_custom_analysis(request: AnalysisRequest, generate_gamma: bool, ou
     """Run custom analysis."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+        intercom_service = IntercomSDKService()
         metrics_calculator = MetricsCalculator()
         openai_client = OpenAIClient()
         
@@ -215,7 +215,7 @@ async def run_data_export(start_date: datetime, end_date: datetime, export_forma
     """Run data export."""
     try:
         # Initialize services
-        intercom_service = IntercomService()
+        intercom_service = IntercomSDKService()
         data_exporter = DataExporter()
         
         # Fetch conversations

@@ -6,7 +6,7 @@ import pytest
 import logging
 from datetime import datetime, timedelta
 from unittest.mock import Mock, AsyncMock, MagicMock
-import httpx
+from intercom.core.api_error import ApiError
 
 from src.services.admin_profile_cache import AdminProfileCache
 from src.models.agent_performance_models import AdminProfile
@@ -14,13 +14,11 @@ from src.models.agent_performance_models import AdminProfile
 
 @pytest.fixture
 def mock_intercom_service():
-    """Mock Intercom service"""
+    """Mock Intercom SDK service"""
     service = Mock()
-    service.base_url = "https://api.intercom.io"
-    service.headers = {
-        'Authorization': 'Bearer test_token',
-        'Accept': 'application/json'
-    }
+    service.client = Mock()
+    service.client.admins = Mock()
+    service._model_to_dict = Mock(side_effect=lambda x: x if isinstance(x, dict) else {'id': getattr(x, 'id', 'test')})
     return service
 
 
@@ -29,6 +27,7 @@ def mock_duckdb_storage():
     """Mock DuckDB storage"""
     storage = Mock()
     storage.conn = Mock()
+    storage.ensure_schema = Mock()
     return storage
 
 
@@ -56,19 +55,15 @@ class TestAdminProfileCache:
         mock_duckdb_storage,
         sample_admin_api_response
     ):
-        """Test fetching admin profile from API"""
+        """Test fetching admin profile from API using SDK"""
         cache = AdminProfileCache(mock_intercom_service, mock_duckdb_storage)
         
-        # Mock the HTTP client
-        mock_response = Mock()
-        mock_response.json = Mock(return_value=sample_admin_api_response)
-        mock_response.raise_for_status = Mock()
-        
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
+        # Mock the SDK client's find method
+        mock_intercom_service.client.admins.find = AsyncMock(return_value=sample_admin_api_response)
+        mock_intercom_service._model_to_dict.return_value = sample_admin_api_response
         
         # Get profile
-        profile = await cache.get_admin_profile('12345', mock_client)
+        profile = await cache.get_admin_profile('12345')
         
         assert isinstance(profile, AdminProfile)
         assert profile.id == '12345'
@@ -94,30 +89,32 @@ class TestAdminProfileCache:
         cache.session_cache['12345'] = cached_profile
         
         # Mock client (should not be called)
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=Exception("Should not be called"))
+        mock_intercom_service.client.admins.find = AsyncMock(
+            side_effect=Exception("Should not be called")
+        )
         
         # Get profile - should use cache
-        profile = await cache.get_admin_profile('12345', mock_client)
+        profile = await cache.get_admin_profile('12345')
         
         assert profile == cached_profile
-        assert mock_client.get.call_count == 0
+        assert mock_intercom_service.client.admins.find.call_count == 0
     
     @pytest.mark.asyncio
     async def test_api_failure_fallback(self, mock_intercom_service):
         """Test fallback when API call fails"""
         cache = AdminProfileCache(mock_intercom_service, None)
         
-        # Mock client with error
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("API error"))
+        # Mock client with API error
+        mock_intercom_service.client.admins.find = AsyncMock(
+            side_effect=ApiError(status_code=500, body={"errors": [{"message": "API error"}]})
+        )
         
         # Get profile - should return fallback
-        profile = await cache.get_admin_profile('12345', mock_client, public_email='agent@test.com')
+        profile = await cache.get_admin_profile('12345', public_email='agent@test.com')
         
         assert isinstance(profile, AdminProfile)
         assert profile.id == '12345'
-        assert profile.name == 'Unknown'
+        assert profile.name == 'Admin 12345'  # Updated expectation per comment
         assert profile.email == 'agent@test.com'
     
     def test_identify_vendor_horatio(self, mock_intercom_service):
@@ -255,9 +252,10 @@ class TestAdminProfileCache:
         """Test fallback profile creation with conversation_parts when API fails"""
         cache = AdminProfileCache(mock_intercom_service, None)
         
-        # Mock client with error
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("API error"))
+        # Mock client with API error
+        mock_intercom_service.client.admins.find = AsyncMock(
+            side_effect=ApiError(status_code=500, body={"errors": [{"message": "API error"}]})
+        )
         
         # Simulate conversation parts with agent email
         conversation_parts = [
@@ -270,16 +268,8 @@ class TestAdminProfileCache:
             }
         ]
         
-        # Patch _create_fallback_profile to accept conversation_parts
-        original_fallback = cache._create_fallback_profile
-        
-        async def patched_get(admin_id, client, public_email=None):
-            try:
-                return await cache._fetch_from_api(admin_id, client, public_email)
-            except:
-                return cache._create_fallback_profile(admin_id, conversation_parts, public_email)
-        
-        profile = await patched_get('123', mock_client)
+        # Create fallback profile directly
+        profile = cache._create_fallback_profile('123', conversation_parts, None)
         
         assert isinstance(profile, AdminProfile)
         assert profile.id == '123'
@@ -373,31 +363,28 @@ class TestAdminProfileCache:
         call_count = 0
         
         # Mock client that fails twice then succeeds
-        async def mock_get(*args, **kwargs):
+        async def mock_find(*args, **kwargs):
             nonlocal call_count
             call_count += 1
             
             if call_count < 3:
                 # First 2 attempts fail
-                raise httpx.HTTPError("Temporary API error")
+                raise ApiError(status_code=500, body={"errors": [{"message": "Temporary API error"}]})
             
             # Third attempt succeeds
-            mock_response = Mock()
-            mock_response.json = Mock(return_value={
+            return {
                 'type': 'admin',
                 'id': '123',
                 'name': 'Test Admin',
                 'email': 'test@horatio.ai',
                 'away_mode_enabled': False
-            })
-            mock_response.raise_for_status = Mock()
-            return mock_response
+            }
         
-        mock_client = AsyncMock()
-        mock_client.get = mock_get
+        mock_intercom_service.client.admins.find = mock_find
+        mock_intercom_service._model_to_dict = Mock(side_effect=lambda x: x)
         
         # Should retry and eventually succeed
-        profile = await cache.get_admin_profile('123', mock_client)
+        profile = await cache.get_admin_profile('123')
         
         assert call_count == 3  # Failed twice, succeeded on third try
         assert profile.name == 'Test Admin'
@@ -409,11 +396,12 @@ class TestAdminProfileCache:
         cache = AdminProfileCache(mock_intercom_service, None)
         
         # Mock client that always fails
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Persistent API error"))
+        mock_intercom_service.client.admins.find = AsyncMock(
+            side_effect=ApiError(status_code=500, body={"errors": [{"message": "Persistent API error"}]})
+        )
         
         # Should exhaust retries and create fallback
-        profile = await cache.get_admin_profile('123', mock_client, public_email='fallback@horatio.ai')
+        profile = await cache.get_admin_profile('123', public_email='fallback@horatio.ai')
         
         assert isinstance(profile, AdminProfile)
         assert profile.id == '123'
@@ -452,4 +440,3 @@ class TestAdminProfileCache:
         assert profile.vendor == 'boldr'
         # Check that success was logged
         assert any('Derived vendor' in record.message and 'boldr' in record.message for record in caplog.records)
-

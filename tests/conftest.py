@@ -375,8 +375,10 @@ class MockIntercomSDKService:
     async def test_connection(self) -> bool:
         return True
     
-    async def fetch_conversations_by_date_range(self, start_date, end_date, max_pages=None):
+    async def fetch_conversations_by_date_range(self, start_date, end_date, max_conversations: Optional[int] = None, **kwargs):
         self.call_count += 1
+        if max_conversations:
+            return self.conversations[:max_conversations]
         return self.conversations
     
     async def fetch_conversations_by_query(self, query_type, suggestion=None, custom_query=None, max_pages=None):

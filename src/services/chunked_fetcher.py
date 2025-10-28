@@ -100,7 +100,7 @@ class ChunkedFetcher:
         
         try:
             conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                start_date, end_date, max_pages
+                start_date, end_date, max_conversations=max_pages
             )
             
             # Preprocess conversations if enabled
@@ -174,7 +174,7 @@ class ChunkedFetcher:
                 try:
                     # Fetch chunk
                     chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                        current_date, chunk_end, max_pages
+                        current_date, chunk_end, max_conversations=max_pages
                     )
 
                     # Debug: Check actual date range of fetched chunk
@@ -384,7 +384,7 @@ class ChunkedFetcher:
             try:
                 # Fetch chunk
                 chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                    current_date, chunk_end, max_pages
+                    current_date, chunk_end, max_conversations=max_pages
                 )
                 
                 if chunk_conversations:

@@ -119,11 +119,23 @@ class BaseAnalyzer(ABC):
     
     def _prepare_data_summary(self, conversations: List[Dict], metrics: Dict[str, Any]) -> str:
         """Prepare a summary of the data for AI analysis."""
+        # Normalize created_at timestamps for min/max calculations
+        created_ats = []
+        for conv in conversations:
+            created_at = conv.get('created_at')
+            if created_at:
+                if isinstance(created_at, datetime):
+                    # Convert datetime to timestamp
+                    created_ats.append(int(created_at.timestamp()))
+                elif isinstance(created_at, (int, float)):
+                    # Already a timestamp
+                    created_ats.append(int(created_at))
+        
         summary = {
             "total_conversations": len(conversations),
             "date_range": {
-                "start": min(conv.get('created_at', 0) for conv in conversations) if conversations else 0,
-                "end": max(conv.get('created_at', 0) for conv in conversations) if conversations else 0
+                "start": min(created_ats) if created_ats else 0,
+                "end": max(created_ats) if created_ats else 0
             },
             "metrics": metrics,
             "sample_conversations": conversations[:5] if conversations else []  # First 5 for context

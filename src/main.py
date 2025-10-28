@@ -3530,7 +3530,7 @@ async def run_voc_analysis(
         
         # Fetch conversations
         console.print(f"[yellow]Fetching conversations from Intercom...[/yellow]")
-        intercom_service = IntercomServiceV2()
+        intercom_service = IntercomSDKService()
         conversations = await intercom_service.fetch_conversations_by_date_range(
             start_date=start_dt,
             end_date=end_dt

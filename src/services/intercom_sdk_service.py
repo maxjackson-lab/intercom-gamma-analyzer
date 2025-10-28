@@ -10,13 +10,6 @@ from datetime import datetime, timezone
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # Import the official Intercom SDK
-import sys
-import os
-# Add the SDK to the path
-sdk_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'python-intercom-master', 'src')
-if sdk_path not in sys.path:
-    sys.path.insert(0, sdk_path)
-
 from intercom import AsyncIntercom
 from intercom.types import (
     MultipleFilterSearchRequest,
@@ -389,14 +382,23 @@ class IntercomSDKService:
         
         return await self._fetch_with_query(search_query, max_pages)
     
-    async def _fetch_by_agent(self, agent_name: str, max_pages: Optional[int]) -> List[Dict]:
-        """Fetch conversations assigned to specific agent."""
-        self.logger.info(f"Searching for conversations assigned to: {agent_name}")
+    async def _fetch_by_agent(self, agent_id: str, max_pages: Optional[int]) -> List[Dict]:
+        """
+        Fetch conversations assigned to specific agent.
+        
+        Args:
+            agent_id: The admin/agent ID (not name) to filter by
+            max_pages: Maximum number of pages to fetch
+            
+        Returns:
+            List of conversations assigned to the agent
+        """
+        self.logger.info(f"Searching for conversations assigned to agent ID: {agent_id}")
         
         search_query = SingleFilterSearchRequest(
             field="admin_assignee_id",
             operator=SingleFilterSearchRequestOperator.EQUALS,
-            value=agent_name  # This should be agent ID
+            value=agent_id
         )
         
         return await self._fetch_with_query(search_query, max_pages)
@@ -483,14 +485,14 @@ class IntercomSDKService:
             Count of matching conversations
         """
         try:
-            pagination = StartingAfterPaging(per_page=1, starting_after=None)
+            pagination = StartingAfterPaging(per_page=50, starting_after=None)
             pager = await self.client.conversations.search(query=query, pagination=pagination)
             
-            # The pager should have total_count in the response metadata
-            # For now, we'll iterate to get accurate count
+            # Iterate through pages and sum the count
             count = 0
-            async for _ in pager:
-                count += 1
+            async for page in pager.iter_pages():
+                if page.items:
+                    count += len(page.items)
             
             return count
         except Exception as e:

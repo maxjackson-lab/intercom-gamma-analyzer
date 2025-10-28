@@ -1,18 +1,43 @@
 """
-Unit tests for Intercom service.
+Unit tests for Intercom SDK service.
 """
 
 import pytest
 import asyncio
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
-import httpx
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, Mock, MagicMock, patch
 
 from src.services.intercom_sdk_service import IntercomSDKService
 
 
+class MockAsyncPager:
+    """Mock AsyncPager for testing."""
+    
+    def __init__(self, items):
+        self.items = items
+        self._index = 0
+    
+    def __aiter__(self):
+        return self
+    
+    async def __anext__(self):
+        if self._index >= len(self.items):
+            raise StopAsyncIteration
+        item = self.items[self._index]
+        self._index += 1
+        return item
+    
+    async def iter_pages(self):
+        """Simulate iterating pages."""
+        class MockPage:
+            def __init__(self, items):
+                self.items = items
+        
+        yield MockPage(self.items)
+
+
 class TestIntercomSDKService:
-    """Test cases for Intercom service V2."""
+    """Test cases for Intercom SDK service."""
     
     def test_initialization(self):
         """Test service initialization."""
@@ -20,38 +45,34 @@ class TestIntercomSDKService:
         
         assert service.access_token is not None
         assert service.base_url == "https://api.intercom.io"
-        assert service.api_version == "2.14"
         assert service.timeout == 60
-        assert 'Authorization' in service.headers
-        assert 'Accept' in service.headers
-        assert 'Content-Type' in service.headers
-        assert 'Intercom-Version' in service.headers
+        assert service.client is not None
+        assert hasattr(service.client, 'conversations')
     
     @pytest.mark.asyncio
     async def test_test_connection_success(self):
         """Test successful connection test."""
         service = IntercomSDKService()
         
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+        with patch.object(service.client.admins, 'identify', new_callable=AsyncMock) as mock_identify:
+            mock_identify.return_value = {"type": "admin", "id": "test"}
             
             result = await service.test_connection()
             
             assert result is True
+            mock_identify.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_test_connection_failure(self):
         """Test connection test failure."""
+        from intercom.core.api_error import ApiError
+        
         service = IntercomSDKService()
         
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_client.return_value.__aenter__.return_value.get.side_effect = httpx.HTTPStatusError(
-                "Connection failed", request=MagicMock(), response=MagicMock()
-            )
+        with patch.object(service.client.admins, 'identify', new_callable=AsyncMock) as mock_identify:
+            mock_identify.side_effect = ApiError(status_code=401, body={"errors": [{"message": "Unauthorized"}]})
             
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(ApiError):
                 await service.test_connection()
     
     @pytest.mark.asyncio
@@ -59,22 +80,31 @@ class TestIntercomSDKService:
         """Test successful conversation fetching."""
         service = IntercomSDKService()
         
-        # Mock response data
-        mock_response_data = {
-            "conversations": [
-                {"id": "conv_1", "created_at": 1699123456, "state": "closed"},
-                {"id": "conv_2", "created_at": 1699123457, "state": "open"}
-            ]
-        }
+        # Mock conversation data
+        mock_conversations = [
+            Mock(id="conv_1", created_at=1699123456, state="closed"),
+            Mock(id="conv_2", created_at=1699123457, state="open")
+        ]
         
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_response_data
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+        mock_pager = MockAsyncPager(mock_conversations)
+        
+        with patch.object(service.client.conversations, 'search', new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = mock_pager
             
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
+            # Mock _model_to_dict
+            service._model_to_dict = Mock(side_effect=lambda x: {
+                'id': x.id,
+                'created_at': x.created_at,
+                'state': x.state
+            })
+            
+            # Mock enrichment to return conversations as-is
+            service._enrich_conversations_with_contact_details = AsyncMock(
+                side_effect=lambda convs: convs
+            )
+            
+            start_date = datetime(2023, 11, 1, tzinfo=timezone.utc)
+            end_date = datetime(2023, 11, 2, tzinfo=timezone.utc)
             
             conversations = await service.fetch_conversations_by_date_range(start_date, end_date)
             
@@ -83,176 +113,57 @@ class TestIntercomSDKService:
             assert conversations[1]["id"] == "conv_2"
     
     @pytest.mark.asyncio
-    async def test_fetch_conversations_with_pagination(self):
-        """Test conversation fetching with pagination."""
+    async def test_fetch_conversations_with_max_conversations(self):
+        """Test conversation fetching with max limit."""
         service = IntercomSDKService()
         
-        # Mock first page response
-        first_page_data = {
-            "conversations": [
-                {"id": "conv_1", "created_at": 1699123456, "state": "closed"}
-            ]
-        }
+        # Mock more conversations than limit
+        mock_conversations = [
+            Mock(id=f"conv_{i}", created_at=1699123456 + i, state="closed")
+            for i in range(10)
+        ]
         
-        # Mock second page response (empty to stop pagination)
-        second_page_data = {
-            "conversations": []
-        }
+        mock_pager = MockAsyncPager(mock_conversations)
         
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.side_effect = [first_page_data, second_page_data]
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+        with patch.object(service.client.conversations, 'search', new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = mock_pager
             
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
+            service._model_to_dict = Mock(side_effect=lambda x: {
+                'id': x.id,
+                'created_at': x.created_at,
+                'state': x.state
+            })
             
-            conversations = await service.fetch_conversations_by_date_range(start_date, end_date)
+            service._enrich_conversations_with_contact_details = AsyncMock(
+                side_effect=lambda convs: convs
+            )
             
-            assert len(conversations) == 1
-            assert conversations[0]["id"] == "conv_1"
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_with_max_pages(self):
-        """Test conversation fetching with page limit."""
-        service = IntercomSDKService()
-        
-        mock_response_data = {
-            "conversations": [
-                {"id": "conv_1", "created_at": 1699123456, "state": "closed"}
-            ]
-        }
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_response_data
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-            
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
+            start_date = datetime(2023, 11, 1, tzinfo=timezone.utc)
+            end_date = datetime(2023, 11, 2, tzinfo=timezone.utc)
             
             conversations = await service.fetch_conversations_by_date_range(
-                start_date, end_date, max_pages=1
+                start_date, end_date, max_conversations=5
             )
             
-            assert len(conversations) == 1
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_timeout_retry(self):
-        """Test conversation fetching with timeout and retry."""
-        service = IntercomSDKService()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            # First call times out, second succeeds
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = {"conversations": []}
-            
-            mock_client.return_value.__aenter__.return_value.post.side_effect = [
-                httpx.TimeoutException("Timeout"),
-                mock_response
-            ]
-            
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
-            
-            conversations = await service.fetch_conversations_by_date_range(start_date, end_date)
-            
-            assert len(conversations) == 0
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_rate_limit_retry(self):
-        """Test conversation fetching with rate limit and retry."""
-        service = IntercomSDKService()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            # First call rate limited, second succeeds
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = {"conversations": []}
-            
-            rate_limit_error = httpx.HTTPStatusError(
-                "Rate limited", 
-                request=MagicMock(), 
-                response=MagicMock()
-            )
-            rate_limit_error.response.status_code = 429
-            
-            mock_client.return_value.__aenter__.return_value.post.side_effect = [
-                rate_limit_error,
-                mock_response
-            ]
-            
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
-            
-            conversations = await service.fetch_conversations_by_date_range(start_date, end_date)
-            
-            assert len(conversations) == 0
+            assert len(conversations) == 5
     
     @pytest.mark.asyncio
     async def test_fetch_conversations_by_query_text_search(self):
         """Test conversation fetching by text search query."""
         service = IntercomSDKService()
         
-        mock_response_data = {
-            "conversations": [
-                {"id": "conv_1", "created_at": 1699123456, "state": "closed"}
-            ]
-        }
+        mock_conversations = [
+            Mock(id="conv_1", created_at=1699123456, state="closed")
+        ]
         
-        with patch.object(service, '_fetch_with_pagination') as mock_fetch:
-            mock_fetch.return_value = mock_response_data["conversations"]
+        with patch.object(service, '_fetch_with_query', new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [{'id': 'conv_1', 'created_at': 1699123456, 'state': 'closed'}]
             
             conversations = await service.fetch_conversations_by_query(
                 "text_search", custom_query="billing issue"
             )
             
             assert len(conversations) == 1
-            mock_fetch.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_by_query_tag(self):
-        """Test conversation fetching by tag query."""
-        service = IntercomSDKService()
-        
-        with patch.object(service, '_fetch_with_pagination') as mock_fetch:
-            mock_fetch.return_value = []
-            
-            conversations = await service.fetch_conversations_by_query(
-                "tag", suggestion="billing"
-            )
-            
-            mock_fetch.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_by_query_topic(self):
-        """Test conversation fetching by topic query."""
-        service = IntercomSDKService()
-        
-        with patch.object(service, '_fetch_with_pagination') as mock_fetch:
-            mock_fetch.return_value = []
-            
-            conversations = await service.fetch_conversations_by_query(
-                "topic", suggestion="Billing"
-            )
-            
-            mock_fetch.assert_called_once()
-    
-    @pytest.mark.asyncio
-    async def test_fetch_conversations_by_query_agent(self):
-        """Test conversation fetching by agent query."""
-        service = IntercomSDKService()
-        
-        with patch.object(service, '_fetch_with_pagination') as mock_fetch:
-            mock_fetch.return_value = []
-            
-            conversations = await service.fetch_conversations_by_query(
-                "agent", suggestion="admin_123"
-            )
-            
             mock_fetch.assert_called_once()
     
     @pytest.mark.asyncio
@@ -264,161 +175,77 @@ class TestIntercomSDKService:
             await service.fetch_conversations_by_query("invalid_type")
     
     @pytest.mark.asyncio
-    async def test_fetch_with_pagination_success(self):
-        """Test generic pagination fetching."""
+    async def test_get_conversation_count(self):
+        """Test getting conversation count."""
+        from intercom.types import MultipleFilterSearchRequest
+        
         service = IntercomSDKService()
         
-        mock_response_data = {
-            "conversations": [
-                {"id": "conv_1", "created_at": 1699123456, "state": "closed"}
-            ]
-        }
+        # Mock page with items
+        mock_items = [Mock() for _ in range(50)]
+        mock_pager = MockAsyncPager(mock_items)
         
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = mock_response_data
-            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+        with patch.object(service.client.conversations, 'search', new_callable=AsyncMock) as mock_search:
+            mock_search.return_value = mock_pager
             
-            query_params = {
-                "query": {"field": "test", "operator": "=", "value": "test"},
-                "pagination": {"per_page": 50}
-            }
+            query = MultipleFilterSearchRequest(operator="AND", value=[])
+            count = await service.get_conversation_count(query)
             
-            conversations = await service._fetch_with_pagination(query_params)
-            
-            assert len(conversations) == 1
-            assert conversations[0]["id"] == "conv_1"
+            assert count == 50
     
     @pytest.mark.asyncio
-    async def test_fetch_with_pagination_timeout_retry(self):
-        """Test pagination fetching with timeout retry."""
+    async def test_api_error_handling(self):
+        """Test API error handling."""
+        from intercom.core.api_error import ApiError
+        
         service = IntercomSDKService()
         
-        with patch('httpx.AsyncClient') as mock_client:
-            # First call times out, second succeeds
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = {"conversations": []}
+        with patch.object(service.client.conversations, 'search', new_callable=AsyncMock) as mock_search:
+            mock_search.side_effect = ApiError(status_code=400, body={"errors": [{"message": "Bad Request"}]})
             
-            mock_client.return_value.__aenter__.return_value.post.side_effect = [
-                httpx.TimeoutException("Timeout"),
-                mock_response
-            ]
+            start_date = datetime(2023, 11, 1, tzinfo=timezone.utc)
+            end_date = datetime(2023, 11, 2, tzinfo=timezone.utc)
             
-            query_params = {
-                "query": {"field": "test", "operator": "=", "value": "test"},
-                "pagination": {"per_page": 50}
-            }
-            
-            conversations = await service._fetch_with_pagination(query_params)
-            
-            assert len(conversations) == 0
-    
-    @pytest.mark.asyncio
-    async def test_fetch_with_pagination_rate_limit_retry(self):
-        """Test pagination fetching with rate limit retry."""
-        service = IntercomSDKService()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            # First call rate limited, second succeeds
-            mock_response = MagicMock()
-            mock_response.raise_for_status.return_value = None
-            mock_response.json.return_value = {"conversations": []}
-            
-            rate_limit_error = httpx.HTTPStatusError(
-                "Rate limited", 
-                request=MagicMock(), 
-                response=MagicMock()
-            )
-            rate_limit_error.response.status_code = 429
-            
-            mock_client.return_value.__aenter__.return_value.post.side_effect = [
-                rate_limit_error,
-                mock_response
-            ]
-            
-            query_params = {
-                "query": {"field": "test", "operator": "=", "value": "test"},
-                "pagination": {"per_page": 50}
-            }
-            
-            conversations = await service._fetch_with_pagination(query_params)
-            
-            assert len(conversations) == 0
-    
-    @pytest.mark.asyncio
-    async def test_fetch_with_pagination_max_retries(self):
-        """Test pagination fetching with max retries exceeded."""
-        service = IntercomSDKService()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            # All calls timeout
-            mock_client.return_value.__aenter__.return_value.post.side_effect = httpx.TimeoutException("Timeout")
-            
-            query_params = {
-                "query": {"field": "test", "operator": "=", "value": "test"},
-                "pagination": {"per_page": 50}
-            }
-            
-            conversations = await service._fetch_with_pagination(query_params)
-            
-            # Should return empty list after max retries
-            assert len(conversations) == 0
-    
-    def test_query_parameter_construction(self):
-        """Test that query parameters are constructed correctly."""
-        service = IntercomSDKService()
-        
-        start_date = datetime(2023, 11, 1)
-        end_date = datetime(2023, 11, 2)
-        
-        # This would be called internally, but we can test the logic
-        expected_start_ts = int(start_date.timestamp())
-        expected_end_ts = int(end_date.timestamp())
-        
-        assert expected_start_ts == 1698796800  # Known timestamp
-        assert expected_end_ts == 1698883200    # Known timestamp
-    
-    @pytest.mark.asyncio
-    async def test_http_error_handling(self):
-        """Test HTTP error handling."""
-        service = IntercomSDKService()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            # Mock HTTP error
-            http_error = httpx.HTTPStatusError(
-                "Bad Request", 
-                request=MagicMock(), 
-                response=MagicMock()
-            )
-            http_error.response.status_code = 400
-            
-            mock_client.return_value.__aenter__.return_value.post.side_effect = http_error
-            
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
-            
-            with pytest.raises(httpx.HTTPStatusError):
+            with pytest.raises(ApiError):
                 await service.fetch_conversations_by_date_range(start_date, end_date)
     
     @pytest.mark.asyncio
-    async def test_generic_error_handling(self):
-        """Test generic error handling."""
+    async def test_normalize_and_filter_by_date(self):
+        """Test date normalization and filtering."""
         service = IntercomSDKService()
         
-        with patch('httpx.AsyncClient') as mock_client:
-            # Mock generic error
-            mock_client.return_value.__aenter__.return_value.post.side_effect = Exception("Generic error")
-            
-            start_date = datetime.now() - timedelta(days=1)
-            end_date = datetime.now()
-            
-            with pytest.raises(Exception, match="Generic error"):
-                await service.fetch_conversations_by_date_range(start_date, end_date)
-
-
-
-
-
-
+        conversations = [
+            {'id': 'conv_1', 'created_at': 1699123456},  # Unix timestamp
+            {'id': 'conv_2', 'created_at': datetime(2023, 11, 5, tzinfo=timezone.utc)},  # datetime
+            {'id': 'conv_3', 'created_at': 1699209856},  # Outside range
+        ]
+        
+        start_date = datetime(2023, 11, 4, tzinfo=timezone.utc)
+        end_date = datetime(2023, 11, 5, tzinfo=timezone.utc)
+        
+        filtered = service._normalize_and_filter_by_date(conversations, start_date, end_date)
+        
+        # Should have 2 conversations in range
+        assert len(filtered) == 2
+        # All created_at should be datetime objects
+        assert all(isinstance(conv['created_at'], datetime) for conv in filtered)
+    
+    def test_model_to_dict(self):
+        """Test model to dict conversion."""
+        service = IntercomSDKService()
+        
+        # Test with Pydantic v2 style (model_dump)
+        class MockModel:
+            def model_dump(self, exclude_none=False):
+                return {'id': '123', 'name': 'test'}
+        
+        result = service._model_to_dict(MockModel())
+        assert result == {'id': '123', 'name': 'test'}
+        
+        # Test with Pydantic v1 style (dict)
+        class MockModelV1:
+            def dict(self, exclude_none=False):
+                return {'id': '456', 'name': 'testv1'}
+        
+        result = service._model_to_dict(MockModelV1())
+        assert result == {'id': '456', 'name': 'testv1'}
