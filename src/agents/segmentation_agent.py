@@ -381,7 +381,7 @@ Output: Segmented conversations with agent type labels
             result_data = {
                 # Tier-specific conversation lists
                 'paid_customer_conversations': paid_customers,  # All paid tier (for backward compatibility)
-                'paid_fin_resolved_conversations': paid_fin_resolved_conversations,  # Paid tier, Fin-only
+                'paid_fin_resolved_conversations': paid_fin_only_conversations,  # Paid tier, Fin-only (FIXED: was undefined variable)
                 'free_fin_only_conversations': free_customers,  # Free tier, Fin-only (renamed)
                 'unknown_tier': unknown,
 
@@ -402,8 +402,8 @@ Output: Segmented conversations with agent type labels
                     # Paid tier breakdown (human vs Fin-resolved)
                     'paid_human_count': len(paid_human_conversations),
                     'paid_human_percentage': round(len(paid_human_conversations) / len(conversations) * 100, 1),
-                    'paid_fin_resolved_count': len(paid_fin_resolved_conversations),
-                    'paid_fin_resolved_percentage': round(len(paid_fin_resolved_conversations) / len(conversations) * 100, 1),
+                    'paid_fin_resolved_count': len(paid_fin_only_conversations),
+                    'paid_fin_resolved_percentage': round(len(paid_fin_only_conversations) / len(conversations) * 100, 1),
 
                     # Free tier breakdown (always Fin-only)
                     'free_fin_only_count': len(free_customers),
@@ -453,7 +453,7 @@ Output: Segmented conversations with agent type labels
             self.logger.info(f"SegmentationAgent: Completed in {execution_time:.2f}s")
             self.logger.info(f"   Paid Total: {len(paid_customers)} ({result_data['segmentation_summary']['paid_percentage']}%)")
             self.logger.info(f"      - Human Support: {len(paid_human_conversations)} ({result_data['segmentation_summary']['paid_human_percentage']}%)")
-            self.logger.info(f"      - Fin Resolved: {len(paid_fin_resolved_conversations)} ({result_data['segmentation_summary']['paid_fin_resolved_percentage']}%)")
+            self.logger.info(f"      - Fin Resolved: {len(paid_fin_only_conversations)} ({result_data['segmentation_summary']['paid_fin_resolved_percentage']}%)")
             self.logger.info(f"   Free (Fin Only): {len(free_customers)} ({result_data['segmentation_summary']['free_percentage']}%)")
             self.logger.info(f"   Agent distribution: {result_data['agent_distribution']}")
             self.logger.info(f"   Tier data quality: {defaulted_tier_count} conversations defaulted to FREE")
