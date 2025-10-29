@@ -334,6 +334,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Enable verbose logging'
             },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
+            },
             '--start-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
@@ -401,6 +407,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Generate audit trail'
             },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
+            },
             '--start-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
@@ -453,6 +465,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate audit trail'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '5-15 minutes'
@@ -484,6 +502,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
                 'description': 'End date for analysis'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -505,6 +529,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate Gamma presentation'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -526,6 +556,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate Gamma presentation'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -584,6 +620,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate Gamma presentation'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '15-45 minutes'
