@@ -111,23 +111,42 @@ async def generate_gamma_presentation(results: Any, filename: str) -> Optional[s
 
 
 def parse_date_range(start_date: Optional[str], end_date: Optional[str], time_period: Optional[str] = None) -> tuple[datetime, datetime]:
-    """Parse date range from various input formats."""
+    """
+    Parse date range from various input formats.
+    
+    For time periods, returns exactly N complete days:
+    - yesterday: 1 complete day (yesterday)
+    - week: 7 complete days (last 7 days, ending yesterday)
+    - month: 30 complete days
+    - quarter: 90 complete days
+    - year: 365 complete days
+    """
     from datetime import timedelta
 
     if time_period:
-        end_dt = datetime.now()
+        # Normalize to start of today
+        end_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         if time_period == 'yesterday':
+            # Exactly 1 day (yesterday)
             start_dt = end_dt - timedelta(days=1)
             end_dt = end_dt - timedelta(days=1)
         elif time_period == 'week':
-            start_dt = end_dt - timedelta(weeks=1)
+            # Exactly 7 complete days, ending yesterday
+            end_dt = end_dt - timedelta(days=1)
+            start_dt = end_dt - timedelta(days=6)
         elif time_period == 'month':
-            start_dt = end_dt - timedelta(days=30)
+            # Exactly 30 complete days
+            end_dt = end_dt - timedelta(days=1)
+            start_dt = end_dt - timedelta(days=29)
         elif time_period == 'quarter':
-            start_dt = end_dt - timedelta(days=90)
+            # Exactly 90 complete days
+            end_dt = end_dt - timedelta(days=1)
+            start_dt = end_dt - timedelta(days=89)
         elif time_period == 'year':
-            start_dt = end_dt - timedelta(days=365)
+            # Exactly 365 complete days
+            end_dt = end_dt - timedelta(days=1)
+            start_dt = end_dt - timedelta(days=364)
         else:
             raise ValueError(f"Unknown time period: {time_period}")
     elif start_date and end_date:

@@ -3817,13 +3817,20 @@ def canny_analysis(
     # Calculate date range
     if time_period:
         from datetime import timedelta
-        end_dt = datetime.now()
+        # Normalize to start of today
+        end_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # All periods end yesterday (not including today)
+        end_dt = end_dt - timedelta(days=1)
+        
         if time_period == 'week':
-            start_dt = end_dt - timedelta(weeks=1)
+            # Exactly 7 complete days
+            start_dt = end_dt - timedelta(days=6)
         elif time_period == 'month':
-            start_dt = end_dt - timedelta(days=30)
+            # Exactly 30 complete days
+            start_dt = end_dt - timedelta(days=29)
         elif time_period == 'quarter':
-            start_dt = end_dt - timedelta(days=90)
+            # Exactly 90 complete days
+            start_dt = end_dt - timedelta(days=89)
         start_date = start_dt.strftime('%Y-%m-%d')
         end_date = end_dt.strftime('%Y-%m-%d')
         console.print(f"Analyzing {time_period}: {start_date} to {end_date}")
@@ -4031,14 +4038,18 @@ def voice_of_customer_analysis(
     
     # Calculate dates based on time period or use provided dates
     if time_period:
-        end_dt = datetime.now()
+        # Get current date (normalized to start of today)
+        end_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         
         if time_period == 'yesterday':
-            # Yesterday only - fast test
+            # Yesterday only - fast test (exactly 1 day)
             start_dt = end_dt - timedelta(days=1)
             end_dt = end_dt - timedelta(days=1)
         elif time_period == 'week':
-            start_dt = end_dt - timedelta(weeks=periods_back)
+            # Last N weeks = N * 7 days, ending yesterday (not including today)
+            # This gives us exactly 7 complete days for periods_back=1
+            end_dt = end_dt - timedelta(days=1)  # End yesterday
+            start_dt = end_dt - timedelta(days=7 * periods_back - 1)  # Go back 7 days from yesterday
         elif time_period == 'month':
             # Go back N months
             month = end_dt.month - periods_back
