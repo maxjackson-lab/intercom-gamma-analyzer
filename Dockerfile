@@ -16,14 +16,20 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY requirements-railway.txt requirements.txt
 
-# Install Python dependencies
+# Copy the Intercom SDK (needed for installation)
+COPY python-intercom-master/ /app/python-intercom-master/
+
+# Install SDK dependencies first
+RUN pip install --no-cache-dir -r /app/python-intercom-master/requirements.txt
+
+# Install main application dependencies (now SDK is available)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Copy rest of source code
 COPY . .
 
-# Set Python path
-ENV PYTHONPATH=/app:/app/src
+# Set Python path (include SDK)
+ENV PYTHONPATH=/app:/app/src:/app/python-intercom-master/src
 
 # Create output and static directories
 RUN mkdir -p /app/outputs /app/static
