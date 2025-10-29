@@ -5,11 +5,18 @@ This replaces the custom-built Intercom clients with the official SDK implementa
 
 import logging
 import asyncio
+import sys
+import os
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # Import the official Intercom SDK
+# Add SDK path for deployment environments
+sdk_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'python-intercom-master', 'src')
+if os.path.exists(sdk_path) and sdk_path not in sys.path:
+    sys.path.insert(0, sdk_path)
+
 from intercom import AsyncIntercom
 from intercom.types import (
     MultipleFilterSearchRequest,

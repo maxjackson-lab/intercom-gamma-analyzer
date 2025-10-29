@@ -5,9 +5,8 @@ numpy>=1.24.0
 tqdm>=4.65.0
 
 # Intercom SDK (official)
-# Note: Using local SDK from python-intercom-master/ directory
-# For production, consider: python-intercom>=4.0.0
--e ./python-intercom-master
+# Installing from local directory for deployment
+./python-intercom-master
 
 # AI and NLP
 openai>=1.0.0
