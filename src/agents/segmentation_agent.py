@@ -4,7 +4,17 @@ SegmentationAgent: Separates paid customers (human support) from free customers 
 Purpose:
 - Identify conversations with human agent involvement
 - Separate Fin AI-only conversations
-- Detect agent types (Horatio, Boldr, Escalated)
+- Optionally detect agent types and escalation chains (Horatio, Boldr, Escalated)
+
+Performance Modes:
+- track_escalations=False (default): Fast mode for Hilary topic cards
+  - Only detects: Paid (Fin-only vs Human) and Free (Fin-only)
+  - ~30% faster, skips detailed email parsing
+  
+- track_escalations=True: Detailed mode for operational metrics
+  - Tracks: Fin→Horatio, Fin→Boldr, Fin→Senior, Direct Human
+  - Use for: Agent performance analysis, operational reports
+  - Slower due to email extraction and pattern matching
 """
 
 import logging
@@ -23,14 +33,25 @@ logger = logging.getLogger(__name__)
 class SegmentationAgent(BaseAgent):
     """Agent specialized in customer tier and agent type segmentation"""
     
-    def __init__(self):
+    def __init__(self, track_escalations: bool = False):
+        """
+        Initialize SegmentationAgent.
+        
+        Args:
+            track_escalations: If True, tracks detailed escalation chains (Fin→Horatio, etc.)
+                              If False (default), only does basic Paid/Free segmentation
+                              Set to False for Hilary topic cards (faster)
+                              Set to True for agent performance/operational metrics
+        """
         super().__init__(
             name="SegmentationAgent",
             model="gpt-4o-mini",  # Simple classification task
             temperature=0.1
         )
         
-        # Agent patterns
+        self.track_escalations = track_escalations
+        
+        # Agent patterns (only used if track_escalations=True)
         self.escalation_names = ['dae-ho', 'max jackson', 'hilary']
         self.tier1_patterns = {
             'horatio': r'horatio|@horatio\.com|@hirehoratio\.co',
@@ -508,9 +529,9 @@ Output: Segmented conversations with agent type labels
     
     def _classify_conversation(self, conv: Dict) -> tuple[str, str]:
         """
-        Classify conversation by customer tier and ESCALATION CHAIN.
+        Classify conversation by customer tier and optionally ESCALATION CHAIN.
 
-        Detects three escalation scenarios:
+        Detects three escalation scenarios (if track_escalations=True):
         1. JUST FIN - Resolved by Fin alone, no human involvement
         2. FIN → VENDOR - Started with Fin, escalated to Horatio or Boldr
         3. FIN → VENDOR → SENIOR - Started with Fin, escalated through vendor to senior staff
@@ -518,7 +539,7 @@ Output: Segmented conversations with agent type labels
         Tier-first classification:
         1. Extract customer tier (Free/Pro/Plus/Ultra)
         2. Free tier → always ('free', 'fin_ai') regardless of admin assignment
-        3. Paid tier → detect escalation chain
+        3. Paid tier → detect escalation chain (if enabled) or simple Paid/Fin split
 
         Returns:
             (segment, agent_type) where:
@@ -544,7 +565,22 @@ Output: Segmented conversations with agent type labels
                 )
             return ('free', 'fin_ai')
 
-        # Step 3: Paid tier classification - DETECT ESCALATION CHAIN
+        # Step 3: Paid tier classification
+        
+        # FAST PATH: If not tracking escalations, just check if Fin resolved it
+        if not self.track_escalations:
+            ai_participated = conv.get('ai_agent_participated', False)
+            admin_assignee_id = conv.get('admin_assignee_id')
+            
+            # Simple logic: Did Fin resolve it without human?
+            if ai_participated and not admin_assignee_id:
+                # Fin-only (no human)
+                return ('paid', 'fin_only')
+            else:
+                # Has human involvement (don't care which vendor)
+                return ('paid', 'unknown')  # Generic paid with human
+        
+        # DETAILED PATH: Track full escalation chains
         text = conv.get('full_text', '').lower()
         ai_participated = conv.get('ai_agent_participated', False)
         starts_with_finn = self._starts_with_finn(conv)
