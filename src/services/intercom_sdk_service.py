@@ -22,8 +22,6 @@ from intercom.types import (
     MultipleFilterSearchRequest,
     SingleFilterSearchRequest,
     StartingAfterPaging,
-    MultipleFilterSearchRequestOperator,
-    SingleFilterSearchRequestOperator,
 )
 from intercom.core.api_error import ApiError
 from intercom.core.pagination import AsyncPager
@@ -105,16 +103,16 @@ class IntercomSDKService:
         
         # Build the search query with date range filters
         search_query = MultipleFilterSearchRequest(
-            operator=MultipleFilterSearchRequestOperator.AND,
+            operator="AND",  # String literal, not enum
             value=[
                 SingleFilterSearchRequest(
                     field="created_at",
-                    operator=SingleFilterSearchRequestOperator.GREATER_THAN_OR_EQUAL_TO,
+                    operator=">=",  # String literal, not enum
                     value=int(start_date.timestamp())
                 ),
                 SingleFilterSearchRequest(
                     field="created_at",
-                    operator=SingleFilterSearchRequestOperator.LESS_THAN_OR_EQUAL_TO,
+                    operator="<=",  # String literal, not enum
                     value=int(end_date.timestamp())
                 )
             ]
@@ -359,7 +357,7 @@ class IntercomSDKService:
         
         search_query = SingleFilterSearchRequest(
             field="source.body",
-            operator=SingleFilterSearchRequestOperator.CONTAINS,
+            operator="~",  # Contains operator (string literal)
             value=search_text
         )
         
@@ -371,7 +369,7 @@ class IntercomSDKService:
         
         search_query = SingleFilterSearchRequest(
             field="tags",
-            operator=SingleFilterSearchRequestOperator.CONTAINS,
+            operator="~",  # Contains operator (string literal)
             value=tag_name
         )
         
@@ -383,7 +381,7 @@ class IntercomSDKService:
         
         search_query = SingleFilterSearchRequest(
             field="topics",
-            operator=SingleFilterSearchRequestOperator.CONTAINS,
+            operator="~",  # Contains operator (string literal)
             value=topic_name
         )
         
