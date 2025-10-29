@@ -182,15 +182,15 @@ class AdminProfileCache:
             
             return profile
             
+        except ApiError as e:
+            # SDK API errors
+            self.logger.warning(f"API error fetching admin {admin_id}: {e.status_code if e.status_code else 'unknown'}")
+            if e.body:
+                self.logger.warning(f"Response body: {str(e.body)[:500]}")
+            return self._create_fallback_profile(admin_id, None, public_email)
         except Exception as e:
-            # SDK ApiError will be caught here
-            from intercom.core.api_error import ApiError
-            if isinstance(e, ApiError):
-                self.logger.warning(f"API error fetching admin {admin_id}: {e.status_code}")
-                if e.body:
-                    self.logger.warning(f"Response body: {str(e.body)[:500]}")
-            else:
-                self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
+            # Other errors
+            self.logger.warning(f"Failed to fetch admin {admin_id}: {e}")
             return self._create_fallback_profile(admin_id, None, public_email)
     
     def _extract_vendor_from_email(self, email: str) -> Optional[str]:

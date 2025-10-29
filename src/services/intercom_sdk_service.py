@@ -145,8 +145,8 @@ class IntercomSDKService:
                 if len(all_conversations) % 50 == 0:
                     self.logger.info(f"Fetched {len(all_conversations)} conversations")
                 
-                # Rate limiting - small delay between conversations
-                await asyncio.sleep(0.02)  # 20ms delay
+                # Rate limiting - respect Intercom's 300 req/min limit
+                await asyncio.sleep(0.2)  # 200ms delay = ~5 req/sec (safe under 300/min limit)
             
             self.logger.info(f"Fetched {len(all_conversations)} conversations from SDK")
             
@@ -196,8 +196,15 @@ class IntercomSDKService:
             List of enriched conversation dictionaries
         """
         enriched_conversations = []
+        enrichment_stats = {
+            'attempted': 0,
+            'successful': 0,
+            'failed_contact': 0,
+            'failed_segments': 0
+        }
         
         for conv in conversations:
+            enrichment_stats['attempted'] += 1
             try:
                 # Extract contact IDs from the conversation
                 contacts_data = conv.get('contacts', {})
@@ -223,21 +230,25 @@ class IntercomSDKService:
                                     self.logger.debug(f"Enriched conversation {conv.get('id')} with segments")
                                     
                                 except Exception as e:
+                                    enrichment_stats['failed_segments'] += 1
                                     self.logger.warning(f"Failed to fetch segments for contact {contact_id}: {e}")
                                     # Continue without segments data
                                 
                                 # Replace the contact data in the conversation
                                 conv['contacts']['contacts'][0] = full_contact_data
+                                enrichment_stats['successful'] += 1
                                 
                                 self.logger.debug(f"Enriched conversation {conv.get('id')} with full contact details")
                                 
                             except ApiError as e:
+                                enrichment_stats['failed_contact'] += 1
                                 if e.status_code == 404:
                                     self.logger.warning(f"Contact {contact_id} not found")
                                 else:
                                     self.logger.warning(f"Failed to fetch contact {contact_id}: {e}")
                                 # Continue with original contact data
                             except Exception as e:
+                                enrichment_stats['failed_contact'] += 1
                                 self.logger.warning(f"Error fetching contact {contact_id}: {e}")
                                 # Continue with original contact data
                 
@@ -247,6 +258,14 @@ class IntercomSDKService:
                 self.logger.warning(f"Failed to enrich conversation {conv.get('id')}: {e}")
                 # Add the original conversation if enrichment fails
                 enriched_conversations.append(conv)
+        
+        # Log enrichment statistics
+        success_rate = (enrichment_stats['successful'] / enrichment_stats['attempted'] * 100) if enrichment_stats['attempted'] > 0 else 0
+        self.logger.info(
+            f"Contact enrichment complete: {enrichment_stats['successful']}/{enrichment_stats['attempted']} successful "
+            f"({success_rate:.1f}%), {enrichment_stats['failed_contact']} contact failures, "
+            f"{enrichment_stats['failed_segments']} segment failures"
+        )
         
         return enriched_conversations
     
