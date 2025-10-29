@@ -1141,6 +1141,7 @@ function runAnalysis() {
     const testDataCount = document.getElementById('testDataCount');
     const verboseLogging = document.getElementById('verboseLogging');
     const auditMode = document.getElementById('auditMode');
+    const aiModel = document.getElementById('aiModel');
     
     if (!analysisType || !timePeriod || !dataSource || !outputFormat) {
         console.error('Missing required form elements');
@@ -1153,6 +1154,7 @@ function runAnalysis() {
     const sourceValue = dataSource.value;
     const filterValue = taxonomyFilter ? taxonomyFilter.value : '';
     const formatValue = outputFormat.value;
+    const aiModelValue = aiModel ? aiModel.value : 'openai';
     const isTestMode = testMode ? testMode.checked : false;
     const testCount = testDataCount ? testDataCount.value : '100';
     const isVerbose = verboseLogging ? verboseLogging.checked : false;
@@ -1290,6 +1292,11 @@ function runAnalysis() {
     // Add audit trail mode
     if (isAuditMode) {
         flags['--audit-trail'] = true;
+    }
+    
+    // Add AI model selection
+    if (aiModelValue) {
+        flags['--ai-model'] = aiModelValue;
     }
     
     // Validate flags against schema

@@ -921,6 +921,12 @@ if HAS_FASTAPI:
                     <option value="gamma">Gamma Presentation</option>
                 </select>
                 
+                <label>AI Model:</label>
+                <select id="aiModel">
+                    <option value="openai" selected>ChatGPT (GPT-4o) - Faster, Good Quality</option>
+                    <option value="claude">Claude (Sonnet 3.5) - Slower, Higher Quality</option>
+                </select>
+                
                 <!-- Test Mode Options -->
                 <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
                     <label style="display: flex; align-items: center; cursor: pointer;">

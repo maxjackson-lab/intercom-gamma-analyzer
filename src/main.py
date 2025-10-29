@@ -2254,8 +2254,10 @@ async def run_pattern_analysis(pattern: str, start_date: datetime, end_date: dat
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
+                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze billing conversations (refunds, invoices, credits, discounts)."""
     if verbose:
         setup_verbose_logging()
@@ -2278,8 +2280,10 @@ def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optiona
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def analyze_product(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
+                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze product conversations (export issues, bugs, feature requests)."""
     if verbose:
         setup_verbose_logging()
@@ -2302,8 +2306,10 @@ def analyze_product(days: int, start_date: Optional[datetime], end_date: Optiona
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                 generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
+                 generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze sites conversations (domain, publishing, education)."""
     if verbose:
         setup_verbose_logging()
@@ -2326,8 +2332,10 @@ def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-               generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
+               generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze API conversations (authentication, integration, performance)."""
     if verbose:
         setup_verbose_logging()
@@ -2351,8 +2359,10 @@ def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[da
 @click.option('--max-conversations', type=int, help='Maximum conversations per category')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
 def analyze_all_categories(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                          generate_gamma: bool, parallel: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False):
+                          generate_gamma: bool, parallel: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze all 4 main categories (Billing, Product, Sites, API)."""
     if verbose:
         setup_verbose_logging()
@@ -4254,7 +4264,9 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool, verbose: bool = False, audit_trail: bool = False):
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use for analysis (overrides config setting)')
+def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool, verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Generate coaching-focused report with individual agent performance and taxonomy breakdown"""
     if verbose:
         setup_verbose_logging()
