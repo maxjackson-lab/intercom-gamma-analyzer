@@ -239,12 +239,22 @@ Output: Segmented conversations with agent type labels
             unknown = []
             
             agent_distribution = {
-                'escalated': [],
-                'horatio': [],
-                'boldr': [],
-                'fin_ai': [],
-                'fin_resolved': [],  # Paid customers resolved by Fin only
-                'unknown': []
+                # ESCALATION CHAINS (with Fin)
+                'fin_only': [],                    # Just Fin, no escalation
+                'fin_to_horatio': [],              # Fin → Horatio
+                'fin_to_boldr': [],                # Fin → Boldr
+                'fin_to_vendor_to_senior': [],     # Fin → Vendor → Senior Staff
+                'fin_to_senior_direct': [],        # Fin → Senior Staff (direct)
+                
+                # DIRECT HUMAN (no Fin)
+                'escalated': [],     # Senior staff only (no Fin)
+                'horatio': [],       # Horatio only (no Fin)
+                'boldr': [],         # Boldr only (no Fin)
+                
+                # LEGACY/COMPATIBILITY
+                'fin_resolved': [],  # Legacy: Fin AI resolved (paid tier) - map to fin_only
+                'fin_ai': [],        # Fin AI only (free tier)
+                'unknown': []        # Unclassified
             }
             
             for conv in conversations:
@@ -345,16 +355,27 @@ Output: Segmented conversations with agent type labels
             
             self.logger.info(f"Language distribution: {sorted_languages}")
             
-            # Extract paid_fin_resolved conversations (paid customers resolved by Fin only)
-            paid_fin_resolved_conversations = agent_distribution['fin_resolved']
+            # Extract Fin-only conversations (paid customers resolved by Fin without escalation)
+            paid_fin_only_conversations = agent_distribution['fin_only'] + agent_distribution['fin_resolved']  # Include legacy
 
-            # Calculate paid_human_conversations (paid customers who escalated to human)
-            paid_human_conversations = (
+            # Calculate escalated conversations (Fin → Human chains)
+            fin_escalated_conversations = (
+                agent_distribution['fin_to_horatio'] +
+                agent_distribution['fin_to_boldr'] +
+                agent_distribution['fin_to_vendor_to_senior'] +
+                agent_distribution['fin_to_senior_direct']
+            )
+            
+            # Calculate direct human conversations (no Fin involvement)
+            direct_human_conversations = (
                 agent_distribution['escalated'] +
                 agent_distribution['horatio'] +
                 agent_distribution['boldr'] +
                 agent_distribution['unknown']
             )
+            
+            # Total paid human-involved conversations
+            paid_human_conversations = fin_escalated_conversations + direct_human_conversations
 
             # Prepare result
             result_data = {
@@ -463,21 +484,47 @@ Output: Segmented conversations with agent type labels
                 execution_time=execution_time
             )
     
+    def _starts_with_finn(self, conv: Dict) -> bool:
+        """
+        Check if conversation starts with "Finn" (reliable indicator of Fin AI).
+        
+        All Fin conversations in your Intercom data start with "Finn" (two n's).
+        This is a reliable fallback when ai_agent_participated might be missing.
+        """
+        source_body = conv.get('source', {}).get('body', '').strip()
+        
+        # Check first line/paragraph for "Finn"
+        if source_body.lower().startswith('finn'):
+            return True
+        
+        # Also check first conversation part
+        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        if parts:
+            first_part = parts[0].get('body', '').strip()
+            if first_part.lower().startswith('finn'):
+                return True
+        
+        return False
+    
     def _classify_conversation(self, conv: Dict) -> tuple[str, str]:
         """
-        Classify conversation by customer tier and agent type.
+        Classify conversation by customer tier and ESCALATION CHAIN.
+
+        Detects three escalation scenarios:
+        1. JUST FIN - Resolved by Fin alone, no human involvement
+        2. FIN → VENDOR - Started with Fin, escalated to Horatio or Boldr
+        3. FIN → VENDOR → SENIOR - Started with Fin, escalated through vendor to senior staff
 
         Tier-first classification:
         1. Extract customer tier (Free/Pro/Plus/Ultra)
         2. Free tier → always ('free', 'fin_ai') regardless of admin assignment
-        3. Paid tier → check for admin involvement:
-           - Has admin reply → ('paid', <agent_type>)
-           - AI-only → ('paid', 'fin_resolved')
+        3. Paid tier → detect escalation chain
 
         Returns:
             (segment, agent_type) where:
             segment: 'paid', 'free', 'unknown'
-            agent_type: 'escalated', 'horatio', 'boldr', 'fin_ai', 'fin_resolved', 'unknown'
+            agent_type: 'fin_only', 'fin_to_horatio', 'fin_to_boldr', 'fin_to_vendor_to_senior', 
+                       'escalated', 'horatio', 'boldr', 'fin_ai', 'unknown'
         """
         conv_id = conv.get('id', 'unknown')
 
@@ -497,9 +544,10 @@ Output: Segmented conversations with agent type labels
                 )
             return ('free', 'fin_ai')
 
-        # Step 3: Paid tier classification (only reached for PRO/PLUS/ULTRA)
+        # Step 3: Paid tier classification - DETECT ESCALATION CHAIN
         text = conv.get('full_text', '').lower()
         ai_participated = conv.get('ai_agent_participated', False)
+        starts_with_finn = self._starts_with_finn(conv)
         
         # Get ai_agent object with resolution data (per Intercom SDK spec)
         ai_agent = conv.get('ai_agent', {})
@@ -547,61 +595,104 @@ Output: Segmented conversations with agent type labels
         else:
             self.logger.debug(f"Conversation {conv_id}: No admin emails found (might be Support Sal or bot)")
         
-        # Check for escalation (senior staff)
+        # DETECT ESCALATION CHAIN - Don't return early, collect ALL agents
+        has_senior_staff = False
+        has_horatio = False
+        has_boldr = False
+        
+        # Check for senior staff (Dae-Ho, Max, Hilary)
         for name in self.escalation_names:
             if name in text:
-                return 'paid', 'escalated'
+                has_senior_staff = True
+                self.logger.info(f"✓ Senior staff detected via text: {name}")
+                break
             # Also check admin emails
             for email in admin_emails:
                 if name.replace(' ', '.') in email or name.replace(' ', '') in email:
-                    return 'paid', 'escalated'
+                    has_senior_staff = True
+                    self.logger.info(f"✓ Senior staff detected via email: {email}")
+                    break
         
-        # Check for Tier 1 agents via email domains (use contains for flexibility)
+        # Check for vendor agents (Horatio/Boldr) via email domains
         for email in admin_emails:
             self.logger.debug(f"Checking email for agent type: {email}")
             
-            # Horatio detection (multiple possible domain formats)
+            # Horatio detection
             if 'horatio' in email or 'hirehoratio' in email:
+                has_horatio = True
                 self.logger.info(f"✓ Horatio agent detected via email: {email}")
-                return 'paid', 'horatio'
-            # Boldr detection (multiple possible domain formats)
-            if 'boldr' in email:
-                self.logger.info(f"✓ Boldr agent detected via email: {email}")
-                return 'paid', 'boldr'
-            # Gamma internal staff (not already caught by escalation check)
-            if 'gamma.app' in email:
-                # Check if it's one of the known senior staff (already checked above)
-                # If we're here, it's other Gamma staff, treat as human support
-                self.logger.info(f"✓ Gamma staff detected via email: {email}")
-                return 'paid', 'unknown'
             
-            # Log emails that don't match patterns (for debugging)
-            if email and '@' in email:
-                self.logger.debug(f"  Email '{email}' doesn't match known agent patterns")
+            # Boldr detection
+            if 'boldr' in email:
+                has_boldr = True
+                self.logger.info(f"✓ Boldr agent detected via email: {email}")
         
-        # Fallback to text patterns
-        if re.search(self.tier1_patterns['horatio'], text):
+        # Fallback to text patterns for vendor detection
+        if not has_horatio and re.search(self.tier1_patterns['horatio'], text):
+            has_horatio = True
             self.logger.debug(f"Horatio agent detected via text pattern in conversation {conv_id}")
-            return 'paid', 'horatio'
         
-        if re.search(self.tier1_patterns['boldr'], text):
+        if not has_boldr and re.search(self.tier1_patterns['boldr'], text):
+            has_boldr = True
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
+        
+        # NOW DETERMINE ESCALATION CHAIN based on detected agents
+        # Check if Fin was involved (ai_participated OR starts with "Finn")
+        fin_involved = ai_participated or starts_with_finn
+        
+        if fin_involved:
+            self.logger.info(f"Conversation {conv_id}: Fin detected (ai_participated={ai_participated}, starts_with_finn={starts_with_finn})")
+        
+        # ESCALATION CHAIN LOGIC:
+        # Priority: Senior Staff > Vendor > Fin Only
+        
+        if fin_involved:
+            # Scenario 3: FIN → VENDOR → SENIOR STAFF
+            if has_senior_staff and (has_horatio or has_boldr):
+                vendor = 'horatio' if has_horatio else 'boldr'
+                self.logger.info(f"🔥 ESCALATION CHAIN: Fin → {vendor.title()} → Senior Staff")
+                return 'paid', 'fin_to_vendor_to_senior'
+            
+            # Scenario 2A: FIN → HORATIO
+            elif has_horatio:
+                self.logger.info(f"📈 ESCALATION CHAIN: Fin → Horatio")
+                return 'paid', 'fin_to_horatio'
+            
+            # Scenario 2B: FIN → BOLDR
+            elif has_boldr:
+                self.logger.info(f"📈 ESCALATION CHAIN: Fin → Boldr")
+                return 'paid', 'fin_to_boldr'
+            
+            # Edge case: Fin → Senior Staff directly (skip vendor)
+            elif has_senior_staff:
+                self.logger.info(f"🔥 ESCALATION CHAIN: Fin → Senior Staff (direct)")
+                return 'paid', 'fin_to_senior_direct'
+            
+            # Scenario 1: JUST FIN (no escalation)
+            else:
+                self.logger.info(f"✅ NO ESCALATION: Just Fin")
+                return 'paid', 'fin_only'
+        
+        # NO FIN DETECTED - Direct human handling
+        # This means conversation went straight to human without Fin
+        if has_senior_staff:
+            self.logger.info(f"Human only: Senior staff (no Fin)")
+            return 'paid', 'escalated'
+        elif has_horatio:
+            self.logger.info(f"Human only: Horatio (no Fin)")
+            return 'paid', 'horatio'
+        elif has_boldr:
+            self.logger.info(f"Human only: Boldr (no Fin)")
             return 'paid', 'boldr'
         
         # Check for admin response in conversation parts
-        # CRITICAL: Support Sal (Fin AI) appears as author.type='admin', not 'bot'!
-        # Strategy: 
-        # 1. Check if escalated to known human (Horatio/Boldr already checked above)
-        # 2. If ai_participated but no human found, check resolution criteria
-        # 3. Only mark fin_resolved if it meets ALL criteria from is_fin_resolved()
-        
         parts_list = conv.get('conversation_parts', {}).get('conversation_parts', [])
         admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
         bot_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'bot']
         has_admin_response = len(admin_parts) > 0
         has_bot_response = len(bot_parts) > 0
         
-        # If ai_agent_participated=True → Fin was involved
+        # Legacy fallback for old data without clear Fin markers
         if ai_participated:
             # PRIMARY: Use Intercom's official ai_agent.resolution_state field (SDK spec)
             # This is the authoritative source from Intercom about whether Fin resolved it
