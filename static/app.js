@@ -1131,6 +1131,8 @@ function validateAgainstSchema(analysisTypeKey, flags) {
 
 // Form-based analysis execution handler
 function runAnalysis() {
+    console.log('🚀 runAnalysis() called');
+    
     // Get form values with validation
     const analysisType = document.getElementById('analysisType');
     const timePeriod = document.getElementById('timePeriod');
@@ -1143,8 +1145,21 @@ function runAnalysis() {
     const auditMode = document.getElementById('auditMode');
     const aiModel = document.getElementById('aiModel');
     
+    console.log('📋 Form elements:', {
+        analysisType: analysisType?.value,
+        timePeriod: timePeriod?.value,
+        dataSource: dataSource?.value,
+        outputFormat: outputFormat?.value,
+        aiModel: aiModel?.value
+    });
+    
     if (!analysisType || !timePeriod || !dataSource || !outputFormat) {
-        console.error('Missing required form elements');
+        console.error('❌ Missing required form elements:', {
+            analysisType: !!analysisType,
+            timePeriod: !!timePeriod,
+            dataSource: !!dataSource,
+            outputFormat: !!outputFormat
+        });
         alert('Form elements not found. Please refresh the page.');
         return;
     }
@@ -1300,7 +1315,12 @@ function runAnalysis() {
     }
     
     // Validate flags against schema
+    console.log('🔍 Validating against schema key:', schemaKey);
+    console.log('📝 Flags to validate:', flags);
+    
     const validation = validateAgainstSchema(schemaKey, flags);
+    console.log('✔️ Validation result:', validation);
+    
     if (!validation.valid) {
         alert(`Validation Error: ${validation.error}`);
         console.error('❌ Validation failed:', validation.error);
@@ -1327,11 +1347,25 @@ function runAnalysis() {
     const terminalContainer = document.getElementById('terminalContainer');
     const tabNavigation = document.getElementById('tabNavigation');
     
+    console.log('🖥️ Terminal container:', terminalContainer ? 'found' : 'NOT FOUND');
+    console.log('📑 Tab navigation:', tabNavigation ? 'found' : 'NOT FOUND');
+    
     if (terminalContainer) terminalContainer.style.display = 'block';
     if (tabNavigation) tabNavigation.style.display = 'flex';
     
     // Execute the command using the existing executeCommand function
-    executeCommand(command, args);
+    console.log('🎯 About to call executeCommand with:', {command, args});
+    
+    try {
+        executeCommand(command, args).catch(error => {
+            console.error('❌ executeCommand error:', error);
+            alert(`Execution failed: ${error.message}`);
+        });
+        console.log('✅ executeCommand called successfully');
+    } catch (error) {
+        console.error('❌ Failed to call executeCommand:', error);
+        alert(`Failed to start execution: ${error.message}`);
+    }
 }
 
 // Update agent results in Summary tab
