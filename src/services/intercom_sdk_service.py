@@ -402,7 +402,7 @@ class IntercomSDKService:
         
         search_query = SingleFilterSearchRequest(
             field="admin_assignee_id",
-            operator=SingleFilterSearchRequestOperator.EQUALS,
+            operator="=",  # Equals operator (string literal)
             value=agent_id
         )
         
