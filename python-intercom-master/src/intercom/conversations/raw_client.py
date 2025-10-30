@@ -578,11 +578,18 @@ class RawConversationsClient:
                 if _parsed_response.pages is not None and _parsed_response.pages.next is not None:
                     _parsed_next = _parsed_response.pages.next.starting_after
                     _has_next = _parsed_next is not None and _parsed_next != ""
-                    _get_next = lambda: self.search(
-                        query=query,
-                        pagination=pagination,
-                        request_options=request_options,
-                    )
+                    _per_page = getattr(pagination, "per_page", None)
+
+                    def _get_next() -> SyncPager[Conversation]:
+                        return self.search(
+                            query=query,
+                            pagination=StartingAfterPaging(
+                                per_page=_per_page,
+                                starting_after=_parsed_next,
+                            ),
+                            request_options=request_options,
+                        )
+
                 return SyncPager(
                     has_next=_has_next, items=_items, get_next=_get_next, response=BaseHttpResponse(response=_response)
                 )
@@ -1246,6 +1253,7 @@ class AsyncRawConversationsClient:
                     _has_next = _parsed_next is not None and _parsed_next != ""
 
                     async def _get_next():
+                        """Fetch the next page using the server-provided starting_after cursor."""
                         return await self.list(
                             per_page=per_page,
                             starting_after=_parsed_next,
@@ -1730,6 +1738,7 @@ class AsyncRawConversationsClient:
                 if _parsed_response.pages is not None and _parsed_response.pages.next is not None:
                     _parsed_next = _parsed_response.pages.next.starting_after
                     _has_next = _parsed_next is not None and _parsed_next != ""
+                    _per_page = getattr(pagination, "per_page", None)
 
                     async def _get_next():
                         # FIX: Use the next cursor from API response, not original pagination

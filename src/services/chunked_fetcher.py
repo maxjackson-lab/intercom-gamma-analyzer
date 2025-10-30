@@ -29,18 +29,25 @@ class ChunkedFetcher:
     - Memory-efficient processing
     """
     
-    def __init__(self, intercom_service: Optional[IntercomSDKService] = None, enable_preprocessing: bool = True):
+    def __init__(
+        self,
+        intercom_service: Optional[IntercomSDKService] = None,
+        enable_preprocessing: bool = True,
+        chunk_timeout: int = 120,
+    ):
         """
         Initialize chunked fetcher.
         
         Args:
             intercom_service: Intercom SDK service instance (optional)
             enable_preprocessing: Whether to preprocess conversations (default: True)
+            chunk_timeout: Maximum seconds to wait for a single chunk fetch
         """
         self.intercom_service = intercom_service or IntercomSDKService()
         self.preprocessor = DataPreprocessor() if enable_preprocessing else None
         self.enable_preprocessing = enable_preprocessing
         self.logger = logging.getLogger(__name__)
+        self.chunk_timeout = chunk_timeout
         
         # Chunking configuration
         self.max_days_per_chunk = 7  # Process max 7 days at a time
@@ -49,13 +56,16 @@ class ChunkedFetcher:
         
         self.logger.info(
             f"Initialized ChunkedFetcher with max_days_per_chunk={self.max_days_per_chunk}, "
-            f"preprocessing={'enabled' if enable_preprocessing else 'disabled'}"
+            f"preprocessing={'enabled' if enable_preprocessing else 'disabled'}, "
+            f"chunk_timeout={self.chunk_timeout}s"
         )
     
     async def fetch_conversations_chunked(
         self, 
         start_date: datetime, 
         end_date: datetime,
+        max_conversations: Optional[int] = None,
+        # Deprecated alias for backward compatibility
         max_pages: Optional[int] = None,
         progress_callback: Optional[callable] = None
     ) -> List[Dict[str, Any]]:
@@ -65,7 +75,7 @@ class ChunkedFetcher:
         Args:
             start_date: Start date for fetching
             end_date: End date for fetching
-            max_pages: Maximum pages per chunk (for testing)
+            max_conversations: Maximum conversations per chunk (for testing)
             progress_callback: Optional callback for progress updates
             
         Returns:
@@ -80,19 +90,39 @@ class ChunkedFetcher:
         total_days = (end_date - start_date).days + 1
         self.logger.info(f"Total date range: {total_days} days")
         
-        # Determine chunking strategy
-        if total_days <= self.max_days_per_chunk:
-            # Small range - fetch in one chunk
-            return await self._fetch_single_chunk(start_date, end_date, max_pages, progress_callback)
-        else:
-            # Large range - fetch in daily chunks
-            return await self._fetch_daily_chunks(start_date, end_date, max_pages, progress_callback)
+        # Prefer explicit max_conversations, fallback to deprecated max_pages
+        if max_conversations is None and max_pages is not None:
+            self.logger.warning("Parameter 'max_pages' is deprecated; use 'max_conversations' instead.")
+            max_conversations = max_pages
+
+        try:
+            # Determine chunking strategy
+            if total_days <= self.max_days_per_chunk:
+                # Small range - fetch in one chunk
+                return await asyncio.wait_for(
+                    self._fetch_single_chunk(start_date, end_date, max_conversations, progress_callback),
+                    timeout=self.chunk_timeout,
+                )
+            else:
+                # Large range - fetch in daily chunks
+                return await asyncio.wait_for(
+                    self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback),
+                    timeout=self.chunk_timeout,
+                )
+        except asyncio.TimeoutError as exc:
+            self.logger.error(
+                "Chunk fetch exceeded %ss timeout window; aborting chunked fetch", self.chunk_timeout
+            )
+            raise FetchError("Chunk fetch timed out") from exc
+        except asyncio.CancelledError:
+            self.logger.warning("Chunked fetch cancelled by caller; propagating cancellation")
+            raise
     
     async def _fetch_single_chunk(
         self, 
         start_date: datetime, 
         end_date: datetime,
-        max_pages: Optional[int],
+        max_conversations: Optional[int],
         progress_callback: Optional[callable]
     ) -> List[Dict[str, Any]]:
         """Fetch a single chunk of conversations."""
@@ -100,7 +130,7 @@ class ChunkedFetcher:
         
         try:
             conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                start_date, end_date, max_conversations=max_pages
+                start_date, end_date, max_conversations=max_conversations
             )
             
             # Preprocess conversations if enabled
@@ -134,17 +164,20 @@ class ChunkedFetcher:
                 if actual_dates:
                     min_date = min(actual_dates)
                     max_date = max(actual_dates)
-                    self.logger.info(f"📅 Actual date range in fetched data: {min_date.date()} to {max_date.date()}")
+                    self.logger.info(f"Actual date range in fetched data: {min_date.date()} to {max_date.date()}")
                     
                     # Check if dates are outside requested range
                     if min_date.date() < start_date.date() or max_date.date() > end_date.date():
-                        self.logger.warning(f"⚠️  API returned conversations outside requested range!")
+                        self.logger.warning(f"API returned conversations outside requested range!")
                         self.logger.warning(f"   Requested: {start_date.date()} to {end_date.date()}")
                         self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
             
             self.logger.info(f"Single chunk completed: {len(conversations)} conversations")
             return conversations
             
+        except asyncio.CancelledError:
+            self.logger.warning("Single chunk fetch cancelled; propagating cancellation")
+            raise
         except Exception as e:
             self.logger.error(f"Single chunk fetch failed: {e}", exc_info=True)
             raise FetchError(f"Failed to fetch single chunk: {e}") from e
@@ -153,14 +186,14 @@ class ChunkedFetcher:
         self,
         start_date: datetime,
         end_date: datetime,
-        max_pages: Optional[int],
+        max_conversations: Optional[int],
         progress_callback: Optional[callable]
     ) -> List[Dict[str, Any]]:
         """Fetch conversations in daily chunks with deduplication."""
         self.logger.info(f"Fetching daily chunks: {start_date.date()} to {end_date.date()}")
 
         all_conversations = []
-        seen_ids = set()  # Track conversation IDs to prevent duplicates
+        seen_ids: set[str] = set()  # Track conversation IDs to prevent duplicates
         current_date = start_date
         total_days = (end_date - start_date).days + 1
         processed_days = 0
@@ -173,10 +206,26 @@ class ChunkedFetcher:
                 self.logger.info(f"Processing chunk: {current_date.date()} to {chunk_end.date()}")
 
                 try:
-                    # Fetch chunk
-                    chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                        current_date, chunk_end, max_conversations=max_pages
+                    # Fetch chunk with timeout protection
+                    chunk_conversations = await asyncio.wait_for(
+                        self.intercom_service.fetch_conversations_by_date_range(
+                            current_date, chunk_end, max_conversations=max_conversations
+                        ),
+                        timeout=self.chunk_timeout,
                     )
+
+                    # Deduplicate: only add conversations we haven't seen
+                    duplicates = 0
+                    for conv in chunk_conversations:
+                        conv_id = conv.get('id')
+                        if conv_id and conv_id not in seen_ids:
+                            seen_ids.add(conv_id)
+                            all_conversations.append(conv)
+                        elif conv_id:
+                            duplicates += 1
+                    
+                    if duplicates > 0:
+                        self.logger.warning(f"Skipped {duplicates} duplicate conversations in this chunk")
 
                     # Debug: Check actual date range of fetched chunk
                     if chunk_conversations:
@@ -192,28 +241,23 @@ class ChunkedFetcher:
                         if actual_dates:
                             min_date = min(actual_dates)
                             max_date = max(actual_dates)
-                            self.logger.info(f"📅 Chunk actual dates: {min_date.date()} to {max_date.date()}")
+                            self.logger.info(f"Chunk actual dates: {min_date.date()} to {max_date.date()}")
 
                             # Check if dates are outside requested range
                             if min_date.date() < current_date.date() or max_date.date() > chunk_end.date():
-                                self.logger.warning(f"⚠️  API returned conversations outside chunk range!")
+                                self.logger.warning(f"API returned conversations outside chunk range!")
                                 self.logger.warning(f"   Requested: {current_date.date()} to {chunk_end.date()}")
                                 self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
 
-                    # Deduplicate: only add conversations we haven't seen
-                    duplicates = 0
-                    for conv in chunk_conversations:
-                        conv_id = conv.get('id')
-                        if conv_id and conv_id not in seen_ids:
-                            seen_ids.add(conv_id)
-                            all_conversations.append(conv)
-                        elif conv_id:
-                            duplicates += 1
-                    
-                    if duplicates > 0:
-                        self.logger.warning(f"⚠️  Skipped {duplicates} duplicate conversations in this chunk")
-                    
+                    # Track processed days for progress reporting
                     processed_days += (chunk_end - current_date).days + 1
+
+                    # Check absolute cap
+                    if max_conversations and len(all_conversations) >= max_conversations:
+                        self.logger.warning(
+                            f"ChunkedFetcher cap reached — returning first {max_conversations} conversations."
+                        )
+                        return all_conversations[:max_conversations]
 
                     # Update progress
                     if progress_callback:
@@ -229,6 +273,23 @@ class ChunkedFetcher:
                     # Move to next chunk
                     current_date = chunk_end + timedelta(days=1)
 
+                except asyncio.TimeoutError as exc:
+                    self.logger.error(
+                        "Chunk fetch for %s-%s exceeded %s s timeout",
+                        current_date.date(),
+                        chunk_end.date(),
+                        self.chunk_timeout,
+                    )
+                    raise FetchError(
+                        f"Chunk fetch timed out for range {current_date.date()}-{chunk_end.date()}"
+                    ) from exc
+                except asyncio.CancelledError:
+                    self.logger.warning(
+                        "Chunk fetch cancelled by caller while processing %s-%s",
+                        current_date.date(),
+                        chunk_end.date(),
+                    )
+                    raise
                 except Exception as e:
                     self.logger.error(f"Chunk fetch failed for {current_date.date()}-{chunk_end.date()}: {e}")
 
@@ -260,8 +321,8 @@ class ChunkedFetcher:
             if all_dates:
                 final_min = min(all_dates)
                 final_max = max(all_dates)
-                self.logger.info(f"📊 FINAL: Fetched {len(all_conversations)} conversations")
-                self.logger.info(f"📅 FINAL: Date range {final_min.date()} to {final_max.date()}")
+                self.logger.info(f"FINAL: Fetched {len(all_conversations)} conversations")
+                self.logger.info(f"FINAL: Date range {final_min.date()} to {final_max.date()}")
                 self.logger.info(f"   Requested: {start_date.date()} to {end_date.date()}")
         else:
             self.logger.info(f"Daily chunking completed: {len(all_conversations)} total conversations")
