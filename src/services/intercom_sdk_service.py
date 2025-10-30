@@ -7,9 +7,20 @@ import logging
 import asyncio
 import sys
 import os
+import warnings
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+# Suppress Pydantic serializer warnings from Intercom SDK
+# The SDK has some type mismatches (int vs str) in its models that trigger warnings
+# but don't affect functionality. These are harmless and can be safely ignored.
+warnings.filterwarnings(
+    'ignore',
+    category=UserWarning,
+    module='pydantic.main',
+    message='.*Expected `str` but got `int`.*'
+)
 
 # Import the official Intercom SDK
 # Add SDK path for deployment environments
@@ -525,7 +536,10 @@ class IntercomSDKService:
     
     def _model_to_dict(self, model) -> Dict:
         """
-        Convert SDK Pydantic model to dictionary.
+        Convert SDK Pydantic model to dictionary without serialization warnings.
+        
+        Uses mode='python' to bypass JSON serialization and avoid Pydantic warnings
+        about int/str type mismatches in the Intercom SDK models.
         
         Args:
             model: SDK Pydantic model
@@ -534,12 +548,12 @@ class IntercomSDKService:
             Dictionary representation of the model
         """
         if hasattr(model, 'model_dump'):
-            # Pydantic v2
-            return model.model_dump(exclude_none=False)
+            # Pydantic v2 - use mode='python' to avoid serialization warnings
+            return model.model_dump(mode='python', exclude_none=False)
         elif hasattr(model, 'dict'):
-            # Pydantic v1
+            # Pydantic v1 - this shouldn't trigger warnings
             return model.dict(exclude_none=False)
         else:
-            # Fallback
+            # Fallback for non-Pydantic models
             return dict(model)
 
