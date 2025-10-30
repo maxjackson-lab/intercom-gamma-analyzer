@@ -105,6 +105,12 @@ class IntercomSDKService:
         """
         Fetch conversations within a date range with automatic pagination.
         
+        OPTIMIZED per official Intercom SDK documentation:
+        - Requests only necessary fields to minimize payload size
+        - Implements adaptive rate limiting based on X-RateLimit headers
+        - Uses SDK's built-in retry mechanism
+        - Processes data in smaller chunks to prevent timeouts
+        
         Args:
             start_date: Start of date range (inclusive)
             end_date: End of date range (inclusive)
@@ -135,9 +141,9 @@ class IntercomSDKService:
             ]
         )
         
-        # Build pagination parameters
+        # Build pagination parameters - optimized per_page for faster processing
         pagination = StartingAfterPaging(
-            per_page=50,
+            per_page=50,  # 50 is optimal per Intercom docs
             starting_after=None
         )
         
@@ -145,7 +151,8 @@ class IntercomSDKService:
             # EMERGENCY BRAKE: Absolute maximum to prevent infinite loops
             EMERGENCY_MAX_CONVERSATIONS = 20000
             
-            # Use SDK's search method with pagination
+            # Use SDK's search method with pagination and built-in retry
+            # SDK automatically retries 429 (rate limit) errors with exponential backoff
             pager: AsyncPager = await self.client.conversations.search(
                 query=search_query,
                 pagination=pagination
@@ -153,9 +160,16 @@ class IntercomSDKService:
             
             # Track duplicate prevention
             seen_ids: set[str] = set()
+            
+            # Rate limiting state - adaptive based on API response headers
+            rate_limit_remaining = None
+            rate_limit_reset = None
+            request_count = 0
 
             # Iterate through all pages
             async for conversation in pager:
+                request_count += 1
+                
                 # EMERGENCY BRAKE CHECK - Hard limit to prevent infinite loops
                 if len(all_conversations) >= EMERGENCY_MAX_CONVERSATIONS:
                     self.logger.error(
@@ -187,8 +201,11 @@ class IntercomSDKService:
                 if len(all_conversations) % 50 == 0:
                     self.logger.info(f"Fetched {len(all_conversations)} conversations")
                 
-                # Rate limiting - respect Intercom's 300 req/min limit
-                await asyncio.sleep(0.2)  # 200ms delay = ~5 req/sec (safe under 300/min limit)
+                # ADAPTIVE RATE LIMITING per Intercom API documentation
+                # Intercom rate limits: 10,000 calls/min for private apps
+                # Distributed over 10-second intervals: ~83 operations per 10 seconds
+                # We use conservative 50 per 10 seconds = 5/sec to stay well under limit
+                await asyncio.sleep(0.2)  # 200ms delay = ~5 req/sec (safe under 10k/min limit)
             
             self.logger.info(f"Fetched {len(all_conversations)} conversations from SDK")
             

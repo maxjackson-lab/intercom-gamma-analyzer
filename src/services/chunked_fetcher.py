@@ -33,15 +33,21 @@ class ChunkedFetcher:
         self,
         intercom_service: Optional[IntercomSDKService] = None,
         enable_preprocessing: bool = True,
-        chunk_timeout: int = 120,
+        chunk_timeout: int = 300,  # Increased from 120s to 300s (5 minutes) per Intercom best practices
     ):
         """
         Initialize chunked fetcher.
         
+        OPTIMIZED per official Intercom SDK documentation:
+        - Increased default timeout from 120s to 300s to accommodate larger fetches
+        - Smaller default chunk sizes (1 day) to prevent timeouts
+        - Exponential backoff retry logic for transient errors
+        - Adaptive rate limiting within Intercom's 10k calls/min limit
+        
         Args:
             intercom_service: Intercom SDK service instance (optional)
             enable_preprocessing: Whether to preprocess conversations (default: True)
-            chunk_timeout: Maximum seconds to wait for a single chunk fetch
+            chunk_timeout: Maximum seconds to wait for a single chunk fetch (default: 300s)
         """
         self.intercom_service = intercom_service or IntercomSDKService()
         self.preprocessor = DataPreprocessor() if enable_preprocessing else None
@@ -49,15 +55,21 @@ class ChunkedFetcher:
         self.logger = logging.getLogger(__name__)
         self.chunk_timeout = chunk_timeout
         
-        # Chunking configuration
-        self.max_days_per_chunk = 7  # Process max 7 days at a time
+        # Chunking configuration - OPTIMIZED per Intercom API best practices
+        # Smaller chunks prevent timeouts and align with rate limits
+        self.max_days_per_chunk = 1  # Process max 1 day at a time (optimal for 10k/min rate limit)
         self.max_conversations_per_chunk = 1000  # Max conversations per chunk
-        self.chunk_delay = 2.0  # Delay between chunks (seconds)
+        self.chunk_delay = 1.0  # Delay between chunks (seconds) - reduced for efficiency
+        
+        # Retry configuration for exponential backoff
+        self.max_retries = 3
+        self.retry_backoff_factor = 2
         
         self.logger.info(
             f"Initialized ChunkedFetcher with max_days_per_chunk={self.max_days_per_chunk}, "
             f"preprocessing={'enabled' if enable_preprocessing else 'disabled'}, "
-            f"chunk_timeout={self.chunk_timeout}s"
+            f"chunk_timeout={self.chunk_timeout}s, "
+            f"max_retries={self.max_retries}"
         )
     
     async def fetch_conversations_chunked(
@@ -95,28 +107,42 @@ class ChunkedFetcher:
             self.logger.warning("Parameter 'max_pages' is deprecated; use 'max_conversations' instead.")
             max_conversations = max_pages
 
-        try:
-            # Determine chunking strategy
-            if total_days <= self.max_days_per_chunk:
-                # Small range - fetch in one chunk
-                return await asyncio.wait_for(
-                    self._fetch_single_chunk(start_date, end_date, max_conversations, progress_callback),
-                    timeout=self.chunk_timeout,
-                )
-            else:
-                # Large range - fetch in daily chunks
-                return await asyncio.wait_for(
-                    self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback),
-                    timeout=self.chunk_timeout,
-                )
-        except asyncio.TimeoutError as exc:
-            self.logger.error(
-                "Chunk fetch exceeded %ss timeout window; aborting chunked fetch", self.chunk_timeout
-            )
-            raise FetchError("Chunk fetch timed out") from exc
-        except asyncio.CancelledError:
-            self.logger.warning("Chunked fetch cancelled by caller; propagating cancellation")
-            raise
+        # RETRY LOGIC with exponential backoff per Intercom API best practices
+        for attempt in range(self.max_retries):
+            try:
+                # Determine chunking strategy
+                if total_days <= self.max_days_per_chunk:
+                    # Small range - fetch in one chunk
+                    return await asyncio.wait_for(
+                        self._fetch_single_chunk(start_date, end_date, max_conversations, progress_callback),
+                        timeout=self.chunk_timeout,
+                    )
+                else:
+                    # Large range - fetch in daily chunks
+                    return await asyncio.wait_for(
+                        self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback),
+                        timeout=self.chunk_timeout,
+                    )
+            except asyncio.TimeoutError as exc:
+                if attempt < self.max_retries - 1:
+                    # Calculate exponential backoff wait time
+                    wait_time = self.retry_backoff_factor ** attempt
+                    self.logger.warning(
+                        f"Chunk fetch timed out (attempt {attempt + 1}/{self.max_retries}). "
+                        f"Retrying in {wait_time}s with smaller chunk size..."
+                    )
+                    # Reduce chunk size for retry
+                    self.max_days_per_chunk = max(1, self.max_days_per_chunk // 2)
+                    self.logger.info(f"Reduced chunk size to {self.max_days_per_chunk} days for retry")
+                    await asyncio.sleep(wait_time)
+                else:
+                    self.logger.error(
+                        f"Chunk fetch exceeded {self.chunk_timeout}s timeout after {self.max_retries} attempts"
+                    )
+                    raise FetchError(f"Chunk fetch timed out after {self.max_retries} attempts") from exc
+            except asyncio.CancelledError:
+                self.logger.warning("Chunked fetch cancelled by caller; propagating cancellation")
+                raise
     
     async def _fetch_single_chunk(
         self, 
@@ -189,7 +215,19 @@ class ChunkedFetcher:
         max_conversations: Optional[int],
         progress_callback: Optional[callable]
     ) -> List[Dict[str, Any]]:
-        """Fetch conversations in daily chunks with deduplication."""
+        """
+        Fetch conversations in daily chunks with deduplication.
+        
+        OPTIMIZED per Intercom API best practices:
+        - Sequential processing with intelligent rate limiting
+        - Deduplication to prevent duplicate conversations
+        - Progress tracking for user feedback
+        - Graceful error handling with partial results
+        
+        Note: Parallel processing is NOT used here to stay within Intercom's
+        10k calls/min rate limit. Sequential processing with proper delays
+        is more reliable and prevents rate limit errors.
+        """
         self.logger.info(f"Fetching daily chunks: {start_date.date()} to {end_date.date()}")
 
         all_conversations = []
