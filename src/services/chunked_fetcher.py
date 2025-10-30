@@ -241,11 +241,15 @@ class ChunkedFetcher:
                 # Calculate chunk end date
                 # For 1-day chunks: need to extend from start of day to end of day
                 # Add max_days_per_chunk - 1 to get number of full days in chunk
-                # Then set to end of that day (23:59:59)
+                # Then set to end of that day (23:59:59) while preserving timezone
                 chunk_end_date = current_date + timedelta(days=self.max_days_per_chunk - 1)
-                chunk_end = min(chunk_end_date.replace(hour=23, minute=59, second=59), end_date)
+                chunk_end = min(
+                    chunk_end_date.replace(hour=23, minute=59, second=59, microsecond=999999),
+                    end_date
+                )
 
                 self.logger.info(f"Processing chunk: {current_date.date()} to {chunk_end.date()}")
+                self.logger.debug(f"  Chunk timestamps: {current_date} to {chunk_end}")
 
                 try:
                     # Fetch chunk with timeout protection
