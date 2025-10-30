@@ -140,6 +140,9 @@ class IntercomSDKService:
         )
         
         try:
+            # 🚨 EMERGENCY BRAKE: Absolute maximum to prevent infinite loops
+            EMERGENCY_MAX_CONVERSATIONS = 20000
+            
             # Use SDK's search method with pagination
             pager: AsyncPager = await self.client.conversations.search(
                 query=search_query,
@@ -148,6 +151,14 @@ class IntercomSDKService:
             
             # Iterate through all pages
             async for conversation in pager:
+                # 🚨 EMERGENCY BRAKE CHECK
+                if len(all_conversations) >= EMERGENCY_MAX_CONVERSATIONS:
+                    self.logger.error(
+                        f"🚨 EMERGENCY BRAKE: Hit {EMERGENCY_MAX_CONVERSATIONS} conversations! "
+                        f"This is likely a bug. Stopping fetch to prevent runaway process."
+                    )
+                    break
+                
                 if max_conversations and len(all_conversations) >= max_conversations:
                     self.logger.info(f"Reached max conversations limit: {max_conversations}")
                     break
