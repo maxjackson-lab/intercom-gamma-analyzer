@@ -272,6 +272,90 @@ The tool automatically generates professional Gamma presentations with:
 - **Image integration** and visual enhancements
 - **Export options** for different formats
 
+## 🧪 **Verification & Diagnostic Scripts**
+
+The tool includes verification scripts to help operators validate date calculations, API filters, and conversation counts:
+
+### **1. Verify Date Calculations** (`scripts/verify_date_calculation.py`)
+Prints Pacific and UTC timestamps with expected API filter windows to verify date boundary inclusion.
+
+```bash
+# Verify a single date
+python scripts/verify_date_calculation.py --date 2024-05-15
+
+# Verify a date range
+python scripts/verify_date_calculation.py --start-date 2024-05-01 --end-date 2024-05-31
+
+# Verify current date
+python scripts/verify_date_calculation.py --date today
+```
+
+**Output includes:**
+- Pacific and UTC timestamp conversions
+- Unix timestamp values for API filters
+- Expected boundary inclusion behavior
+- Example conversation timestamps and their inclusion status
+
+### **2. Test API Date Filters** (`scripts/test_api_date_filter.py`)
+Calls `fetch_conversations_by_date_range()` for tight windows and validates that returned conversations match the requested date range.
+
+```bash
+# Test a single date
+python scripts/test_api_date_filter.py --date 2024-05-15
+
+# Test a tight date range (3 days)
+python scripts/test_api_date_filter.py --start-date 2024-05-01 --end-date 2024-05-03
+
+# Test with conversation limit (faster testing)
+python scripts/test_api_date_filter.py --start-date 2024-05-15 --end-date 2024-05-15 --max 100
+```
+
+**Output includes:**
+- Requested vs actual date ranges in results
+- Boundary validation (earliest/latest conversations)
+- Detection of conversations outside requested range
+- Sample timestamps from fetched data
+- Distribution by day
+
+### **3. Diagnose Conversation Counts** (`scripts/diagnose_conversation_count.py`)
+Estimates counts over date ranges using `get_conversation_count()` and compares with chunked fetching to verify consistency.
+
+```bash
+# Diagnose last 7 days
+python scripts/diagnose_conversation_count.py --days 7
+
+# Diagnose last 30 days (skip fetch for speed)
+python scripts/diagnose_conversation_count.py --days 30 --skip-fetch
+
+# Diagnose specific date range
+python scripts/diagnose_conversation_count.py --start-date 2024-05-01 --end-date 2024-05-31
+
+# Diagnose with fetch limit (faster)
+python scripts/diagnose_conversation_count.py --days 7 --max 500
+```
+
+**Output includes:**
+- API count vs fetched count comparison
+- Discrepancy percentage and analysis
+- Possible explanations for differences
+- Date range validation in fetched data
+- Daily distribution with deviation from average
+
+### **Quick Operator Checks**
+
+Use these commands for routine verification:
+
+```bash
+# Quick check: Verify today's date calculation
+python scripts/verify_date_calculation.py --date today
+
+# Quick check: Test API filter for today (limited fetch)
+python scripts/test_api_date_filter.py --date today --max 50
+
+# Quick check: Compare counts for last 7 days (skip full fetch)
+python scripts/diagnose_conversation_count.py --days 7 --skip-fetch
+```
+
 ## 🚀 **Advanced Usage**
 
 ### **Custom Prompts**
