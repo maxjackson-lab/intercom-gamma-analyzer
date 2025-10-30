@@ -91,3 +91,4 @@ The fix was tested with:
 - `scripts/test_pydantic_warnings.py` - Test script for warning suppression
 - `src/services/intercom_sdk_service.py` - Main fix location
 
+

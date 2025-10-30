@@ -1732,9 +1732,15 @@ class AsyncRawConversationsClient:
                     _has_next = _parsed_next is not None and _parsed_next != ""
 
                     async def _get_next():
+                        # FIX: Use the next cursor from API response, not original pagination
+                        from intercom.types import StartingAfterPaging
+                        next_pagination = StartingAfterPaging(
+                            per_page=pagination.per_page if pagination else 50,
+                            starting_after=_parsed_next
+                        )
                         return await self.search(
                             query=query,
-                            pagination=pagination,
+                            pagination=next_pagination,
                             request_options=request_options,
                         )
 

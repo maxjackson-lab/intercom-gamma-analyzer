@@ -169,3 +169,4 @@ This fix ensures:
 - The actual data queried covers exactly 7 complete 24-hour periods in Pacific time
 - Client-side filtering in `intercom_sdk_service.py` ensures no conversations outside the range are included
 
+

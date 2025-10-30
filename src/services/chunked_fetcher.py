@@ -156,10 +156,11 @@ class ChunkedFetcher:
         max_pages: Optional[int],
         progress_callback: Optional[callable]
     ) -> List[Dict[str, Any]]:
-        """Fetch conversations in daily chunks."""
+        """Fetch conversations in daily chunks with deduplication."""
         self.logger.info(f"Fetching daily chunks: {start_date.date()} to {end_date.date()}")
 
         all_conversations = []
+        seen_ids = set()  # Track conversation IDs to prevent duplicates
         current_date = start_date
         total_days = (end_date - start_date).days + 1
         processed_days = 0
@@ -199,7 +200,19 @@ class ChunkedFetcher:
                                 self.logger.warning(f"   Requested: {current_date.date()} to {chunk_end.date()}")
                                 self.logger.warning(f"   Received: {min_date.date()} to {max_date.date()}")
 
-                    all_conversations.extend(chunk_conversations)
+                    # Deduplicate: only add conversations we haven't seen
+                    duplicates = 0
+                    for conv in chunk_conversations:
+                        conv_id = conv.get('id')
+                        if conv_id and conv_id not in seen_ids:
+                            seen_ids.add(conv_id)
+                            all_conversations.append(conv)
+                        elif conv_id:
+                            duplicates += 1
+                    
+                    if duplicates > 0:
+                        self.logger.warning(f"⚠️  Skipped {duplicates} duplicate conversations in this chunk")
+                    
                     processed_days += (chunk_end - current_date).days + 1
 
                     # Update progress

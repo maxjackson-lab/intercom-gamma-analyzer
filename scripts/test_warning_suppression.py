@@ -57,3 +57,4 @@ print("\n" + "="*80)
 print("✅ Test complete - if you didn't see Pydantic warnings above, it's working!")
 print("="*80)
 
+
