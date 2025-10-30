@@ -18,7 +18,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 warnings.filterwarnings(
     'ignore',
     category=UserWarning,
-    module='pydantic.main',
+    message='.*Pydantic serializer warnings.*'
+)
+warnings.filterwarnings(
+    'ignore',
+    category=UserWarning,
     message='.*Expected `str` but got `int`.*'
 )
 

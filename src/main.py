@@ -18,6 +18,11 @@ from typing import Optional, Dict, List, Any
 # Suppress urllib3 SSL warning
 warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL 1.1.1+')
 
+# Suppress Pydantic serializer warnings from Intercom SDK
+# The SDK has type mismatches (int vs str) that trigger harmless warnings
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Pydantic serializer warnings.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Expected.*but got.*serialized value.*')
+
 import click
 from rich.console import Console
 from rich.panel import Panel

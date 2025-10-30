@@ -7,9 +7,14 @@ import os
 import sys
 import json
 import asyncio
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
+
+# Suppress Pydantic serializer warnings from Intercom SDK
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Pydantic serializer warnings.*')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*Expected.*but got.*serialized value.*')
 
 # Verify Python path setup
 print(f"🔧 PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not set')}")
