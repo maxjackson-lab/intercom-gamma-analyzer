@@ -494,27 +494,29 @@ For each conversation:
                 })
         
         # Ensure 100% coverage: If no topics detected, assign "Unknown/unresponsive"
-        # Enhanced with diagnostic logging
+        # This should be RARE (<5%) - only for truly unclassifiable conversations
         if not detected:
             text_length = len(text)
             has_attrs = bool(attributes)
             has_tags = bool(tags)
             
             # ALWAYS log Unknown assignments to help diagnose issues
+            # These should be rare - if seeing many, keywords need expansion
             self.logger.warning(
-                f"⚠️ NO TOPICS DETECTED for {conv_id}:"
+                f"⚠️ NO TOPICS DETECTED for {conv_id} - TRUE UNKNOWN (should be rare!):"
             )
             self.logger.warning(f"   Text length: {text_length} chars")
             self.logger.warning(f"   Custom attributes: {attributes}")
             self.logger.warning(f"   Tags: {tags}")
             if text_length > 0:
                 self.logger.warning(f"   Text preview: {text[:150]}...")
+                self.logger.warning(f"   💡 If this looks classifiable, add keywords!")
             else:
-                self.logger.warning(f"   ❌ TEXT IS EMPTY!")
+                self.logger.warning(f"   ❌ TEXT IS EMPTY - legitimate unknown")
             
             detected.append({
                 'topic': 'Unknown/unresponsive',
-                'method': 'keyword',  # Keep as 'keyword' for compatibility with detection_methods dict
+                'method': 'fallback',  # Mark as fallback, not keyword detection
                 'confidence': 0.3
             })
         

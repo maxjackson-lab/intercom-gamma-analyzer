@@ -240,14 +240,10 @@ class TaxonomyManager:
                 ]
             ),
             
-            "Unknown": Category(
-                name="Unknown",
-                description="Unclassified or unresponsive conversations",
-                keywords=["unknown", "unclassified", "unresponsive", "unclear"],
-                subcategories=[
-                    Subcategory("Unknown", "Unclassified conversations", ["unknown", "unclear", "unclassified"])
-                ]
-            ),
+            # NOTE: "Unknown" removed from detectable categories
+            # It should ONLY be used as fallback when no other topics match
+            # Otherwise conversations mentioning "unclear" get tagged as Unknown
+            # even when they're clearly about Billing, Product, etc.
             
             "Workspace": Category(
                 name="Workspace",
