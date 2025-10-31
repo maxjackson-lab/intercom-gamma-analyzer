@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
 from src.services.quote_translator import QuoteTranslator
+from src.utils.conversation_utils import extract_conversation_text
 
 logger = logging.getLogger(__name__)
 
@@ -275,9 +276,8 @@ Selection criteria:
         else:
             return 0.0  # No customer message = not usable
         
-        # Matches sentiment keywords (with None check)
-        text = conv.get('full_text') or ''
-        text = text.lower()
+        # Matches sentiment keywords (extract actual conversation text)
+        text = extract_conversation_text(conv, clean_html=True).lower()
         
         if 'hate' in sentiment.lower() and 'hate' in text:
             score += 2.0

@@ -15,6 +15,7 @@ from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
+from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +216,8 @@ For each conversation:
                         matched_count = 0
                         for conv in conversations:
                             conv_id = conv.get('id', 'unknown')
-                            text = conv.get('full_text', '').lower()
+                            # Extract actual conversation text
+                            text = extract_conversation_text(conv, clean_html=True).lower()
                             
                             # Check if any keyword matches
                             if any(keyword in text for keyword in topic_keywords):
@@ -311,7 +313,9 @@ For each conversation:
         attributes = conv.get('custom_attributes', {})
         tags = [tag.get('name', tag) if isinstance(tag, dict) else tag 
                 for tag in conv.get('tags', {}).get('tags', [])]
-        text = conv.get('full_text', '').lower()
+        
+        # Extract actual conversation text using utility function
+        text = extract_conversation_text(conv, clean_html=True).lower()
         
         for topic_name, config in self.topics.items():
             # Method 1: Check Intercom attribute
@@ -324,7 +328,7 @@ For each conversation:
                     })
                     continue  # Don't check keywords if attribute matched
             
-            # Method 2: Check keywords
+            # Method 2: Check keywords in actual conversation text
             keyword_matches = sum(1 for keyword in config['keywords'] if keyword in text)
             
             if keyword_matches > 0:
@@ -356,7 +360,8 @@ For each conversation:
         # Build prompt
         conv_summaries = []
         for i, conv in enumerate(sample, 1):
-            customer_msgs = conv.get('customer_messages', [])
+            # Extract customer messages using utility function
+            customer_msgs = extract_customer_messages(conv, clean_html=True)
             if customer_msgs:
                 conv_summaries.append(f"{i}. {customer_msgs[0][:200]}")
         

@@ -20,6 +20,7 @@ from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, Confiden
 from src.utils.ai_client_helper import get_ai_client
 from src.services.fin_escalation_analyzer import FinEscalationAnalyzer, is_fin_resolved, has_knowledge_gap
 from src.models.analysis_models import FinAnalysisPayload
+from src.utils.conversation_utils import extract_customer_messages
 
 logger = logging.getLogger(__name__)
 
@@ -506,7 +507,9 @@ Calculate tier-specific metrics:
             'knowledge_gap_examples': [
                 {
                     'id': c.get('id'),
-                    'preview': c.get('customer_messages', [''])[0][:100] if c.get('customer_messages') else 'No preview available',
+                    'preview': (extract_customer_messages(c, clean_html=True)[0][:100] 
+                              if extract_customer_messages(c, clean_html=True) 
+                              else 'No preview available'),
                     'intercom_url': self._build_intercom_url(c.get('id'))
                 }
                 for c in knowledge_gaps[:3]
