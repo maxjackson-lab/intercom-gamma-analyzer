@@ -201,11 +201,8 @@ class IntercomSDKService:
                 if len(all_conversations) % 50 == 0:
                     self.logger.info(f"Fetched {len(all_conversations)} conversations")
                 
-                # ADAPTIVE RATE LIMITING per Intercom API documentation
-                # Intercom rate limits: 10,000 calls/min for private apps
-                # Distributed over 10-second intervals: ~83 operations per 10 seconds
-                # We use conservative 50 per 10 seconds = 5/sec to stay well under limit
-                await asyncio.sleep(0.2)  # 200ms delay = ~5 req/sec (safe under 10k/min limit)
+                # NOTE: SDK handles rate limiting automatically by retrying 429 errors
+                # No manual sleep needed - let the SDK do its job!
             
             self.logger.info(f"Fetched {len(all_conversations)} conversations from SDK")
             

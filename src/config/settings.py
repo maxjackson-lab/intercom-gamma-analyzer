@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     intercom_base_url: str = Field("https://api.intercom.io", env="INTERCOM_BASE_URL")
     intercom_api_version: str = Field("2.14", env="INTERCOM_API_VERSION")
     intercom_rate_limit_buffer: int = Field(10, env="INTERCOM_RATE_LIMIT_BUFFER")
-    intercom_timeout: int = Field(30, env="INTERCOM_TIMEOUT")
+    intercom_timeout: int = Field(300, env="INTERCOM_TIMEOUT")  # 5 minutes per request (SDK default is 60s)
     intercom_max_retries: int = Field(3, env="INTERCOM_MAX_RETRIES")
     
     # OpenAI Settings
