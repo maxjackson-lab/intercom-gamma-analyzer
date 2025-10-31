@@ -17,6 +17,8 @@ from collections import defaultdict
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
 from src.utils.conversation_utils import extract_conversation_text
+from src.utils.subcategory_mapper import SubcategoryMapper
+from src.config.taxonomy import TaxonomyManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,12 @@ class SubTopicDetectionAgent(BaseAgent):
         # Honor the agent's model choice by setting it on the client
         if hasattr(self.ai_client, 'model'):
             self.ai_client.model = self.model
+        
+        # Initialize SubcategoryMapper for clean taxonomy mapping
+        taxonomy_manager = TaxonomyManager()
+        self.subcategory_mapper = SubcategoryMapper(taxonomy_manager)
+        
+        logger.info("SubTopicDetectionAgent initialized with SubcategoryMapper")
     
     def get_agent_specific_instructions(self) -> str:
         """Sub-topic detection agent specific instructions"""
@@ -242,16 +250,53 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
     
     def _detect_tier2_subtopics(self, conversations: List[Dict], tier1_topic: str) -> Dict[str, Dict[str, Any]]:
         """
-        Extract Tier 2 sub-topics from Intercom structured data
+        Extract Tier 2 sub-topics using CLEAN hierarchical mapping to Hilary's taxonomy.
         
-        Tracks source origin for each sub-topic (Comment 3) and filters custom attributes (Comment 4).
+        Uses SubcategoryMapper to:
+        - Map SDK values to canonical Hilary taxonomy names
+        - Deduplicate: refund, Refund, Refund - Requests → "Refund"
+        - Filter out off-topic items (only shows subcategories in Hilary's taxonomy)
+        - Preserve source tracking for transparency
         
         Args:
             conversations: Conversations for this Tier 1 topic
-            tier1_topic: The Tier 1 topic name
+            tier1_topic: The Tier 1 topic name (e.g., "Billing")
             
         Returns:
             Dict of subtopic_name -> {'volume': int, 'percentage': float, 'source': str, 'sources': list}
+        """
+        self.logger.info(f"Extracting CLEAN Tier 2 subcategories for {tier1_topic} using SubcategoryMapper...")
+        
+        # Use SubcategoryMapper for clean hierarchical extraction
+        result = self.subcategory_mapper.extract_hierarchical_subcategories(
+            tier1_topic,
+            conversations
+        )
+        
+        # Convert to expected format
+        subtopic_dict = {}
+        for subcat in result['subcategories']:
+            subtopic_dict[subcat['name']] = {
+                'volume': subcat['count'],
+                'percentage': subcat['percentage'],
+                'source': subcat['sources'][0] if subcat['sources'] else 'unknown',  # Primary source
+                'sources': subcat['sources'],  # All sources
+                'raw_names_merged': subcat.get('raw_names', [])  # Show what was deduplicated
+            }
+        
+        self.logger.info(
+            f"   ✅ {tier1_topic}: Found {len(subtopic_dict)} CLEAN subcategories "
+            f"(filtered and deduplicated from {result.get('raw_count', 'unknown')} raw items)"
+        )
+        
+        return subtopic_dict
+    
+    def _detect_tier2_subtopics_OLD_SCATTER_SHOT(self, conversations: List[Dict], tier1_topic: str) -> Dict[str, Dict[str, Any]]:
+        """
+        OLD SCATTER SHOT METHOD - REPLACED BY CLEAN MAPPER ABOVE
+        
+        This method grabbed everything from everywhere creating messy output.
+        Kept for reference but no longer used.
         """
         # Track subtopic -> {count: int, sources: set}
         subtopic_data = defaultdict(lambda: {'count': 0, 'sources': set()})
