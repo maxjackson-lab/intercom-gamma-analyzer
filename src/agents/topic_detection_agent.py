@@ -271,7 +271,14 @@ For each conversation:
                 
                 if topic not in detection_methods:
                     detection_methods[topic] = {'attribute': 0, 'keyword': 0}
-                detection_methods[topic][assignment['method']] += 1
+                
+                # Handle method safely (in case of unexpected values)
+                method = assignment.get('method', 'keyword')
+                if method in detection_methods[topic]:
+                    detection_methods[topic][method] += 1
+                else:
+                    # Unknown method type - count as keyword
+                    detection_methods[topic]['keyword'] += 1
             
             # DEBUG: Log detection method breakdown
             self.logger.info("📊 Topic Detection Method Breakdown:")
@@ -516,8 +523,8 @@ For each conversation:
             
             detected.append({
                 'topic': 'Unknown/unresponsive',
-                'method': 'fallback',  # Mark as fallback, not keyword detection
-                'confidence': 0.3
+                'method': 'keyword',  # Use 'keyword' for compatibility, even though it's fallback
+                'confidence': 0.1  # Very low confidence - true unknown
             })
         
         return detected
