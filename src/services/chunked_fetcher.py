@@ -76,13 +76,14 @@ class ChunkedFetcher:
         progress_callback: Optional[callable] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch conversations in intelligent chunks.
+        Fetch conversations - SIMPLIFIED, no chunking, no timeouts.
+        Just call the SDK and let it finish.
         
         Args:
             start_date: Start date for fetching
             end_date: End date for fetching
-            max_conversations: Maximum conversations per chunk (for testing)
-            progress_callback: Optional callback for progress updates
+            max_conversations: Maximum conversations (for testing)
+            progress_callback: Optional callback for progress updates (not used)
             
         Returns:
             List of all conversations fetched
@@ -90,31 +91,23 @@ class ChunkedFetcher:
         Raises:
             FetchError: If fetching fails
         """
-        self.logger.info(f"Starting chunked fetch from {start_date.date()} to {end_date.date()}")
+        self.logger.info(f"Fetching conversations from {start_date.date()} to {end_date.date()}")
+        self.logger.info("Using SIMPLE mode - no chunking, no timeouts, just fetch until done")
         
-        # Calculate total days
-        total_days = (end_date - start_date).days + 1
-        self.logger.info(f"Total date range: {total_days} days")
-        
-        # Prefer explicit max_conversations, fallback to deprecated max_pages
-        if max_conversations is None and max_pages is not None:
-            self.logger.warning("Parameter 'max_pages' is deprecated; use 'max_conversations' instead.")
-            max_conversations = max_pages
-
-        # NO TIMEOUT NEEDED - let it run naturally like pre-SDK version
-        # The SDK handles rate limiting (5 req/sec) and retries automatically
-        # Chunking by day provides natural progress checkpoints
         try:
-            # Determine chunking strategy
-            if total_days <= self.max_days_per_chunk:
-                # Small range - fetch in one chunk
-                return await self._fetch_single_chunk(start_date, end_date, max_conversations, progress_callback)
-            else:
-                # Large range - fetch in daily chunks
-                return await self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback)
-        except asyncio.CancelledError:
-            self.logger.warning("Chunked fetch cancelled by caller; propagating cancellation")
-            raise
+            # Just fetch - let the SDK handle everything
+            conversations = await self.intercom_service.fetch_conversations_by_date_range(
+                start_date, 
+                end_date, 
+                max_conversations=max_conversations
+            )
+            
+            self.logger.info(f"✅ Fetched {len(conversations)} conversations")
+            return conversations
+            
+        except Exception as e:
+            self.logger.error(f"❌ Fetch failed: {e}")
+            raise FetchError(f"Failed to fetch conversations: {e}") from e
     
     async def _fetch_single_chunk(
         self, 

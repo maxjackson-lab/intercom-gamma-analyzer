@@ -4396,10 +4396,9 @@ async def run_topic_based_analysis_custom(
                 'api': 'Intercom Conversations Search API'
             })
         
-        # SIMPLE FETCHER - no chunking, no timeouts, just works
-        from src.services.simple_fetcher import SimpleFetcher
-        fetcher = SimpleFetcher()
-        conversations = await fetcher.fetch_conversations(start_date, end_date)
+        # ChunkedFetcher now uses simple mode - no chunking, no timeouts
+        fetcher = ChunkedFetcher()
+        conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
         console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
         
         if audit:
