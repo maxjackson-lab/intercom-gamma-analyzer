@@ -33,13 +33,13 @@ class ChunkedFetcher:
         self,
         intercom_service: Optional[IntercomSDKService] = None,
         enable_preprocessing: bool = True,
-        chunk_timeout: int = 300,  # Increased from 120s to 300s (5 minutes) per Intercom best practices
+        chunk_timeout: int = 600,  # Increased to 600s (10 minutes) per chunk to handle high-volume days
     ):
         """
         Initialize chunked fetcher.
         
         OPTIMIZED per official Intercom SDK documentation:
-        - Increased default timeout from 120s to 300s to accommodate larger fetches
+        - Increased default timeout to 600s (10 min) per chunk for high-volume days
         - Smaller default chunk sizes (1 day) to prevent timeouts
         - Exponential backoff retry logic for transient errors
         - Adaptive rate limiting within Intercom's 10k calls/min limit
@@ -47,7 +47,7 @@ class ChunkedFetcher:
         Args:
             intercom_service: Intercom SDK service instance (optional)
             enable_preprocessing: Whether to preprocess conversations (default: True)
-            chunk_timeout: Maximum seconds to wait for a single chunk fetch (default: 300s)
+            chunk_timeout: Maximum seconds to wait for a single chunk fetch (default: 600s)
         """
         self.intercom_service = intercom_service or IntercomSDKService()
         self.preprocessor = DataPreprocessor() if enable_preprocessing else None
@@ -119,10 +119,8 @@ class ChunkedFetcher:
                     )
                 else:
                     # Large range - fetch in daily chunks
-                    return await asyncio.wait_for(
-                        self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback),
-                        timeout=self.chunk_timeout,
-                    )
+                    # NO TIMEOUT HERE - _fetch_daily_chunks handles per-chunk timeouts internally
+                    return await self._fetch_daily_chunks(start_date, end_date, max_conversations, progress_callback)
             except asyncio.TimeoutError as exc:
                 if attempt < self.max_retries - 1:
                     # Calculate exponential backoff wait time
