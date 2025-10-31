@@ -215,6 +215,18 @@ For each conversation:
                     detection_methods[topic] = {'attribute': 0, 'keyword': 0}
                 detection_methods[topic][assignment['method']] += 1
             
+            # DEBUG: Log detection method breakdown
+            self.logger.info("📊 Topic Detection Method Breakdown:")
+            for topic, methods in sorted(detection_methods.items(), key=lambda x: topic_counts[x[0]], reverse=True)[:10]:
+                count = topic_counts[topic]
+                attr_pct = round(methods['attribute'] / count * 100, 1) if count > 0 else 0
+                kw_pct = round(methods['keyword'] / count * 100, 1) if count > 0 else 0
+                self.logger.info(
+                    f"   {topic}: {count} total "
+                    f"(Attribute: {methods['attribute']} [{attr_pct}%], "
+                    f"Keyword: {methods['keyword']} [{kw_pct}%])"
+                )
+            
             # Group conversations by topic
             conversations_by_topic = {}
             for conv in conversations:
@@ -349,6 +361,7 @@ For each conversation:
             List of {topic, method, confidence}
         """
         detected = []
+        conv_id = conv.get('id', 'unknown')
         
         # Get conversation data
         attributes = conv.get('custom_attributes', {})
@@ -358,22 +371,39 @@ For each conversation:
         # Extract actual conversation text using utility function
         text = extract_conversation_text(conv, clean_html=True).lower()
         
+        # DEBUG: Log what we're working with (first 5 convs only to avoid spam)
+        if conv_id.endswith(('0', '1', '2', '3', '4')):  # Sample ~10% of conversations
+            self.logger.debug(f"🔍 Topic Detection Debug for {conv_id}:")
+            self.logger.debug(f"   Custom Attributes: {attributes}")
+            self.logger.debug(f"   Attribute Values: {list(attributes.values()) if attributes else []}")
+            self.logger.debug(f"   Tags: {tags}")
+            self.logger.debug(f"   Text Length: {len(text)} chars")
+            self.logger.debug(f"   Text Preview: {text[:200]}...")
+        
         for topic_name, config in self.topics.items():
             # Method 1: Check Intercom attribute
             if config['attribute']:
                 # FIX: Check if attribute VALUE exists in custom_attributes values OR tags
                 # Previously checked if attribute was a KEY in dict (always false!)
                 attribute_matched = False
+                match_source = None
                 
                 # Check if attribute value is in any of the custom_attributes VALUES
                 if attributes and isinstance(attributes, dict):
-                    attribute_matched = config['attribute'] in attributes.values()
+                    if config['attribute'] in attributes.values():
+                        attribute_matched = True
+                        match_source = 'custom_attributes.values'
                 
                 # Also check tags list
                 if not attribute_matched and config['attribute'] in tags:
                     attribute_matched = True
+                    match_source = 'tags'
                 
                 if attribute_matched:
+                    # DEBUG: Log successful attribute match (sample only)
+                    if conv_id.endswith(('0', '1', '2', '3', '4')):
+                        self.logger.debug(f"   ✅ MATCHED '{topic_name}' via {match_source}: '{config['attribute']}'")
+                    
                     detected.append({
                         'topic': topic_name,
                         'method': 'attribute',
@@ -382,10 +412,16 @@ For each conversation:
                     continue  # Don't check keywords if attribute matched
             
             # Method 2: Check keywords in actual conversation text
-            keyword_matches = sum(1 for keyword in config['keywords'] if keyword in text)
+            matched_keywords = [kw for kw in config['keywords'] if kw in text]
+            keyword_matches = len(matched_keywords)
             
             if keyword_matches > 0:
                 confidence = min(0.9, 0.5 + (keyword_matches * 0.15))
+                
+                # DEBUG: Log keyword matches (sample only)
+                if conv_id.endswith(('0', '1', '2', '3', '4')):
+                    self.logger.debug(f"   ✅ MATCHED '{topic_name}' via keywords: {matched_keywords[:3]} ({keyword_matches} total)")
+                
                 detected.append({
                     'topic': topic_name,
                     'method': 'keyword',
@@ -395,15 +431,21 @@ For each conversation:
         # Ensure 100% coverage: If no topics detected, assign "Unknown/unresponsive"
         # Enhanced with diagnostic logging
         if not detected:
-            conv_id = conv.get('id', 'unknown')
             text_length = len(text)
             has_attrs = bool(attributes)
             has_tags = bool(tags)
             
-            self.logger.debug(
-                f"No topics detected for {conv_id}: "
-                f"text_length={text_length}, has_attrs={has_attrs}, has_tags={has_tags}"
+            # ALWAYS log Unknown assignments to help diagnose issues
+            self.logger.warning(
+                f"⚠️ NO TOPICS DETECTED for {conv_id}:"
             )
+            self.logger.warning(f"   Text length: {text_length} chars")
+            self.logger.warning(f"   Custom attributes: {attributes}")
+            self.logger.warning(f"   Tags: {tags}")
+            if text_length > 0:
+                self.logger.warning(f"   Text preview: {text[:150]}...")
+            else:
+                self.logger.warning(f"   ❌ TEXT IS EMPTY!")
             
             detected.append({
                 'topic': 'Unknown/unresponsive',
