@@ -166,33 +166,56 @@ Analyze ALL {len(topic_conversations)} conversations to generate your insight.
             
             self.logger.info(f"TopicSentimentAgent: Analyzing sentiment for '{topic_name}' ({len(topic_conversations)} conversations)")
             
-            # Build prompt
-            prompt = self.build_prompt(context)
+            # OPTIMIZATION: Try to use CX Score explanations first (faster, no LLM cost)
+            cx_score_insights = self._extract_cx_score_insights(topic_conversations)
             
-            # Generate sentiment insight
-            insight = await self.ai_client.generate_analysis(prompt)
-            insight = insight.strip().strip('"').strip()  # Clean up formatting
+            if cx_score_insights and len(cx_score_insights) >= 3:
+                # We have enough CX Score data - use it instead of LLM
+                self.logger.info(f"   💰 Using {len(cx_score_insights)} CX Score explanations (no LLM needed)")
+                
+                insight = self._synthesize_cx_scores(cx_score_insights, topic_name)
+                token_count = 0  # No LLM used
+                method = 'cx_score'
+                sources = [f"Intercom CX Score explanations ({len(cx_score_insights)} conversations)"]
+                confidence = 0.9  # High confidence - real support team analysis
+                confidence_level = ConfidenceLevel.HIGH
+                
+            else:
+                # Not enough CX Score data - use LLM analysis (original path)
+                self.logger.info(f"   🤖 Using LLM analysis (only {len(cx_score_insights)} CX Scores available)")
+                
+                # Build prompt
+                prompt = self.build_prompt(context)
+                
+                # Generate sentiment insight
+                insight = await self.ai_client.generate_analysis(prompt)
+                insight = insight.strip().strip('"').strip()  # Clean up formatting
+                
+                token_count = len(prompt) // 4 + len(insight) // 4
+                method = 'llm'
+                sources = [f"{len(topic_conversations)} conversations about {topic_name}"]
+                
+                # Calculate confidence based on sample size
+                confidence = min(1.0, 0.6 + (len(topic_conversations) / 100))
+                confidence_level = (ConfidenceLevel.HIGH if len(topic_conversations) >= 50
+                                  else ConfidenceLevel.MEDIUM if len(topic_conversations) >= 20
+                                  else ConfidenceLevel.LOW)
             
             # Prepare result
             result_data = {
                 'topic': topic_name,
                 'sentiment_insight': insight,
                 'conversation_count': len(topic_conversations),
-                'sample_quotes': self._extract_sample_quotes(topic_conversations[:5])
+                'sample_quotes': self._extract_sample_quotes(topic_conversations[:5]),
+                'method': method,  # Track which method was used
+                'cx_scores_available': len(cx_score_insights)
             }
             
             self.validate_output(result_data)
             
-            # Calculate confidence based on sample size
-            confidence = min(1.0, 0.6 + (len(topic_conversations) / 100))  # More convos = higher confidence
-            confidence_level = (ConfidenceLevel.HIGH if len(topic_conversations) >= 50
-                              else ConfidenceLevel.MEDIUM if len(topic_conversations) >= 20
-                              else ConfidenceLevel.LOW)
-            
             execution_time = (datetime.now() - start_time).total_seconds()
-            token_count = len(prompt) // 4 + len(insight) // 4
             
-            self.logger.info(f"TopicSentimentAgent: Generated insight for '{topic_name}'")
+            self.logger.info(f"TopicSentimentAgent: Generated insight for '{topic_name}' via {method}")
             self.logger.info(f"   Insight: {insight}")
             
             return AgentResult(
@@ -202,7 +225,7 @@ Analyze ALL {len(topic_conversations)} conversations to generate your insight.
                 confidence=confidence,
                 confidence_level=confidence_level,
                 limitations=[f"Based on {len(topic_conversations)} conversations"] if len(topic_conversations) < 20 else [],
-                sources=[f"{len(topic_conversations)} conversations about {topic_name}"],
+                sources=sources,
                 execution_time=execution_time,
                 token_count=token_count
             )
