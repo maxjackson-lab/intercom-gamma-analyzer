@@ -10,6 +10,7 @@ from datetime import datetime
 from src.agents.base_agent import BaseAgent
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.models.canny_models import CannyCrossPlatformInsight
+from src.utils.conversation_utils import extract_conversation_text
 
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,7 @@ class CrossPlatformCorrelationAgent(BaseAgent):
             topics[topic]['sentiment_counts'][sentiment] += 1
             
             # Extract keywords
-            text = conv.get('full_text', '')
+            text = extract_conversation_text(conv, clean_html=True)
             if text:
                 # Simple keyword extraction (first 5 significant words)
                 words = [w.lower() for w in text.split() if len(w) > 4][:5]

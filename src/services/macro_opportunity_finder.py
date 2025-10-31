@@ -525,10 +525,6 @@ class MacroOpportunityFinder:
             source = conversation.get('source', {})
             if isinstance(source, dict) and source.get('body'):
                 text_parts.append(source['body'])
-            
-            # Extract from full_text if available
-            if conversation.get('full_text'):
-                text_parts.append(conversation['full_text'])
         
         return ' '.join(text_parts)
 

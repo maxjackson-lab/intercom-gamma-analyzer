@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Any
 import json
 
 from src.utils.ai_client_helper import get_ai_client
+from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +62,19 @@ class TroubleshootingAnalyzer:
             }
         """
         try:
-            full_text = conversation.get('full_text', '')
-            customer_messages = conversation.get('customer_messages', [])
-            admin_messages = conversation.get('admin_messages', [])
+            # Extract conversation text and messages properly
+            full_text = extract_conversation_text(conversation, clean_html=True)
+            customer_messages = extract_customer_messages(conversation, clean_html=True)
+            
+            # Extract admin messages
+            admin_messages = []
+            parts = conversation.get('conversation_parts', {}).get('conversation_parts', [])
+            for part in parts:
+                author = part.get('author', {})
+                if author.get('type') == 'admin':
+                    body = part.get('body', '').strip()
+                    if body:
+                        admin_messages.append(body)
             
             # Skip if not enough data
             if not full_text or len(admin_messages) == 0:
@@ -366,8 +377,8 @@ Return JSON with this EXACT structure:
     def _is_priority_for_analysis(self, conv: Dict) -> bool:
         """Determine if conversation should be analyzed (focus on escalated/low-CSAT)"""
         # Prioritize escalated conversations
-        if any(name in str(conv.get('full_text', '')).lower() 
-               for name in ['dae-ho', 'max jackson', 'hilary']):
+        text = extract_conversation_text(conv, clean_html=True).lower()
+        if any(name in text for name in ['dae-ho', 'max jackson', 'hilary']):
             return True
         
         # Prioritize low CSAT

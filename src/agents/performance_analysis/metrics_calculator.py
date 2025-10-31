@@ -5,6 +5,7 @@ Metrics Calculator Module - Handles performance metrics calculations
 import numpy as np
 from typing import Dict, Any, List
 from datetime import datetime
+from src.utils.conversation_utils import extract_conversation_text
 
 
 class PerformanceMetricsCalculator:
@@ -37,7 +38,7 @@ class PerformanceMetricsCalculator:
         # Escalations (to senior staff)
         escalated = [
             c for c in conversations
-            if any(name in str(c.get('full_text', '')).lower() 
+            if any(name in extract_conversation_text(c, clean_html=True).lower() 
                   for name in ['dae-ho', 'max jackson', 'hilary'])
         ]
         escalation_rate = len(escalated) / len(conversations) if conversations else 0

@@ -16,6 +16,7 @@ from collections import defaultdict
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
+from src.utils.conversation_utils import extract_conversation_text
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +397,7 @@ Emerging themes:"""
                     
                     count = 0
                     for conv in conversations:
-                        text = conv.get('full_text', '').lower()
+                        text = extract_conversation_text(conv, clean_html=True).lower()
                         if any(kw in text for kw in keywords):
                             count += 1
                     

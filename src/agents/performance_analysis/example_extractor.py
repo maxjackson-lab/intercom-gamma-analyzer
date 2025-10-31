@@ -4,6 +4,7 @@ Example Extractor Module - Handles extraction of example conversations
 
 from typing import Dict, Any, List
 from src.config.settings import settings
+from src.utils.conversation_utils import extract_conversation_text
 
 
 class ExampleConversationExtractor:
@@ -38,7 +39,7 @@ class ExampleConversationExtractor:
         # Find examples of escalations
         escalated = [
             c for c in conversations
-            if any(name in str(c.get('full_text', '')).lower() 
+            if any(name in extract_conversation_text(c, clean_html=True).lower() 
                   for name in ['dae-ho', 'max jackson', 'hilary'])
         ]
         if escalated:

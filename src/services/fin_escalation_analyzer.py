@@ -586,10 +586,6 @@ class FinEscalationAnalyzer:
             source = conversation.get('source', {})
             if isinstance(source, dict) and source.get('body'):
                 text_parts.append(source['body'])
-            
-            # Extract from full_text if available
-            if conversation.get('full_text'):
-                text_parts.append(conversation['full_text'])
         
         return ' '.join(text_parts)
 
@@ -734,8 +730,9 @@ def has_knowledge_gap(conversation: Dict[str, Any]) -> bool:
     if is_fin_resolved(conversation):
         return False
     
-    # Extract conversation text and rating
-    text = conversation.get('full_text', '').lower()
+    # Extract conversation text and rating from actual conversation structure
+    from src.utils.conversation_utils import extract_conversation_text
+    text = extract_conversation_text(conversation, clean_html=True).lower()
     
     # Extract rating (handle dict format)
     rating_data = conversation.get('conversation_rating')

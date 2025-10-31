@@ -20,7 +20,7 @@ from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, Confiden
 from src.utils.ai_client_helper import get_ai_client
 from src.services.fin_escalation_analyzer import FinEscalationAnalyzer, is_fin_resolved, has_knowledge_gap
 from src.models.analysis_models import FinAnalysisPayload
-from src.utils.conversation_utils import extract_customer_messages
+from src.utils.conversation_utils import extract_customer_messages, extract_conversation_text
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +405,7 @@ Calculate tier-specific metrics:
                 knowledge_gaps.append(c)
                 
                 # DEBUG logging to show reason
-                text = c.get('full_text', '').lower()
+                text = extract_conversation_text(c, clean_html=True).lower()
                 rating_data = c.get('conversation_rating')
                 if isinstance(rating_data, dict):
                     rating = rating_data.get('rating')
@@ -774,7 +774,7 @@ Insights:"""
             return False
         elif tier_level == 'tier3':
             keywords = subtopic_data.get('keywords', [])
-            text = conv.get('full_text', '').lower()
+            text = extract_conversation_text(conv, clean_html=True).lower()
             # Lowercase keywords for case-insensitive matching
             return any(kw.lower() in text for kw in keywords)
         return False

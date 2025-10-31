@@ -5,6 +5,7 @@ Category Analyzer Module - Handles performance analysis by category
 import numpy as np
 from typing import Dict, Any, List
 from collections import defaultdict
+from src.utils.conversation_utils import extract_conversation_text
 
 
 class CategoryPerformanceAnalyzer:
@@ -45,7 +46,7 @@ class CategoryPerformanceAnalyzer:
             if conv.get('state') == 'closed' and conv.get('count_reopens', 0) == 0:
                 category_metrics[category]['fcr_count'] += 1
             
-            if any(name in str(conv.get('full_text', '')).lower() 
+            if any(name in extract_conversation_text(conv, clean_html=True).lower() 
                   for name in ['dae-ho', 'max jackson', 'hilary']):
                 category_metrics[category]['escalated_count'] += 1
             

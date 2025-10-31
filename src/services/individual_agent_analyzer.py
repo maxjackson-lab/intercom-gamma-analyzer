@@ -21,6 +21,7 @@ from src.services.admin_profile_cache import AdminProfileCache
 from src.services.duckdb_storage import DuckDBStorage
 from src.config.taxonomy import taxonomy_manager
 from src.utils.qa_analyzer import calculate_qa_metrics
+from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,7 @@ class IndividualAgentAnalyzer:
         # Escalations
         escalated = [
             c for c in convs
-            if any(name in str(c.get('full_text', '')).lower() 
+            if any(name in extract_conversation_text(c, clean_html=True).lower() 
                   for name in ['dae-ho', 'max jackson', 'hilary'])
         ]
         escalation_rate = len(escalated) / len(convs) if len(convs) > 0 else 0.0
@@ -483,7 +484,7 @@ class IndividualAgentAnalyzer:
                 if conv.get('state') == 'closed' and conv.get('count_reopens', 0) == 0:
                     category_stats[primary]['fcr_count'] += 1
                 
-                if any(name in str(conv.get('full_text', '')).lower() 
+                if any(name in extract_conversation_text(conv, clean_html=True).lower() 
                       for name in ['dae-ho', 'max jackson', 'hilary']):
                     category_stats[primary]['escalated_count'] += 1
                 
@@ -543,7 +544,7 @@ class IndividualAgentAnalyzer:
                     if conv.get('state') == 'closed' and conv.get('count_reopens', 0) == 0:
                         subcategory_stats[key]['fcr_count'] += 1
                     
-                    if any(name in str(conv.get('full_text', '')).lower() 
+                    if any(name in extract_conversation_text(conv, clean_html=True).lower() 
                           for name in ['dae-ho', 'max jackson', 'hilary']):
                         subcategory_stats[key]['escalated_count'] += 1
                     
@@ -846,8 +847,8 @@ class IndividualAgentAnalyzer:
             conv_id = conv.get('id')
             
             # Extract customer complaint/issue
-            full_text = conv.get('full_text', '')
-            customer_messages = conv.get('customer_messages', [])
+            customer_messages = extract_customer_messages(conv, clean_html=True)
+            full_text = extract_conversation_text(conv, clean_html=True)
             
             # Try to get the main customer complaint (first message or first 200 chars)
             complaint = ""
