@@ -103,6 +103,19 @@ class ChunkedFetcher:
             )
             
             self.logger.info(f"✅ Fetched {len(conversations)} conversations")
+            
+            # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
+            if self.enable_preprocessing and self.preprocessor and conversations:
+                self.logger.info(f"Preprocessing {len(conversations)} conversations...")
+                conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                    conversations,
+                    options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+                )
+                self.logger.info(
+                    f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                    f"{len(preprocess_stats.get('validation_errors', []))} errors"
+                )
+            
             return conversations
             
         except Exception as e:
