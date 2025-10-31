@@ -125,17 +125,18 @@ class IntercomSDKService:
         page_num = 1
         
         # Build the search query with date range filters
+        # Per SDK docs: > means "greater or equal", < means "lower or equal"
         search_query = MultipleFilterSearchRequest(
-            operator="AND",  # String literal, not enum
+            operator="AND",
             value=[
                 SingleFilterSearchRequest(
                     field="created_at",
-                    operator=">=",  # String literal, not enum
+                    operator=">",  # Greater or equal (per SDK docs)
                     value=int(start_date.timestamp())
                 ),
                 SingleFilterSearchRequest(
                     field="created_at",
-                    operator="<=",  # String literal, not enum
+                    operator="<",  # Lower or equal (per SDK docs)
                     value=int(end_date.timestamp())
                 )
             ]
