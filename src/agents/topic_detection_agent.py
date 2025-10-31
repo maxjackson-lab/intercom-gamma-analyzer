@@ -32,9 +32,16 @@ class TopicDetectionAgent(BaseAgent):
         )
         self.ai_client = get_ai_client()
         
-        # Topic definitions (hybrid: attribute + keywords)
-        # Based on official Gamma taxonomy
-        self.topics = {
+        # NEW: Use full TaxonomyManager for rich categorization (13 categories + 100+ subcategories)
+        self.taxonomy_manager = TaxonomyManager()
+        
+        # Build topic definitions from TaxonomyManager
+        # This gives us the full taxonomy instead of the simple list
+        self.topics = self._build_topics_from_taxonomy()
+        
+        # LEGACY: Keep old simple topics as fallback documentation
+        # (not used, but preserved for reference)
+        self.legacy_simple_topics = {
             "Abuse": {
                 "attribute": "Abuse",
                 "keywords": ["abuse", "harmful", "offensive", "inappropriate", "violation", "terms of service", 
