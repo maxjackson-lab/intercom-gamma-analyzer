@@ -32,46 +32,74 @@ class TopicDetectionAgent(BaseAgent):
         self.ai_client = get_ai_client()
         
         # Topic definitions (hybrid: attribute + keywords)
+        # Based on official Gamma taxonomy
         self.topics = {
-            "Credits": {
-                "attribute": "Credits",
-                "keywords": ["credit", "credits", "out of credits", "buy credits", "credit model"],
+            "Abuse": {
+                "attribute": "Abuse",
+                "keywords": ["abuse", "harmful", "offensive", "inappropriate", "violation", "terms of service", 
+                           "not shareable", "link not working", "sharing issue"],
                 "priority": 1
             },
-            "Agent/Buddy": {
-                "attribute": None,
-                "keywords": ["buddy", "agent", "ai assistant", "copilot", "editing"],
-                "priority": 1
-            },
-            "Workspace Templates": {
-                "attribute": "Workspace Templates",
-                "keywords": ["template", "workspace template", "starting point", "template api"],
-                "priority": 1
+            "Account": {
+                "attribute": "Account",
+                "keywords": ["account", "login", "password", "email change", "settings", "access", 
+                           "credits", "account email"],
+                "priority": 2
             },
             "Billing": {
                 "attribute": "Billing",
-                "keywords": ["refund", "cancel", "subscription", "payment", "invoice", "charge"],
+                "keywords": ["invoice", "payment", "subscription", "billing", "charge", "refund", 
+                           "cancel", "payment method", "plan"],
                 "priority": 2
             },
             "Bug": {
                 "attribute": "Bug",
-                "keywords": ["bug", "broken", "not working", "error", "crash", "glitch"],
+                "keywords": ["bug", "error", "glitch", "broken", "not working", "crash", "unexpected"],
                 "priority": 2
             },
-            "Account": {
-                "attribute": "Account",
-                "keywords": ["account", "login", "password", "email change", "settings"],
+            "Chargeback": {
+                "attribute": "Chargeback",
+                "keywords": ["chargeback", "dispute", "unauthorized charge", "contested", "fraudulent"],
+                "priority": 1
+            },
+            "Feedback": {
+                "attribute": "Feedback",
+                "keywords": ["feature request", "suggestion", "improvement", "wish", "would be nice", 
+                           "could you add", "functionality", "doesn't exist"],
                 "priority": 3
             },
-            "API": {
-                "attribute": "API",
-                "keywords": ["api", "integration", "webhook", "developer", "endpoint"],
-                "priority": 3
+            "Partnerships": {
+                "attribute": "Partnerships",
+                "keywords": ["partnership", "collaboration", "integration", "affiliate", "business opportunity",
+                           "partner", "collab"],
+                "priority": 4
+            },
+            "Privacy & Security": {
+                "attribute": "Privacy & Security",
+                "keywords": ["privacy", "security", "data protection", "terms of service", "privacy policy",
+                           "unauthorized access", "breach", "gdpr", "data"],
+                "priority": 1
             },
             "Product Question": {
                 "attribute": "Product Question",
-                "keywords": ["how to", "how do i", "question", "help with"],
-                "priority": 4
+                "keywords": ["how to", "how do i", "question", "help with", "what is", "can i", "feature"],
+                "priority": 3
+            },
+            "Promotions": {
+                "attribute": "Promotions",
+                "keywords": ["discount", "coupon", "promo", "code", "special offer", "deal", "promotion"],
+                "priority": 3
+            },
+            "Unknown/unresponsive": {
+                "attribute": "Unknown/unresponsive",
+                "keywords": ["no response", "unresponsive", "didn't specify", "unclear"],
+                "priority": 5
+            },
+            "Workspace": {
+                "attribute": "Workspace",
+                "keywords": ["workspace", "member", "permission", "team", "workspace settings", 
+                           "invite", "share workspace"],
+                "priority": 2
             }
         }
     
@@ -339,11 +367,11 @@ For each conversation:
                     'confidence': confidence
                 })
         
-        # Ensure 100% coverage: If no topics detected, assign "Other"
+        # Ensure 100% coverage: If no topics detected, assign "Unknown/unresponsive"
         if not detected:
             detected.append({
-                'topic': 'Other',
-                'method': 'fallback',
+                'topic': 'Unknown/unresponsive',
+                'method': 'keyword',  # Use 'keyword' for compatibility
                 'confidence': 0.3
             })
         

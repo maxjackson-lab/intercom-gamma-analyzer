@@ -483,7 +483,13 @@ class SegmentationPayload(BaseModel):
     @validator('agent_distribution')
     def validate_agent_types(cls, v):
         """Ensure only valid agent types are present"""
-        valid_types = {'escalated', 'horatio', 'boldr', 'fin_ai', 'fin_resolved', 'unknown'}
+        valid_types = {
+            # Legacy types
+            'escalated', 'horatio', 'boldr', 'fin_ai', 'fin_resolved', 'unknown',
+            # Escalation chain types (when track_escalations=True)
+            'fin_only', 'fin_to_horatio', 'fin_to_boldr', 
+            'fin_to_senior_direct', 'fin_to_vendor_to_senior'
+        }
         invalid_keys = set(v.keys()) - valid_types
         if invalid_keys:
             raise ValueError(f"Invalid agent types: {invalid_keys}")
