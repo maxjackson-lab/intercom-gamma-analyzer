@@ -446,13 +446,20 @@ For each conversation:
                 attribute_matched = False
                 match_source = None
                 
-                # Check if attribute value is in any of the custom_attributes VALUES
+                # PRIORITY CHECK: Intercom's standard "Reason for contact" field
                 if attributes and isinstance(attributes, dict):
+                    reason_for_contact = attributes.get('Reason for contact')
+                    if reason_for_contact and reason_for_contact == config['attribute']:
+                        attribute_matched = True
+                        match_source = 'custom_attributes[Reason for contact]'
+                
+                # SECONDARY: Check if attribute value is in ANY custom_attributes VALUES
+                if not attribute_matched and attributes and isinstance(attributes, dict):
                     if config['attribute'] in attributes.values():
                         attribute_matched = True
                         match_source = 'custom_attributes.values'
                 
-                # Also check tags list
+                # TERTIARY: Check tags list
                 if not attribute_matched and config['attribute'] in tags:
                     attribute_matched = True
                     match_source = 'tags'
