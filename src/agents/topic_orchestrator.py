@@ -89,8 +89,8 @@ class TopicOrchestrator:
         #Audit trail for detailed narration
         self.audit = audit_trail
         
-        # Disable escalation tracking for topic-based mode (faster, Hilary format doesn't need it)
-        self.segmentation_agent = SegmentationAgent(track_escalations=False)
+        # Enable escalation tracking to track Fin → Vendor → Senior Staff escalations
+        self.segmentation_agent = SegmentationAgent(track_escalations=True)
         self.topic_detection_agent = TopicDetectionAgent()
         self.subtopic_detection_agent = SubTopicDetectionAgent()
         self.topic_sentiment_agent = TopicSentimentAgent()

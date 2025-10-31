@@ -339,6 +339,14 @@ For each conversation:
                     'confidence': confidence
                 })
         
+        # Ensure 100% coverage: If no topics detected, assign "Other"
+        if not detected:
+            detected.append({
+                'topic': 'Other',
+                'method': 'fallback',
+                'confidence': 0.3
+            })
+        
         return detected
     
     async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Tuple[Dict, int]:

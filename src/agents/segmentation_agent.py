@@ -26,6 +26,7 @@ from pydantic import ValidationError
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.models.analysis_models import CustomerTier, SegmentationPayload
 from src.services.fin_escalation_analyzer import is_fin_resolved
+from src.utils.conversation_utils import extract_conversation_text
 
 logger = logging.getLogger(__name__)
 
@@ -581,7 +582,8 @@ Output: Segmented conversations with agent type labels
                 return ('paid', 'unknown')  # Generic paid with human
         
         # DETAILED PATH: Track full escalation chains
-        text = conv.get('full_text', '').lower()
+        # Extract actual conversation text for vendor/staff detection
+        text = extract_conversation_text(conv, clean_html=True).lower()
         ai_participated = conv.get('ai_agent_participated', False)
         starts_with_finn = self._starts_with_finn(conv)
         
