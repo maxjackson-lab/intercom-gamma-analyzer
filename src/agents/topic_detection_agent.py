@@ -16,6 +16,7 @@ from datetime import datetime
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
 from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
+from src.config.taxonomy import TaxonomyManager
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,56 @@ class TopicDetectionAgent(BaseAgent):
                 "priority": 2
             }
         }
+    
+    def _build_topics_from_taxonomy(self) -> Dict:
+        """
+        Build topic definitions from TaxonomyManager for detection.
+        
+        Converts TaxonomyManager's Category objects into the format needed
+        for topic detection while preserving subcategory information.
+        
+        Returns:
+            Dict mapping topic names to {attribute, keywords, priority, subcategories}
+        """
+        topics = {}
+        
+        for category_name, category in self.taxonomy_manager.categories.items():
+            # Extract all keywords from category and subcategories
+            all_keywords = list(category.keywords)  # Category-level keywords
+            
+            # Add subcategory keywords for better detection
+            for subcat in category.subcategories:
+                all_keywords.extend(subcat.keywords)
+            
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_keywords = []
+            for kw in all_keywords:
+                if kw.lower() not in seen:
+                    seen.add(kw.lower())
+                    unique_keywords.append(kw.lower())
+            
+            topics[category_name] = {
+                'attribute': category_name,  # Look for category name in Intercom attributes
+                'keywords': unique_keywords,
+                'priority': 2,  # Default priority
+                'subcategories': [
+                    {
+                        'name': subcat.name,
+                        'description': subcat.description,
+                        'keywords': subcat.keywords,
+                        'confidence_threshold': subcat.confidence_threshold
+                    }
+                    for subcat in category.subcategories
+                ],
+                'category_obj': category  # Keep reference to full category object
+            }
+        
+        self.logger.info(f"Built {len(topics)} topics from TaxonomyManager with subcategories")
+        for topic_name, config in topics.items():
+            self.logger.info(f"   {topic_name}: {len(config['keywords'])} keywords, {len(config['subcategories'])} subcategories")
+        
+        return topics
     
     def get_agent_specific_instructions(self) -> str:
         """Topic detection agent specific instructions"""
