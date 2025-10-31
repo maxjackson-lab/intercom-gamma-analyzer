@@ -221,6 +221,90 @@ Analyze ALL {len(topic_conversations)} conversations to generate your insight.
                 execution_time=execution_time
             )
     
+    def _extract_cx_score_insights(self, conversations: List[Dict]) -> List[str]:
+        """
+        Extract CX Score explanations from Intercom conversations.
+        
+        CX Score explanation contains pre-written sentiment analysis by support team.
+        Example: "The customer expressed negative sentiment about the refund policy..."
+        
+        Args:
+            conversations: List of conversations
+            
+        Returns:
+            List of CX Score explanation strings
+        """
+        cx_scores = []
+        
+        for conv in conversations:
+            custom_attrs = conv.get('custom_attributes', {})
+            if isinstance(custom_attrs, dict):
+                cx_explanation = custom_attrs.get('CX Score explanation')
+                if cx_explanation and isinstance(cx_explanation, str) and len(cx_explanation) > 20:
+                    cx_scores.append(cx_explanation.strip())
+        
+        return cx_scores
+    
+    def _synthesize_cx_scores(self, cx_insights: List[str], topic_name: str) -> str:
+        """
+        Synthesize multiple CX Score insights into one Hilary-style sentence.
+        
+        Args:
+            cx_insights: List of CX Score explanation strings
+            topic_name: Topic being analyzed
+            
+        Returns:
+            One-sentence sentiment insight in Hilary's style
+        """
+        # Extract key sentiment words from CX Scores
+        sentiment_patterns = {
+            'positive': ['positive', 'satisfied', 'happy', 'pleased', 'resolved', 'appreciated', 'helpful', 'clear'],
+            'negative': ['negative', 'frustrated', 'unhappy', 'dissatisfied', 'confused', 'disappointed', 'poor'],
+            'effort': ['high effort', 'multiple', 'repeated', 'prolonged', 'difficulty'],
+            'resolution': ['resolved', 'unresolved', 'escalated', 'failed']
+        }
+        
+        counts = {pattern_type: 0 for pattern_type in sentiment_patterns}
+        
+        for insight in cx_insights:
+            insight_lower = insight.lower()
+            for pattern_type, keywords in sentiment_patterns.items():
+                if any(kw in insight_lower for kw in keywords):
+                    counts[pattern_type] += 1
+        
+        # Build insight based on patterns
+        total = len(cx_insights)
+        
+        # Determine dominant sentiment
+        if counts['negative'] > counts['positive'] * 1.5:
+            base_sentiment = "frustrated"
+        elif counts['positive'] > counts['negative'] * 1.5:
+            base_sentiment = "satisfied"
+        else:
+            base_sentiment = "mixed feelings"
+        
+        # Check for effort patterns
+        if counts['effort'] > total * 0.3:
+            effort_note = "requiring significant effort to resolve"
+        else:
+            effort_note = None
+        
+        # Build Hilary-style sentence
+        if base_sentiment == "frustrated":
+            if counts['resolution'] < total * 0.5:
+                insight = f"Customers are frustrated with {topic_name.lower()} issues that often remain unresolved"
+            else:
+                insight = f"Customers experience frustration with {topic_name.lower()} but appreciate when support resolves it"
+        elif base_sentiment == "satisfied":
+            insight = f"Customers appreciate {topic_name.lower()} support and generally have positive experiences"
+        else:
+            if effort_note:
+                insight = f"Customers have {base_sentiment} about {topic_name.lower()}, {effort_note}"
+            else:
+                insight = f"Customers have {base_sentiment} about {topic_name.lower()}"
+        
+        return insight
+    
     def _extract_sample_quotes(self, conversations: List[Dict]) -> List[str]:
         """Extract sample quotes for verification"""
         quotes = []
