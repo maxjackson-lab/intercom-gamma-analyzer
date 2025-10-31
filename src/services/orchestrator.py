@@ -839,20 +839,8 @@ class AnalysisOrchestrator:
 
     def _extract_conversation_text(self, conversation: Dict[str, Any]) -> str:
         """Extract text content from a conversation."""
-        text_parts = []
-        
-        # Extract from conversation parts
-        conversation_parts = conversation.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in conversation_parts:
-            if part.get('body'):
-                text_parts.append(part['body'])
-        
-        # Extract from source
-        source = conversation.get('source', {})
-        if source.get('body'):
-            text_parts.append(source['body'])
-        
-        return ' '.join(text_parts)
+        from src.utils.conversation_utils import extract_conversation_text
+        return extract_conversation_text(conversation, clean_html=True)
 
     async def _validate_data_completeness(
         self,

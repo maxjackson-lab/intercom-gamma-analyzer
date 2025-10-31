@@ -373,41 +373,46 @@ class DuckDBStorage:
         }
     
     def _extract_full_text(self, conv: Dict) -> str:
-        """Extract full conversation text."""
-        texts = []
-        
-        # Get initial message
-        if 'source' in conv and 'body' in conv['source']:
-            texts.append(self._clean_html(conv['source']['body']))
-        
-        # Get all conversation parts
-        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            if 'body' in part:
-                texts.append(self._clean_html(part['body']))
-        
-        return '\n\n'.join(texts)
+        """Extract full conversation text using utility function."""
+        from src.utils.conversation_utils import extract_conversation_text
+        return extract_conversation_text(conv, clean_html=True)
     
     def _extract_messages(self, conv: Dict) -> tuple:
-        """Extract customer and admin messages separately."""
-        customer_messages = []
+        """Extract customer and admin messages separately using utility functions."""
+        from src.utils.conversation_utils import extract_customer_messages
+        
+        # Use utility function for customer messages
+        customer_msgs_list = extract_customer_messages(conv, clean_html=True)
+        customer_messages = '\n\n'.join(customer_msgs_list) if customer_msgs_list else ''
+        
+        # Extract admin messages manually (no utility function for admin-specific messages yet)
         admin_messages = []
         
-        # Get initial message
-        if 'source' in conv and 'body' in conv['source']:
-            customer_messages.append(self._clean_html(conv['source']['body']))
+        # Check source for admin message
+        source = conv.get('source', {})
+        if source.get('author', {}).get('type') == 'admin':
+            body = source.get('body', '').strip()
+            if body:
+                admin_messages.append(self._clean_html(body))
         
-        # Get conversation parts
-        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        # Check conversation parts for admin messages
+        conversation_parts = conv.get('conversation_parts', {})
+        if isinstance(conversation_parts, dict):
+            parts = conversation_parts.get('conversation_parts', [])
+        elif isinstance(conversation_parts, list):
+            parts = conversation_parts
+        else:
+            parts = []
+        
         for part in parts:
-            if 'body' in part:
+            if isinstance(part, dict):
                 author = part.get('author', {})
-                if author.get('type') == 'user':
-                    customer_messages.append(self._clean_html(part['body']))
-                elif author.get('type') == 'admin':
-                    admin_messages.append(self._clean_html(part['body']))
+                if author.get('type') == 'admin':
+                    body = part.get('body', '').strip()
+                    if body:
+                        admin_messages.append(self._clean_html(body))
         
-        return '\n\n'.join(customer_messages), '\n\n'.join(admin_messages)
+        return customer_messages, '\n\n'.join(admin_messages)
     
     def _clean_html(self, text: str) -> str:
         """Clean HTML from text."""

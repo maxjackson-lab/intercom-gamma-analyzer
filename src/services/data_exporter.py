@@ -670,21 +670,8 @@ class DataExporter:
     
     def _extract_conversation_text(self, conversation: Dict) -> str:
         """Extract all text from a conversation."""
-        texts = []
-        
-        # Source body
-        source_body = conversation.get('source', {}).get('body', '')
-        if source_body:
-            texts.append(source_body)
-        
-        # Conversation parts
-        parts = conversation.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            part_body = part.get('body', '')
-            if part_body:
-                texts.append(part_body)
-        
-        return ' '.join(texts)
+        from src.utils.conversation_utils import extract_conversation_text
+        return extract_conversation_text(conversation, clean_html=True)
     
     def _categorize_conversation(self, text: str) -> Dict[str, Any]:
         """Categorize conversation based on text content."""

@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.fin_escalation_analyzer import FinEscalationAnalyzer
+from src.utils.conversation_utils import extract_conversation_text
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -52,8 +53,8 @@ async def analyze_conversation_structure(conv: dict) -> dict:
     analyzer = FinEscalationAnalyzer()
     has_escalation_keywords = analyzer.detect_escalation_request(conv)
     
-    # Extract text snippets
-    full_text = conv.get('full_text', '')
+    # Extract text snippets - use utility function instead of computed field
+    full_text = extract_conversation_text(conv, clean_html=True)
     text_preview = full_text[:200] + '...' if len(full_text) > 200 else full_text
     
     # Statistics

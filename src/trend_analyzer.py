@@ -144,6 +144,8 @@ class TrendAnalyzer:
         Returns:
             Dict mapping pattern to count
         """
+        from src.utils.conversation_utils import extract_conversation_text
+        
         pattern_counts = defaultdict(int)
         total_conversations = len(conversations)
         
@@ -153,24 +155,8 @@ class TrendAnalyzer:
             if (i + 1) % 100 == 0:
                 logger.debug(f"Processed {i + 1}/{total_conversations} conversations")
                 
-            # Extract text from conversation
-            source_body = conv.get('source', {}).get('body', '')
-            
-            # Get conversation parts
-            parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-            part_bodies = ' '.join([
-                p.get('body', '') 
-                for p in parts
-            ])
-            
-            # Get notes
-            notes = conv.get('notes', {}).get('notes', [])
-            note_bodies = ' '.join([
-                n.get('body', '') 
-                for n in notes
-            ])
-            
-            full_text = f"{source_body} {part_bodies} {note_bodies}"
+            # Extract text from conversation using utility function
+            full_text = extract_conversation_text(conv, clean_html=True)
             
             if not case_sensitive:
                 full_text = full_text.lower()

@@ -32,7 +32,18 @@ logger = logging.getLogger(__name__)
 
 
 class SegmentationAgent(BaseAgent):
-    """Agent specialized in customer tier and agent type segmentation"""
+    """
+    Agent specialized in customer tier and agent type segmentation.
+    
+    Note: This agent relies on optional Intercom fields:
+    - `ai_agent` object: May be absent; contains optional `resolution_state` field
+    - `ai_agent.resolution_state`: Optional field indicating if Fin resolved the conversation
+    - `admin_assignee_id`: May be absent for Fin-only conversations
+    - `assignee`: Optional top-level field; use AdminProfileCache to resolve admin details
+    
+    When `ai_agent` or `resolution_state` are absent, agent falls back to heuristics
+    based on conversation state, ratings, reopens, and admin participation.
+    """
     
     def __init__(self, track_escalations: bool = False):
         """
@@ -588,8 +599,20 @@ Output: Segmented conversations with agent type labels
         starts_with_finn = self._starts_with_finn(conv)
         
         # Get ai_agent object with resolution data (per Intercom SDK spec)
-        ai_agent = conv.get('ai_agent', {})
-        ai_resolution_state = ai_agent.get('resolution_state') if ai_agent else None
+        # NOTE: ai_agent field is OPTIONAL - may be absent or None
+        ai_agent = conv.get('ai_agent')
+        ai_resolution_state = None
+        
+        # Explicit null checks for optional ai_agent.resolution_state field
+        if ai_agent is not None and isinstance(ai_agent, dict):
+            ai_resolution_state = ai_agent.get('resolution_state')
+            # resolution_state may also be None even when ai_agent exists
+            if ai_resolution_state is not None:
+                self.logger.debug(f"Conversation {conv_id}: ai_agent.resolution_state = {ai_resolution_state}")
+            else:
+                self.logger.debug(f"Conversation {conv_id}: ai_agent present but resolution_state is None")
+        else:
+            self.logger.debug(f"Conversation {conv_id}: ai_agent field is absent or None")
 
         # Log conversation data for debugging
         self.logger.debug(
@@ -622,10 +645,23 @@ Output: Segmented conversations with agent type labels
                 admin_emails.append(email.lower())
         
         # Check top-level assignee email if available
-        assignee_data = conv.get('assignee') or {}
-        assignee_email = assignee_data.get('email', '')
-        if assignee_email:
-            admin_emails.append(assignee_email.lower())
+        # NOTE: `assignee` field may be absent; `assignee.email` is per admin_assignee structure
+        # For reliable admin email resolution, use AdminProfileCache with admin_assignee_id
+        assignee_data = conv.get('assignee')
+        if assignee_data is not None and isinstance(assignee_data, dict):
+            assignee_email = assignee_data.get('email')
+            if assignee_email:
+                admin_emails.append(assignee_email.lower())
+                self.logger.debug(f"Conversation {conv_id}: Found assignee email: {assignee_email}")
+        
+        # Alternative: Resolve admin_assignee_id via AdminProfileCache for reliable email
+        # admin_assignee_id = conv.get('admin_assignee_id')
+        # if admin_assignee_id:
+        #     from src.services.admin_profile_cache import AdminProfileCache
+        #     cache = AdminProfileCache()
+        #     admin_profile = cache.get_admin_profile(admin_assignee_id)
+        #     if admin_profile and admin_profile.get('email'):
+        #         admin_emails.append(admin_profile['email'].lower())
         
         # Log extracted admin emails for debugging
         if admin_emails:

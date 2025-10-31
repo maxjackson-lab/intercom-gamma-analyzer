@@ -259,6 +259,170 @@ class TestDuckDBStorage:
         
         # Connection should be closed (conn will be None)
         assert storage.conn is None
+    
+    # =============================================================================
+    # COMMENT 4: Test cases for full_text/customer_messages derivation from utilities
+    # =============================================================================
+    
+    def test_full_text_derived_from_source_and_parts(self, duckdb_storage):
+        """Test that full_text is properly derived from source.body and conversation_parts using utility."""
+        conv = {
+            "id": "test_full_text_derivation",
+            "created_at": 1699123456,
+            "source": {
+                "body": "<p>Customer initial message</p>"
+            },
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "body": "<p>Agent response</p>",
+                        "author": {
+                            "type": "admin"
+                        }
+                    },
+                    {
+                        "body": "<p>Customer follow-up</p>",
+                        "author": {
+                            "type": "user"
+                        }
+                    }
+                ]
+            },
+            "tags": {"tags": []},
+            "topics": {"topics": []},
+            "custom_attributes": {}
+        }
+        
+        # Extract conversation data
+        conv_data = duckdb_storage._extract_conversation_data(conv)
+        
+        # Assert full_text is properly derived (should contain all messages)
+        assert conv_data['full_text'] is not None
+        assert 'Customer initial message' in conv_data['full_text']
+        assert 'Agent response' in conv_data['full_text']
+        assert 'Customer follow-up' in conv_data['full_text']
+        
+        # Assert HTML is cleaned
+        assert '<p>' not in conv_data['full_text']
+        assert '</p>' not in conv_data['full_text']
+    
+    def test_customer_messages_derived_from_utility(self, duckdb_storage):
+        """Test that customer_messages is properly derived using extract_customer_messages utility."""
+        conv = {
+            "id": "test_customer_messages_derivation",
+            "created_at": 1699123456,
+            "source": {
+                "body": "<p>Customer initial question</p>",
+                "author": {
+                    "type": "user"
+                }
+            },
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "body": "<p>Agent response here</p>",
+                        "author": {
+                            "type": "admin"
+                        }
+                    },
+                    {
+                        "body": "<p>Customer follow-up question</p>",
+                        "author": {
+                            "type": "user"
+                        }
+                    },
+                    {
+                        "body": "<p>Bot response</p>",
+                        "author": {
+                            "type": "bot"
+                        }
+                    }
+                ]
+            },
+            "tags": {"tags": []},
+            "topics": {"topics": []},
+            "custom_attributes": {}
+        }
+        
+        # Extract conversation data
+        conv_data = duckdb_storage._extract_conversation_data(conv)
+        
+        # Assert customer_messages contains only user messages
+        assert conv_data['customer_messages'] is not None
+        assert 'Customer initial question' in conv_data['customer_messages']
+        assert 'Customer follow-up question' in conv_data['customer_messages']
+        
+        # Assert agent and bot messages are NOT in customer_messages
+        assert 'Agent response here' not in conv_data['customer_messages']
+        assert 'Bot response' not in conv_data['customer_messages']
+        
+        # Assert HTML is cleaned
+        assert '<p>' not in conv_data['customer_messages']
+        assert '</p>' not in conv_data['customer_messages']
+    
+    def test_conversation_without_source_body(self, duckdb_storage):
+        """Test derivation when source.body is missing."""
+        conv = {
+            "id": "test_no_source_body",
+            "created_at": 1699123456,
+            "source": {
+                # No body field
+            },
+            "conversation_parts": {
+                "conversation_parts": [
+                    {
+                        "body": "<p>Only conversation part</p>",
+                        "author": {
+                            "type": "user"
+                        }
+                    }
+                ]
+            },
+            "tags": {"tags": []},
+            "topics": {"topics": []},
+            "custom_attributes": {}
+        }
+        
+        # Should not raise error
+        conv_data = duckdb_storage._extract_conversation_data(conv)
+        
+        # Assert full_text contains the conversation part
+        assert conv_data['full_text'] is not None
+        assert 'Only conversation part' in conv_data['full_text']
+        
+        # Assert customer_messages contains the conversation part
+        assert conv_data['customer_messages'] is not None
+        assert 'Only conversation part' in conv_data['customer_messages']
+    
+    def test_conversation_with_empty_parts(self, duckdb_storage):
+        """Test derivation when conversation_parts is empty."""
+        conv = {
+            "id": "test_empty_parts",
+            "created_at": 1699123456,
+            "source": {
+                "body": "<p>Only source message</p>",
+                "author": {
+                    "type": "user"
+                }
+            },
+            "conversation_parts": {
+                "conversation_parts": []
+            },
+            "tags": {"tags": []},
+            "topics": {"topics": []},
+            "custom_attributes": {}
+        }
+        
+        # Should not raise error
+        conv_data = duckdb_storage._extract_conversation_data(conv)
+        
+        # Assert full_text contains only the source message
+        assert conv_data['full_text'] is not None
+        assert 'Only source message' in conv_data['full_text']
+        
+        # Assert customer_messages contains only the source message
+        assert conv_data['customer_messages'] is not None
+        assert 'Only source message' in conv_data['customer_messages']
 
 
 

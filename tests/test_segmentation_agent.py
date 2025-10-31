@@ -1134,3 +1134,194 @@ class TestSegmentationAgent:
         assert result.confidence > 0.7, f"Expected confidence > 0.7, got {result.confidence}"
         assert result.confidence_level in [ConfidenceLevel.MEDIUM.value, ConfidenceLevel.HIGH.value], \
             f"Expected 'medium' or 'high', got {result.confidence_level}"
+    
+    # =============================================================================
+    # COMMENT 2: Test cases for ai_agent.resolution_state null handling
+    # =============================================================================
+    
+    def test_ai_agent_absent(self):
+        """Test classification when ai_agent field is completely absent."""
+        agent = SegmentationAgent(track_escalations=True)
+        
+        conv = {
+            'id': 'ai_agent_absent',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            # ai_agent field is absent
+            'full_text': 'Customer question resolved by AI',
+            'state': 'closed',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'bot',
+                            'name': 'Fin'
+                        },
+                        'body': 'Here is the answer'
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
+        }
+        
+        # Should not raise error and should fall back to heuristics
+        segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        # Falls back to heuristics, closed state + no admin = fin_resolved
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved', got '{agent_type}'"
+    
+    def test_ai_agent_present_without_resolution_state(self):
+        """Test classification when ai_agent exists but resolution_state is None."""
+        agent = SegmentationAgent(track_escalations=True)
+        
+        conv = {
+            'id': 'ai_agent_no_resolution',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            'ai_agent': {
+                # resolution_state is absent or None
+                'source_title': 'Help Article'
+            },
+            'full_text': 'Customer question resolved by AI',
+            'state': 'closed',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'bot',
+                            'name': 'Fin'
+                        },
+                        'body': 'Here is the answer'
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
+        }
+        
+        # Should not raise error and should fall back to heuristics
+        segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        # Falls back to heuristics, closed state + no admin = fin_resolved
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved', got '{agent_type}'"
+    
+    def test_resolution_state_indicates_resolved(self):
+        """Test classification when resolution_state indicates resolved."""
+        agent = SegmentationAgent(track_escalations=True)
+        
+        conv = {
+            'id': 'resolution_state_resolved',
+            'created_at': 1699123456,
+            'admin_assignee_id': None,
+            'ai_agent_participated': True,
+            'ai_agent': {
+                'resolution_state': 'resolved',
+                'source_title': 'Help Article'
+            },
+            'full_text': 'Customer question resolved by AI',
+            'state': 'closed',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'bot',
+                            'name': 'Fin'
+                        },
+                        'body': 'Here is the answer'
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
+        }
+        
+        segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        # Should trust the SDK's resolution_state
+        assert agent_type == 'fin_resolved', f"Expected 'fin_resolved', got '{agent_type}'"
+    
+    def test_resolution_state_indicates_escalated(self):
+        """Test classification when resolution_state indicates escalated."""
+        agent = SegmentationAgent(track_escalations=True)
+        
+        conv = {
+            'id': 'resolution_state_escalated',
+            'created_at': 1699123456,
+            'admin_assignee_id': '123',  # Has admin assignment
+            'ai_agent_participated': True,
+            'ai_agent': {
+                'resolution_state': 'escalated',
+                'source_title': 'Help Article'
+            },
+            'full_text': 'Customer question escalated to human',
+            'state': 'closed',
+            'conversation_parts': {
+                'conversation_parts': [
+                    {
+                        'author': {
+                            'type': 'bot',
+                            'name': 'Fin'
+                        },
+                        'body': 'Let me connect you with a human'
+                    },
+                    {
+                        'author': {
+                            'type': 'admin',
+                            'email': 'support@example.com',
+                            'name': 'Support Agent'
+                        },
+                        'body': 'I can help with that'
+                    }
+                ]
+            },
+            'source': {'type': 'chat', 'body': 'Question'},
+            'assignee': {},
+            'contacts': {
+                'contacts': [
+                    {
+                        'custom_attributes': {
+                            'tier': 'Pro'
+                        }
+                    }
+                ]
+            }
+        }
+        
+        segment, agent_type = agent._classify_conversation(conv)
+        
+        assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
+        # Should recognize it was escalated
+        assert agent_type == 'unknown', f"Expected 'unknown' (escalated to human), got '{agent_type}'"
