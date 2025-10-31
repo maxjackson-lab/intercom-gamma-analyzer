@@ -407,7 +407,7 @@ For each conversation:
             
             detected.append({
                 'topic': 'Unknown/unresponsive',
-                'method': 'fallback',  # Changed from 'keyword' for better diagnostics
+                'method': 'keyword',  # Keep as 'keyword' for compatibility with detection_methods dict
                 'confidence': 0.3
             })
         
