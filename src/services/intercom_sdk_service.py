@@ -58,6 +58,8 @@ class IntercomSDKService:
         self.timeout = settings.intercom_timeout
         self.max_retries = settings.intercom_max_retries
         self.rate_limit_buffer = settings.intercom_rate_limit_buffer
+        self.concurrency = settings.intercom_concurrency
+        self.request_delay = settings.intercom_request_delay_ms / 1000.0  # Convert to seconds
         
         # Initialize the AsyncIntercom client
         self.client = AsyncIntercom(
@@ -66,7 +68,31 @@ class IntercomSDKService:
             timeout=float(self.timeout)
         )
         
+        # Semaphore for limiting concurrent enrichment requests
+        self._enrichment_semaphore = asyncio.Semaphore(self.concurrency)
+        
         self.logger = logging.getLogger(__name__)
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
+        return False
+    
+    async def close(self):
+        """Close the AsyncIntercom client and release resources."""
+        try:
+            # Close the underlying HTTP client if accessible
+            if hasattr(self.client, '_client') and hasattr(self.client._client, 'close'):
+                await self.client._client.close()
+            elif hasattr(self.client, 'close'):
+                await self.client.close()
+            self.logger.debug("AsyncIntercom client closed successfully")
+        except Exception as e:
+            self.logger.warning(f"Error closing AsyncIntercom client: {e}")
     
     async def test_connection(self) -> bool:
         """
@@ -100,7 +126,8 @@ class IntercomSDKService:
         self, 
         start_date: datetime, 
         end_date: datetime,
-        max_conversations: Optional[int] = None
+        max_conversations: Optional[int] = None,
+        request_options: Optional[Dict] = None
     ) -> List[Dict]:
         """
         Fetch conversations within a date range with automatic pagination.
@@ -115,6 +142,7 @@ class IntercomSDKService:
             start_date: Start of date range (inclusive)
             end_date: End of date range (inclusive)
             max_conversations: Optional limit on number of conversations to fetch
+            request_options: Optional dict for SDK request options (e.g., {'max_retries': 3, 'timeout': 60})
             
         Returns:
             List of conversation dictionaries with enriched contact details
@@ -154,10 +182,18 @@ class IntercomSDKService:
             
             # Use SDK's search method with pagination and built-in retry
             # SDK automatically retries 429 (rate limit) errors with exponential backoff
-            pager: AsyncPager = await self.client.conversations.search(
-                query=search_query,
-                pagination=pagination
-            )
+            # Pass through request_options if provided for custom retry/timeout behavior
+            if request_options:
+                pager: AsyncPager = await self.client.conversations.search(
+                    query=search_query,
+                    pagination=pagination,
+                    request_options=request_options
+                )
+            else:
+                pager: AsyncPager = await self.client.conversations.search(
+                    query=search_query,
+                    pagination=pagination
+                )
             
             # Track duplicate prevention
             seen_ids: set[str] = set()
@@ -246,94 +282,137 @@ class IntercomSDKService:
         """
         Enrich conversations with full contact details including segments.
         
+        Uses semaphore-based concurrency control to limit concurrent API requests
+        and implements request pacing to respect Intercom rate limits.
+        
         Args:
             conversations: List of conversation dictionaries
             
         Returns:
             List of enriched conversation dictionaries
         """
-        enriched_conversations = []
+        async def enrich_single_conversation(conv: Dict) -> tuple[Dict, Dict]:
+            """
+            Enrich a single conversation with concurrency control.
+            
+            Returns:
+                Tuple of (enriched_conversation, metrics_dict)
+            """
+            metrics = {
+                'attempted': 1,
+                'successful': 0,
+                'failed_contact': 0,
+                'failed_segments': 0,
+                'skipped_no_contact': 0
+            }
+            
+            async with self._enrichment_semaphore:
+                try:
+                    # Extract contact IDs from the conversation
+                    contacts_data = conv.get('contacts', {})
+                    if contacts_data and isinstance(contacts_data, dict):
+                        contacts_list = contacts_data.get('contacts', [])
+                        
+                        if contacts_list:
+                            # Get the first contact (primary contact)
+                            contact_id = contacts_list[0].get('id')
+                            
+                            if contact_id:
+                                try:
+                                    # Fetch full contact details with retry/backoff
+                                    full_contact_data = await self._fetch_contact_details(contact_id)
+
+                                    try:
+                                        segments_data = await self._fetch_contact_segments(contact_id)
+                                        full_contact_data['segments'] = segments_data
+                                        self.logger.debug(
+                                            f"Enriched conversation {conv.get('id')} with segments"
+                                        )
+                                    except ApiError as e:
+                                        metrics['failed_segments'] += 1
+                                        self.logger.warning(
+                                            f"Failed to fetch segments for contact {contact_id}: {e}"
+                                        )
+                                    except (httpx.RequestError, asyncio.TimeoutError) as e:
+                                        metrics['failed_segments'] += 1
+                                        self.logger.warning(
+                                            f"Network error fetching segments for contact {contact_id}: {e}"
+                                        )
+                                    except Exception as e:
+                                        metrics['failed_segments'] += 1
+                                        self.logger.warning(
+                                            f"Unexpected error fetching segments for contact {contact_id}: {e}"
+                                        )
+
+                                    # Replace the contact data in the conversation
+                                    conv['contacts']['contacts'][0] = full_contact_data
+                                    metrics['successful'] += 1
+                                    self.logger.debug(
+                                        f"Enriched conversation {conv.get('id')} with full contact details"
+                                    )
+
+                                except ApiError as e:
+                                    metrics['failed_contact'] += 1
+                                    if e.status_code == 404:
+                                        self.logger.warning(f"Contact {contact_id} not found")
+                                    else:
+                                        self.logger.warning(f"Failed to fetch contact {contact_id}: {e}")
+                                except (httpx.RequestError, asyncio.TimeoutError) as e:
+                                    metrics['failed_contact'] += 1
+                                    self.logger.warning(
+                                        f"Network error fetching contact {contact_id}: {e}"
+                                    )
+                                except Exception as e:
+                                    metrics['failed_contact'] += 1
+                                    self.logger.warning(f"Error fetching contact {contact_id}: {e}")
+                            else:
+                                metrics['skipped_no_contact'] += 1
+                        else:
+                            metrics['skipped_no_contact'] += 1
+                    else:
+                        metrics['skipped_no_contact'] += 1
+                    
+                    return conv, metrics
+                    
+                except Exception as e:
+                    self.logger.warning(f"Failed to enrich conversation {conv.get('id')}: {e}")
+                    # Return the original conversation if enrichment fails
+                    return conv, metrics
+        
+        # Process conversations with controlled concurrency
+        self.logger.info(
+            f"Enriching {len(conversations)} conversations "
+            f"(concurrency={self.concurrency}, delay={self.request_delay*1000:.0f}ms)"
+        )
+        results = await asyncio.gather(
+            *[enrich_single_conversation(conv) for conv in conversations],
+            return_exceptions=False
+        )
+        
+        # Aggregate metrics from all enrichment tasks (no race conditions)
         enrichment_stats = {
             'attempted': 0,
             'successful': 0,
             'failed_contact': 0,
-            'failed_segments': 0
+            'failed_segments': 0,
+            'skipped_no_contact': 0
         }
+        enriched_conversations = []
         
-        for conv in conversations:
-            enrichment_stats['attempted'] += 1
-            try:
-                # Extract contact IDs from the conversation
-                contacts_data = conv.get('contacts', {})
-                if contacts_data and isinstance(contacts_data, dict):
-                    contacts_list = contacts_data.get('contacts', [])
-                    
-                    if contacts_list:
-                        # Get the first contact (primary contact)
-                        contact_id = contacts_list[0].get('id')
-                        
-                        if contact_id:
-                            try:
-                                # Fetch full contact details with retry/backoff
-                                full_contact_data = await self._fetch_contact_details(contact_id)
-
-                                try:
-                                    segments_data = await self._fetch_contact_segments(contact_id)
-                                    full_contact_data['segments'] = segments_data
-                                    self.logger.debug(
-                                        f"Enriched conversation {conv.get('id')} with segments"
-                                    )
-                                except ApiError as e:
-                                    enrichment_stats['failed_segments'] += 1
-                                    self.logger.warning(
-                                        f"Failed to fetch segments for contact {contact_id}: {e}"
-                                    )
-                                except (httpx.RequestError, asyncio.TimeoutError) as e:
-                                    enrichment_stats['failed_segments'] += 1
-                                    self.logger.warning(
-                                        f"Network error fetching segments for contact {contact_id}: {e}"
-                                    )
-                                except Exception as e:
-                                    enrichment_stats['failed_segments'] += 1
-                                    self.logger.warning(
-                                        f"Unexpected error fetching segments for contact {contact_id}: {e}"
-                                    )
-
-                                # Replace the contact data in the conversation
-                                conv['contacts']['contacts'][0] = full_contact_data
-                                enrichment_stats['successful'] += 1
-                                self.logger.debug(
-                                    f"Enriched conversation {conv.get('id')} with full contact details"
-                                )
-
-                            except ApiError as e:
-                                enrichment_stats['failed_contact'] += 1
-                                if e.status_code == 404:
-                                    self.logger.warning(f"Contact {contact_id} not found")
-                                else:
-                                    self.logger.warning(f"Failed to fetch contact {contact_id}: {e}")
-                            except (httpx.RequestError, asyncio.TimeoutError) as e:
-                                enrichment_stats['failed_contact'] += 1
-                                self.logger.warning(
-                                    f"Network error fetching contact {contact_id}: {e}"
-                                )
-                            except Exception as e:
-                                enrichment_stats['failed_contact'] += 1
-                                self.logger.warning(f"Error fetching contact {contact_id}: {e}")
-                
-                enriched_conversations.append(conv)
-                
-            except Exception as e:
-                self.logger.warning(f"Failed to enrich conversation {conv.get('id')}: {e}")
-                # Add the original conversation if enrichment fails
-                enriched_conversations.append(conv)
+        for conv, metrics in results:
+            enriched_conversations.append(conv)
+            for key in enrichment_stats:
+                enrichment_stats[key] += metrics[key]
         
-        # Log enrichment statistics
+        # Log detailed enrichment statistics
         success_rate = (enrichment_stats['successful'] / enrichment_stats['attempted'] * 100) if enrichment_stats['attempted'] > 0 else 0
         self.logger.info(
-            f"Contact enrichment complete: {enrichment_stats['successful']}/{enrichment_stats['attempted']} successful "
-            f"({success_rate:.1f}%), {enrichment_stats['failed_contact']} contact failures, "
-            f"{enrichment_stats['failed_segments']} segment failures"
+            f"ENRICHMENT_METRICS: attempted={enrichment_stats['attempted']}, "
+            f"successful={enrichment_stats['successful']}, "
+            f"failed_contact={enrichment_stats['failed_contact']}, "
+            f"failed_segments={enrichment_stats['failed_segments']}, "
+            f"skipped={enrichment_stats['skipped_no_contact']}, "
+            f"success_rate={success_rate:.1f}%"
         )
         
         return enriched_conversations
@@ -346,7 +425,18 @@ class IntercomSDKService:
         retry_exceptions=(ApiError, httpx.RequestError, asyncio.TimeoutError),
     )
     async def _fetch_contact_details(self, contact_id: str) -> Dict:
+        """
+        Fetch contact details with request pacing.
+        
+        Args:
+            contact_id: Contact ID to fetch
+            
+        Returns:
+            Contact details dictionary
+        """
         contact = await self.client.contacts.find(contact_id)
+        # Add delay after request to respect rate limits
+        await asyncio.sleep(self.request_delay)
         return self._model_to_dict(contact)
 
     @async_retry(
@@ -357,7 +447,18 @@ class IntercomSDKService:
         retry_exceptions=(ApiError, httpx.RequestError, asyncio.TimeoutError),
     )
     async def _fetch_contact_segments(self, contact_id: str) -> Dict:
+        """
+        Fetch contact segments with request pacing.
+        
+        Args:
+            contact_id: Contact ID to fetch segments for
+            
+        Returns:
+            Contact segments dictionary
+        """
         segments = await self.client.contacts.list_attached_segments(contact_id)
+        # Add delay after request to respect rate limits
+        await asyncio.sleep(self.request_delay)
         return self._model_to_dict(segments)
     
     def _normalize_and_filter_by_date(
@@ -518,8 +619,23 @@ class IntercomSDKService:
         
         return await self._fetch_with_query(search_query, max_pages)
     
-    async def _fetch_with_query(self, search_query, max_pages: Optional[int]) -> List[Dict]:
-        """Generic method to fetch conversations with a search query."""
+    async def _fetch_with_query(
+        self, 
+        search_query, 
+        max_pages: Optional[int],
+        request_options: Optional[Dict] = None
+    ) -> List[Dict]:
+        """
+        Generic method to fetch conversations with a search query.
+        
+        Args:
+            search_query: Search query filter
+            max_pages: Maximum number of pages to fetch
+            request_options: Optional dict for SDK request options (e.g., {'max_retries': 3, 'timeout': 60})
+            
+        Returns:
+            List of conversation dictionaries
+        """
         all_conversations = []
         page_count = 0
         
@@ -529,10 +645,17 @@ class IntercomSDKService:
         )
         
         try:
-            pager: AsyncPager = await self.client.conversations.search(
-                query=search_query,
-                pagination=pagination
-            )
+            if request_options:
+                pager: AsyncPager = await self.client.conversations.search(
+                    query=search_query,
+                    pagination=pagination,
+                    request_options=request_options
+                )
+            else:
+                pager: AsyncPager = await self.client.conversations.search(
+                    query=search_query,
+                    pagination=pagination
+                )
             
             async for page in pager.iter_pages():
                 page_count += 1
@@ -621,6 +744,8 @@ class IntercomSDKService:
         Uses mode='python' to bypass JSON serialization and avoid Pydantic warnings
         about int/str type mismatches in the Intercom SDK models.
         
+        Uses exclude_none=True to avoid bloating payloads with null fields.
+        
         Args:
             model: SDK Pydantic model
             
@@ -629,10 +754,11 @@ class IntercomSDKService:
         """
         if hasattr(model, 'model_dump'):
             # Pydantic v2 - use mode='python' to avoid serialization warnings
-            return model.model_dump(mode='python', exclude_none=False)
+            # and exclude_none=True to reduce payload size
+            return model.model_dump(mode='python', exclude_none=True)
         elif hasattr(model, 'dict'):
-            # Pydantic v1 - this shouldn't trigger warnings
-            return model.dict(exclude_none=False)
+            # Pydantic v1 - exclude None fields
+            return model.dict(exclude_none=True)
         else:
             # Fallback for non-Pydantic models
             return dict(model)

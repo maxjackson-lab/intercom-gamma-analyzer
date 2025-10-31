@@ -55,47 +55,47 @@ logger = logging.getLogger(__name__)
 async def run_voice_analysis(request: AnalysisRequest, generate_gamma: bool, output_format: str) -> Dict[str, Any]:
     """Run Voice of Customer analysis."""
     try:
-        # Initialize services
-        intercom_service = IntercomSDKService()
-        metrics_calculator = MetricsCalculator()
-        openai_client = OpenAIClient()
-        
-        # Initialize analyzer
-        analyzer = VoiceAnalyzer(intercom_service, metrics_calculator, openai_client)
-        
-        # Run analysis
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Running Voice of Customer analysis...", total=None)
+        # Initialize services with async context manager for graceful cleanup
+        async with IntercomSDKService() as intercom_service:
+            metrics_calculator = MetricsCalculator()
+            openai_client = OpenAIClient()
             
-            results = await analyzer.analyze(request)
+            # Initialize analyzer
+            analyzer = VoiceAnalyzer(intercom_service, metrics_calculator, openai_client)
             
-            progress.update(task, description="✅ Analysis completed")
-        
-        # Display results
-        display_voice_results(results)
-        
-        # Generate output
-        if output_format == 'json':
-            save_json_output(results, f"voice_analysis_{request.month}_{request.year}")
-        else:
-            save_markdown_output(results, f"voice_analysis_{request.month}_{request.year}")
-        
-        # Generate Gamma presentation if requested
-        if generate_gamma and output_format == 'gamma':
-            await generate_gamma_presentation(results, f"voice_analysis_{request.month}_{request.year}")
-        
-        console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
-        console.print(f"Results saved to: {settings.output_directory}/")
-        
-        return {
-            'success': True,
-            'results': results,
-            'output_files': get_output_files(f"voice_analysis_{request.month}_{request.year}")
-        }
+            # Run analysis
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Running Voice of Customer analysis...", total=None)
+                
+                results = await analyzer.analyze(request)
+                
+                progress.update(task, description="✅ Analysis completed")
+            
+            # Display results
+            display_voice_results(results)
+            
+            # Generate output
+            if output_format == 'json':
+                save_json_output(results, f"voice_analysis_{request.month}_{request.year}")
+            else:
+                save_markdown_output(results, f"voice_analysis_{request.month}_{request.year}")
+            
+            # Generate Gamma presentation if requested
+            if generate_gamma and output_format == 'gamma':
+                await generate_gamma_presentation(results, f"voice_analysis_{request.month}_{request.year}")
+            
+            console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
+            console.print(f"Results saved to: {settings.output_directory}/")
+            
+            return {
+                'success': True,
+                'results': results,
+                'output_files': get_output_files(f"voice_analysis_{request.month}_{request.year}")
+            }
         
     except Exception as e:
         logger.error(f"Voice analysis failed: {e}")
@@ -108,47 +108,47 @@ async def run_voice_analysis(request: AnalysisRequest, generate_gamma: bool, out
 async def run_trend_analysis(request: AnalysisRequest, generate_gamma: bool, output_format: str) -> Dict[str, Any]:
     """Run trend analysis."""
     try:
-        # Initialize services
-        intercom_service = IntercomSDKService()
-        metrics_calculator = MetricsCalculator()
-        openai_client = OpenAIClient()
-        
-        # Initialize analyzer
-        analyzer = TrendAnalyzer(intercom_service, metrics_calculator, openai_client)
-        
-        # Run analysis
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Running trend analysis...", total=None)
+        # Initialize services with async context manager for graceful cleanup
+        async with IntercomSDKService() as intercom_service:
+            metrics_calculator = MetricsCalculator()
+            openai_client = OpenAIClient()
             
-            results = await analyzer.analyze(request)
+            # Initialize analyzer
+            analyzer = TrendAnalyzer(intercom_service, metrics_calculator, openai_client)
             
-            progress.update(task, description="✅ Analysis completed")
-        
-        # Display results
-        display_trend_results(results)
-        
-        # Generate output
-        if output_format == 'json':
-            save_json_output(results, f"trend_analysis_{request.start_date}_{request.end_date}")
-        else:
-            save_markdown_output(results, f"trend_analysis_{request.start_date}_{request.end_date}")
-        
-        # Generate Gamma presentation if requested
-        if generate_gamma and output_format == 'gamma':
-            await generate_gamma_presentation(results, f"trend_analysis_{request.start_date}_{request.end_date}")
-        
-        console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
-        console.print(f"Results saved to: {settings.output_directory}/")
-        
-        return {
-            'success': True,
-            'results': results,
-            'output_files': get_output_files(f"trend_analysis_{request.start_date}_{request.end_date}")
-        }
+            # Run analysis
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Running trend analysis...", total=None)
+                
+                results = await analyzer.analyze(request)
+                
+                progress.update(task, description="✅ Analysis completed")
+            
+            # Display results
+            display_trend_results(results)
+            
+            # Generate output
+            if output_format == 'json':
+                save_json_output(results, f"trend_analysis_{request.start_date}_{request.end_date}")
+            else:
+                save_markdown_output(results, f"trend_analysis_{request.start_date}_{request.end_date}")
+            
+            # Generate Gamma presentation if requested
+            if generate_gamma and output_format == 'gamma':
+                await generate_gamma_presentation(results, f"trend_analysis_{request.start_date}_{request.end_date}")
+            
+            console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
+            console.print(f"Results saved to: {settings.output_directory}/")
+            
+            return {
+                'success': True,
+                'results': results,
+                'output_files': get_output_files(f"trend_analysis_{request.start_date}_{request.end_date}")
+            }
         
     except Exception as e:
         logger.error(f"Trend analysis failed: {e}")
@@ -161,47 +161,47 @@ async def run_trend_analysis(request: AnalysisRequest, generate_gamma: bool, out
 async def run_custom_analysis(request: AnalysisRequest, generate_gamma: bool, output_format: str) -> Dict[str, Any]:
     """Run custom analysis."""
     try:
-        # Initialize services
-        intercom_service = IntercomSDKService()
-        metrics_calculator = MetricsCalculator()
-        openai_client = OpenAIClient()
-        
-        # Initialize analyzer (using trend analyzer as base)
-        analyzer = TrendAnalyzer(intercom_service, metrics_calculator, openai_client)
-        
-        # Run analysis
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Running custom analysis...", total=None)
+        # Initialize services with async context manager for graceful cleanup
+        async with IntercomSDKService() as intercom_service:
+            metrics_calculator = MetricsCalculator()
+            openai_client = OpenAIClient()
             
-            results = await analyzer.analyze(request)
+            # Initialize analyzer (using trend analyzer as base)
+            analyzer = TrendAnalyzer(intercom_service, metrics_calculator, openai_client)
             
-            progress.update(task, description="✅ Analysis completed")
-        
-        # Display results
-        display_custom_results(results)
-        
-        # Generate output
-        if output_format == 'json':
-            save_json_output(results, f"custom_analysis_{request.start_date}_{request.end_date}")
-        else:
-            save_markdown_output(results, f"custom_analysis_{request.start_date}_{request.end_date}")
-        
-        # Generate Gamma presentation if requested
-        if generate_gamma and output_format == 'gamma':
-            await generate_gamma_presentation(results, f"custom_analysis_{request.start_date}_{request.end_date}")
-        
-        console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
-        console.print(f"Results saved to: {settings.output_directory}/")
-        
-        return {
-            'success': True,
-            'results': results,
-            'output_files': get_output_files(f"custom_analysis_{request.start_date}_{request.end_date}")
-        }
+            # Run analysis
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Running custom analysis...", total=None)
+                
+                results = await analyzer.analyze(request)
+                
+                progress.update(task, description="✅ Analysis completed")
+            
+            # Display results
+            display_custom_results(results)
+            
+            # Generate output
+            if output_format == 'json':
+                save_json_output(results, f"custom_analysis_{request.start_date}_{request.end_date}")
+            else:
+                save_markdown_output(results, f"custom_analysis_{request.start_date}_{request.end_date}")
+            
+            # Generate Gamma presentation if requested
+            if generate_gamma and output_format == 'gamma':
+                await generate_gamma_presentation(results, f"custom_analysis_{request.start_date}_{request.end_date}")
+            
+            console.print(f"\n[bold green]Analysis completed successfully![/bold green]")
+            console.print(f"Results saved to: {settings.output_directory}/")
+            
+            return {
+                'success': True,
+                'results': results,
+                'output_files': get_output_files(f"custom_analysis_{request.start_date}_{request.end_date}")
+            }
         
     except Exception as e:
         logger.error(f"Custom analysis failed: {e}")
@@ -214,81 +214,81 @@ async def run_custom_analysis(request: AnalysisRequest, generate_gamma: bool, ou
 async def run_data_export(start_date: datetime, end_date: datetime, export_format: str, max_pages: Optional[int], include_metrics: bool) -> Dict[str, Any]:
     """Run data export."""
     try:
-        # Initialize services
-        intercom_service = IntercomSDKService()
-        data_exporter = DataExporter()
-        
-        # Fetch conversations
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Fetching conversations...", total=None)
+        # Initialize services with async context manager for graceful cleanup
+        async with IntercomSDKService() as intercom_service:
+            data_exporter = DataExporter()
             
-            start_dt = datetime.combine(start_date, datetime.min.time())
-            end_dt = datetime.combine(end_date, datetime.max.time())
-            
-            conversations = await intercom_service.fetch_conversations_by_date_range(
-                start_dt, end_dt, max_pages=max_pages
-            )
-            
-            progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
-        
-        # Export data
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console
-        ) as progress:
-            task = progress.add_task("Exporting data...", total=None)
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            export_results = {}
-            
-            if export_format in ["excel", "all"]:
-                excel_path = data_exporter.export_conversations_to_excel(
-                    conversations, f"export_{timestamp}", include_metrics=include_metrics
+            # Fetch conversations
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Fetching conversations...", total=None)
+                
+                start_dt = datetime.combine(start_date, datetime.min.time())
+                end_dt = datetime.combine(end_date, datetime.max.time())
+                
+                conversations = await intercom_service.fetch_conversations_by_date_range(
+                    start_dt, end_dt, max_pages=max_pages
                 )
-                export_results["excel"] = excel_path
+                
+                progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")
             
-            if export_format in ["csv", "all"]:
-                csv_paths = data_exporter.export_conversations_to_csv(
-                    conversations, f"export_{timestamp}"
-                )
-                export_results["csv"] = csv_paths
+            # Export data
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console
+            ) as progress:
+                task = progress.add_task("Exporting data...", total=None)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                export_results = {}
+                
+                if export_format in ["excel", "all"]:
+                    excel_path = data_exporter.export_conversations_to_excel(
+                        conversations, f"export_{timestamp}", include_metrics=include_metrics
+                    )
+                    export_results["excel"] = excel_path
+                
+                if export_format in ["csv", "all"]:
+                    csv_paths = data_exporter.export_conversations_to_csv(
+                        conversations, f"export_{timestamp}"
+                    )
+                    export_results["csv"] = csv_paths
+                
+                if export_format in ["json", "all"]:
+                    json_path = data_exporter.export_raw_data_to_json(
+                        conversations, f"export_{timestamp}"
+                    )
+                    export_results["json"] = json_path
+                
+                if export_format in ["parquet", "all"]:
+                    parquet_path = data_exporter.export_to_parquet(
+                        conversations, f"export_{timestamp}"
+                    )
+                    export_results["parquet"] = parquet_path
+                
+                progress.update(task, description="✅ Export completed")
             
-            if export_format in ["json", "all"]:
-                json_path = data_exporter.export_raw_data_to_json(
-                    conversations, f"export_{timestamp}"
-                )
-                export_results["json"] = json_path
+            # Display results
+            console.print(f"\n[bold green]Export completed successfully![/bold green]")
+            console.print(f"Total conversations exported: {len(conversations):,}")
             
-            if export_format in ["parquet", "all"]:
-                parquet_path = data_exporter.export_to_parquet(
-                    conversations, f"export_{timestamp}"
-                )
-                export_results["parquet"] = parquet_path
+            for format_type, path in export_results.items():
+                if isinstance(path, list):
+                    console.print(f"{format_type.upper()} files: {len(path)} files")
+                    for p in path:
+                        console.print(f"  • {p}")
+                else:
+                    console.print(f"{format_type.upper()}: {path}")
             
-            progress.update(task, description="✅ Export completed")
-        
-        # Display results
-        console.print(f"\n[bold green]Export completed successfully![/bold green]")
-        console.print(f"Total conversations exported: {len(conversations):,}")
-        
-        for format_type, path in export_results.items():
-            if isinstance(path, list):
-                console.print(f"{format_type.upper()} files: {len(path)} files")
-                for p in path:
-                    console.print(f"  • {p}")
-            else:
-                console.print(f"{format_type.upper()}: {path}")
-        
-        return {
-            'success': True,
-            'conversations_count': len(conversations),
-            'export_results': export_results
-        }
+            return {
+                'success': True,
+                'conversations_count': len(conversations),
+                'export_results': export_results
+            }
         
     except Exception as e:
         logger.error(f"Data export failed: {e}")

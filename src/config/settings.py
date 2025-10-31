@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     intercom_rate_limit_buffer: int = Field(10, env="INTERCOM_RATE_LIMIT_BUFFER")
     intercom_timeout: int = Field(300, env="INTERCOM_TIMEOUT")  # 5 minutes per request (SDK default is 60s)
     intercom_max_retries: int = Field(3, env="INTERCOM_MAX_RETRIES")
+    intercom_concurrency: int = Field(5, env="INTERCOM_CONCURRENCY")  # Max concurrent enrichment requests
+    intercom_request_delay_ms: int = Field(200, env="INTERCOM_REQUEST_DELAY_MS")  # Delay between API requests
     
     # OpenAI Settings
     openai_model: str = Field("gpt-4o", env="OPENAI_MODEL")

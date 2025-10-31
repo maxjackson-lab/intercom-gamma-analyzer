@@ -33,6 +33,26 @@ This will guide you through getting your token and setting it up.
    echo "INTERCOM_ACCESS_TOKEN=your_actual_token_here" > .env
    ```
 
+### Optional: Rate Limiting Configuration
+
+The tool includes adaptive rate limiting to respect Intercom API limits. You can customize these settings in your `.env` file:
+
+```bash
+# Optional rate limiting settings (defaults shown)
+INTERCOM_CONCURRENCY=5           # Max concurrent enrichment requests (default: 5)
+INTERCOM_REQUEST_DELAY_MS=200    # Delay between API requests in milliseconds (default: 200ms)
+```
+
+**When to adjust these settings:**
+- **Lower concurrency** (e.g., `INTERCOM_CONCURRENCY=3`) if you hit rate limits frequently
+- **Higher delay** (e.g., `INTERCOM_REQUEST_DELAY_MS=300`) for more conservative rate limiting
+- **Higher concurrency** (e.g., `INTERCOM_CONCURRENCY=10`) if you have a higher rate limit tier
+
+**Official Intercom Rate Limits:**
+- Private apps: 10,000 API calls per minute
+- Workspace limit: 25,000 API calls per minute
+- The tool automatically respects these limits with adaptive backoff
+
 ## Step 3: Test Connection (1 minute)
 
 ```bash
