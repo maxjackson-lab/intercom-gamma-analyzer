@@ -14,6 +14,7 @@ import pandas as pd
 from src.services.intercom_sdk_service import IntercomSDKService
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.data_exporter import DataExporter
+from src.services.data_preprocessor import DataPreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ELTPipeline:
         self.intercom_service = IntercomSDKService()
         self.duckdb_storage = DuckDBStorage(self.output_dir / "conversations.duckdb")
         self.data_exporter = DataExporter()
+        self.data_preprocessor = DataPreprocessor()
 
         # Raw data storage
         self.raw_data_dir = self.output_dir / "raw_data"
@@ -58,22 +60,38 @@ class ELTPipeline:
                 'conversations_count': 0,
                 'date_range': f"{start_date} to {end_date}",
                 'extraction_time': extraction_time,
+                'preprocessing_time': 0,
                 'storage_time': 0
             }
 
-        # Step 2: Store raw JSON (for debugging/backup)
+        # Step 2: Preprocess conversations (normalize fields, inject customer_messages, etc.)
+        preprocessing_start = datetime.now()
+        logger.info(f"Preprocessing {len(conversations)} conversations...")
+        conversations, preprocess_stats = self.data_preprocessor.preprocess_conversations(
+            conversations,
+            options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+        )
+        preprocessing_time = (datetime.now() - preprocessing_start).total_seconds()
+        logger.info(
+            f"Preprocessing completed: {preprocess_stats['processed_count']} valid conversations, "
+            f"{len(preprocess_stats.get('validation_errors', []))} errors"
+        )
+
+        # Step 3: Store raw JSON (for debugging/backup)
         raw_file = self._store_raw_json(conversations, start_date, end_date)
 
-        # Step 3: Load into DuckDB
+        # Step 4: Load into DuckDB
         storage_start = datetime.now()
         self.duckdb_storage.store_conversations(conversations)
         storage_time = (datetime.now() - storage_start).total_seconds()
 
-        # Step 4: Generate summary statistics
+        # Step 5: Generate summary statistics
         stats = self._generate_extraction_stats(conversations, start_date, end_date)
         stats.update({
             'raw_file': str(raw_file),
             'extraction_time': extraction_time,
+            'preprocessing_time': preprocessing_time,
+            'preprocessing_stats': preprocess_stats,
             'storage_time': storage_time
         })
 

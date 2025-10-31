@@ -37,24 +37,33 @@ class TopicDetectionAgent(BaseAgent):
             "Abuse": {
                 "attribute": "Abuse",
                 "keywords": ["abuse", "harmful", "offensive", "inappropriate", "violation", "terms of service", 
-                           "not shareable", "link not working", "sharing issue"],
+                           "not shareable", "link not working", "sharing issue", "spam", "harassment",
+                           "abusive", "report", "complaint", "violate", "policy", 
+                           "suspend", "suspended", "ban", "banned", "disabled", "blocked"],
                 "priority": 1
             },
             "Account": {
                 "attribute": "Account",
                 "keywords": ["account", "login", "password", "email change", "settings", "access", 
-                           "credits", "account email"],
+                           "credits", "account email", "sign in", "signin", "log in",
+                           "authentication", "verify", "verification", "reset password", "can't access",
+                           "cant access", "locked", "locked out", "cannot sign in", "forgot password",
+                           "username", "unauthorized"],
                 "priority": 2
             },
             "Billing": {
                 "attribute": "Billing",
                 "keywords": ["invoice", "payment", "subscription", "billing", "charge", "refund", 
-                           "cancel", "payment method", "plan"],
+                           "cancel", "payment method", "plan", "charged", "bill", "subscribe", 
+                           "unsubscribe", "renew", "renewal", "paid", "pay", "credit card",
+                           "paypal", "stripe", "receipt", "transaction", "cost", "price", "pricing"],
                 "priority": 2
             },
             "Bug": {
                 "attribute": "Bug",
-                "keywords": ["bug", "error", "glitch", "broken", "not working", "crash", "unexpected"],
+                "keywords": ["bug", "error", "glitch", "broken", "not working", "crash", "unexpected",
+                           "issue", "problem", "doesn't work", "doesnt work", "failed", "failing",
+                           "malfunction", "wrong", "incorrect", "weird behavior", "strange"],
                 "priority": 2
             },
             "Chargeback": {
@@ -65,7 +74,9 @@ class TopicDetectionAgent(BaseAgent):
             "Feedback": {
                 "attribute": "Feedback",
                 "keywords": ["feature request", "suggestion", "improvement", "wish", "would be nice", 
-                           "could you add", "functionality", "doesn't exist"],
+                           "could you add", "functionality", "doesn't exist", "feedback", "recommend",
+                           "should add", "please add", "missing", "would like", "enhancement",
+                           "idea", "propose", "request"],
                 "priority": 3
             },
             "Partnerships": {
@@ -82,7 +93,9 @@ class TopicDetectionAgent(BaseAgent):
             },
             "Product Question": {
                 "attribute": "Product Question",
-                "keywords": ["how to", "how do i", "question", "help with", "what is", "can i", "feature"],
+                "keywords": ["how to", "how do i", "question", "help with", "what is", "can i", "feature",
+                           "how can", "help me", "need help", "where is", "where do", "when can",
+                           "tutorial", "guide", "instructions", "explain", "understand", "confused"],
                 "priority": 3
             },
             "Promotions": {
@@ -348,7 +361,19 @@ For each conversation:
         for topic_name, config in self.topics.items():
             # Method 1: Check Intercom attribute
             if config['attribute']:
-                if config['attribute'] in attributes or config['attribute'] in tags:
+                # FIX: Check if attribute VALUE exists in custom_attributes values OR tags
+                # Previously checked if attribute was a KEY in dict (always false!)
+                attribute_matched = False
+                
+                # Check if attribute value is in any of the custom_attributes VALUES
+                if attributes and isinstance(attributes, dict):
+                    attribute_matched = config['attribute'] in attributes.values()
+                
+                # Also check tags list
+                if not attribute_matched and config['attribute'] in tags:
+                    attribute_matched = True
+                
+                if attribute_matched:
                     detected.append({
                         'topic': topic_name,
                         'method': 'attribute',
@@ -368,10 +393,21 @@ For each conversation:
                 })
         
         # Ensure 100% coverage: If no topics detected, assign "Unknown/unresponsive"
+        # Enhanced with diagnostic logging
         if not detected:
+            conv_id = conv.get('id', 'unknown')
+            text_length = len(text)
+            has_attrs = bool(attributes)
+            has_tags = bool(tags)
+            
+            self.logger.debug(
+                f"No topics detected for {conv_id}: "
+                f"text_length={text_length}, has_attrs={has_attrs}, has_tags={has_tags}"
+            )
+            
             detected.append({
                 'topic': 'Unknown/unresponsive',
-                'method': 'keyword',  # Use 'keyword' for compatibility
+                'method': 'fallback',  # Changed from 'keyword' for better diagnostics
                 'confidence': 0.3
             })
         

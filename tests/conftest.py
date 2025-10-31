@@ -147,8 +147,7 @@ def sample_conversation_with_int_timestamp():
         'state': 'closed',
         'admin_assignee_id': 'admin_123',
         'ai_agent_participated': False,
-        'customer_messages': ['I am having issues with billing charges on my account'],
-        'full_text': 'Customer: I am having issues with billing charges on my account. Agent: I can help with that.',
+        # NOTE: customer_messages and full_text should be derived via extract_customer_messages() and extract_conversation_text()
         'conversation_rating': 4,
         'tags': {'tags': [{'name': 'billing'}]},
         'topics': {'topics': [{'name': 'Billing'}]}
@@ -166,8 +165,7 @@ def sample_conversation_with_datetime_timestamp():
         'state': 'closed',
         'admin_assignee_id': 'admin_456',
         'ai_agent_participated': False,
-        'customer_messages': ['The export feature is not working properly for our team'],
-        'full_text': 'Customer: The export feature is not working properly for our team. Agent: Let me investigate.',
+        # NOTE: customer_messages and full_text should be derived via extract_customer_messages() and extract_conversation_text()
         'conversation_rating': 3,
         'tags': {'tags': [{'name': 'export'}, {'name': 'bug'}]},
         'topics': {'topics': [{'name': 'Export'}, {'name': 'Bug'}]}
@@ -184,8 +182,7 @@ def sample_conversation_with_float_timestamp():
         'state': 'closed',
         'admin_assignee_id': 'admin_789',
         'ai_agent_participated': True,
-        'customer_messages': ['I love the new dashboard design but have questions about features'],
-        'full_text': 'Customer: I love the new dashboard design but have questions about features.',
+        # NOTE: customer_messages and full_text should be derived via extract_customer_messages() and extract_conversation_text()
         'conversation_rating': 5,
         'tags': {'tags': [{'name': 'feedback'}, {'name': 'dashboard'}]},
         'topics': {'topics': [{'name': 'Dashboard'}, {'name': 'Feedback'}]}
@@ -206,10 +203,7 @@ def sample_conversations_for_example_extraction():
             'created_at': int((now - timedelta(days=i)).timestamp()),
             'updated_at': int((now - timedelta(days=i) + timedelta(hours=1)).timestamp()),
             'state': 'closed',
-            'customer_messages': [
-                f'I hate this feature because it keeps crashing and losing data. Message {i}.'
-            ],
-            'full_text': f'Customer message about frustration {i}',
+            # NOTE: customer_messages and full_text should be derived via utilities
             'conversation_rating': 4 if i % 2 == 0 else None,
             'tags': {'tags': [{'name': 'bug'}, {'name': 'crash'}]},
             'topics': {'topics': [{'name': 'Bug'}, {'name': 'Crash'}]}
@@ -222,10 +216,7 @@ def sample_conversations_for_example_extraction():
             'created_at': now - timedelta(days=i % 7),
             'updated_at': now - timedelta(days=i % 7) + timedelta(hours=2),
             'state': 'closed',
-            'customer_messages': [
-                f'I love the improvements but confused about the new interface. Message {i}.'
-            ],
-            'full_text': f'Customer feedback message {i}',
+            # NOTE: customer_messages and full_text should be derived via utilities
             'conversation_rating': 5,
             'tags': {'tags': [{'name': 'feedback'}, {'name': 'ui'}]},
             'topics': {'topics': [{'name': 'Feedback'}, {'name': 'UI'}]}
@@ -238,10 +229,7 @@ def sample_conversations_for_example_extraction():
             'created_at': (now - timedelta(days=i % 10)).timestamp(),
             'updated_at': (now - timedelta(days=i % 10) + timedelta(hours=1)).timestamp(),
             'state': 'closed',
-            'customer_messages': [
-                f'I appreciate the quick response time from support. Message {i}.'
-            ],
-            'full_text': f'Customer appreciation message {i}',
+            # NOTE: customer_messages and full_text should be derived via utilities
             'conversation_rating': 5,
             'tags': {'tags': [{'name': 'support'}, {'name': 'positive'}]},
             'topics': {'topics': [{'name': 'Support'}, {'name': 'Positive'}]}
@@ -254,10 +242,7 @@ def sample_conversations_for_example_extraction():
             'created_at': None,
             'updated_at': None,
             'state': 'open',
-            'customer_messages': [
-                f'I am frustrated with the billing issues we have been experiencing. Message {i}.'
-            ],
-            'full_text': f'Customer billing issue message {i}',
+            # NOTE: customer_messages and full_text should be derived via utilities
             'conversation_rating': None,
             'tags': {'tags': [{'name': 'billing'}, {'name': 'issue'}]},
             'topics': {'topics': [{'name': 'Billing'}, {'name': 'Issue'}]}
@@ -591,8 +576,7 @@ def sample_fin_conversations_with_ratings():
             'tags': {'tags': []},
             'conversation_topics': [],
             'detected_topics': [topic],
-            'full_text': f'Customer inquiry about {topic.lower()} issue {i}.',
-            'customer_messages': [f'Message about {topic.lower()} {i}']
+            # NOTE: full_text and customer_messages should be derived via utilities
         }
         
         # Add Tier 2 indicators based on topic
@@ -613,19 +597,8 @@ def sample_fin_conversations_with_ratings():
             conv['conversation_topics'].append({'name': 'Feature'})
             conv['custom_attributes']['product_version'] = 'v2' if i % 5 == 0 else 'v1'
         
-        # Add escalation phrases in some conversations
-        if i % 4 == 0:
-            conv['full_text'] += ' I need to speak to human support.'
-        elif i % 4 == 1:
-            conv['full_text'] += ' Talk to a real person please.'
-        elif i % 4 == 2:
-            conv['full_text'] += ' Escalate this to supervisor.'
-        
-        # Add knowledge gap phrases in some conversations
-        if i % 5 == 0:
-            conv['full_text'] += ' This answer is wrong.'
-        elif i % 5 == 1:
-            conv['full_text'] += ' Not helpful at all.'
+        # NOTE: Removed full_text modifications - text should be in source/conversation_parts
+        # Add escalation/knowledge gap phrases to conversation_parts instead if needed
         
         conversations.append(conv)
     
@@ -996,8 +969,7 @@ def sample_orchestrator_conversations():
             'ai_agent_participated': is_finn,
             'conversation_rating': (i % 5) + 1 if i % 3 == 0 else None,
             'detected_topics': [topic],
-            'full_text': f'Customer message about {topic.lower()} issue {i}. Additional context provided.',
-            'customer_messages': [f'I need help with {topic.lower()}. Message {i}.'],
+            # NOTE: full_text and customer_messages should be derived via utilities
             'tags': {'tags': []},
             'conversation_topics': [],
             'custom_attributes': {'Language': 'en'}
@@ -1008,22 +980,22 @@ def sample_orchestrator_conversations():
             if i % 2 == 0:
                 conv['tags']['tags'].append({'name': 'Refund'})
                 conv['conversation_topics'].append({'name': 'Refund'})
-                conv['full_text'] += ' Requesting refund for subscription.'
+                # NOTE: Text should be in source/conversation_parts, not full_text
             else:
                 conv['tags']['tags'].append({'name': 'Invoice'})
                 conv['conversation_topics'].append({'name': 'Invoice'})
-                conv['full_text'] += ' Invoice shows incorrect charges.'
+                # NOTE: Text should be in source/conversation_parts, not full_text
             conv['custom_attributes']['billing_type'] = 'annual' if i % 4 == 0 else 'monthly'
         elif topic == 'Account Issues':
             conv['tags']['tags'].append({'name': 'Login'})
             conv['conversation_topics'].append({'name': 'Login'})
             conv['custom_attributes']['account_type'] = 'premium' if i % 3 == 0 else 'standard'
-            conv['full_text'] += ' Cannot access account due to login errors.'
+            # NOTE: Text should be in source/conversation_parts, not full_text
         else:  # Product Questions
             conv['tags']['tags'].append({'name': 'Feature'})
             conv['conversation_topics'].append({'name': 'Feature'})
             conv['custom_attributes']['product_version'] = 'v2' if i % 5 == 0 else 'v1'
-            conv['full_text'] += ' Asking about new feature capabilities.'
+            # NOTE: Text should be in source/conversation_parts, not full_text
         
         conversations.append(conv)
     
@@ -1038,8 +1010,7 @@ def sample_orchestrator_conversations():
             'ai_agent_participated': True,
             'conversation_rating': None,
             'detected_topics': ['Support'],
-            'full_text': f'Free tier customer inquiry {i}. General support question.',
-            'customer_messages': [f'I have a question about the free plan. Message {i}.'],
+            # NOTE: full_text and customer_messages should be derived via utilities
             'tags': {'tags': [{'name': 'support'}]},
             'conversation_topics': [],
             'custom_attributes': {'Language': 'en', 'tier': 'free'}
@@ -1160,7 +1131,7 @@ def create_test_conversation(
         topics: List of topic names
         ai_agent: Whether AI agent participated
         rating: Conversation rating (1-5 or None)
-        escalated_to: Name of person escalated to (adds to full_text)
+        escalated_to: Name of person escalated to (adds to conversation_parts)
         **kwargs: Additional fields to override
         
     Returns:
@@ -1173,9 +1144,10 @@ def create_test_conversation(
     tags = tags or []
     topics = topics or []
     
-    full_text = f"Customer message for conversation {conv_id}."
+    # Build conversation body text
+    body_text = f"Customer message for conversation {conv_id}."
     if escalated_to:
-        full_text += f" Escalated to {escalated_to}."
+        body_text += f" Escalated to {escalated_to}."
     
     conv = {
         'id': conv_id,
@@ -1203,10 +1175,13 @@ def create_test_conversation(
         'topics': {
             'topics': [{'name': topic} for topic in topics]
         },
-        'full_text': full_text,
-        'customer_messages': [f"Customer message for {conv_id}"],
+        # NOTE: full_text and customer_messages should be derived via utilities, not pre-injected
         'source': {
-            'body': f"<p>Customer message for {conv_id}</p>"
+            'body': f"<p>{body_text}</p>",
+            'author': {
+                'type': 'user',
+                'id': f'user_{conv_id}'
+            }
         },
         'conversation_parts': {
             'conversation_parts': [

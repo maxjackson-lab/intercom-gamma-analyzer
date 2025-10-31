@@ -553,22 +553,8 @@ class CategoryFilters:
     
     def _extract_conversation_text(self, conv: Dict[str, Any]) -> str:
         """Extract all text content from a conversation."""
-        text_parts = []
-        
-        # Extract from conversation parts
-        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            if part.get('part_type') == 'comment':
-                body = part.get('body', '')
-                if body:
-                    text_parts.append(body)
-        
-        # Extract from source
-        source = conv.get('source', {})
-        if source.get('body'):
-            text_parts.append(source['body'])
-        
-        return ' '.join(text_parts)
+        from src.utils.conversation_utils import extract_conversation_text
+        return extract_conversation_text(conv, clean_html=True)
     
     def get_available_categories(self) -> List[str]:
         """Get list of available primary categories."""

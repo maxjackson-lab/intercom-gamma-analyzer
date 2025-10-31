@@ -517,6 +517,51 @@ Output: Segmented conversations with agent type labels
                 execution_time=execution_time
             )
     
+    def _determine_ai_participation(self, conv: Dict) -> bool:
+        """
+        Determine if Fin AI participated in conversation using SDK-compliant precedence.
+        
+        Precedence order (highest to lowest):
+        1. ai_agent object presence (SDK spec - most reliable)
+        2. ai_agent_participated boolean field (legacy/fallback)
+        3. Content heuristic: conversation starts with "Finn" (legacy)
+        
+        Args:
+            conv: Conversation dictionary
+            
+        Returns:
+            True if Fin AI participated, False otherwise
+            
+        Note:
+            Per Intercom SDK spec, ai_agent field is OPTIONAL and may be absent.
+            When present, it indicates Fin AI participated regardless of boolean field.
+        """
+        conv_id = conv.get('id', 'unknown')
+        
+        # Priority 1: Check for ai_agent object (SDK spec)
+        # ai_agent field is OPTIONAL per SDK - may be absent or None
+        ai_agent = conv.get('ai_agent')
+        if ai_agent is not None:
+            # ai_agent object exists -> Fin participated
+            self.logger.debug(f"Conversation {conv_id}: ai_agent object present -> Fin participated")
+            return True
+        
+        # Priority 2: Check ai_agent_participated boolean field (fallback)
+        ai_participated = conv.get('ai_agent_participated')
+        if ai_participated is not None:
+            # Use boolean value
+            self.logger.debug(f"Conversation {conv_id}: ai_agent_participated={ai_participated}")
+            return bool(ai_participated)
+        
+        # Priority 3: Content heuristic - check if starts with "Finn" (legacy fallback)
+        if self._starts_with_finn(conv):
+            self.logger.debug(f"Conversation {conv_id}: Starts with 'Finn' -> Fin participated (heuristic)")
+            return True
+        
+        # No evidence of Fin participation
+        self.logger.debug(f"Conversation {conv_id}: No Fin participation detected")
+        return False
+    
     def _starts_with_finn(self, conv: Dict) -> bool:
         """
         Check if conversation starts with "Finn" (reliable indicator of Fin AI).
@@ -581,7 +626,7 @@ Output: Segmented conversations with agent type labels
         
         # FAST PATH: If not tracking escalations, just check if Fin resolved it
         if not self.track_escalations:
-            ai_participated = conv.get('ai_agent_participated', False)
+            ai_participated = self._determine_ai_participation(conv)
             admin_assignee_id = conv.get('admin_assignee_id')
             
             # Simple logic: Did Fin resolve it without human?
@@ -595,7 +640,7 @@ Output: Segmented conversations with agent type labels
         # DETAILED PATH: Track full escalation chains
         # Extract actual conversation text for vendor/staff detection
         text = extract_conversation_text(conv, clean_html=True).lower()
-        ai_participated = conv.get('ai_agent_participated', False)
+        ai_participated = self._determine_ai_participation(conv)
         starts_with_finn = self._starts_with_finn(conv)
         
         # Get ai_agent object with resolution data (per Intercom SDK spec)
@@ -614,11 +659,11 @@ Output: Segmented conversations with agent type labels
         else:
             self.logger.debug(f"Conversation {conv_id}: ai_agent field is absent or None")
 
-        # Log conversation data for debugging
+        # Log conversation data for debugging (ai_participated is now from helper)
         self.logger.debug(
             f"Classifying paid tier conversation {conv_id}: "
             f"admin_assignee_id={conv.get('admin_assignee_id')}, "
-            f"ai_participated={ai_participated}, "
+            f"ai_participated={ai_participated} (via _determine_ai_participation), "
             f"ai_resolution_state={ai_resolution_state}"
         )
         
@@ -711,11 +756,11 @@ Output: Segmented conversations with agent type labels
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
         
         # NOW DETERMINE ESCALATION CHAIN based on detected agents
-        # Check if Fin was involved (ai_participated OR starts with "Finn")
-        fin_involved = ai_participated or starts_with_finn
+        # Check if Fin was involved (already determined via _determine_ai_participation)
+        fin_involved = ai_participated
         
         if fin_involved:
-            self.logger.info(f"Conversation {conv_id}: Fin detected (ai_participated={ai_participated}, starts_with_finn={starts_with_finn})")
+            self.logger.info(f"Conversation {conv_id}: Fin detected (via _determine_ai_participation: {ai_participated})")
         
         # ESCALATION CHAIN LOGIC:
         # Priority: Senior Staff > Vendor > Fin Only
@@ -767,6 +812,7 @@ Output: Segmented conversations with agent type labels
         has_bot_response = len(bot_parts) > 0
         
         # Legacy fallback for old data without clear Fin markers
+        # ai_participated is already determined via _determine_ai_participation()
         if ai_participated:
             # PRIMARY: Use Intercom's official ai_agent.resolution_state field (SDK spec)
             # This is the authoritative source from Intercom about whether Fin resolved it
@@ -828,17 +874,17 @@ Output: Segmented conversations with agent type labels
                     self.logger.debug(f"Paid tier: Fallback - Fin resolved (good resolution signals)")
                     return 'paid', 'fin_resolved'
                 else:
-                    self.logger.debug(f"Paid tier: Fallback - Fin resolved (default, ai_participated=True)")
+                    self.logger.debug(f"Paid tier: Fallback - Fin resolved (default, ai_participated via helper=True)")
                     return 'paid', 'fin_resolved'
         
-        # ai_agent_participated=False but has admin response → Real human handled without Fin
+        # ai_participated=False (via helper) but has admin response → Real human handled without Fin
         if has_admin_response:
-            self.logger.debug(f"Paid customer: Human admin (ai_participated=False)")
+            self.logger.debug(f"Paid customer: Human admin (ai_participated via helper=False)")
             return 'paid', 'unknown'
         
         # No AI, no admin → edge case
         if has_bot_response:
-            self.logger.debug(f"Paid tier: Bot response but ai_participated=False")
+            self.logger.debug(f"Paid tier: Bot response but ai_participated via helper=False")
             return 'paid', 'fin_resolved'
 
         # Cannot determine

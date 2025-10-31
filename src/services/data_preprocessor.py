@@ -12,6 +12,7 @@ import json
 
 from src.config.settings import settings
 from src.models.analysis_models import ConversationSchema
+from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,8 @@ class DataPreprocessor:
                     continue
                 
                 # Extract customer messages before schema validation
-                customer_messages = self._extract_customer_messages(conv)
+                # Use centralized utility from conversation_utils
+                customer_messages = extract_customer_messages(conv, clean_html=True)
                 conv['customer_messages'] = customer_messages
                 
                 # Validate with ConversationSchema
@@ -196,38 +198,7 @@ class DataPreprocessor:
         
         return validated
     
-    def _extract_customer_messages(self, conv: Dict[str, Any]) -> List[str]:
-        """
-        Extract customer messages from raw Intercom conversation data.
-        
-        This method extracts all messages sent by customers (users) from both
-        the initial message (source) and subsequent conversation parts.
-        
-        Args:
-            conv: Raw Intercom conversation dictionary
-            
-        Returns:
-            List of customer message texts
-        """
-        customer_msgs = []
-        
-        # Extract from conversation_parts
-        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            author = part.get('author', {})
-            if author.get('type') == 'user':  # Customer message
-                body = part.get('body', '').strip()
-                if body:
-                    customer_msgs.append(body)
-        
-        # Extract from source (initial message)
-        source = conv.get('source', {})
-        if source.get('author', {}).get('type') == 'user':
-            body = source.get('body', '').strip()
-            if body:
-                customer_msgs.insert(0, body)  # Add at beginning
-        
-        return customer_msgs
+    # NOTE: _extract_customer_messages() removed - now using centralized extract_customer_messages() from conversation_utils
     
     def _normalize_timestamps(self, conv: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -339,7 +310,8 @@ class DataPreprocessor:
     
     def _infer_category(self, conv: Dict[str, Any]) -> Tuple[Optional[str], float]:
         """Infer conversation category from text content."""
-        text = self._extract_conversation_text(conv).lower()
+        # Use centralized utility from conversation_utils
+        text = extract_conversation_text(conv, clean_html=True).lower()
         
         # Check for technical keywords
         for category, keywords in self.technical_keywords.items():
@@ -362,7 +334,8 @@ class DataPreprocessor:
     
     def _infer_topics(self, conv: Dict[str, Any]) -> Tuple[List[str], float]:
         """Infer conversation topics from text content."""
-        text = self._extract_conversation_text(conv).lower()
+        # Use centralized utility from conversation_utils
+        text = extract_conversation_text(conv, clean_html=True).lower()
         topics = []
         confidence = 0.0
         
@@ -387,7 +360,8 @@ class DataPreprocessor:
     
     def _infer_language(self, conv: Dict[str, Any]) -> Tuple[Optional[str], float]:
         """Infer conversation language from text content."""
-        text = self._extract_conversation_text(conv)
+        # Use centralized utility from conversation_utils
+        text = extract_conversation_text(conv, clean_html=True)
         
         # Simple language detection based on common words
         english_words = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
@@ -416,24 +390,7 @@ class DataPreprocessor:
         
         return None, 0.0
     
-    def _extract_conversation_text(self, conv: Dict[str, Any]) -> str:
-        """Extract all text content from a conversation."""
-        text_parts = []
-        
-        # Extract from conversation parts
-        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            if part.get('part_type') == 'comment':
-                body = part.get('body', '')
-                if body:
-                    text_parts.append(body)
-        
-        # Extract from source
-        source = conv.get('source', {})
-        if source.get('body'):
-            text_parts.append(source['body'])
-        
-        return ' '.join(text_parts)
+    # NOTE: _extract_conversation_text() removed - now using centralized extract_conversation_text() from conversation_utils
     
     def _get_confidence_level(self, confidence: float) -> str:
         """Get confidence level string from numeric confidence."""
@@ -515,7 +472,8 @@ class DataPreprocessor:
         # Calculate text length statistics
         text_lengths = []
         for conv in conversations:
-            text = self._extract_conversation_text(conv)
+            # Use centralized utility from conversation_utils
+            text = extract_conversation_text(conv, clean_html=True)
             text_lengths.append(len(text))
         
         if not text_lengths:
@@ -532,7 +490,8 @@ class DataPreprocessor:
         
         outliers_detected = 0
         for conv in conversations:
-            text = self._extract_conversation_text(conv)
+            # Use centralized utility from conversation_utils
+            text = extract_conversation_text(conv, clean_html=True)
             text_length = len(text)
             
             if text_length < lower_bound or text_length > upper_bound:

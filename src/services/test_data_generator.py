@@ -325,8 +325,8 @@ class TestDataGenerator:
                 'topics': [{'name': t} for t in conversation_topics]
             },
             'conversation_topics': [{'name': t} for t in conversation_topics],
-            'full_text': message,
-            'customer_messages': [message],
+            # NOTE: full_text and customer_messages are NOT injected here
+            # They should be derived by code under test via extract_conversation_text() and extract_customer_messages()
             'source': {
                 'body': f"<p>{message}</p>",
                 'author': {
@@ -450,8 +450,8 @@ class TestDataGenerator:
                 'topics': [{'name': t} for t in conversation_topics]
             },
             'conversation_topics': [{'name': t} for t in conversation_topics],
-            'full_text': message,
-            'customer_messages': [message],
+            # NOTE: full_text and customer_messages are NOT injected here
+            # They should be derived by code under test via extract_conversation_text() and extract_customer_messages()
             'source': {
                 'body': f"<p>{message}</p>",
                 'author': {

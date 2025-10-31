@@ -366,19 +366,8 @@ class TaxonomyManager:
     
     def _extract_conversation_text(self, conversation: Dict[str, Any]) -> str:
         """Extract full text from conversation."""
-        texts = []
-        
-        # Get initial message
-        if 'source' in conversation and 'body' in conversation['source']:
-            texts.append(conversation['source']['body'])
-        
-        # Get conversation parts
-        parts = conversation.get('conversation_parts', {}).get('conversation_parts', [])
-        for part in parts:
-            if 'body' in part:
-                texts.append(part['body'])
-        
-        return ' '.join(texts)
+        from src.utils.conversation_utils import extract_conversation_text
+        return extract_conversation_text(conversation, clean_html=True)
     
     def _extract_tags(self, conversation: Dict[str, Any]) -> List[str]:
         """Extract tags from conversation."""

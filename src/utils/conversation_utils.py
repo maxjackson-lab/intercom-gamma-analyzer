@@ -127,6 +127,59 @@ def extract_customer_messages(conversation: Dict[str, Any], clean_html: bool = T
     return customer_msgs
 
 
+def extract_admin_messages(conversation: Dict[str, Any], clean_html: bool = True) -> List[str]:
+    """
+    Extract only admin messages from a conversation.
+    
+    This filters out customer/user messages and returns only admin-authored content.
+    Useful for analyzing agent responses, coaching quality, and escalation patterns.
+    
+    Args:
+        conversation: Intercom conversation dictionary
+        clean_html: Whether to strip HTML tags from text
+        
+    Returns:
+        List of admin message texts in chronological order
+    """
+    admin_msgs = []
+    
+    try:
+        # Extract from source (initial message) if from admin
+        source = conversation.get('source', {})
+        if isinstance(source, dict):
+            author = source.get('author', {})
+            if author.get('type') == 'admin':  # Admin message
+                body = source.get('body', '').strip()
+                if body:
+                    if clean_html:
+                        body = _clean_html(body)
+                    admin_msgs.append(body)
+        
+        # Extract from conversation parts
+        conversation_parts = conversation.get('conversation_parts', {})
+        if isinstance(conversation_parts, dict):
+            parts = conversation_parts.get('conversation_parts', [])
+        elif isinstance(conversation_parts, list):
+            parts = conversation_parts
+        else:
+            parts = []
+        
+        for part in parts:
+            if isinstance(part, dict):
+                author = part.get('author', {})
+                if author.get('type') == 'admin':  # Admin message
+                    body = part.get('body', '').strip()
+                    if body:
+                        if clean_html:
+                            body = _clean_html(body)
+                        admin_msgs.append(body)
+    
+    except Exception as e:
+        logger.error(f"Error extracting admin messages: {e}")
+    
+    return admin_msgs
+
+
 def _clean_html(text: str) -> str:
     """
     Remove HTML tags and clean up text content.
