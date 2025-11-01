@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     gamma_api_key: Optional[str] = Field(None, env="GAMMA_API_KEY")
     intercom_workspace_id: Optional[str] = Field(None, env="INTERCOM_WORKSPACE_ID")
     
+    # Feature Flags - Control new features
+    use_dual_fin_metrics: bool = Field(False, env="USE_DUAL_FIN_METRICS")  # Set to True to show Intercom-compatible + Quality metrics
+    
     # Intercom API Settings
     intercom_base_url: str = Field("https://api.intercom.io", env="INTERCOM_BASE_URL")
     intercom_api_version: str = Field("2.14", env="INTERCOM_API_VERSION")
