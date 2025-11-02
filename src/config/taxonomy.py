@@ -32,7 +32,13 @@ class TaxonomyManager:
     """Manages the taxonomy configuration and mapping."""
     
     def __init__(self, taxonomy_file: Optional[str] = None):
-        self.taxonomy_file = Path(taxonomy_file) if taxonomy_file else Path("src/config/taxonomy.yaml")
+        if taxonomy_file:
+            self.taxonomy_file = Path(taxonomy_file)
+        else:
+            # Use absolute path from module location to work in any working directory
+            module_dir = Path(__file__).parent
+            self.taxonomy_file = module_dir / "taxonomy.yaml"
+        
         self.categories: Dict[str, Category] = {}
         self._load_taxonomy()
     
@@ -41,8 +47,11 @@ class TaxonomyManager:
         if self.taxonomy_file.exists():
             self._load_from_yaml()
         else:
+            import logging
+            logging.warning(f"Taxonomy file not found at {self.taxonomy_file}, using default taxonomy")
             self._create_default_taxonomy()
-            self._save_to_yaml()
+            # Don't save to YAML if file doesn't exist - might be deployment environment
+            # self._save_to_yaml()
     
     def _create_default_taxonomy(self):
         """Create the default Gamma taxonomy."""
