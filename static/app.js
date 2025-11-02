@@ -1215,7 +1215,8 @@ function runAnalysis() {
         command = 'sample-mode';
         flags['--count'] = 50;  // Default 50 conversations
         flags['--time-period'] = timePeriod || 'week';
-        flags['--save-to-file'] = true;
+        // Don't save JSON by default - all output streams to web console
+        // User can add --save-to-file flag manually if they want the JSON
     } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
         flags['--multi-agent'] = true;

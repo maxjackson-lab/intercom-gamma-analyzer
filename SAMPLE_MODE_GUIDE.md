@@ -20,10 +20,19 @@
 ### **Web UI (Easiest)**
 
 1. Go to Railway web app
-2. Select **"🔬 Sample Mode"** from dropdown
-3. Choose time period (day/week/month)
+2. Select **"🔬 Sample Mode (50-100 Real Tickets - Ultra Logging)"** from dropdown
+3. Choose time period (Last Week recommended)
 4. Click **"Run Analysis"**
-5. Check console for ultra-rich logging
+5. **Watch the console output stream!** (No JSON files - everything appears in console)
+
+**All output streams to the web console in real-time:**
+- 📊 Field coverage tables
+- 🔍 Custom attributes analysis
+- 👤 Sal vs Human attribution
+- 📝 5 detailed conversation samples
+- ✅ Keyword detection tests
+
+**No files to download** - just watch the console! 🎉
 
 ### **Command Line**
 

@@ -99,7 +99,10 @@ class SampleMode:
                     'analysis': analysis
                 }, f, indent=2, default=str)
             
-            console.print(f"\n💾 [green]Raw data saved to:[/green] {output_file}")
+            console.print(f"\n💾 [green]Raw JSON saved to:[/green] {output_file}")
+            console.print(f"   (All detailed analysis is shown above in console)")
+        else:
+            console.print(f"\n[dim]ℹ️  JSON file not saved (use --save-to-file to enable)[/dim]")
         
         return {
             'conversations': conversations,
@@ -140,6 +143,13 @@ class SampleMode:
         
         for i, conv in enumerate(conversations[:5], 1):
             self._display_conversation_detail(conv, i)
+        
+        # ===== SUMMARY =====
+        console.print("\n" + "="*80)
+        console.print("[bold green]✅ SAMPLE MODE COMPLETE[/bold green]")
+        console.print("="*80)
+        console.print("\n[bold]All detailed analysis is shown above in this console.[/bold]")
+        console.print("No need to check JSON files - everything you need is here! 👆\n")
         
         return {
             'field_coverage': field_coverage,

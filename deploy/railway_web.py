@@ -306,8 +306,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--save-to-file': {
                 'type': 'boolean',
-                'default': True,
-                'description': 'Save raw JSON to outputs/'
+                'default': False,  # Default to console-only for web UI
+                'description': 'Save raw JSON to outputs/ (optional - all data shown in console)'
             }
         },
         'estimated_duration': '10-30 seconds'
