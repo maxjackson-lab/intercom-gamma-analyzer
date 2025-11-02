@@ -31,6 +31,38 @@ from src.utils.conversation_utils import extract_conversation_text
 logger = logging.getLogger(__name__)
 
 
+def is_sal_or_fin(author: Dict) -> bool:
+    """
+    Determine if an admin author is actually Sal/Fin AI (not a human admin).
+    
+    Sal/Support Sal appears as an 'admin' in Intercom conversation_parts,
+    but is actually Fin AI, not a human support agent.
+    
+    Args:
+        author: Author dict with 'name', 'email', 'id' fields
+        
+    Returns:
+        True if this is Sal/Fin AI, False if real human admin
+    """
+    if not author:
+        return False
+        
+    name = author.get('name', '').lower()
+    email = author.get('email', '').lower()
+    author_id = str(author.get('id', '')).lower()
+    
+    # Check for Sal/Finn indicators
+    is_sal = (
+        'sal' in name or
+        'support sal' in name or
+        'sal' in email or
+        'finn' in name or
+        author_id == 'bot'  # Some systems mark Sal as bot
+    )
+    
+    return is_sal
+
+
 class SegmentationAgent(BaseAgent):
     """
     Agent specialized in customer tier and agent type segmentation.
@@ -671,6 +703,7 @@ Output: Segmented conversations with agent type labels
         admin_emails = []
         
         # Check conversation parts for admin emails (handle None case)
+        # NOTE: Filter out Sal/Support Sal as Sal is Fin AI, not a human admin
         conversation_parts_data = conv.get('conversation_parts', {})
         if conversation_parts_data is None:
             conversation_parts_data = {}
@@ -678,16 +711,22 @@ Output: Segmented conversations with agent type labels
         for part in conv_parts:
             author = part.get('author', {})
             if author.get('type') == 'admin':
-                email = author.get('email', '')
-                if email:
-                    admin_emails.append(email.lower())
+                # Skip Sal/Support Sal (Fin AI, not human)
+                if not is_sal_or_fin(author):
+                    email = author.get('email', '')
+                    if email:
+                        admin_emails.append(email.lower())
         
         # Check source/initial message for admin email
+        # NOTE: Filter out Sal/Support Sal as Sal is Fin AI, not a human admin
         source = conv.get('source', {})
-        if source.get('author', {}).get('type') == 'admin':
-            email = source.get('author', {}).get('email', '')
-            if email:
-                admin_emails.append(email.lower())
+        source_author = source.get('author', {})
+        if source_author.get('type') == 'admin':
+            # Skip Sal/Support Sal (Fin AI, not human)
+            if not is_sal_or_fin(source_author):
+                email = source_author.get('email', '')
+                if email:
+                    admin_emails.append(email.lower())
         
         # Check top-level assignee email if available
         # NOTE: `assignee` field may be absent; `assignee.email` is per admin_assignee structure
@@ -804,11 +843,21 @@ Output: Segmented conversations with agent type labels
             self.logger.info(f"Human only: Boldr (no Fin)")
             return 'paid', 'boldr'
         
-        # Check for admin response in conversation parts
+        # Check for HUMAN admin response in conversation parts (not Sal)
+        # NOTE: Sal/Support Sal is Fin AI, not a human admin
         parts_list = conv.get('conversation_parts', {}).get('conversation_parts', [])
         admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
         bot_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'bot']
-        has_admin_response = len(admin_parts) > 0
+        
+        # Filter out Sal from admin parts (Sal is Fin AI)
+        human_admin_parts = []
+        for part in admin_parts:
+            author = part.get('author', {})
+            # Skip Sal/Support Sal (Fin AI)
+            if not is_sal_or_fin(author):
+                human_admin_parts.append(part)
+        
+        has_admin_response = len(human_admin_parts) > 0
         has_bot_response = len(bot_parts) > 0
         
         # Legacy fallback for old data without clear Fin markers
@@ -831,10 +880,10 @@ Output: Segmented conversations with agent type labels
                     self.logger.debug(f"Paid tier: Escalated per Intercom SDK (resolution_state={ai_resolution_state})")
                     # Check for human admin emails to identify which agent
                     if has_admin_response:
-                        for part in admin_parts:
+                        for part in human_admin_parts:
                             author_email = part.get('author', {}).get('email', '').lower()
                             if author_email and '@' in author_email:
-                                if not any(x in author_email for x in ['support', 'fin', 'sal', 'bot']):
+                                if not any(x in author_email for x in ['support', 'fin', 'bot']):
                                     return 'paid', 'unknown'  # Real human escalation
                     return 'paid', 'unknown'  # Escalated but can't identify agent
                 else:

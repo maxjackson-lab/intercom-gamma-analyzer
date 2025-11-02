@@ -178,57 +178,68 @@ categories:
     confidence_threshold: 0.7
     description: 'AI agent questions and usage (internal name: Buddy)'
     keywords:
-    - agent
+    - "gamma ai"
+    - "your ai"
+    - "ai assistant"
+    - "ai agent"
     - buddy
-    - fin
-    - ai
-    - bot
-    - assistant
+    - "fin ai"
+    - "finn ai"
+    - chatbot
+    - "virtual assistant"
+    - "the bot"
+    - "the assistant"
     subcategories:
     - confidence_threshold: 0.8
       description: Questions about AI agent
       keywords:
-      - agent
-      - fin
-      - ai
-      - bot
-      - assistant
+      - "ai agent"
+      - "gamma ai"
+      - "fin ai"
+      - "about fin"
+      - "about buddy"
+      - chatbot
       name: Agent Question
     - confidence_threshold: 0.8
       description: Feedback on AI agent
       keywords:
-      - agent feedback
-      - fin feedback
-      - ai feedback
+      - "agent feedback"
+      - "fin feedback"
+      - "ai feedback"
+      - "buddy feedback"
       name: Agent Feedback
     - confidence_threshold: 0.8
       description: AI agent training requests
       keywords:
-      - agent training
-      - fin training
-      - ai training
+      - "agent training"
+      - "fin training"
+      - "ai training"
+      - "train the ai"
       name: Agent Training
     - confidence_threshold: 0.8
       description: AI agent integration
       keywords:
-      - agent integration
-      - fin integration
-      - ai integration
+      - "agent integration"
+      - "fin integration"
+      - "ai integration"
+      - "integrate fin"
       name: Agent Integration
     - confidence_threshold: 0.8
       description: AI agent performance
       keywords:
-      - agent performance
-      - fin performance
-      - ai performance
+      - "agent performance"
+      - "fin performance"
+      - "ai performance"
+      - "fin is slow"
+      - "ai is slow"
       name: Agent Performance
     - confidence_threshold: 0.8
       description: Other AI agent issues
       keywords:
-      - agent
-      - ai
-      - fin
-      - buddy
+      - "fin bot"
+      - "gamma bot"
+      - "ai support"
+      - "buddy help"
       name: Other Agent
   Billing:
     confidence_threshold: 0.7

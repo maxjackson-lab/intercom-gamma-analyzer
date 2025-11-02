@@ -261,7 +261,7 @@ For each conversation:
                 topics_by_conversation[conv_id] = detected
                 all_topic_assignments.extend(detected)
             
-            # Calculate topic distribution
+            # Calculate topic distribution with HYBRID method tracking
             topic_counts = {}
             detection_methods = {}
             
@@ -270,26 +270,36 @@ For each conversation:
                 topic_counts[topic] = topic_counts.get(topic, 0) + 1
                 
                 if topic not in detection_methods:
-                    detection_methods[topic] = {'attribute': 0, 'keyword': 0}
+                    detection_methods[topic] = {
+                        'hybrid': 0,      # Keyword + SDK agree (best)
+                        'keyword': 0,     # Keyword only (good)
+                        'sdk_only': 0,    # SDK only (caution)
+                        'fallback': 0     # Unknown fallback
+                    }
                 
-                # Handle method safely (in case of unexpected values)
+                # Track method
                 method = assignment.get('method', 'keyword')
                 if method in detection_methods[topic]:
                     detection_methods[topic][method] += 1
                 else:
-                    # Unknown method type - count as keyword
+                    # Unknown method - count as keyword
                     detection_methods[topic]['keyword'] += 1
             
-            # DEBUG: Log detection method breakdown
-            self.logger.info("📊 Topic Detection Method Breakdown:")
+            # DEBUG: Log HYBRID detection method breakdown
+            self.logger.info("📊 HYBRID Topic Detection Breakdown:")
             for topic, methods in sorted(detection_methods.items(), key=lambda x: topic_counts[x[0]], reverse=True)[:10]:
                 count = topic_counts[topic]
-                attr_pct = round(methods['attribute'] / count * 100, 1) if count > 0 else 0
+                hybrid_pct = round(methods['hybrid'] / count * 100, 1) if count > 0 else 0
                 kw_pct = round(methods['keyword'] / count * 100, 1) if count > 0 else 0
+                sdk_pct = round(methods['sdk_only'] / count * 100, 1) if count > 0 else 0
+                fallback_pct = round(methods['fallback'] / count * 100, 1) if count > 0 else 0
+                
                 self.logger.info(
-                    f"   {topic}: {count} total "
-                    f"(Attribute: {methods['attribute']} [{attr_pct}%], "
-                    f"Keyword: {methods['keyword']} [{kw_pct}%])"
+                    f"   {topic}: {count} total | "
+                    f"Hybrid: {methods['hybrid']} ({hybrid_pct}%) | "
+                    f"Keyword: {methods['keyword']} ({kw_pct}%) | "
+                    f"SDK-only: {methods['sdk_only']} ({sdk_pct}%)"
+                    + (f" | Fallback: {methods['fallback']} ({fallback_pct}%)" if methods['fallback'] > 0 else "")
                 )
             
             # Group conversations by topic
@@ -304,19 +314,31 @@ For each conversation:
                         conversations_by_topic[topic] = []
                     conversations_by_topic[topic].append(conv)
             
-            # Calculate percentages
+            # Calculate percentages with HYBRID tracking
             total_conversations = len(conversations)
             topic_distribution = {}
             
             for topic, count in topic_counts.items():
-                primary_method = 'attribute' if detection_methods[topic]['attribute'] > detection_methods[topic]['keyword'] else 'keyword'
+                methods = detection_methods[topic]
+                
+                # Determine primary method
+                if methods['hybrid'] > 0:
+                    primary_method = 'hybrid'
+                elif methods['keyword'] > 0:
+                    primary_method = 'keyword'
+                elif methods['sdk_only'] > 0:
+                    primary_method = 'sdk_only'
+                else:
+                    primary_method = 'fallback'
                 
                 topic_distribution[topic] = {
                     'volume': count,
                     'percentage': round(count / total_conversations * 100, 1),
                     'detection_method': primary_method,
-                    'attribute_count': detection_methods[topic]['attribute'],
-                    'keyword_count': detection_methods[topic]['keyword']
+                    'hybrid_count': methods['hybrid'],
+                    'keyword_count': methods['keyword'],
+                    'sdk_only_count': methods['sdk_only'],
+                    'fallback_count': methods.get('fallback', 0)
                 }
             
             # LLM Enhancement: Discover additional semantic topics
@@ -420,10 +442,15 @@ For each conversation:
     
     def _detect_topics_for_conversation(self, conv: Dict) -> List[Dict]:
         """
-        Detect all topics for a single conversation
+        HYBRID DETECTION: SDK Enrichment + Keyword Detection
+        
+        Strategy:
+        1. PRIMARY: Keyword detection (reliable, always works)
+        2. ENRICHMENT: SDK attributes boost confidence when they agree
+        3. VALIDATION: SDK attributes can catch missed keywords
         
         Returns:
-            List of {topic, method, confidence}
+            List of {topic, method, confidence, sdk_validated}
         """
         detected = []
         conv_id = conv.get('id', 'unknown')
@@ -438,93 +465,148 @@ For each conversation:
         
         # DEBUG: Log what we're working with (first 5 convs only to avoid spam)
         if conv_id.endswith(('0', '1', '2', '3', '4')):  # Sample ~10% of conversations
-            self.logger.debug(f"🔍 Topic Detection Debug for {conv_id}:")
-            self.logger.debug(f"   Custom Attributes: {attributes}")
-            self.logger.debug(f"   Attribute Values: {list(attributes.values()) if attributes else []}")
-            self.logger.debug(f"   Tags: {tags}")
+            self.logger.debug(f"🔍 Hybrid Topic Detection for {conv_id}:")
+            self.logger.debug(f"   SDK Attributes: {attributes}")
+            self.logger.debug(f"   SDK Tags: {tags}")
             self.logger.debug(f"   Text Length: {len(text)} chars")
-            self.logger.debug(f"   Text Preview: {text[:200]}...")
+        
+        # Track topics by detection method for hybrid scoring
+        keyword_detections = {}
+        sdk_detections = {}
         
         for topic_name, config in self.topics.items():
-            # Method 1: Check Intercom attribute
+            # ===== STEP 1: KEYWORD DETECTION (PRIMARY) =====
+            matched_keywords = []
+            for kw in config['keywords']:
+                # Use word boundary regex: \b ensures keyword is a complete word
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, text):
+                    matched_keywords.append(kw)
+            
+            if matched_keywords:
+                keyword_detections[topic_name] = {
+                    'keywords': matched_keywords,
+                    'count': len(matched_keywords),
+                    'confidence': min(0.9, 0.5 + (len(matched_keywords) * 0.15))
+                }
+            
+            # ===== STEP 2: SDK ATTRIBUTE DETECTION (ENRICHMENT) =====
             if config['attribute']:
-                # FIX: Check if attribute VALUE exists in custom_attributes values OR tags
-                # Previously checked if attribute was a KEY in dict (always false!)
-                attribute_matched = False
+                sdk_matched = False
                 match_source = None
                 
-                # PRIORITY CHECK: Intercom's standard "Reason for contact" field
+                # Check "Reason for contact" (Intercom standard field)
                 if attributes and isinstance(attributes, dict):
                     reason_for_contact = attributes.get('Reason for contact')
-                    if reason_for_contact and reason_for_contact == config['attribute']:
-                        attribute_matched = True
-                        match_source = 'custom_attributes[Reason for contact]'
+                    if reason_for_contact == config['attribute']:
+                        sdk_matched = True
+                        match_source = 'Reason for contact'
                 
-                # SECONDARY: Check if attribute value is in ANY custom_attributes VALUES
-                if not attribute_matched and attributes and isinstance(attributes, dict):
+                # Check any custom_attributes values
+                if not sdk_matched and attributes and isinstance(attributes, dict):
                     if config['attribute'] in attributes.values():
-                        attribute_matched = True
-                        match_source = 'custom_attributes.values'
+                        sdk_matched = True
+                        match_source = 'custom_attributes'
                 
-                # TERTIARY: Check tags list
-                if not attribute_matched and config['attribute'] in tags:
-                    attribute_matched = True
+                # Check tags
+                if not sdk_matched and config['attribute'] in tags:
+                    sdk_matched = True
                     match_source = 'tags'
                 
-                if attribute_matched:
-                    # DEBUG: Log successful attribute match (sample only)
-                    if conv_id.endswith(('0', '1', '2', '3', '4')):
-                        self.logger.debug(f"   ✅ MATCHED '{topic_name}' via {match_source}: '{config['attribute']}'")
-                    
-                    detected.append({
-                        'topic': topic_name,
-                        'method': 'attribute',
-                        'confidence': 1.0
-                    })
-                    continue  # Don't check keywords if attribute matched
+                if sdk_matched:
+                    sdk_detections[topic_name] = {
+                        'source': match_source,
+                        'value': config['attribute']
+                    }
+        
+        # ===== STEP 3: HYBRID SCORING =====
+        # Combine keyword + SDK detections with smart confidence scoring
+        
+        for topic_name in set(list(keyword_detections.keys()) + list(sdk_detections.keys())):
+            has_keywords = topic_name in keyword_detections
+            has_sdk = topic_name in sdk_detections
             
-            # Method 2: Check keywords in actual conversation text
-            matched_keywords = [kw for kw in config['keywords'] if kw in text]
-            keyword_matches = len(matched_keywords)
-            
-            if keyword_matches > 0:
-                confidence = min(0.9, 0.5 + (keyword_matches * 0.15))
+            if has_keywords and has_sdk:
+                # BEST CASE: Both agree - high confidence
+                keyword_data = keyword_detections[topic_name]
+                sdk_data = sdk_detections[topic_name]
                 
-                # DEBUG: Log keyword matches (sample only)
+                detected.append({
+                    'topic': topic_name,
+                    'method': 'hybrid',  # Both keyword + SDK
+                    'confidence': 0.95,  # Very high - both sources agree
+                    'sdk_validated': True,
+                    'keywords': keyword_data['keywords'][:3],
+                    'sdk_source': sdk_data['source']
+                })
+                
                 if conv_id.endswith(('0', '1', '2', '3', '4')):
-                    self.logger.debug(f"   ✅ MATCHED '{topic_name}' via keywords: {matched_keywords[:3]} ({keyword_matches} total)")
+                    self.logger.debug(
+                        f"   ✅ HYBRID '{topic_name}': "
+                        f"Keywords={keyword_data['keywords'][:3]} + "
+                        f"SDK={sdk_data['source']}"
+                    )
+            
+            elif has_keywords:
+                # GOOD: Keywords detected (reliable)
+                keyword_data = keyword_detections[topic_name]
                 
                 detected.append({
                     'topic': topic_name,
                     'method': 'keyword',
-                    'confidence': confidence
+                    'confidence': keyword_data['confidence'],
+                    'sdk_validated': False,
+                    'keywords': keyword_data['keywords'][:3]
                 })
+                
+                if conv_id.endswith(('0', '1', '2', '3', '4')):
+                    self.logger.debug(
+                        f"   ✅ KEYWORD '{topic_name}': "
+                        f"{keyword_data['keywords'][:3]} ({keyword_data['count']} matches)"
+                    )
+            
+            elif has_sdk:
+                # CAUTION: SDK only (no keyword validation)
+                # This catches conversations where keywords missed it
+                # But lower confidence since we can't validate against text
+                sdk_data = sdk_detections[topic_name]
+                
+                detected.append({
+                    'topic': topic_name,
+                    'method': 'sdk_only',
+                    'confidence': 0.7,  # Medium confidence - unvalidated
+                    'sdk_validated': True,
+                    'sdk_source': sdk_data['source']
+                })
+                
+                if conv_id.endswith(('0', '1', '2', '3', '4')):
+                    self.logger.debug(
+                        f"   ⚠️  SDK_ONLY '{topic_name}': "
+                        f"Source={sdk_data['source']} (no keyword validation)"
+                    )
         
-        # Ensure 100% coverage: If no topics detected, assign "Unknown/unresponsive"
-        # This should be RARE (<5%) - only for truly unclassifiable conversations
+        # ===== STEP 4: FALLBACK TO UNKNOWN =====
         if not detected:
             text_length = len(text)
             has_attrs = bool(attributes)
             has_tags = bool(tags)
             
-            # ALWAYS log Unknown assignments to help diagnose issues
-            # These should be rare - if seeing many, keywords need expansion
+            # Log Unknown assignments for diagnostics
             self.logger.warning(
-                f"⚠️ NO TOPICS DETECTED for {conv_id} - TRUE UNKNOWN (should be rare!):"
+                f"⚠️ NO TOPICS DETECTED for {conv_id} - TRUE UNKNOWN:"
             )
-            self.logger.warning(f"   Text length: {text_length} chars")
-            self.logger.warning(f"   Custom attributes: {attributes}")
-            self.logger.warning(f"   Tags: {tags}")
+            self.logger.warning(f"   Text: {text_length} chars")
+            self.logger.warning(f"   SDK Attributes: {attributes}")
+            self.logger.warning(f"   SDK Tags: {tags}")
             if text_length > 0:
-                self.logger.warning(f"   Text preview: {text[:150]}...")
-                self.logger.warning(f"   💡 If this looks classifiable, add keywords!")
-            else:
-                self.logger.warning(f"   ❌ TEXT IS EMPTY - legitimate unknown")
+                self.logger.warning(f"   Preview: {text[:150]}...")
+                self.logger.warning(f"   💡 Consider adding keywords for this pattern")
             
             detected.append({
                 'topic': 'Unknown/unresponsive',
-                'method': 'keyword',  # Use 'keyword' for compatibility, even though it's fallback
-                'confidence': 0.1  # Very low confidence - true unknown
+                'method': 'fallback',
+                'confidence': 0.1,
+                'sdk_validated': False
             })
         
         return detected

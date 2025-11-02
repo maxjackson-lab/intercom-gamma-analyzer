@@ -14,6 +14,38 @@ import re
 logger = logging.getLogger(__name__)
 
 
+def _is_sal_or_fin(author: Dict[str, Any]) -> bool:
+    """
+    Determine if an admin author is actually Sal/Fin AI (not a human admin).
+    
+    Sal/Support Sal appears as an 'admin' in Intercom conversation_parts,
+    but is actually Fin AI, not a human support agent.
+    
+    Args:
+        author: Author dict with 'name', 'email', 'id' fields
+        
+    Returns:
+        True if this is Sal/Fin AI, False if real human admin
+    """
+    if not author:
+        return False
+        
+    name = author.get('name', '').lower()
+    email = author.get('email', '').lower()
+    author_id = str(author.get('id', '')).lower()
+    
+    # Check for Sal/Finn indicators
+    is_sal = (
+        'sal' in name or
+        'support sal' in name or
+        'sal' in email or
+        'finn' in name or
+        author_id == 'bot'  # Some systems mark Sal as bot
+    )
+    
+    return is_sal
+
+
 class FinEscalationAnalyzer:
     """
     Analyzes Fin (AI agent) interactions and escalation patterns.
@@ -606,7 +638,7 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     Determine if a FIN conversation is considered resolved.
     
     Resolution Criteria (ALL must be true):
-    1. No admin response in conversation_parts (admin_assignee_id is None OR no parts with admin author)
+    1. No HUMAN admin response in conversation_parts (excludes Sal/Support Sal which is Fin AI)
     2. Conversation state is 'closed' OR user sent ≤2 messages (low engagement)
     3. No negative CSAT rating (rating >= 3 if present, or no rating)
     4. No reopens (waiting_since count ≤ 1)
@@ -615,6 +647,7 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     - Missing CSAT: Treated as neutral (doesn't block resolution)
     - Missing state: Treated as open (blocks resolution unless ≤2 user messages)
     - Missing reopens: Treated as 0 (doesn't block resolution)
+    - Support Sal: Treated as Fin AI, not as human admin
     
     Knowledge Gap Detection:
     - If not resolved AND admin intervened: Potential knowledge gap
@@ -626,7 +659,8 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     Returns:
         bool: True if conversation meets all resolution criteria
     """
-    # Signal 1: Check if admin actually responded (most reliable signal)
+    # Signal 1: Check if HUMAN admin actually responded (most reliable signal)
+    # NOTE: Support Sal is an admin in Intercom but is actually Fin AI
     parts = conversation.get('conversation_parts', {})
     if isinstance(parts, dict):
         parts_list = parts.get('conversation_parts', [])
@@ -636,11 +670,20 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
     user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
     
-    has_admin_response = len(admin_parts) > 0
+    # Filter out Sal/Support Sal from admin parts (Sal is actually Fin AI)
+    human_admin_parts = []
+    for part in admin_parts:
+        author = part.get('author', {})
+        
+        # Check if this is Sal/Support Sal (Fin AI, not human)
+        if not _is_sal_or_fin(author):
+            human_admin_parts.append(part)
+    
+    has_human_admin_response = len(human_admin_parts) > 0
     user_response_count = len(user_parts)
     
-    # If admin responded, Fin didn't resolve it alone
-    if has_admin_response:
+    # If HUMAN admin responded, Fin didn't resolve it alone
+    if has_human_admin_response:
         return False
     
     # Signal 2: Check state or low engagement (closed OR ≤2 user responses)
