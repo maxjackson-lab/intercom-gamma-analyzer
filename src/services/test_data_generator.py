@@ -20,14 +20,20 @@ logger = logging.getLogger(__name__)
 class TestDataGenerator:
     """Generate realistic test conversation data for pipeline testing."""
     
-    # Realistic topic distribution based on actual data
+    # Realistic topic distribution based on actual data (Updated Nov 2025)
     TOPIC_DISTRIBUTION = {
-        'Billing': 0.13,  # 13% billing issues
-        'Product Question': 0.03,  # 3% product questions
-        'Bug': 0.02,  # 2% bugs
-        'Account': 0.01,  # 1% account issues
-        'Credits': 0.005,  # 0.5% credits
-        'Other': 0.805  # 80.5% other/uncategorized
+        'Billing': 0.32,  # 32% billing issues (matches real data)
+        'Product Question': 0.16,  # 16% product questions
+        'Bug': 0.12,  # 12% bugs
+        'Account': 0.11,  # 11% account issues
+        'Workspace': 0.06,  # 6% workspace/team
+        'Feedback': 0.02,  # 2% feedback
+        'Privacy': 0.01,  # 1% privacy
+        'Abuse': 0.01,  # 1% abuse
+        'Credits': 0.01,  # 1% credits
+        'Promotions': 0.01,  # 1% promotions
+        'Agent/Buddy': 0.01,  # 1% AI agent questions (should be low!)
+        'Other': 0.16  # 16% other/edge cases (realistic for keyword-based detection)
     }
     
     # Tier distribution
@@ -51,7 +57,7 @@ class TestDataGenerator:
         'Other': 0.14
     }
     
-    # Sample messages by topic
+    # Sample messages by topic (includes edge cases for keyword testing)
     MESSAGE_TEMPLATES = {
         'Billing': [
             "I just signed up for gamma pro monthly plan but it charged me for the whole year",
@@ -61,7 +67,9 @@ class TestDataGenerator:
             "Why was I charged for annual when I selected monthly?",
             "I need help with my subscription billing",
             "The invoice amount is incorrect",
-            "Can you provide a refund for the annual subscription?"
+            "Can you provide a refund for the annual subscription?",
+            "Need invoice for my payment",  # ✅ Tests 'invoice' keyword
+            "Unexpected charge on my credit card"  # ✅ Tests 'charge' keyword
         ],
         'Product Question': [
             "How do I connect my custom domain?",
@@ -103,15 +111,25 @@ class TestDataGenerator:
             "API shows zero credits even though I have a subscription",
             "We lost 4,500 credits from Thursday to Friday"
         ],
+        'Agent/Buddy': [
+            "How does the gamma ai work?",  # ✅ Should match "gamma ai"
+            "Tell me about your ai assistant features",  # ✅ Should match "ai assistant"
+            "What is buddy in gamma?",  # ✅ Should match "buddy"
+            "Can the chatbot help me with presentations?"  # ✅ Should match "chatbot"
+        ],
         'Other': [
             "How does Gamma work?",
             "What features are included in Pro?",
             "Can I collaborate with my team?",
             "Is there a mobile app?",
-            "How do I cancel my subscription?",
+            "This is my final decision on the plan",  # ❌ Should NOT match "fin"
+            "I use email daily for work communication",  # ❌ Should NOT match "ai"
+            "Can I speak to an agent about my issue?",  # ❌ Should NOT match Agent/Buddy
             "What's the difference between Plus and Pro?",
             "Do you offer educational discounts?",
-            "Can I use Gamma for commercial purposes?"
+            "Can I use Gamma for commercial purposes?",
+            "I need to finish this project by Friday",  # ❌ Should NOT match "fin"
+            "Is there a waiting list available?"  # ❌ Should NOT match "ai"
         ]
     }
     
@@ -271,6 +289,10 @@ class TestDataGenerator:
         message = random.choice(messages)
         
         # Build conversation tags and attributes based on topic
+        # REALISTIC: 60% of conversations have NO custom_attributes (messy data)
+        # 40% have clean metadata (well-tagged)
+        has_metadata = random.random() < 0.40
+        
         tags = []
         custom_attrs = {
             'Language': language,
@@ -279,28 +301,37 @@ class TestDataGenerator:
         }
         conversation_topics = []
         
-        if topic == 'Billing':
-            tags.append('Refund - Requests')
-            custom_attrs['Billing'] = 'Refund'
-            conversation_topics.append('refund')
-            conversation_topics.append('subscription')
-        elif topic == 'Product Question':
-            custom_attrs['Product Question'] = 'Sites'
-            conversation_topics.append('domain')
-            conversation_topics.append('publish')
-        elif topic == 'Bug':
-            custom_attrs['Bug'] = 'Sites'
-            conversation_topics.append('credits')
-            conversation_topics.append('publish')
-        elif topic == 'Account':
-            custom_attrs['Account'] = 'Signing in'
-            conversation_topics.append('reset password')
-            conversation_topics.append('google account')
-        elif topic == 'Credits':
-            tags.append('Gamma 3.0')
-            custom_attrs['Credits'] = 'How credits work'
-            conversation_topics.append('credits')
-            conversation_topics.append('api')
+        if has_metadata:
+            # Clean metadata (40% of conversations)
+            if topic == 'Billing':
+                tags.append('Refund - Requests')
+                custom_attrs['Category'] = 'Billing'  # ✅ Use 'Category' key
+                custom_attrs['Reason for contact'] = 'Billing'  # ✅ Standard Intercom field
+                conversation_topics.append('refund')
+                conversation_topics.append('subscription')
+            elif topic == 'Product Question':
+                custom_attrs['Category'] = 'Product Question'
+                custom_attrs['Reason for contact'] = 'Product Question'
+                conversation_topics.append('domain')
+                conversation_topics.append('publish')
+            elif topic == 'Bug':
+                custom_attrs['Category'] = 'Bug'
+                custom_attrs['Reason for contact'] = 'Bug'
+                tags.append('Bug')
+                conversation_topics.append('export')
+                conversation_topics.append('credits')
+            elif topic == 'Account':
+                custom_attrs['Category'] = 'Account'
+                custom_attrs['Reason for contact'] = 'Account'
+                conversation_topics.append('reset password')
+                conversation_topics.append('google account')
+            elif topic == 'Credits':
+                tags.append('Gamma 3.0')
+                custom_attrs['Category'] = 'Account'
+                custom_attrs['Subcategory'] = 'Credits'
+                conversation_topics.append('credits')
+                conversation_topics.append('api')
+        # else: 60% have NO topic metadata (rely on keyword detection)
         
         return {
             'id': conv_id,
@@ -346,8 +377,13 @@ class TestDataGenerator:
                     {
                         'id': f'part_2_{conv_id}',
                         'type': 'comment',
-                        'body': '<p>I can help with that! [Fin AI response]</p>',
-                        'author': {'type': 'bot', 'id': 'fin_ai'},
+                        'body': '<p>I can help with that! [Support Sal response]</p>',
+                        'author': {
+                            'type': 'admin',  # ✅ Sal appears as admin in real data
+                            'id': 'sal_12345',
+                            'name': 'Support Sal',  # ✅ Critical for Sal detection
+                            'email': 'sal@gamma.app'
+                        },
                         'created_at': created_at + 120
                     }
                 ]

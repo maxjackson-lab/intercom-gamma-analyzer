@@ -266,6 +266,7 @@ ALLOWED_COMMANDS = {
     "python3",
     # Intercom Analysis CLI commands
     "voice-of-customer",
+    "sample-mode",  # New: Quick sample of real data
     "billing-analysis",
     "product-analysis",
     "sites-analysis",
@@ -284,6 +285,33 @@ MAX_ARGS_TOTAL_LENGTH = 8192
 # ============================================================================
 
 CANONICAL_COMMAND_MAPPINGS = {
+    'sample_mode': {
+        'command': 'python',
+        'args': ['src/main.py', 'sample-mode'],
+        'display_name': 'Sample Mode (Quick Data Check)',
+        'description': 'Pull 50-100 real conversations with ultra-rich logging for schema validation',
+        'allowed_flags': {
+            '--count': {
+                'type': 'integer',
+                'default': 50,
+                'min': 10,
+                'max': 100,
+                'description': 'Number of conversations to pull'
+            },
+            '--time-period': {
+                'type': 'enum',
+                'values': ['day', 'week', 'month'],
+                'default': 'week',
+                'description': 'Time period for sampling'
+            },
+            '--save-to-file': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Save raw JSON to outputs/'
+            }
+        },
+        'estimated_duration': '10-30 seconds'
+    },
     'voice_of_customer': {
         'command': 'python',
         'args': ['src/main.py', 'voice-of-customer'],
@@ -842,6 +870,9 @@ if HAS_FASTAPI:
                 
                 <label>Analysis Type:</label>
                 <select id="analysisType" onchange="updateAnalysisOptions()">
+                    <optgroup label="Quick Tools">
+                        <option value="sample-mode">🔬 Sample Mode (50-100 Real Tickets - Ultra Logging)</option>
+                    </optgroup>
                     <optgroup label="Voice of Customer">
                         <option value="voice-of-customer-hilary" selected>VoC: Hilary Format (Topic Cards)</option>
                         <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>

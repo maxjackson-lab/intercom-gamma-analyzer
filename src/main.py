@@ -3856,6 +3856,63 @@ def canny_analysis(
     ))
 
 
+@cli.command(name='sample-mode')
+@click.option('--count', type=int, default=50, help='Number of real conversations to pull (50-100 recommended)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD)')
+@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--time-period', type=click.Choice(['day', 'week', 'month']), default='week',
+              help='Time period shortcut (overrides start/end dates)')
+@click.option('--save-to-file/--no-save', default=True, help='Save raw JSON to outputs/')
+def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
+                time_period: str, save_to_file: bool):
+    """
+    SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
+    
+    Perfect for:
+    - Schema validation
+    - Debugging topic detection
+    - Testing fixes quickly
+    - Seeing real Intercom data structure
+    """
+    import asyncio
+    from src.services.sample_mode import run_sample_mode
+    from datetime import timedelta
+    
+    console.print(Panel.fit(
+        "[bold cyan]🔬 SAMPLE MODE[/bold cyan]\n"
+        "Pulling REAL conversations with ultra-rich logging",
+        border_style="cyan"
+    ))
+    
+    # Parse dates
+    if time_period:
+        end = datetime.now()
+        if time_period == 'day':
+            start = end - timedelta(days=1)
+        elif time_period == 'week':
+            start = end - timedelta(days=7)
+        else:  # month
+            start = end - timedelta(days=30)
+    else:
+        start = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.now() - timedelta(days=7)
+        end = datetime.strptime(end_date, '%Y-%m-%d') if end_date else datetime.now()
+    
+    # Run sample mode
+    result = asyncio.run(run_sample_mode(
+        count=count,
+        start_date=start,
+        end_date=end,
+        save_to_file=save_to_file
+    ))
+    
+    console.print("\n[bold green]✅ Sample mode complete![/bold green]")
+    console.print(f"Analyzed {result['analysis']['total_conversations']} conversations")
+    console.print("\n[bold]Key Findings:[/bold]")
+    console.print(f"  Sal conversations: {result['analysis']['agent_attribution']['sal_count']} ({result['analysis']['agent_attribution']['sal_percentage']}%)")
+    console.print(f"  Human admin: {result['analysis']['agent_attribution']['human_admin_count']} ({result['analysis']['agent_attribution']['human_admin_percentage']}%)")
+    console.print(f"  With custom_attributes: {result['analysis']['custom_attributes']['has_custom_attributes']} ({result['analysis']['custom_attributes']['percentage_with_attributes']}%)")
+
+
 @cli.command(name='test-mode')
 @click.option('--test-type', type=click.Choice(['topic-based', 'api', 'horatio']), default='topic-based',
               help='Type of test to run')

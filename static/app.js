@@ -1177,6 +1177,7 @@ function runAnalysis() {
     
     // Map UI analysis type to schema key
     const analysisTypeMap = {
+        'sample-mode': 'sample_mode',
         'voice-of-customer-hilary': 'voice_of_customer',
         'voice-of-customer-synthesis': 'voice_of_customer',
         'voice-of-customer-complete': 'voice_of_customer',
@@ -1210,7 +1211,12 @@ function runAnalysis() {
     let args = [];
     
     // Map analysis type to command (keeping existing logic for now)
-    if (analysisValue === 'voice-of-customer-hilary') {
+    if (analysisValue === 'sample-mode') {
+        command = 'sample-mode';
+        flags['--count'] = 50;  // Default 50 conversations
+        flags['--time-period'] = timePeriod || 'week';
+        flags['--save-to-file'] = true;
+    } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
         flags['--multi-agent'] = true;
         flags['--analysis-type'] = 'topic-based';
