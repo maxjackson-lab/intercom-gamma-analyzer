@@ -13,6 +13,7 @@ Output: Rich console output + JSON dump of raw conversations
 
 import logging
 import json
+import re
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
@@ -171,6 +172,14 @@ class SampleMode:
         custom_attrs_analysis = self._analyze_custom_attributes(conversations)
         self._display_custom_attributes_analysis(custom_attrs_analysis)
         
+        # ===== CONVERSATION STATISTICS =====
+        console.print("\n" + "="*80)
+        console.print("[bold]📈 CONVERSATION STATISTICS (All 50)[/bold]")
+        console.print("="*80 + "\n")
+        
+        conv_stats = self._analyze_conversation_statistics(conversations)
+        self._display_conversation_statistics(conv_stats)
+        
         # ===== AGENT ATTRIBUTION ANALYSIS =====
         console.print("\n" + "="*80)
         console.print("[bold]👤 AGENT ATTRIBUTION ANALYSIS[/bold]")
@@ -179,13 +188,29 @@ class SampleMode:
         agent_analysis = self._analyze_agent_attribution(conversations)
         self._display_agent_attribution(agent_analysis)
         
+        # ===== TOPIC DETECTION SUMMARY =====
+        console.print("\n" + "="*80)
+        console.print("[bold]🎯 TOPIC DETECTION SUMMARY (All 50)[/bold]")
+        console.print("[dim]Keyword matching across all conversations[/dim]")
+        console.print("="*80 + "\n")
+        
+        topic_summary = self._analyze_topic_detection(conversations)
+        self._display_topic_summary(topic_summary)
+        
+        # ===== CONVERSATION OVERVIEW TABLE =====
+        console.print("\n" + "="*80)
+        console.print("[bold]📋 ALL 50 CONVERSATIONS (Quick Overview)[/bold]")
+        console.print("="*80 + "\n")
+        
+        self._display_all_conversations_table(conversations)
+        
         # ===== CONVERSATION SAMPLES =====
         console.print("\n" + "="*80)
-        console.print("[bold]📝 ULTRA-DETAILED CONVERSATION SAMPLES (First 3)[/bold]")
+        console.print("[bold]📝 ULTRA-DETAILED CONVERSATION SAMPLES (First 5)[/bold]")
         console.print("[dim]Showing ALL raw Intercom data for debugging[/dim]")
         console.print("="*80 + "\n")
         
-        for i, conv in enumerate(conversations[:3], 1):  # Show 3 instead of 5 for more detail
+        for i, conv in enumerate(conversations[:5], 1):  # Show 5 detailed samples
             self._display_conversation_detail(conv, i)
         
         # ===== SUMMARY =====
@@ -198,7 +223,9 @@ class SampleMode:
         return {
             'field_coverage': field_coverage,
             'custom_attributes': custom_attrs_analysis,
+            'conversation_statistics': conv_stats,
             'agent_attribution': agent_analysis,
+            'topic_summary': topic_summary,
             'total_conversations': len(conversations)
         }
     
@@ -629,9 +656,191 @@ class SampleMode:
         
         console.print("\n")
     
-    def _display_agent_attribution(self, analysis: Dict[str, Any]):
-        """Already defined above"""
-        pass
+    def _analyze_conversation_statistics(self, conversations: List[Dict]) -> Dict[str, Any]:
+        """Analyze conversation statistics across all conversations."""
+        total = len(conversations)
+        
+        # State distribution
+        states = {}
+        for conv in conversations:
+            state = conv.get('state', 'unknown')
+            states[state] = states.get(state, 0) + 1
+        
+        # Text length distribution
+        text_lengths = []
+        for conv in conversations:
+            text = extract_conversation_text(conv, clean_html=True)
+            text_lengths.append(len(text))
+        
+        # Parts count distribution
+        parts_counts = []
+        for conv in conversations:
+            stats = conv.get('statistics', {})
+            parts_count = stats.get('count_conversation_parts', 0) if isinstance(stats, dict) else 0
+            parts_counts.append(parts_count)
+        
+        # AI agent participation
+        ai_participated = sum(1 for c in conversations if c.get('ai_agent_participated'))
+        ai_resolution_states = {}
+        for conv in conversations:
+            ai_agent = conv.get('ai_agent', {})
+            if isinstance(ai_agent, dict):
+                res_state = ai_agent.get('resolution_state', 'unknown')
+                ai_resolution_states[res_state] = ai_resolution_states.get(res_state, 0) + 1
+        
+        return {
+            'total': total,
+            'states': states,
+            'text_lengths': {
+                'min': min(text_lengths) if text_lengths else 0,
+                'max': max(text_lengths) if text_lengths else 0,
+                'avg': sum(text_lengths) / len(text_lengths) if text_lengths else 0
+            },
+            'parts_counts': {
+                'min': min(parts_counts) if parts_counts else 0,
+                'max': max(parts_counts) if parts_counts else 0,
+                'avg': sum(parts_counts) / len(parts_counts) if parts_counts else 0
+            },
+            'ai_participated': ai_participated,
+            'ai_resolution_states': ai_resolution_states
+        }
+    
+    def _display_conversation_statistics(self, stats: Dict[str, Any]):
+        """Display conversation statistics."""
+        # State distribution
+        console.print("[bold]State Distribution:[/bold]")
+        for state, count in sorted(stats['states'].items(), key=lambda x: x[1], reverse=True):
+            pct = count / stats['total'] * 100
+            console.print(f"  {state}: {count} ({pct:.1f}%)")
+        
+        # Text lengths
+        console.print(f"\n[bold]Text Length (source.body only):[/bold]")
+        console.print(f"  Min: {stats['text_lengths']['min']} chars")
+        console.print(f"  Avg: {stats['text_lengths']['avg']:.0f} chars")
+        console.print(f"  Max: {stats['text_lengths']['max']} chars")
+        
+        # Parts counts
+        console.print(f"\n[bold]Conversation Parts Count:[/bold]")
+        console.print(f"  Min: {stats['parts_counts']['min']}")
+        console.print(f"  Avg: {stats['parts_counts']['avg']:.1f}")
+        console.print(f"  Max: {stats['parts_counts']['max']}")
+        
+        # AI participation
+        console.print(f"\n[bold]AI Agent (Fin) Participation:[/bold]")
+        console.print(f"  Participated: {stats['ai_participated']}/{stats['total']} ({stats['ai_participated']/stats['total']*100:.1f}%)")
+        
+        if stats['ai_resolution_states']:
+            console.print(f"\n[bold]AI Resolution States:[/bold]")
+            for state, count in sorted(stats['ai_resolution_states'].items(), key=lambda x: x[1], reverse=True):
+                console.print(f"  {state}: {count}")
+    
+    def _analyze_topic_detection(self, conversations: List[Dict]) -> Dict[str, Any]:
+        """Analyze topic detection across all conversations using keyword matching."""
+        test_keywords = {
+            'Billing': ['billing', 'invoice', 'refund', 'payment', 'subscription', 'charge', 'receipt'],
+            'Account': ['account', 'login', 'password', 'email', 'sign in', 'authentication'],
+            'Bug': ['bug', 'error', 'broken', 'not working', 'issue', 'problem', 'crash'],
+            'Product Question': ['how do', 'how to', 'can i', 'question', 'help', 'support'],
+            'Agent/Buddy': ['gamma ai', 'ai assistant', 'chatbot', 'fin ai', 'buddy'],
+            'Workspace': ['workspace', 'team', 'member', 'invite', 'collaboration'],
+            'Credits': ['credits', 'ai credits', 'credit balance'],
+            'Export': ['export', 'download', 'pdf', 'pptx'],
+            'Privacy': ['privacy', 'gdpr', 'data', 'security', 'delete account']
+        }
+        
+        topic_matches = {topic: 0 for topic in test_keywords}
+        keyword_hit_counts = {topic: {} for topic in test_keywords}
+        no_match_count = 0
+        
+        for conv in conversations:
+            text = extract_conversation_text(conv, clean_html=True).lower()
+            matched_any = False
+            
+            for topic, keywords in test_keywords.items():
+                for kw in keywords:
+                    pattern = r'\b' + re.escape(kw) + r'\b'
+                    if re.search(pattern, text):
+                        topic_matches[topic] += 1
+                        keyword_hit_counts[topic][kw] = keyword_hit_counts[topic].get(kw, 0) + 1
+                        matched_any = True
+                        break  # Count once per topic per conversation
+            
+            if not matched_any:
+                no_match_count += 1
+        
+        return {
+            'total': len(conversations),
+            'topic_matches': topic_matches,
+            'keyword_hit_counts': keyword_hit_counts,
+            'no_match_count': no_match_count,
+            'no_match_percentage': no_match_count / len(conversations) * 100
+        }
+    
+    def _display_topic_summary(self, summary: Dict[str, Any]):
+        """Display topic detection summary."""
+        table = Table(title="Topic Detection (Keyword Matching)", show_header=True)
+        table.add_column("Topic", style="cyan")
+        table.add_column("Matched", style="green")
+        table.add_column("%", style="yellow")
+        table.add_column("Top Keywords", style="magenta", overflow="fold")
+        
+        for topic, count in sorted(summary['topic_matches'].items(), key=lambda x: x[1], reverse=True):
+            pct = count / summary['total'] * 100
+            top_keywords = summary['keyword_hit_counts'][topic]
+            top_kw_str = ", ".join(f"{kw}({ct})" for kw, ct in sorted(top_keywords.items(), key=lambda x: x[1], reverse=True)[:3])
+            
+            table.add_row(topic, str(count), f"{pct:.1f}%", top_kw_str if top_kw_str else "(none)")
+        
+        # Add Unknown row
+        table.add_row(
+            "[red]Unknown/No Match[/red]",
+            f"[red]{summary['no_match_count']}[/red]",
+            f"[red]{summary['no_match_percentage']:.1f}%[/red]",
+            "[dim](no keywords matched)[/dim]"
+        )
+        
+        console.print(table)
+        
+        if summary['no_match_percentage'] > 30:
+            console.print(f"\n[yellow]⚠️  High unknown rate ({summary['no_match_percentage']:.1f}%) - may need more keywords or conversation_parts enrichment[/yellow]")
+    
+    def _display_all_conversations_table(self, conversations: List[Dict]):
+        """Display a table showing all conversations with key info."""
+        table = Table(show_header=True, max_width=120)
+        table.add_column("#", style="dim", width=3)
+        table.add_column("ID", style="cyan", width=16)
+        table.add_column("State", style="yellow", width=8)
+        table.add_column("Parts", style="green", width=5)
+        table.add_column("AI?", style="magenta", width=4)
+        table.add_column("Reason for Contact", style="white", overflow="fold", width=25)
+        table.add_column("Text Preview", style="dim", overflow="fold", width=40)
+        
+        for i, conv in enumerate(conversations, 1):
+            conv_id = str(conv.get('id', 'unknown'))[-12:]  # Last 12 chars
+            state = conv.get('state', '?')
+            stats = conv.get('statistics', {})
+            parts_count = stats.get('count_conversation_parts', 0) if isinstance(stats, dict) else 0
+            ai_participated = "Yes" if conv.get('ai_agent_participated') else "No"
+            
+            # Get Reason for contact from custom_attributes
+            attrs = conv.get('custom_attributes', {})
+            reason = attrs.get('Reason for contact', '-') if isinstance(attrs, dict) else '-'
+            
+            # Get text preview
+            text = extract_conversation_text(conv, clean_html=True)
+            preview = text[:60] + "..." if len(text) > 60 else text
+            
+            table.add_row(
+                str(i),
+                conv_id,
+                state,
+                str(parts_count),
+                ai_participated,
+                str(reason),
+                preview
+            )
+        
+        console.print(table)
 
 
 async def run_sample_mode(
