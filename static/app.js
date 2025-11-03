@@ -1221,7 +1221,34 @@ function runAnalysis() {
         flags['--count'] = sampleCount ? parseInt(sampleCount.value) : 50;
         flags['--time-period'] = sampleTimePeriod ? sampleTimePeriod.value : 'week';
         flags['--save-to-file'] = false;  // Console output only
-        // Don't add --verbose - sample mode is already verbose by design
+        
+        // IMPORTANT: Return early to skip adding other flags
+        // Sample mode doesn't need --ai-model, --generate-gamma, --audit-trail, etc.
+        
+        // Convert flags to args
+        args = [];
+        for (const [flagName, flagValue] of Object.entries(flags)) {
+            if (typeof flagValue === 'boolean') {
+                if (flagValue) args.push(flagName);
+            } else {
+                args.push(flagName, String(flagValue));
+            }
+        }
+        
+        // Skip all the common flag additions below and go straight to execution
+        const schemaKey = 'sample_mode';
+        const validation = validateAgainstSchema(schemaKey, flags);
+        
+        if (!validation.valid) {
+            alert(`Validation Error: ${validation.error}`);
+            console.error('❌ Validation failed:', validation.error);
+            return;
+        }
+        
+        // Execute sample mode directly
+        executeAnalysis(command, args);
+        return;  // Exit early - don't add other flags
+        
     } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
         flags['--multi-agent'] = true;
