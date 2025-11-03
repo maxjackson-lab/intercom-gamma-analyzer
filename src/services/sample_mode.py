@@ -387,9 +387,9 @@ class SampleMode:
         """Display ULTRA-detailed view showing ALL raw Intercom data."""
         conv_id = conv.get('id', 'unknown')
         
-        console.print(f"\n[bold cyan]{'='*80}")
-        console.print(f"CONVERSATION #{index}: {conv_id}")
-        console.print(f"{'='*80}[/bold cyan]\n")
+        console.print(f"\n[bold cyan]{'='*80}[/bold cyan]")
+        console.print(f"[bold cyan]CONVERSATION #{index}: {conv_id}[/bold cyan]")
+        console.print(f"[bold cyan]{'='*80}[/bold cyan]\n")
         
         # ===== SECTION 1: TOP-LEVEL FIELDS =====
         console.print("[bold]📋 TOP-LEVEL FIELDS (ALL):[/bold]")
