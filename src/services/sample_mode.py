@@ -35,6 +35,29 @@ class SampleMode:
         self.sdk = sdk_service or IntercomSDKService()
         self.logger = logging.getLogger(__name__)
     
+    def _format_timestamp_for_display(self, value):
+        """Format timestamps robustly (supports int/float/str/datetime)."""
+        from datetime import datetime
+        if value is None:
+            return "(none)"
+        try:
+            if isinstance(value, datetime):
+                dt = value
+            elif isinstance(value, (int, float)):
+                dt = datetime.fromtimestamp(value)
+            elif isinstance(value, str):
+                # Try ISO-8601 parsing; fall back to raw string
+                try:
+                    iso_val = value.replace('Z', '+00:00')
+                    dt = datetime.fromisoformat(iso_val)
+                except Exception:
+                    return str(value)
+            else:
+                return str(value)
+            return f"{dt} ({value})"
+        except Exception:
+            return str(value)
+    
     async def pull_sample(
         self,
         count: int = 50,
@@ -395,13 +418,13 @@ class SampleMode:
         top_level_fields = {
             'id': conv.get('id'),
             'type': conv.get('type'),
-            'created_at': f"{datetime.fromtimestamp(conv.get('created_at', 0))} ({conv.get('created_at')})",
-            'updated_at': f"{datetime.fromtimestamp(conv.get('updated_at', 0))} ({conv.get('updated_at')})",
+            'created_at': self._format_timestamp_for_display(conv.get('created_at')),
+            'updated_at': self._format_timestamp_for_display(conv.get('updated_at')),
             'state': conv.get('state'),
             'priority': conv.get('priority'),
             'read': conv.get('read'),
-            'waiting_since': conv.get('waiting_since'),
-            'snoozed_until': conv.get('snoozed_until'),
+            'waiting_since': self._format_timestamp_for_display(conv.get('waiting_since')),
+            'snoozed_until': self._format_timestamp_for_display(conv.get('snoozed_until')),
             'open': conv.get('open'),
             'admin_assignee_id': conv.get('admin_assignee_id'),
             'team_assignee_id': conv.get('team_assignee_id'),
@@ -493,7 +516,7 @@ class SampleMode:
             console.print(f"    Name: {author.get('name', '(no name)')}")
             console.print(f"    Email: {author.get('email', '(no email)')}")
             console.print(f"    ID: {author.get('id', '(no id)')}")
-            console.print(f"    Created: {datetime.fromtimestamp(part.get('created_at', 0))}")
+            console.print(f"    Created: {self._format_timestamp_for_display(part.get('created_at'))}")
             console.print(f"    Body: {body}...")
             
             # Sal detection test
