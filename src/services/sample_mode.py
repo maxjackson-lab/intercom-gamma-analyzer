@@ -65,40 +65,31 @@ class SampleMode:
         
         console.print(Panel.fit(
             "[bold cyan]🔬 SAMPLE MODE: Real Data Extraction[/bold cyan]\n\n"
-            f"Pulling {count} RANDOM conversations from {time_desc}\n"
+            f"Pulling {count} conversations from {time_desc}\n"
             f"Date range: {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}\n"
-            f"Strategy: Random sample for diverse data",
+            f"Strategy: Fast fetch, stops at {count}",
             border_style="cyan"
         ))
         
         console.print(f"\n[bold]How this works:[/bold]")
-        console.print(f"  1. Fetches ALL conversations from {time_desc}")
-        console.print(f"  2. Randomly samples {count} conversations for diversity")
-        console.print(f"  3. Shows ultra-detailed analysis of the random sample")
-        console.print(f"  4. Better schema validation than just newest {count}\n")
+        console.print(f"  1. Fetches {count} conversations from {time_desc}")
+        console.print(f"  2. Stops IMMEDIATELY after reaching {count}")
+        console.print(f"  3. Shows ultra-detailed analysis with ALL raw data")
+        console.print(f"  4. Fast: ~30-60 seconds for schema validation\n")
         
-        # Fetch ALL conversations, then random sample
-        console.print(f"📥 [yellow]Fetching all conversations from {time_desc}...[/yellow]")
+        # Fetch exactly what was requested - NO MORE
+        console.print(f"📥 [yellow]Fetching {count} conversations from Intercom...[/yellow]")
         
-        # Fetch with a reasonable cap (500 max for performance)
-        fetch_limit = min(500, count * 10)  # Fetch up to 10x requested count
-        all_conversations = await self.sdk.fetch_conversations_by_date_range(
+        conversations = await self.sdk.fetch_conversations_by_date_range(
             start_date=start_date,
             end_date=end_date,
-            max_conversations=fetch_limit
+            max_conversations=count  # STOP at exactly the requested count
         )
         
-        total_available = len(all_conversations)
-        console.print(f"[green]✅ Fetched {total_available} total conversations[/green]")
-        
-        # Random sample
-        import random
-        if total_available > count:
-            conversations = random.sample(all_conversations, count)
-            console.print(f"[cyan]🎲 Randomly sampled {count} from {total_available} (diverse sample)[/cyan]")
-        else:
-            conversations = all_conversations
-            console.print(f"[yellow]⚠️  Using all {total_available} conversations (less than requested {count})[/yellow]")
+        actual_count = len(conversations)
+        console.print(f"[green]✅ Fetched {actual_count} conversations[/green]")
+        if actual_count < count:
+            console.print(f"[yellow]⚠️  Only {actual_count} conversations found in {time_desc}[/yellow]")
         
         if not conversations:
             console.print("[red]❌ No conversations found![/red]")
