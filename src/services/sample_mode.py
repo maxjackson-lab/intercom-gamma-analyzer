@@ -54,31 +54,43 @@ class SampleMode:
         Returns:
             Dict with conversations and analysis
         """
+        # Calculate time range description
+        days_diff = (end_date - start_date).days
+        if days_diff <= 1:
+            time_desc = "last 24 hours"
+        elif days_diff <= 7:
+            time_desc = "last 7 days"
+        else:
+            time_desc = f"last {days_diff} days"
+        
         console.print(Panel.fit(
             "[bold cyan]🔬 SAMPLE MODE: Real Data Extraction[/bold cyan]\n\n"
-            f"Pulling {count} random conversations\n"
-            f"Date range: {start_date.date()} to {end_date.date()}\n"
-            "With ULTRA-RICH logging for schema validation",
+            f"Fetching first {count} conversations from {time_desc}\n"
+            f"Date range: {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}\n"
+            f"Strategy: Most recent first, stops at {count}",
             border_style="cyan"
         ))
         
-        # Fetch conversations
-        console.print("\n📥 [yellow]Fetching conversations from Intercom...[/yellow]")
+        console.print(f"\n[bold]How this works:[/bold]")
+        console.print(f"  1. Searches Intercom for conversations in {time_desc}")
+        console.print(f"  2. Sorts by newest first (most recent → oldest)")
+        console.print(f"  3. Stops immediately after collecting {count} conversations")
+        console.print(f"  4. Shows you detailed analysis of those {count} conversations\n")
         
-        # Fetch ALL conversations in date range, then sample randomly
-        all_conversations = await self.sdk.fetch_conversations_by_date_range(
+        # Fetch conversations with max_conversations limit
+        console.print("📥 [yellow]Fetching from Intercom API...[/yellow]")
+        
+        # Use max_conversations parameter to limit fetch
+        conversations = await self.sdk.fetch_conversations_by_date_range(
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            max_conversations=count  # Stop after fetching the requested count
         )
         
-        # Randomly sample the requested count
-        import random
-        if len(all_conversations) > count:
-            conversations = random.sample(all_conversations, count)
-            console.print(f"[yellow]Sampled {count} from {len(all_conversations)} total conversations[/yellow]")
-        else:
-            conversations = all_conversations
-            console.print(f"[yellow]Using all {len(conversations)} conversations (less than requested {count})[/yellow]")
+        actual_count = len(conversations)
+        console.print(f"[green]✅ Fetched {actual_count} conversations[/green]")
+        if actual_count < count:
+            console.print(f"[yellow]⚠️  Found fewer conversations ({actual_count}) than requested ({count}) in this time range[/yellow]")
         
         if not conversations:
             console.print("[red]❌ No conversations found![/red]")
@@ -147,10 +159,11 @@ class SampleMode:
         
         # ===== CONVERSATION SAMPLES =====
         console.print("\n" + "="*80)
-        console.print("[bold]📝 CONVERSATION SAMPLES (First 5)[/bold]")
+        console.print("[bold]📝 ULTRA-DETAILED CONVERSATION SAMPLES (First 3)[/bold]")
+        console.print("[dim]Showing ALL raw Intercom data for debugging[/dim]")
         console.print("="*80 + "\n")
         
-        for i, conv in enumerate(conversations[:5], 1):
+        for i, conv in enumerate(conversations[:3], 1):  # Show 3 instead of 5 for more detail
             self._display_conversation_detail(conv, i)
         
         # ===== SUMMARY =====
@@ -371,93 +384,209 @@ class SampleMode:
                     break
     
     def _display_conversation_detail(self, conv: Dict, index: int):
-        """Display ultra-detailed view of a single conversation."""
+        """Display ULTRA-detailed view showing ALL raw Intercom data."""
         conv_id = conv.get('id', 'unknown')
         
         console.print(f"\n[bold cyan]{'='*80}")
         console.print(f"CONVERSATION #{index}: {conv_id}")
         console.print(f"{'='*80}[/bold cyan]\n")
         
-        # Basic info
-        console.print("[bold]BASIC INFO:[/bold]")
-        console.print(f"  ID: {conv_id}")
-        console.print(f"  State: {conv.get('state')}")
-        console.print(f"  Created: {datetime.fromtimestamp(conv.get('created_at', 0))}")
-        console.print(f"  Tier: {conv.get('tier')}")
-        console.print(f"  Admin Assigned ID: {conv.get('admin_assignee_id')}")
-        console.print(f"  AI Agent Participated: {conv.get('ai_agent_participated')}")
+        # ===== SECTION 1: TOP-LEVEL FIELDS =====
+        console.print("[bold]📋 TOP-LEVEL FIELDS (ALL):[/bold]")
+        top_level_fields = {
+            'id': conv.get('id'),
+            'type': conv.get('type'),
+            'created_at': f"{datetime.fromtimestamp(conv.get('created_at', 0))} ({conv.get('created_at')})",
+            'updated_at': f"{datetime.fromtimestamp(conv.get('updated_at', 0))} ({conv.get('updated_at')})",
+            'state': conv.get('state'),
+            'priority': conv.get('priority'),
+            'read': conv.get('read'),
+            'waiting_since': conv.get('waiting_since'),
+            'snoozed_until': conv.get('snoozed_until'),
+            'open': conv.get('open'),
+            'admin_assignee_id': conv.get('admin_assignee_id'),
+            'team_assignee_id': conv.get('team_assignee_id'),
+            'title': conv.get('title'),
+            'tier': conv.get('tier'),
+        }
+        for field, value in top_level_fields.items():
+            if value is not None:
+                console.print(f"  {field}: {value}")
         
-        # Custom attributes
-        console.print("\n[bold]CUSTOM ATTRIBUTES:[/bold]")
+        # ===== SECTION 2: AI AGENT DATA (CRITICAL FOR SAL DETECTION) =====
+        console.print("\n[bold]🤖 AI AGENT DATA:[/bold]")
+        console.print(f"  ai_agent_participated: {conv.get('ai_agent_participated')}")
+        
+        ai_agent = conv.get('ai_agent')
+        if ai_agent:
+            console.print(f"  ai_agent object: [green]EXISTS[/green]")
+            if isinstance(ai_agent, dict):
+                for key, value in ai_agent.items():
+                    console.print(f"    {key}: {value}")
+        else:
+            console.print(f"  ai_agent object: [red]MISSING[/red]")
+        
+        # ===== SECTION 3: CUSTOM ATTRIBUTES (TOPIC DETECTION) =====
+        console.print("\n[bold]🏷️  CUSTOM ATTRIBUTES:[/bold]")
         attrs = conv.get('custom_attributes', {})
-        if attrs:
+        if attrs and isinstance(attrs, dict):
             for key, value in attrs.items():
                 console.print(f"  {key}: {value}")
         else:
-            console.print("  [red](empty)[/red]")
+            console.print("  [red](empty or missing)[/red]")
         
-        # Tags
-        console.print("\n[bold]TAGS:[/bold]")
-        tags = conv.get('tags', {}).get('tags', [])
-        if tags:
-            for tag in tags:
-                tag_name = tag.get('name', tag) if isinstance(tag, dict) else tag
-                console.print(f"  - {tag_name}")
+        # ===== SECTION 4: TAGS =====
+        console.print("\n[bold]🔖 TAGS:[/bold]")
+        tags_obj = conv.get('tags', {})
+        if isinstance(tags_obj, dict):
+            tags = tags_obj.get('tags', [])
+            if tags:
+                for tag in tags:
+                    tag_name = tag.get('name', tag) if isinstance(tag, dict) else tag
+                    console.print(f"  - {tag_name}")
+            else:
+                console.print("  [red](empty)[/red]")
         else:
-            console.print("  [red](empty)[/red]")
+            console.print(f"  [red](malformed: {type(tags_obj)})[/red]")
         
-        # Topics
-        console.print("\n[bold]TOPICS:[/bold]")
-        topics = conv.get('topics', {}).get('topics', [])
-        if topics:
-            for topic in topics:
-                topic_name = topic.get('name', topic) if isinstance(topic, dict) else topic
-                console.print(f"  - {topic_name}")
+        # ===== SECTION 5: TOPICS =====
+        console.print("\n[bold]📑 TOPICS:[/bold]")
+        topics_obj = conv.get('topics', {})
+        if isinstance(topics_obj, dict):
+            topics = topics_obj.get('topics', [])
+            if topics:
+                for topic in topics:
+                    if isinstance(topic, dict):
+                        console.print(f"  - {topic.get('name')} (type: {topic.get('type')})")
+                    else:
+                        console.print(f"  - {topic}")
+            else:
+                console.print("  [red](empty)[/red]")
         else:
-            console.print("  [red](empty)[/red]")
+            console.print(f"  [red](malformed: {type(topics_obj)})[/red]")
         
-        # Conversation parts (agent detection)
-        console.print("\n[bold]CONVERSATION PARTS:[/bold]")
+        # ===== SECTION 6: ASSIGNEE (ADMIN INFO) =====
+        console.print("\n[bold]👤 ASSIGNEE:[/bold]")
+        assignee = conv.get('assignee')
+        if assignee:
+            if isinstance(assignee, dict):
+                console.print(f"  Type: {assignee.get('type')}")
+                console.print(f"  ID: {assignee.get('id')}")
+                console.print(f"  Name: {assignee.get('name')}")
+                console.print(f"  Email: {assignee.get('email')}")
+            else:
+                console.print(f"  {assignee}")
+        else:
+            console.print("  [red](none)[/red]")
+        
+        # ===== SECTION 7: CONVERSATION PARTS (AGENT DETECTION) =====
+        console.print("\n[bold]💬 CONVERSATION PARTS:[/bold]")
         parts_data = conv.get('conversation_parts', {})
         parts = parts_data.get('conversation_parts', []) if isinstance(parts_data, dict) else []
+        console.print(f"  Total parts: {len(parts)}")
         
         for i, part in enumerate(parts[:5], 1):  # Show first 5
             author = part.get('author', {})
-            body = part.get('body', '')[:100]  # First 100 chars
+            body = part.get('body', '')[:150]
             
-            console.print(f"  Part {i}:")
+            console.print(f"\n  [cyan]Part {i}:[/cyan]")
             console.print(f"    Type: {author.get('type')}")
             console.print(f"    Name: {author.get('name', '(no name)')}")
             console.print(f"    Email: {author.get('email', '(no email)')}")
             console.print(f"    ID: {author.get('id', '(no id)')}")
+            console.print(f"    Created: {datetime.fromtimestamp(part.get('created_at', 0))}")
             console.print(f"    Body: {body}...")
             
-            # Sal detection
+            # Sal detection test
             if author.get('type') == 'admin':
                 is_sal = ('sal' in author.get('name', '').lower() or 
-                         'sal' in author.get('email', '').lower())
+                         'sal' in author.get('email', '').lower() or
+                         'finn' in author.get('name', '').lower())
                 if is_sal:
-                    console.print(f"    [green]✅ DETECTED AS SAL (Fin AI)[/green]")
+                    console.print(f"    [green]✅ DETECTED AS SAL/FIN AI[/green]")
                 else:
                     console.print(f"    [yellow]⚠️  DETECTED AS HUMAN ADMIN[/yellow]")
         
-        # Message text
-        console.print("\n[bold]MESSAGE TEXT:[/bold]")
+        if len(parts) > 5:
+            console.print(f"\n  [dim]... and {len(parts) - 5} more parts[/dim]")
+        
+        # ===== SECTION 8: STATISTICS =====
+        console.print("\n[bold]📊 STATISTICS:[/bold]")
+        stats = conv.get('statistics', {})
+        if stats and isinstance(stats, dict):
+            for key, value in stats.items():
+                console.print(f"  {key}: {value}")
+        else:
+            console.print("  [red](empty or missing)[/red]")
+        
+        # ===== SECTION 9: CONVERSATION RATING =====
+        console.print("\n[bold]⭐ CONVERSATION RATING:[/bold]")
+        rating = conv.get('conversation_rating')
+        if rating:
+            if isinstance(rating, dict):
+                for key, value in rating.items():
+                    console.print(f"  {key}: {value}")
+            else:
+                console.print(f"  Rating: {rating}")
+        else:
+            console.print("  [red](no rating)[/red]")
+        
+        # ===== SECTION 10: CONTACTS =====
+        console.print("\n[bold]👥 CONTACTS:[/bold]")
+        contacts_obj = conv.get('contacts', {})
+        if isinstance(contacts_obj, dict):
+            contacts = contacts_obj.get('contacts', [])
+            if contacts:
+                for i, contact in enumerate(contacts[:2], 1):  # Show first 2
+                    console.print(f"  Contact {i}:")
+                    console.print(f"    ID: {contact.get('id')}")
+                    console.print(f"    Email: {contact.get('email')}")
+                    console.print(f"    Role: {contact.get('role')}")
+                    
+                    # Contact custom attributes
+                    contact_attrs = contact.get('custom_attributes', {})
+                    if contact_attrs:
+                        console.print(f"    Custom Attributes: {list(contact_attrs.keys())[:5]}")
+            else:
+                console.print("  [red](empty)[/red]")
+        else:
+            console.print(f"  [red](malformed)[/red]")
+        
+        # ===== SECTION 11: SOURCE MESSAGE =====
+        console.print("\n[bold]📨 SOURCE MESSAGE:[/bold]")
+        source = conv.get('source', {})
+        if source:
+            console.print(f"  Type: {source.get('type')}")
+            console.print(f"  ID: {source.get('id')}")
+            author = source.get('author', {})
+            if author:
+                console.print(f"  Author Type: {author.get('type')}")
+                console.print(f"  Author ID: {author.get('id')}")
+            body = source.get('body', '')[:150]
+            console.print(f"  Body: {body}...")
+        else:
+            console.print("  [red](missing)[/red]")
+        
+        # ===== SECTION 12: FULL TEXT =====
+        console.print("\n[bold]📝 EXTRACTED TEXT:[/bold]")
         text = extract_conversation_text(conv, clean_html=True)
         console.print(f"  Length: {len(text)} chars")
-        console.print(f"  Preview: {text[:200]}...")
+        console.print(f"  First 300 chars: {text[:300]}...")
         
-        # Keyword detection preview
-        console.print("\n[bold]KEYWORD DETECTION TEST:[/bold]")
+        # ===== SECTION 13: KEYWORD DETECTION TEST =====
+        console.print("\n[bold]🔍 KEYWORD DETECTION TEST (Word Boundaries):[/bold]")
         text_lower = text.lower()
         test_keywords = {
-            'Billing': ['billing', 'invoice', 'refund', 'payment'],
+            'Billing': ['billing', 'invoice', 'refund', 'payment', 'subscription'],
             'Account': ['account', 'login', 'password', 'email'],
             'Bug': ['bug', 'error', 'broken', 'not working'],
-            'Agent/Buddy': ['gamma ai', 'ai assistant', 'chatbot']
+            'Product Question': ['how do', 'how to', 'can i', 'question'],
+            'Agent/Buddy': ['gamma ai', 'ai assistant', 'chatbot', 'fin ai'],
+            'Workspace': ['workspace', 'team', 'member', 'invite']
         }
         
         import re
+        detected_topics = []
         for topic, keywords in test_keywords.items():
             matched = []
             for kw in keywords:
@@ -465,7 +594,16 @@ class SampleMode:
                 if re.search(pattern, text_lower):
                     matched.append(kw)
             if matched:
-                console.print(f"  {topic}: [green]{matched}[/green]")
+                detected_topics.append(topic)
+                console.print(f"  ✅ {topic}: [green]{matched}[/green]")
+        
+        if not detected_topics:
+            console.print("  [red]❌ NO KEYWORDS MATCHED (Would be classified as Unknown)[/red]")
+        
+        # ===== SECTION 14: RAW JSON KEYS =====
+        console.print("\n[bold]🔑 ALL RAW KEYS IN CONVERSATION OBJECT:[/bold]")
+        all_keys = sorted(conv.keys())
+        console.print(f"  {', '.join(all_keys)}")
         
         console.print("\n")
     

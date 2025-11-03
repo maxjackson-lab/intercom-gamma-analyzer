@@ -992,10 +992,15 @@ if HAS_FASTAPI:
                     
                     <label>Time Range:</label>
                     <select id="sampleTimePeriod">
-                        <option value="day">Last 24 hours</option>
-                        <option value="week" selected>Last 7 days ⭐ Recommended</option>
-                        <option value="month">Last 30 days</option>
+                        <option value="day">Last 24 hours (recent conversations)</option>
+                        <option value="week" selected>Last 7 days (recommended) ⭐</option>
+                        <option value="month">Last 30 days (wider sample)</option>
                     </select>
+                    
+                    <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
+                        💡 <strong>How it works:</strong> Fetches the first {count} conversations from the selected time range, 
+                        starting with the most recent. Stops immediately after reaching your count.
+                    </p>
                     
                     <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 13px;">
                         <strong>💡 What You'll See:</strong>

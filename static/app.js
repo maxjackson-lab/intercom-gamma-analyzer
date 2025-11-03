@@ -1214,18 +1214,15 @@ function runAnalysis() {
     if (analysisValue === 'sample-mode') {
         command = 'sample-mode';
         
-        // Get Sample Mode specific values
+        // Get Sample Mode specific values (NOT the regular time period!)
         const sampleCount = document.getElementById('sampleCount');
         const sampleTimePeriod = document.getElementById('sampleTimePeriod');
         
         // ONLY set Sample Mode specific flags
         flags['--count'] = sampleCount ? parseInt(sampleCount.value) : 50;
         flags['--time-period'] = sampleTimePeriod ? sampleTimePeriod.value : 'week';
-        // Note: Don't add --save-to-file=false as CLI defaults to false already
         
-        // Note: We continue below to use the standard validation/execution path
-        // Just don't add the irrelevant flags (AI model, gamma, etc.)
-        // The common flags will be skipped naturally since we return early below
+        console.log('🔬 Sample Mode flags:', flags);  // Debug
         
     } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
