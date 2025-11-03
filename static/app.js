@@ -1727,8 +1727,38 @@ function updateAnalysisOptions() {
         // Show Sample Mode specific options
         if (sampleModeOptions) sampleModeOptions.style.display = 'block';
         
-        // Hide test mode (Sample Mode uses REAL data)
-        if (testModeContainer) testModeContainer.style.display = 'none';
+        // Hide irrelevant options for Sample Mode
+        if (testModeContainer) testModeContainer.style.display = 'none';  // Uses REAL data
+        
+        // Hide AI model selector (not needed for raw data pull)
+        const aiModelSelect = document.getElementById('aiModel');
+        const aiModelLabel = aiModelSelect ? aiModelSelect.previousElementSibling : null;
+        if (aiModelSelect) aiModelSelect.style.display = 'none';
+        if (aiModelLabel && aiModelLabel.tagName === 'LABEL') aiModelLabel.style.display = 'none';
+        
+        // Hide output format (not generating reports)
+        const outputFormat = document.getElementById('outputFormat');
+        const outputFormatLabel = outputFormat ? outputFormat.previousElementSibling : null;
+        if (outputFormat) outputFormat.style.display = 'none';
+        if (outputFormatLabel && outputFormatLabel.tagName === 'LABEL') outputFormatLabel.style.display = 'none';
+        
+        // Hide taxonomy filter (not doing analysis)
+        const taxonomyFilter = document.getElementById('taxonomyFilter');
+        const taxonomyFilterLabel = taxonomyFilter ? taxonomyFilter.previousElementSibling : null;
+        if (taxonomyFilter) taxonomyFilter.style.display = 'none';
+        if (taxonomyFilterLabel && taxonomyFilterLabel.tagName === 'LABEL') taxonomyFilterLabel.style.display = 'none';
+        
+        // Hide data source selector
+        const dataSource = document.getElementById('dataSource');
+        const dataSourceLabel = dataSource ? dataSource.previousElementSibling : null;
+        if (dataSource) dataSource.style.display = 'none';
+        if (dataSourceLabel && dataSourceLabel.tagName === 'LABEL') dataSourceLabel.style.display = 'none';
+        
+        // Hide audit trail checkbox (not generating detailed reports)
+        const auditMode = document.getElementById('auditMode');
+        const auditModeContainer = auditMode ? auditMode.closest('label') : null;
+        if (auditModeContainer) auditModeContainer.style.display = 'none';
+        
     } else {
         // Normal modes: Show regular time period
         if (timePeriod) timePeriod.style.display = 'block';
@@ -1737,8 +1767,37 @@ function updateAnalysisOptions() {
         // Hide Sample Mode options
         if (sampleModeOptions) sampleModeOptions.style.display = 'none';
         
-        // Show test mode checkbox
+        // Show all normal options
         if (testModeContainer) testModeContainer.style.display = 'block';
+        
+        // Show AI model selector
+        const aiModelSelect = document.getElementById('aiModel');
+        const aiModelLabel = aiModelSelect ? aiModelSelect.previousElementSibling : null;
+        if (aiModelSelect) aiModelSelect.style.display = 'block';
+        if (aiModelLabel && aiModelLabel.tagName === 'LABEL') aiModelLabel.style.display = 'block';
+        
+        // Show output format
+        const outputFormat = document.getElementById('outputFormat');
+        const outputFormatLabel = outputFormat ? outputFormat.previousElementSibling : null;
+        if (outputFormat) outputFormat.style.display = 'block';
+        if (outputFormatLabel && outputFormatLabel.tagName === 'LABEL') outputFormatLabel.style.display = 'block';
+        
+        // Show taxonomy filter
+        const taxonomyFilter = document.getElementById('taxonomyFilter');
+        const taxonomyFilterLabel = taxonomyFilter ? taxonomyFilter.previousElementSibling : null;
+        if (taxonomyFilter) taxonomyFilter.style.display = 'block';
+        if (taxonomyFilterLabel && taxonomyFilterLabel.tagName === 'LABEL') taxonomyFilterLabel.style.display = 'block';
+        
+        // Show data source
+        const dataSource = document.getElementById('dataSource');
+        const dataSourceLabel = dataSource ? dataSource.previousElementSibling : null;
+        if (dataSource) dataSource.style.display = 'block';
+        if (dataSourceLabel && dataSourceLabel.tagName === 'LABEL') dataSourceLabel.style.display = 'block';
+        
+        // Show audit trail
+        const auditMode = document.getElementById('auditMode');
+        const auditModeContainer = auditMode ? auditMode.closest('label') : null;
+        if (auditModeContainer) auditModeContainer.style.display = 'block';
     }
     
     // Show relevant panel based on selection
