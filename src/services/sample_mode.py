@@ -64,12 +64,21 @@ class SampleMode:
         
         # Fetch conversations
         console.print("\n📥 [yellow]Fetching conversations from Intercom...[/yellow]")
-        conversations = await self.sdk.fetch_conversations_by_date_range(
+        
+        # Fetch ALL conversations in date range, then sample randomly
+        all_conversations = await self.sdk.fetch_conversations_by_date_range(
             start_date=start_date,
-            end_date=end_date,
-            limit=count,
-            per_page=min(count, 50)  # Fetch in one or two pages
+            end_date=end_date
         )
+        
+        # Randomly sample the requested count
+        import random
+        if len(all_conversations) > count:
+            conversations = random.sample(all_conversations, count)
+            console.print(f"[yellow]Sampled {count} from {len(all_conversations)} total conversations[/yellow]")
+        else:
+            conversations = all_conversations
+            console.print(f"[yellow]Using all {len(conversations)} conversations (less than requested {count})[/yellow]")
         
         if not conversations:
             console.print("[red]❌ No conversations found![/red]")
