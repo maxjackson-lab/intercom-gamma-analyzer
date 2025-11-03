@@ -998,8 +998,8 @@ if HAS_FASTAPI:
                     </select>
                     
                     <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
-                        💡 <strong>How it works:</strong> Fetches conversations from the selected time range 
-                        (newest first), stopping when it reaches your chosen count.
+                        💡 <strong>How it works:</strong> Fetches conversations from the time range, 
+                        then randomly samples your chosen count for diverse data validation.
                     </p>
                     
                     <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 13px;">
