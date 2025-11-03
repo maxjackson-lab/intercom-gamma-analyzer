@@ -280,7 +280,12 @@ class IntercomSDKService:
         conversations: List[Dict]
     ) -> List[Dict]:
         """
-        Enrich conversations with full contact details including segments.
+        Enrich conversations with full contact details, segments, AND conversation_parts.
+        
+        CRITICAL: conversation_parts is REQUIRED for:
+        - Sal vs Human admin detection
+        - Full conversation text extraction
+        - Topic detection accuracy
         
         Uses semaphore-based concurrency control to limit concurrent API requests
         and implements request pacing to respect Intercom rate limits.
@@ -303,12 +308,41 @@ class IntercomSDKService:
                 'successful': 0,
                 'failed_contact': 0,
                 'failed_segments': 0,
+                'failed_conversation_parts': 0,
                 'skipped_no_contact': 0
             }
             
             async with self._enrichment_semaphore:
                 try:
-                    # Extract contact IDs from the conversation
+                    # STEP 1: Fetch full conversation details (includes conversation_parts)
+                    # This is CRITICAL for Sal detection and full text extraction
+                    conv_id = conv.get('id')
+                    if conv_id:
+                        try:
+                            full_conv_data = await self._fetch_full_conversation(conv_id)
+                            
+                            # Merge conversation_parts into the conversation
+                            if 'conversation_parts' in full_conv_data:
+                                conv['conversation_parts'] = full_conv_data['conversation_parts']
+                                self.logger.debug(
+                                    f"Enriched conversation {conv_id} with conversation_parts"
+                                )
+                        except ApiError as e:
+                            metrics['failed_conversation_parts'] += 1
+                            if e.status_code == 404:
+                                self.logger.warning(f"Conversation {conv_id} not found")
+                            else:
+                                self.logger.warning(f"Failed to fetch conversation parts for {conv_id}: {e}")
+                        except (httpx.RequestError, asyncio.TimeoutError) as e:
+                            metrics['failed_conversation_parts'] += 1
+                            self.logger.warning(
+                                f"Network error fetching conversation parts for {conv_id}: {e}"
+                            )
+                        except Exception as e:
+                            metrics['failed_conversation_parts'] += 1
+                            self.logger.warning(f"Error fetching conversation parts for {conv_id}: {e}")
+                    
+                    # STEP 2: Extract contact IDs from the conversation
                     contacts_data = conv.get('contacts', {})
                     if contacts_data and isinstance(contacts_data, dict):
                         contacts_list = contacts_data.get('contacts', [])
@@ -395,6 +429,7 @@ class IntercomSDKService:
             'successful': 0,
             'failed_contact': 0,
             'failed_segments': 0,
+            'failed_conversation_parts': 0,
             'skipped_no_contact': 0
         }
         enriched_conversations = []
@@ -406,17 +441,45 @@ class IntercomSDKService:
         
         # Log detailed enrichment statistics
         success_rate = (enrichment_stats['successful'] / enrichment_stats['attempted'] * 100) if enrichment_stats['attempted'] > 0 else 0
+        parts_success_rate = ((enrichment_stats['attempted'] - enrichment_stats['failed_conversation_parts']) / enrichment_stats['attempted'] * 100) if enrichment_stats['attempted'] > 0 else 0
         self.logger.info(
             f"ENRICHMENT_METRICS: attempted={enrichment_stats['attempted']}, "
             f"successful={enrichment_stats['successful']}, "
             f"failed_contact={enrichment_stats['failed_contact']}, "
             f"failed_segments={enrichment_stats['failed_segments']}, "
+            f"failed_conversation_parts={enrichment_stats['failed_conversation_parts']}, "
             f"skipped={enrichment_stats['skipped_no_contact']}, "
-            f"success_rate={success_rate:.1f}%"
+            f"success_rate={success_rate:.1f}%, "
+            f"conversation_parts_success_rate={parts_success_rate:.1f}%"
         )
         
         return enriched_conversations
     
+    @async_retry(
+        retries=3,
+        base_delay=0.5,
+        backoff_factor=2.0,
+        jitter=0.5,
+        retry_exceptions=(ApiError, httpx.RequestError, asyncio.TimeoutError),
+    )
+    async def _fetch_full_conversation(self, conversation_id: str) -> Dict:
+        """
+        Fetch FULL conversation details including conversation_parts.
+        
+        CRITICAL: This is the ONLY way to get conversation_parts from Intercom API.
+        The search endpoint doesn't include conversation_parts by default.
+        
+        Args:
+            conversation_id: Conversation ID to fetch
+            
+        Returns:
+            Full conversation dictionary with conversation_parts
+        """
+        conversation = await self.client.conversations.find(conversation_id)
+        # Add delay after request to respect rate limits
+        await asyncio.sleep(self.request_delay)
+        return self._model_to_dict(conversation)
+
     @async_retry(
         retries=3,
         base_delay=0.5,
