@@ -1245,8 +1245,21 @@ function runAnalysis() {
             return;
         }
         
-        // Execute sample mode directly
-        executeAnalysis(command, args);
+        // Show terminal and execute (same pattern as bottom of runAnalysis)
+        const terminalContainer = document.getElementById('terminal-container');
+        const tabNavigation = document.querySelector('.tab-navigation');
+        if (terminalContainer) terminalContainer.style.display = 'block';
+        if (tabNavigation) tabNavigation.style.display = 'flex';
+        
+        console.log('🎯 Executing sample-mode with args:', args);
+        
+        try {
+            executeCommand(command, args);
+        } catch (error) {
+            console.error('❌ Error executing sample mode:', error);
+            alert('Error starting Sample Mode: ' + error.message);
+        }
+        
         return;  // Exit early - don't add other flags
         
     } else if (analysisValue === 'voice-of-customer-hilary') {
