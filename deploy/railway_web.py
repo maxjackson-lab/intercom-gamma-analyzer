@@ -304,10 +304,23 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': 'week',
                 'description': 'Time period for sampling'
             },
+            '--start-date': {
+                'type': 'date',
+                'description': 'Start date (YYYY-MM-DD)'
+            },
+            '--end-date': {
+                'type': 'date',
+                'description': 'End date (YYYY-MM-DD)'
+            },
             '--save-to-file': {
                 'type': 'boolean',
                 'default': False,  # Default to console-only for web UI
                 'description': 'Save raw JSON to outputs/ (optional - all data shown in console)'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
             }
         },
         'estimated_duration': '10-30 seconds'
