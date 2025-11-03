@@ -1213,10 +1213,15 @@ function runAnalysis() {
     // Map analysis type to command (keeping existing logic for now)
     if (analysisValue === 'sample-mode') {
         command = 'sample-mode';
-        flags['--count'] = 50;  // Default 50 conversations
-        flags['--time-period'] = timePeriod || 'week';
-        // Don't save JSON by default - all output streams to web console
-        // User can add --save-to-file flag manually if they want the JSON
+        
+        // Get Sample Mode specific values
+        const sampleCount = document.getElementById('sampleCount');
+        const sampleTimePeriod = document.getElementById('sampleTimePeriod');
+        
+        flags['--count'] = sampleCount ? parseInt(sampleCount.value) : 50;
+        flags['--time-period'] = sampleTimePeriod ? sampleTimePeriod.value : 'week';
+        flags['--save-to-file'] = false;  // Console output only
+        // Don't add --verbose - sample mode is already verbose by design
     } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
         flags['--multi-agent'] = true;
@@ -1670,6 +1675,13 @@ function updateAnalysisOptions() {
     const coachingInfo = document.getElementById('coachingReportInfo');
     const teamInfo = document.getElementById('teamOverviewInfo');
     
+    // Sample Mode specific elements
+    const timePeriod = document.getElementById('timePeriod');
+    const timePeriodLabel = document.getElementById('timePeriodLabel');
+    const sampleModeOptions = document.getElementById('sampleModeOptions');
+    const testModeCheckbox = document.getElementById('testMode');
+    const testModeContainer = testModeCheckbox ? testModeCheckbox.closest('label') : null;
+    
     if (!analysisType) return;
     
     const value = analysisType.value;
@@ -1678,6 +1690,29 @@ function updateAnalysisOptions() {
     if (individualInfo) individualInfo.style.display = 'none';
     if (coachingInfo) coachingInfo.style.display = 'none';
     if (teamInfo) teamInfo.style.display = 'none';
+    
+    // SAMPLE MODE: Show/hide relevant options
+    if (value === 'sample-mode') {
+        // Hide normal time period (says "7k conversations" - confusing!)
+        if (timePeriod) timePeriod.style.display = 'none';
+        if (timePeriodLabel) timePeriodLabel.style.display = 'none';
+        
+        // Show Sample Mode specific options
+        if (sampleModeOptions) sampleModeOptions.style.display = 'block';
+        
+        // Hide test mode (Sample Mode uses REAL data)
+        if (testModeContainer) testModeContainer.style.display = 'none';
+    } else {
+        // Normal modes: Show regular time period
+        if (timePeriod) timePeriod.style.display = 'block';
+        if (timePeriodLabel) timePeriodLabel.style.display = 'block';
+        
+        // Hide Sample Mode options
+        if (sampleModeOptions) sampleModeOptions.style.display = 'none';
+        
+        // Show test mode checkbox
+        if (testModeContainer) testModeContainer.style.display = 'block';
+    }
     
     // Show relevant panel based on selection
     if (value.includes('individual')) {

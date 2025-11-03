@@ -883,9 +883,10 @@ if HAS_FASTAPI:
                 
                 <label>Analysis Type:</label>
                 <select id="analysisType" onchange="updateAnalysisOptions()">
-                    <optgroup label="Quick Tools">
-                        <option value="sample-mode">🔬 Sample Mode (50-100 Real Tickets - Ultra Logging)</option>
-                    </optgroup>
+                    <!-- Quick Diagnostic Tool - Always at Top -->
+                    <option value="sample-mode">🔬 Sample Mode (50 Real Tickets - Quick Debug)</option>
+                    <option disabled>──────────────────────────</option>
+                    
                     <optgroup label="Voice of Customer">
                         <option value="voice-of-customer-hilary" selected>VoC: Hilary Format (Topic Cards)</option>
                         <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
@@ -963,13 +964,49 @@ if HAS_FASTAPI:
                     </div>
                 </div>
                 
-                <label>Time Period:</label>
+                <label id="timePeriodLabel">Time Period:</label>
                 <select id="timePeriod">
                     <option value="yesterday">Yesterday (fast - ~1k conversations)</option>
                     <option value="week" selected>Last Week (~7k conversations)</option>
                     <option value="month">Last Month (full analysis)</option>
                     <option value="custom">Custom Date Range...</option>
                 </select>
+                
+                <!-- Sample Mode specific options (hidden by default) -->
+                <div id="sampleModeOptions" style="display:none; background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <div style="margin-bottom: 10px; color: #0369a1; font-weight: bold;">
+                        🔬 Sample Mode: Quick Data Check
+                    </div>
+                    <p style="margin: 10px 0; font-size: 14px; color: #555;">
+                        Pulls <strong>real conversations</strong> with ultra-rich logging to help debug issues. 
+                        Perfect for validating fixes without waiting for full analysis.
+                    </p>
+                    
+                    <label>Sample Size:</label>
+                    <select id="sampleCount">
+                        <option value="25">25 conversations (30 seconds)</option>
+                        <option value="50" selected>50 conversations (1 minute) ⭐ Recommended</option>
+                        <option value="75">75 conversations (1.5 minutes)</option>
+                        <option value="100">100 conversations (2 minutes)</option>
+                    </select>
+                    
+                    <label>Time Range:</label>
+                    <select id="sampleTimePeriod">
+                        <option value="day">Last 24 hours</option>
+                        <option value="week" selected>Last 7 days ⭐ Recommended</option>
+                        <option value="month">Last 30 days</option>
+                    </select>
+                    
+                    <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 13px;">
+                        <strong>💡 What You'll See:</strong>
+                        <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            <li>Field coverage analysis (which fields exist)</li>
+                            <li>Custom attributes breakdown (what's actually there)</li>
+                            <li>Sal vs Human attribution (~75% should be Sal)</li>
+                            <li>5 detailed conversation samples with keyword tests</li>
+                        </ul>
+                    </div>
+                </div>
                 
                 <div id="customDateInputs" style="display:none; margin-top: 10px;">
                     <label>Start Date: <input type="date" id="startDate"></label>
