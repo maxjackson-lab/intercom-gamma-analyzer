@@ -884,7 +884,7 @@ if HAS_FASTAPI:
                 <label>Analysis Type:</label>
                 <select id="analysisType" onchange="updateAnalysisOptions()">
                     <!-- Quick Diagnostic Tool - Always at Top -->
-                    <option value="sample-mode">🔬 Sample Mode (50 Real Tickets - Quick Debug)</option>
+                    <option value="sample-mode">🔬 Sample Mode (Quick Debug: 25-100 Tickets)</option>
                     <option disabled>──────────────────────────</option>
                     
                     <optgroup label="Voice of Customer">

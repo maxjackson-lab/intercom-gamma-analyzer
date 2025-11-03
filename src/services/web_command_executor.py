@@ -58,6 +58,8 @@ class WebCommandExecutor:
                 "--output-dir", "--output-format", "--generate-gamma",
                 # Date/time options - with strict validation
                 "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
+                # Sample mode options
+                "--count", "--save-to-file", "--no-save",
                 # Analysis options
                 "--multi-agent", "--analysis-type",
                 "--focus-areas", "--focus-categories",

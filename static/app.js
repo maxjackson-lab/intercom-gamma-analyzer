@@ -1218,49 +1218,14 @@ function runAnalysis() {
         const sampleCount = document.getElementById('sampleCount');
         const sampleTimePeriod = document.getElementById('sampleTimePeriod');
         
+        // ONLY set Sample Mode specific flags
         flags['--count'] = sampleCount ? parseInt(sampleCount.value) : 50;
         flags['--time-period'] = sampleTimePeriod ? sampleTimePeriod.value : 'week';
-        flags['--save-to-file'] = false;  // Console output only
+        // Note: Don't add --save-to-file=false as CLI defaults to false already
         
-        // IMPORTANT: Return early to skip adding other flags
-        // Sample mode doesn't need --ai-model, --generate-gamma, --audit-trail, etc.
-        
-        // Convert flags to args
-        args = [];
-        for (const [flagName, flagValue] of Object.entries(flags)) {
-            if (typeof flagValue === 'boolean') {
-                if (flagValue) args.push(flagName);
-            } else {
-                args.push(flagName, String(flagValue));
-            }
-        }
-        
-        // Skip all the common flag additions below and go straight to execution
-        const schemaKey = 'sample_mode';
-        const validation = validateAgainstSchema(schemaKey, flags);
-        
-        if (!validation.valid) {
-            alert(`Validation Error: ${validation.error}`);
-            console.error('❌ Validation failed:', validation.error);
-            return;
-        }
-        
-        // Show terminal and execute (same pattern as bottom of runAnalysis)
-        const terminalContainer = document.getElementById('terminal-container');
-        const tabNavigation = document.querySelector('.tab-navigation');
-        if (terminalContainer) terminalContainer.style.display = 'block';
-        if (tabNavigation) tabNavigation.style.display = 'flex';
-        
-        console.log('🎯 Executing sample-mode with args:', args);
-        
-        try {
-            executeCommand(command, args);
-        } catch (error) {
-            console.error('❌ Error executing sample mode:', error);
-            alert('Error starting Sample Mode: ' + error.message);
-        }
-        
-        return;  // Exit early - don't add other flags
+        // Note: We continue below to use the standard validation/execution path
+        // Just don't add the irrelevant flags (AI model, gamma, etc.)
+        // The common flags will be skipped naturally since we return early below
         
     } else if (analysisValue === 'voice-of-customer-hilary') {
         command = 'voice-of-customer';
@@ -1340,30 +1305,33 @@ function runAnalysis() {
         flags['--focus-areas'] = filterValue;
     }
     
-    // Add output format
-    if (formatValue === 'gamma') {
-        flags['--generate-gamma'] = true;
-    }
-    
-    // Add test mode flags
-    if (isTestMode) {
-        flags['--test-mode'] = true;
-        flags['--test-data-count'] = parseInt(testCount);
-    }
-    
-    // Add verbose logging
-    if (isVerbose) {
-        flags['--verbose'] = true;
-    }
-    
-    // Add audit trail mode
-    if (isAuditMode) {
-        flags['--audit-trail'] = true;
-    }
-    
-    // Add AI model selection
-    if (aiModelValue) {
-        flags['--ai-model'] = aiModelValue;
+    // Skip common flags for sample-mode (it doesn't need them)
+    if (analysisValue !== 'sample-mode') {
+        // Add output format
+        if (formatValue === 'gamma') {
+            flags['--generate-gamma'] = true;
+        }
+        
+        // Add test mode flags
+        if (isTestMode) {
+            flags['--test-mode'] = true;
+            flags['--test-data-count'] = parseInt(testCount);
+        }
+        
+        // Add verbose logging
+        if (isVerbose) {
+            flags['--verbose'] = true;
+        }
+        
+        // Add audit trail mode
+        if (isAuditMode) {
+            flags['--audit-trail'] = true;
+        }
+        
+        // Add AI model selection
+        if (aiModelValue) {
+            flags['--ai-model'] = aiModelValue;
+        }
     }
     
     // Validate flags against schema
