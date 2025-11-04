@@ -738,7 +738,13 @@ class IntercomSDKService:
                 await asyncio.sleep(1.5)
             
             self.logger.info(f"Total conversations fetched: {len(all_conversations)}")
-            return all_conversations
+            
+            # CRITICAL: Enrich with conversation_parts (same as fetch_conversations_by_date_range)
+            enriched_conversations = await self._enrich_conversations_with_contact_details(
+                all_conversations
+            )
+            
+            return enriched_conversations
             
         except ApiError as e:
             if e.status_code == 429:
