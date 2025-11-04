@@ -280,6 +280,209 @@ def duckdb_storage(temp_dir):
 
 
 @pytest.fixture
+def sample_analysis_snapshot():
+    """Sample analysis snapshot data for testing."""
+    return {
+        'snapshot_id': 'weekly_20251107',
+        'analysis_type': 'weekly',
+        'period_start': date(2025, 11, 1),
+        'period_end': date(2025, 11, 7),
+        'total_conversations': 100,
+        'date_range_label': 'Nov 1-7, 2025',
+        'insights_summary': 'Test insights for the week',
+        'topic_volumes': {
+            'Billing': 45,
+            'API': 18,
+            'Account': 12,
+            'Feature Requests': 15,
+            'Bug Reports': 10
+        },
+        'topic_sentiments': {
+            'Billing': {
+                'positive': 0.6,
+                'negative': 0.3,
+                'neutral': 0.1
+            },
+            'API': {
+                'positive': 0.4,
+                'negative': 0.5,
+                'neutral': 0.1
+            }
+        },
+        'tier_distribution': {
+            'paid': 80,
+            'free': 20
+        },
+        'agent_attribution': {
+            'horatio': 60,
+            'boldr': 30,
+            'internal': 10
+        },
+        'resolution_metrics': {
+            'fcr': 0.85,
+            'reopen_rate': 0.05,
+            'avg_resolution_time': 24.5
+        },
+        'fin_performance': {
+            'total_conversations': 30,
+            'resolution_rate': 0.75,
+            'knowledge_gap_rate': 0.15
+        },
+        'key_patterns': {
+            'cache_clear': 15,
+            'escalations': 5
+        },
+        'reviewed': False,
+        'reviewed_by': None,
+        'reviewed_at': None,
+        'notes': None
+    }
+
+
+@pytest.fixture
+def sample_comparative_analysis():
+    """Sample comparative analysis data for testing."""
+    return {
+        'comparison_id': 'comp_20251107_20251031',
+        'comparison_type': 'week_over_week',
+        'current_snapshot_id': 'weekly_20251107',
+        'prior_snapshot_id': 'weekly_20251031',
+        'volume_changes': {
+            'Billing': {
+                'change': 7,
+                'pct': 0.16,
+                'previous': 38,
+                'current': 45
+            },
+            'API': {
+                'change': -3,
+                'pct': -0.14,
+                'previous': 21,
+                'current': 18
+            }
+        },
+        'sentiment_changes': {
+            'Billing': {
+                'positive_delta': 0.05,
+                'negative_delta': -0.02
+            }
+        },
+        'resolution_changes': {
+            'fcr_delta': 0.03,
+            'resolution_time_delta': -2.5
+        },
+        'significant_changes': [
+            {
+                'topic': 'Billing',
+                'change_type': 'volume_increase',
+                'magnitude': 'moderate'
+            }
+        ],
+        'emerging_patterns': [
+            {
+                'pattern': 'refund_requests',
+                'volume': 12,
+                'trend': 'increasing'
+            }
+        ],
+        'declining_patterns': [
+            {
+                'pattern': 'account_login_issues',
+                'volume': 3,
+                'trend': 'decreasing'
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def sample_metrics_timeseries():
+    """Sample metrics timeseries data for testing."""
+    return [
+        {
+            'metric_id': 'ts_1',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'billing_volume',
+            'metric_value': 45.0,
+            'metric_unit': 'count',
+            'category': 'volume'
+        },
+        {
+            'metric_id': 'ts_2',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'api_volume',
+            'metric_value': 18.0,
+            'metric_unit': 'count',
+            'category': 'volume'
+        },
+        {
+            'metric_id': 'ts_3',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'fcr_rate',
+            'metric_value': 0.85,
+            'metric_unit': 'percentage',
+            'category': 'resolution'
+        },
+        {
+            'metric_id': 'ts_4',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'reopen_rate',
+            'metric_value': 0.05,
+            'metric_unit': 'percentage',
+            'category': 'resolution'
+        },
+        {
+            'metric_id': 'ts_5',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'avg_sentiment',
+            'metric_value': 0.75,
+            'metric_unit': 'score',
+            'category': 'sentiment'
+        },
+        {
+            'metric_id': 'ts_6',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'fin_resolution_rate',
+            'metric_value': 0.75,
+            'metric_unit': 'percentage',
+            'category': 'fin_performance'
+        },
+        {
+            'metric_id': 'ts_7',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'escalation_count',
+            'metric_value': 5.0,
+            'metric_unit': 'count',
+            'category': 'patterns'
+        },
+        {
+            'metric_id': 'ts_8',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'avg_resolution_time',
+            'metric_value': 24.5,
+            'metric_unit': 'hours',
+            'category': 'resolution'
+        },
+        {
+            'metric_id': 'ts_9',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'paid_tier_pct',
+            'metric_value': 0.80,
+            'metric_unit': 'percentage',
+            'category': 'segmentation'
+        },
+        {
+            'metric_id': 'ts_10',
+            'snapshot_id': 'weekly_20251107',
+            'metric_name': 'free_tier_pct',
+            'metric_value': 0.20,
+            'metric_unit': 'percentage',
+            'category': 'segmentation'
+        }
+    ]
+
+
+@pytest.fixture
 def elt_pipeline(temp_dir):
     """Create an ELT pipeline instance for testing."""
     output_dir = temp_dir / "test_outputs"

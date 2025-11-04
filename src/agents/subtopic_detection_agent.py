@@ -124,13 +124,17 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
             topic_dist = context.previous_results['TopicDetectionAgent']['data']['topic_distribution']
             topics_by_conv = context.previous_results['TopicDetectionAgent']['data']['topics_by_conversation']
             
-            # Rebuild conversations by topic
+            # Rebuild conversations by topic (ONLY PRIMARY TOPIC - NO DOUBLE COUNTING)
             conversations_by_topic = {}
             for conv in context.conversations:
                 conv_id = conv.get('id')
                 if conv_id in topics_by_conv:
-                    for topic_assign in topics_by_conv[conv_id]:
-                        topic = topic_assign['topic']
+                    # Only use the FIRST (highest confidence) topic assignment
+                    # This prevents conversations from being counted in multiple categories
+                    topic_assigns = topics_by_conv[conv_id]
+                    if topic_assigns:
+                        primary_topic_assign = topic_assigns[0]  # Highest confidence
+                        topic = primary_topic_assign['topic']
                         if topic not in conversations_by_topic:
                             conversations_by_topic[topic] = []
                         conversations_by_topic[topic].append(conv)

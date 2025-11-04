@@ -13,6 +13,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Valid analysis types for validation
+VALID_ANALYSIS_TYPES = {'weekly', 'monthly', 'quarterly', 'custom'}
+
 
 class DuckDBStorage:
     """DuckDB-based storage for analytical queries."""
@@ -29,6 +32,14 @@ class DuckDBStorage:
             self.conn = duckdb.connect(str(self.db_path))
             self._create_schema()
             self._schema_initialized = True
+            
+            # Verify schema after creation
+            verification_result = self.verify_schema()
+            if not verification_result['complete']:
+                logger.warning(
+                    f"Schema verification found missing tables: {verification_result['missing_tables']}"
+                )
+            
             logger.info(f"DuckDB initialized at {self.db_path}")
         except Exception as e:
             logger.error(f"Failed to initialize DuckDB: {e}")
@@ -264,10 +275,174 @@ class DuckDBStorage:
         CREATE INDEX IF NOT EXISTS idx_canny_posts_engagement ON canny_posts(engagement_score);
         CREATE INDEX IF NOT EXISTS idx_canny_comments_post ON canny_comments(post_id);
         CREATE INDEX IF NOT EXISTS idx_canny_votes_post ON canny_votes(post_id);
+        
+        -- Historical VoC analysis snapshots table
+        CREATE TABLE IF NOT EXISTS analysis_snapshots (
+            snapshot_id VARCHAR PRIMARY KEY,
+            analysis_type VARCHAR,
+            period_start DATE,
+            period_end DATE,
+            created_at TIMESTAMP,
+            total_conversations INTEGER,
+            date_range_label VARCHAR,
+            insights_summary TEXT,
+            topic_volumes JSON,
+            topic_sentiments JSON,
+            tier_distribution JSON,
+            agent_attribution JSON,
+            resolution_metrics JSON,
+            fin_performance JSON,
+            key_patterns JSON,
+            reviewed BOOLEAN DEFAULT FALSE,
+            reviewed_by VARCHAR,
+            reviewed_at TIMESTAMP,
+            notes TEXT
+        );
+        
+        -- Comparative analyses table (week-over-week, month-over-month)
+        CREATE TABLE IF NOT EXISTS comparative_analyses (
+            comparison_id VARCHAR PRIMARY KEY,
+            comparison_type VARCHAR,
+            current_snapshot_id VARCHAR,
+            prior_snapshot_id VARCHAR,
+            created_at TIMESTAMP,
+            volume_changes JSON,
+            sentiment_changes JSON,
+            resolution_changes JSON,
+            significant_changes JSON,
+            emerging_patterns JSON,
+            declining_patterns JSON,
+            FOREIGN KEY (current_snapshot_id) REFERENCES analysis_snapshots(snapshot_id),
+            FOREIGN KEY (prior_snapshot_id) REFERENCES analysis_snapshots(snapshot_id)
+        );
+        
+        -- Metrics timeseries table for charting
+        CREATE TABLE IF NOT EXISTS metrics_timeseries (
+            metric_id VARCHAR PRIMARY KEY,
+            snapshot_id VARCHAR,
+            metric_name VARCHAR,
+            metric_value FLOAT,
+            metric_unit VARCHAR,
+            category VARCHAR,
+            FOREIGN KEY (snapshot_id) REFERENCES analysis_snapshots(snapshot_id)
+        );
+        
+        -- Indexes for historical snapshot tables
+        CREATE INDEX IF NOT EXISTS idx_snapshots_period ON analysis_snapshots(period_start, period_end);
+        CREATE INDEX IF NOT EXISTS idx_snapshots_type ON analysis_snapshots(analysis_type);
+        CREATE INDEX IF NOT EXISTS idx_snapshots_reviewed ON analysis_snapshots(reviewed);
+        CREATE INDEX IF NOT EXISTS idx_timeseries_metric ON metrics_timeseries(metric_name);
+        CREATE INDEX IF NOT EXISTS idx_timeseries_snapshot ON metrics_timeseries(snapshot_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uniq_timeseries_snapshot_metric ON metrics_timeseries(snapshot_id, metric_name);
+        CREATE INDEX IF NOT EXISTS idx_comparative_current ON comparative_analyses(current_snapshot_id);
+        CREATE INDEX IF NOT EXISTS idx_comparative_prior ON comparative_analyses(prior_snapshot_id);
+        
+        -- Schema metadata table for version tracking
+        CREATE TABLE IF NOT EXISTS schema_metadata (
+            key VARCHAR PRIMARY KEY,
+            value VARCHAR,
+            updated_at TIMESTAMP
+        );
         """
         
         self.conn.execute(schema_sql)
+        
+        # Update schema version only if needed (avoid overwriting existing version)
+        try:
+            version_result = self.conn.execute(
+                "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
+            ).fetchone()
+            
+            current_version = version_result[0] if version_result else None
+            target_version = '2.0'
+            
+            # Only update if no version exists or current version is lower than target
+            if not current_version or current_version < target_version:
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO schema_metadata VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    ['schema_version', target_version]
+                )
+                logger.info(f"Schema version updated from {current_version or 'none'} to {target_version}")
+            else:
+                logger.info(f"Schema version {current_version} is current, no update needed")
+        except Exception as e:
+            logger.warning(f"Could not update schema version: {e}")
+        
         logger.info("Database schema created successfully")
+    
+    def verify_schema(self) -> Dict[str, Any]:
+        """
+        Verify that all expected tables exist in the database.
+        
+        Returns:
+            Dict with schema verification status:
+                - complete (bool): True if all tables exist
+                - missing_tables (list): List of missing table names
+                - existing_tables (list): List of existing table names
+                - schema_version (str): Current schema version
+        """
+        try:
+            # Get all existing tables
+            tables_df = self.conn.execute("SHOW TABLES").df()
+            existing_tables = tables_df['name'].tolist() if not tables_df.empty else []
+            
+            # Define expected tables
+            expected_tables = [
+                'conversations',
+                'conversation_tags',
+                'conversation_topics',
+                'conversation_categories',
+                'technical_patterns',
+                'escalations',
+                'canny_posts',
+                'canny_comments',
+                'canny_votes',
+                'canny_weekly_snapshots',
+                'admin_profiles',
+                'agent_performance_history',
+                'vendor_performance_history',
+                'analysis_snapshots',
+                'comparative_analyses',
+                'metrics_timeseries',
+                'schema_metadata'
+            ]
+            
+            # Find missing tables
+            missing_tables = [table for table in expected_tables if table not in existing_tables]
+            
+            # Get schema version
+            schema_version = '1.0'  # Default
+            try:
+                version_result = self.conn.execute(
+                    "SELECT value FROM schema_metadata WHERE key = 'schema_version'"
+                ).fetchone()
+                if version_result:
+                    schema_version = version_result[0]
+            except Exception as e:
+                logger.warning(f"Could not retrieve schema version: {e}")
+            
+            # Log results
+            if missing_tables:
+                logger.warning(f"Schema incomplete. Missing tables: {', '.join(missing_tables)}")
+            else:
+                logger.info(f"Schema verification complete. All {len(expected_tables)} tables exist. Version: {schema_version}")
+            
+            return {
+                'complete': len(missing_tables) == 0,
+                'missing_tables': missing_tables,
+                'existing_tables': existing_tables,
+                'schema_version': schema_version
+            }
+            
+        except Exception as e:
+            logger.error(f"Schema verification failed: {e}")
+            return {
+                'complete': False,
+                'missing_tables': [],
+                'existing_tables': [],
+                'schema_version': 'unknown',
+                'error': str(e)
+            }
     
     def store_conversations(self, conversations: List[Dict], batch_size: int = 1000):
         """Store conversations in DuckDB with full text extraction."""
@@ -1084,6 +1259,424 @@ class DuckDBStorage:
         if old_value == 0:
             return 100.0 if new_value > 0 else 0.0
         return round(((new_value - old_value) / old_value) * 100, 2)
+    
+    # =============================================================================
+    # Historical Snapshot Helper Methods
+    # =============================================================================
+    
+    def store_analysis_snapshot(self, snapshot_data: Dict) -> bool:
+        """
+        Store an analysis snapshot in the database.
+        
+        Args:
+            snapshot_data: Dict with all snapshot fields including:
+                - snapshot_id (str): Unique identifier
+                - analysis_type (str): 'weekly', 'monthly', 'quarterly', or 'custom'
+                - period_start (date): Start of analysis period
+                - period_end (date): End of analysis period
+                - total_conversations (int): Total conversations analyzed
+                - date_range_label (str): Human-readable date range
+                - insights_summary (str): Summary of key insights
+                - JSON fields: topic_volumes, topic_sentiments, tier_distribution, etc.
+                
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Validate required fields
+            required_fields = ['snapshot_id', 'analysis_type', 'period_start', 'period_end']
+            for field in required_fields:
+                if field not in snapshot_data:
+                    logger.error(f"Missing required field: {field}")
+                    return False
+            
+            # Validate analysis_type value
+            analysis_type = snapshot_data['analysis_type']
+            if analysis_type not in VALID_ANALYSIS_TYPES:
+                logger.error(
+                    f"Invalid analysis_type '{analysis_type}'. "
+                    f"Must be one of: {', '.join(sorted(VALID_ANALYSIS_TYPES))}"
+                )
+                return False
+            
+            # Serialize JSON fields
+            json_fields = [
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns'
+            ]
+            
+            serialized_data = snapshot_data.copy()
+            for field in json_fields:
+                if field in serialized_data and serialized_data[field] is not None:
+                    serialized_data[field] = json.dumps(serialized_data[field])
+                else:
+                    serialized_data[field] = None
+            
+            # Set defaults for optional fields
+            serialized_data.setdefault('created_at', datetime.now())
+            serialized_data.setdefault('total_conversations', 0)
+            serialized_data.setdefault('date_range_label', '')
+            serialized_data.setdefault('insights_summary', '')
+            serialized_data.setdefault('reviewed', False)
+            serialized_data.setdefault('reviewed_by', None)
+            serialized_data.setdefault('reviewed_at', None)
+            serialized_data.setdefault('notes', None)
+            
+            # Insert into database
+            sql = """
+            INSERT OR REPLACE INTO analysis_snapshots
+            (snapshot_id, analysis_type, period_start, period_end, created_at,
+             total_conversations, date_range_label, insights_summary,
+             topic_volumes, topic_sentiments, tier_distribution,
+             agent_attribution, resolution_metrics, fin_performance, key_patterns,
+             reviewed, reviewed_by, reviewed_at, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            self.conn.execute(sql, [
+                serialized_data['snapshot_id'],
+                serialized_data['analysis_type'],
+                serialized_data['period_start'],
+                serialized_data['period_end'],
+                serialized_data['created_at'],
+                serialized_data['total_conversations'],
+                serialized_data['date_range_label'],
+                serialized_data['insights_summary'],
+                serialized_data['topic_volumes'],
+                serialized_data['topic_sentiments'],
+                serialized_data['tier_distribution'],
+                serialized_data['agent_attribution'],
+                serialized_data['resolution_metrics'],
+                serialized_data['fin_performance'],
+                serialized_data['key_patterns'],
+                serialized_data['reviewed'],
+                serialized_data['reviewed_by'],
+                serialized_data['reviewed_at'],
+                serialized_data['notes']
+            ])
+            
+            logger.info(f"Successfully stored analysis snapshot: {snapshot_data['snapshot_id']}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store analysis snapshot: {e}")
+            return False
+    
+    def get_analysis_snapshot(self, snapshot_id: str) -> Optional[Dict]:
+        """
+        Retrieve an analysis snapshot by ID.
+        
+        Args:
+            snapshot_id: Unique snapshot identifier
+            
+        Returns:
+            Dict with snapshot data, or None if not found
+        """
+        try:
+            sql = "SELECT * FROM analysis_snapshots WHERE snapshot_id = ?"
+            result = self.conn.execute(sql, [snapshot_id]).fetchone()
+            
+            if not result:
+                return None
+            
+            # Map result to dict
+            columns = [
+                'snapshot_id', 'analysis_type', 'period_start', 'period_end', 'created_at',
+                'total_conversations', 'date_range_label', 'insights_summary',
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns',
+                'reviewed', 'reviewed_by', 'reviewed_at', 'notes'
+            ]
+            
+            snapshot = dict(zip(columns, result))
+            
+            # Deserialize JSON fields
+            json_fields = [
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns'
+            ]
+            
+            for field in json_fields:
+                if snapshot[field]:
+                    try:
+                        snapshot[field] = json.loads(snapshot[field])
+                    except Exception as e:
+                        logger.warning(f"Failed to deserialize {field}: {e}")
+                        snapshot[field] = None
+            
+            return snapshot
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve analysis snapshot: {e}")
+            return None
+    
+    def get_snapshots_by_type(self, analysis_type: str, limit: int = 10) -> List[Dict]:
+        """
+        Get analysis snapshots by type, ordered by most recent first.
+        
+        Args:
+            analysis_type: Type of analysis ('weekly', 'monthly', 'quarterly')
+            limit: Maximum number of snapshots to return
+            
+        Returns:
+            List of snapshot dicts
+        """
+        try:
+            sql = """
+            SELECT * FROM analysis_snapshots
+            WHERE analysis_type = ?
+            ORDER BY period_start DESC
+            LIMIT ?
+            """
+            
+            results = self.conn.execute(sql, [analysis_type, limit]).fetchall()
+            
+            if not results:
+                return []
+            
+            columns = [
+                'snapshot_id', 'analysis_type', 'period_start', 'period_end', 'created_at',
+                'total_conversations', 'date_range_label', 'insights_summary',
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns',
+                'reviewed', 'reviewed_by', 'reviewed_at', 'notes'
+            ]
+            
+            snapshots = []
+            json_fields = [
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns'
+            ]
+            
+            for result in results:
+                snapshot = dict(zip(columns, result))
+                
+                # Deserialize JSON fields
+                for field in json_fields:
+                    if snapshot[field]:
+                        try:
+                            snapshot[field] = json.loads(snapshot[field])
+                        except Exception:
+                            snapshot[field] = None
+                
+                snapshots.append(snapshot)
+            
+            return snapshots
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve snapshots by type: {e}")
+            return []
+    
+    def get_snapshots_by_date_range(self, start_date: date, end_date: date) -> List[Dict]:
+        """
+        Get analysis snapshots within a date range.
+        
+        Args:
+            start_date: Start of date range
+            end_date: End of date range
+            
+        Returns:
+            List of snapshot dicts
+        """
+        try:
+            sql = """
+            SELECT * FROM analysis_snapshots
+            WHERE period_start >= ? AND period_end <= ?
+            ORDER BY period_start DESC
+            """
+            
+            results = self.conn.execute(sql, [start_date, end_date]).fetchall()
+            
+            if not results:
+                return []
+            
+            columns = [
+                'snapshot_id', 'analysis_type', 'period_start', 'period_end', 'created_at',
+                'total_conversations', 'date_range_label', 'insights_summary',
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns',
+                'reviewed', 'reviewed_by', 'reviewed_at', 'notes'
+            ]
+            
+            snapshots = []
+            json_fields = [
+                'topic_volumes', 'topic_sentiments', 'tier_distribution',
+                'agent_attribution', 'resolution_metrics', 'fin_performance', 'key_patterns'
+            ]
+            
+            for result in results:
+                snapshot = dict(zip(columns, result))
+                
+                # Deserialize JSON fields
+                for field in json_fields:
+                    if snapshot[field]:
+                        try:
+                            snapshot[field] = json.loads(snapshot[field])
+                        except Exception:
+                            snapshot[field] = None
+                
+                snapshots.append(snapshot)
+            
+            return snapshots
+            
+        except Exception as e:
+            logger.error(f"Failed to retrieve snapshots by date range: {e}")
+            return []
+    
+    def mark_snapshot_reviewed(self, snapshot_id: str, reviewed_by: str, notes: str = None) -> bool:
+        """
+        Mark a snapshot as reviewed.
+        
+        Args:
+            snapshot_id: Snapshot to mark as reviewed
+            reviewed_by: Name/email of reviewer
+            notes: Optional review notes
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            sql = """
+            UPDATE analysis_snapshots
+            SET reviewed = TRUE, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, notes = ?
+            WHERE snapshot_id = ?
+            """
+            
+            self.conn.execute(sql, [reviewed_by, notes, snapshot_id])
+            logger.info(f"Marked snapshot {snapshot_id} as reviewed by {reviewed_by}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to mark snapshot as reviewed: {e}")
+            return False
+    
+    def store_comparative_analysis(self, comparison_data: Dict) -> bool:
+        """
+        Store a comparative analysis (e.g., week-over-week comparison).
+        
+        Args:
+            comparison_data: Dict with comparison fields including:
+                - comparison_id (str): Unique identifier
+                - comparison_type (str): 'week_over_week', 'month_over_month', etc.
+                - current_snapshot_id (str): ID of current period snapshot
+                - prior_snapshot_id (str): ID of prior period snapshot
+                - JSON delta fields: volume_changes, sentiment_changes, etc.
+                
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Validate required fields
+            required_fields = ['comparison_id', 'comparison_type', 'current_snapshot_id', 'prior_snapshot_id']
+            for field in required_fields:
+                if field not in comparison_data:
+                    logger.error(f"Missing required field: {field}")
+                    return False
+            
+            # Verify referenced snapshots exist
+            current_snapshot = self.get_analysis_snapshot(comparison_data['current_snapshot_id'])
+            prior_snapshot = self.get_analysis_snapshot(comparison_data['prior_snapshot_id'])
+            
+            if not current_snapshot:
+                logger.error(f"Current snapshot not found: {comparison_data['current_snapshot_id']}")
+                return False
+            if not prior_snapshot:
+                logger.error(f"Prior snapshot not found: {comparison_data['prior_snapshot_id']}")
+                return False
+            
+            # Serialize JSON fields
+            json_fields = [
+                'volume_changes', 'sentiment_changes', 'resolution_changes',
+                'significant_changes', 'emerging_patterns', 'declining_patterns'
+            ]
+            
+            serialized_data = comparison_data.copy()
+            for field in json_fields:
+                if field in serialized_data and serialized_data[field] is not None:
+                    serialized_data[field] = json.dumps(serialized_data[field])
+                else:
+                    serialized_data[field] = None
+            
+            # Set default for created_at
+            serialized_data.setdefault('created_at', datetime.now())
+            
+            # Insert into database
+            sql = """
+            INSERT OR REPLACE INTO comparative_analyses
+            (comparison_id, comparison_type, current_snapshot_id, prior_snapshot_id,
+             created_at, volume_changes, sentiment_changes, resolution_changes,
+             significant_changes, emerging_patterns, declining_patterns)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            self.conn.execute(sql, [
+                serialized_data['comparison_id'],
+                serialized_data['comparison_type'],
+                serialized_data['current_snapshot_id'],
+                serialized_data['prior_snapshot_id'],
+                serialized_data['created_at'],
+                serialized_data['volume_changes'],
+                serialized_data['sentiment_changes'],
+                serialized_data['resolution_changes'],
+                serialized_data['significant_changes'],
+                serialized_data['emerging_patterns'],
+                serialized_data['declining_patterns']
+            ])
+            
+            logger.info(f"Successfully stored comparative analysis: {comparison_data['comparison_id']}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store comparative analysis: {e}")
+            return False
+    
+    def store_metrics_timeseries(self, metrics: List[Dict]) -> bool:
+        """
+        Store metrics timeseries data (batch insert).
+        
+        Args:
+            metrics: List of metric dicts, each containing:
+                - metric_id (str): Unique identifier
+                - snapshot_id (str): Reference to snapshot
+                - metric_name (str): Name of metric
+                - metric_value (float): Metric value
+                - metric_unit (str): Unit of measurement
+                - category (str): Metric category
+                
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not metrics:
+                logger.warning("No metrics to store")
+                return True
+            
+            # Verify all referenced snapshots exist
+            snapshot_ids = set(metric.get('snapshot_id') for metric in metrics)
+            for snapshot_id in snapshot_ids:
+                if not self.get_analysis_snapshot(snapshot_id):
+                    logger.error(f"Snapshot not found: {snapshot_id}")
+                    return False
+            
+            # Use pandas DataFrame for efficient batch insert
+            df = pd.DataFrame(metrics)
+            
+            # Ensure required columns exist
+            required_columns = ['metric_id', 'snapshot_id', 'metric_name', 'metric_value', 'metric_unit', 'category']
+            for col in required_columns:
+                if col not in df.columns:
+                    logger.error(f"Missing required column: {col}")
+                    return False
+            
+            # Insert batch
+            self.conn.execute("INSERT OR REPLACE INTO metrics_timeseries SELECT * FROM df", {"df": df})
+            
+            logger.info(f"Successfully stored {len(metrics)} metric records")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to store metrics timeseries: {e}")
+            return False
     
     def close(self):
         """Close database connection."""

@@ -624,7 +624,9 @@ For each conversation:
                 'sdk_validated': False
             })
         
-        return detected
+        # Sort by confidence (highest first) to ensure primary topic is first
+        # This is critical for preventing double-counting in downstream agents
+        return sorted(detected, key=lambda x: x.get('confidence', 0), reverse=True)
     
     async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Tuple[Dict, int]:
         """
