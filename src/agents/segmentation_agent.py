@@ -106,8 +106,11 @@ class SegmentationAgent(BaseAgent):
         """
         Extract and validate customer tier from conversation data.
 
-        Checks validated tier first, then falls back to manual extraction.
-        Defaults to FREE if tier is missing or invalid.
+        PRIORITY ORDER (highest to lowest):
+        1. Stripe plan (SOURCE OF TRUTH - billing system knows the real plan)
+        2. Pre-validated tier from ConversationSchema
+        3. custom_attributes.tier (fallback if Stripe unavailable)
+        4. Default to FREE
 
         Args:
             conv: Conversation dictionary
@@ -117,40 +120,76 @@ class SegmentationAgent(BaseAgent):
         """
         conv_id = conv.get('id', 'unknown')
 
-        # Primary source: Pre-validated tier from ConversationSchema
-        tier = conv.get('tier')
-        if isinstance(tier, CustomerTier):
-            self.logger.debug(f"Extracted tier {tier.value} for conversation {conv_id}")
-            return tier
-
-        # Handle top-level string tier before falling back to custom attributes
-        if tier and isinstance(tier, str) and tier.strip():
-            try:
-                tier_string_lower = tier.strip().lower()
-                for tier_enum in CustomerTier:
-                    if tier_enum.value.lower() == tier_string_lower:
-                        self.logger.debug(f"Extracted tier {tier_enum.value} from top-level string for conversation {conv_id}")
-                        return tier_enum
-                # If no match found, log and continue to fallback
-                self.logger.debug(f"Top-level tier string '{tier}' did not match any CustomerTier enum for conversation {conv_id}")
-            except Exception as e:
-                self.logger.debug(f"Error processing top-level tier string for conversation {conv_id}: {e}")
-
-        # Fallback: Manual extraction for backward compatibility
-        tier_string = None
-
-        # Check contact-level custom attributes (prioritized)
+        # PRIORITY 1: Stripe plan (SOURCE OF TRUTH - billing system is authoritative)
         contacts_data = conv.get('contacts', {})
         if contacts_data and isinstance(contacts_data, dict):
             contacts_list = contacts_data.get('contacts', [])
             if contacts_list and len(contacts_list) > 0:
                 contact = contacts_list[0]
-                custom_attrs = contact.get('custom_attributes', {})
+                custom_attrs = contact.get('custom_attributes', {}) or {}
+                
+                # Check for Stripe subscription (SOURCE OF TRUTH)
+                stripe_status = custom_attrs.get('stripe_subscription_status')
+                stripe_plan = custom_attrs.get('stripe_plan')
+                
+                if stripe_status == 'active' and stripe_plan:
+                    self.logger.debug(f"Found active Stripe subscription '{stripe_plan}' for conversation {conv_id}")
+                    
+                    # Map Stripe plan to CustomerTier
+                    plan_lower = str(stripe_plan).lower()
+                    
+                    if 'team' in plan_lower:
+                        self.logger.debug(f"Detected TEAM tier from Stripe plan for conversation {conv_id}")
+                        return CustomerTier.TEAM
+                    elif 'business' in plan_lower:
+                        self.logger.debug(f"Detected BUSINESS tier from Stripe plan for conversation {conv_id}")
+                        return CustomerTier.BUSINESS
+                    elif 'plus' in plan_lower:
+                        self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
+                        return CustomerTier.PLUS
+                    elif 'pro' in plan_lower:
+                        self.logger.debug(f"Detected PRO tier from Stripe plan for conversation {conv_id}")
+                        return CustomerTier.PRO
+                    elif 'ultra' in plan_lower:
+                        self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
+                        return CustomerTier.ULTRA
+                    else:
+                        # Active Stripe subscription but unrecognized plan name
+                        # Default to TEAM (lowest paid tier) rather than FREE
+                        self.logger.debug(f"Active Stripe plan '{stripe_plan}' doesn't match known tiers, defaulting to TEAM for conversation {conv_id}")
+                        return CustomerTier.TEAM
+        
+        # PRIORITY 2: Pre-validated tier from ConversationSchema (if Stripe not available)
+        tier = conv.get('tier')
+        if isinstance(tier, CustomerTier):
+            self.logger.debug(f"No Stripe data, using pre-validated tier {tier.value} for conversation {conv_id}")
+            return tier
+        
+        # PRIORITY 3: custom_attributes.tier string (fallback if Stripe and pre-validated unavailable)
+        if tier and isinstance(tier, str) and tier.strip():
+            try:
+                tier_string_lower = tier.strip().lower()
+                for tier_enum in CustomerTier:
+                    if tier_enum.value.lower() == tier_string_lower:
+                        self.logger.debug(f"No Stripe data, extracted tier {tier_enum.value} from top-level string for conversation {conv_id}")
+                        return tier_enum
+                self.logger.debug(f"Top-level tier string '{tier}' did not match any CustomerTier enum for conversation {conv_id}")
+            except Exception as e:
+                self.logger.debug(f"Error processing top-level tier string for conversation {conv_id}: {e}")
+
+        # PRIORITY 4: Check contact custom_attributes.tier
+        tier_string = None
+
+        if contacts_data and isinstance(contacts_data, dict):
+            contacts_list = contacts_data.get('contacts', [])
+            if contacts_list and len(contacts_list) > 0:
+                contact = contacts_list[0]
+                custom_attrs = contact.get('custom_attributes', {}) or {}
                 tier_string = custom_attrs.get('tier')
 
         # Fallback to conversation-level custom attributes
         if not tier_string:
-            custom_attrs = conv.get('custom_attributes', {})
+            custom_attrs = conv.get('custom_attributes', {}) or {}
             tier_string = custom_attrs.get('tier')
 
         # Try to match tier string to enum
@@ -159,71 +198,31 @@ class SegmentationAgent(BaseAgent):
                 tier_string_lower = str(tier_string).lower()
                 for tier_enum in CustomerTier:
                     if tier_enum.value.lower() == tier_string_lower:
-                        self.logger.debug(f"Extracted tier {tier_enum.value} for conversation {conv_id}")
+                        self.logger.debug(f"No Stripe data, extracted tier {tier_enum.value} from custom_attributes for conversation {conv_id}")
                         return tier_enum
 
                 # Unknown tier value
                 self.logger.debug(f"Unknown tier value '{tier_string}' for conversation {conv_id}, defaulting to FREE")
             except Exception as e:
                 self.logger.debug(f"Error matching tier for conversation {conv_id}: {e}, defaulting to FREE")
-        else:
-            # Check if contact is in "Paid Users" segment or has active Stripe subscription
-            if contacts_data and isinstance(contacts_data, dict):
-                contacts_list = contacts_data.get('contacts', [])
-                if contacts_list and len(contacts_list) > 0:
-                    contact = contacts_list[0]
-                    
-                    # Check if contact has segments information
-                    if 'segments' in contact:
-                        segments = contact['segments']
-                        if 'segments' in segments and len(segments['segments']) > 0:
-                            for segment in segments['segments']:
-                                if segment.get('name') == 'Paid Users':
-                                    self.logger.debug(f"Contact is in 'Paid Users' segment for conversation {conv_id}, defaulting to PRO")
-                                    return CustomerTier.PRO
-                    
-                    # Check Stripe subscription data
-                    if 'custom_attributes' in contact:
-                        custom_attrs = contact['custom_attributes']
-                        
-                        # Check for active Stripe subscription
-                        stripe_status = custom_attrs.get('stripe_subscription_status')
-                        stripe_plan = custom_attrs.get('stripe_plan')
-                        
-                        if stripe_status == 'active' and stripe_plan:
-                            self.logger.debug(f"Contact has active Stripe subscription '{stripe_plan}' for conversation {conv_id}")
-                            
-                            # Map Stripe plan to CustomerTier
-                            plan_lower = stripe_plan.lower()
-                            if 'team' in plan_lower:
-                                self.logger.debug(f"Detected TEAM tier from Stripe plan for conversation {conv_id}")
+        
+        # PRIORITY 5 (LAST): Check "Paid Users" segment as final fallback before FREE
+        if contacts_data and isinstance(contacts_data, dict):
+            contacts_list = contacts_data.get('contacts', [])
+            if contacts_list and len(contacts_list) > 0:
+                contact = contacts_list[0]
+                
+                # Check if contact has segments information
+                if 'segments' in contact:
+                    segments = contact['segments']
+                    if 'segments' in segments and len(segments['segments']) > 0:
+                        for segment in segments['segments']:
+                            if segment.get('name') == 'Paid Users':
+                                self.logger.debug(f"Contact is in 'Paid Users' segment for conversation {conv_id}, defaulting to TEAM (lowest paid tier)")
                                 return CustomerTier.TEAM
-                            elif 'business' in plan_lower:
-                                self.logger.debug(f"Detected BUSINESS tier from Stripe plan for conversation {conv_id}")
-                                return CustomerTier.BUSINESS
-                            elif 'plus' in plan_lower:
-                                self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
-                                return CustomerTier.PLUS
-                            elif 'pro' in plan_lower:
-                                self.logger.debug(f"Detected PRO tier from Stripe plan for conversation {conv_id}")
-                                return CustomerTier.PRO
-                            elif 'ultra' in plan_lower:
-                                self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
-                                return CustomerTier.ULTRA
-                            else:
-                                # Unknown plan, default to TEAM (lowest paid tier)
-                                self.logger.debug(f"Unknown Stripe plan '{stripe_plan}', defaulting to TEAM for conversation {conv_id}")
-                                return CustomerTier.TEAM
-                    
-                    # If no segments info and no Stripe data, check if we can get it from the contact data
-                    # This is a fallback for when segments are not included in the contact data
-                    self.logger.debug(f"No segments or Stripe information found for conversation {conv_id}, defaulting to FREE")
-                else:
-                    self.logger.debug(f"No contacts found for conversation {conv_id}, defaulting to FREE")
-            else:
-                self.logger.debug(f"No contacts data found for conversation {conv_id}, defaulting to FREE")
 
-        # Default to FREE
+        # Final default to FREE
+        self.logger.debug(f"No tier data found for conversation {conv_id}, defaulting to FREE")
         return CustomerTier.FREE
 
     def get_agent_specific_instructions(self) -> str:
