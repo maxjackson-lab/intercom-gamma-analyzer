@@ -254,18 +254,33 @@ For each conversation:
             # Detect topics for each conversation
             topics_by_conversation = {}
             all_topic_assignments = []
+            primary_topic_assignments = []  # For counting (one per conversation)
             
             for conv in conversations:
                 detected = self._detect_topics_for_conversation(conv)
                 conv_id = conv.get('id', 'unknown')
+                
+                # Store ALL detected topics for context
                 topics_by_conversation[conv_id] = detected
                 all_topic_assignments.extend(detected)
+                
+                # Select PRIMARY topic (highest confidence) for counting
+                if detected:
+                    primary = max(detected, key=lambda x: x.get('confidence', 0))
+                    primary_topic_assignments.append(primary)
+                else:
+                    # Fallback if no topics detected
+                    primary_topic_assignments.append({
+                        'topic': 'Unknown/unresponsive',
+                        'method': 'fallback',
+                        'confidence': 0.1
+                    })
             
-            # Calculate topic distribution with HYBRID method tracking
+            # Calculate topic distribution using PRIMARY topics only (prevents double-counting)
             topic_counts = {}
             detection_methods = {}
             
-            for assignment in all_topic_assignments:
+            for assignment in primary_topic_assignments:  # ← Changed from all_topic_assignments
                 topic = assignment['topic']
                 topic_counts[topic] = topic_counts.get(topic, 0) + 1
                 
