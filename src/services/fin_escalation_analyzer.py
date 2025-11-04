@@ -730,6 +730,151 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     return True
 
 
+def categorize_fin_outcome(conversation: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Categorize Fin outcome with nuance (three-way: resolved, escalated, failed).
+    
+    This provides a more honest assessment than binary resolved/not-resolved:
+    - Resolved: Fin handled it alone successfully
+    - Escalated: Fin routed to human (unclear if "correct" - ambiguous outcome)
+    - Failed: Fin tried but customer frustrated/bad outcome
+    
+    Returns:
+        Dict with:
+        - outcome: 'resolved' | 'escalated' | 'failed'
+        - reason: str explaining categorization
+        - confidence: float (0-1) indicating certainty of categorization
+        - signals: Dict of signals used in decision
+    """
+    # Extract conversation parts
+    parts = conversation.get('conversation_parts', {})
+    if isinstance(parts, dict):
+        parts_list = parts.get('conversation_parts', [])
+    else:
+        parts_list = parts if isinstance(parts, list) else []
+    
+    admin_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'admin']
+    user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
+    
+    # Filter out Sal/Support Sal (Fin AI)
+    human_admin_parts = [
+        p for p in admin_parts 
+        if not _is_sal_or_fin(p.get('author', {}))
+    ]
+    
+    has_human_response = len(human_admin_parts) > 0
+    user_response_count = len(user_parts)
+    
+    # Get signals
+    state = conversation.get('state', 'open')
+    is_closed = state == 'closed'
+    
+    rating_data = conversation.get('conversation_rating')
+    if isinstance(rating_data, dict):
+        rating = rating_data.get('rating')
+    else:
+        rating = rating_data if isinstance(rating_data, (int, float)) else None
+    
+    has_bad_rating = rating is not None and rating < 3
+    
+    stats = conversation.get('statistics', {}) or {}
+    count_reopens = stats.get('count_reopens', 0)
+    has_reopens = count_reopens > 1
+    
+    low_engagement = user_response_count <= 2
+    
+    # Get Fin metadata
+    ai_agent = conversation.get('ai_agent', {}) or {}
+    resolution_state = ai_agent.get('resolution_state', '')
+    
+    # Build signals dict for transparency
+    signals = {
+        'has_human_response': has_human_response,
+        'is_closed': is_closed,
+        'has_bad_rating': has_bad_rating,
+        'has_reopens': has_reopens,
+        'low_engagement': low_engagement,
+        'rating': rating,
+        'resolution_state': resolution_state,
+        'user_messages': user_response_count
+    }
+    
+    # === CATEGORIZATION LOGIC ===
+    
+    # SCENARIO 1: No human involved - Fin handled alone
+    if not has_human_response:
+        if has_bad_rating:
+            return {
+                'outcome': 'failed',
+                'reason': 'Fin tried alone but customer gave bad CSAT (rating < 3)',
+                'confidence': 0.9,
+                'signals': signals
+            }
+        elif has_reopens:
+            return {
+                'outcome': 'failed',
+                'reason': 'Fin tried alone but conversation reopened multiple times',
+                'confidence': 0.8,
+                'signals': signals
+            }
+        elif is_closed or low_engagement:
+            return {
+                'outcome': 'resolved',
+                'reason': 'Fin resolved without human help (closed or low engagement)',
+                'confidence': 0.85 if is_closed else 0.7,
+                'signals': signals
+            }
+        else:
+            # Still open with engagement, no human - ambiguous
+            return {
+                'outcome': 'failed',
+                'reason': 'Still open with engagement but no human stepped in',
+                'confidence': 0.6,
+                'signals': signals
+            }
+    
+    # SCENARIO 2: Human admin involved - Was it appropriate escalation?
+    else:
+        # Check if Fin explicitly routed to team
+        explicitly_routed = resolution_state == 'routed_to_team'
+        
+        if has_bad_rating:
+            # Bad outcome regardless of routing
+            return {
+                'outcome': 'failed',
+                'reason': 'Human helped but customer still gave bad CSAT',
+                'confidence': 0.8,
+                'signals': signals
+            }
+        elif has_reopens:
+            # Multiple reopens = problematic
+            return {
+                'outcome': 'failed',
+                'reason': 'Required human help and had multiple reopens',
+                'confidence': 0.7,
+                'signals': signals
+            }
+        elif explicitly_routed:
+            # Intercom says Fin routed - treat as escalation (ambiguous outcome)
+            return {
+                'outcome': 'escalated',
+                'reason': 'Fin routed to human team (outcome unclear without deeper analysis)',
+                'confidence': 0.7,  # Lower confidence - we don't know if it was "correct"
+                'signals': signals
+            }
+        else:
+            # Human involved but no explicit routing metadata
+            # Could be: Fin tried → failed → human stepped in
+            # Or: Customer asked for human immediately
+            # Or: Automatic routing based on tier
+            return {
+                'outcome': 'escalated',
+                'reason': 'Human assistance required (ambiguous whether Fin should have handled it)',
+                'confidence': 0.6,  # Even lower confidence
+                'signals': signals
+            }
+
+
 def has_knowledge_gap(conversation: Dict[str, Any]) -> bool:
     """
     Detect if unresolved conversation indicates a knowledge gap.

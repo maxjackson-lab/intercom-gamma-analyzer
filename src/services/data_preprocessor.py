@@ -403,6 +403,42 @@ class DataPreprocessor:
         else:
             return "none"
     
+    def _normalize_conversation_parts(self, conv: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize conversation_parts to ensure consistent dict structure.
+        
+        SDK may return conversation_parts as:
+        - dict: {'conversation_parts': [...]}
+        - list: [...]
+        
+        This normalizes to always use dict wrapper: {'conversation_parts': [...]}
+        """
+        if 'conversation_parts' not in conv:
+            return conv
+        
+        parts = conv['conversation_parts']
+        
+        # If it's a list, wrap it in dict
+        if isinstance(parts, list):
+            conv['conversation_parts'] = {'conversation_parts': parts}
+        # If it's already a dict, keep it
+        elif isinstance(parts, dict):
+            # Ensure it has the 'conversation_parts' key
+            if 'conversation_parts' not in parts:
+                # Malformed dict - try to salvage it
+                self.logger.warning(
+                    f"Conversation {conv.get('id')}: conversation_parts dict missing 'conversation_parts' key"
+                )
+                conv['conversation_parts'] = {'conversation_parts': []}
+        else:
+            # Unknown type - default to empty
+            self.logger.warning(
+                f"Conversation {conv.get('id')}: unexpected conversation_parts type {type(parts)}"
+            )
+            conv['conversation_parts'] = {'conversation_parts': []}
+        
+        return conv
+    
     def _clean_conversation_text(
         self,
         conversations: List[Dict[str, Any]],
@@ -416,6 +452,9 @@ class DataPreprocessor:
         cleaned_count = 0
 
         for conv in conversations:
+            # NORMALIZE conversation_parts structure first
+            conv = self._normalize_conversation_parts(conv)
+            
             # Clean conversation parts
             parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
             for part in parts:

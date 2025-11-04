@@ -688,7 +688,9 @@ Insights:"""
         return subtopic_metrics
 
     def _calculate_single_subtopic_metrics(self, conversations: List[Dict], tier1_topic: str, subtopic_name: str, tier_level: str) -> Dict:
-        """Calculate metrics for a single sub-topic using UPDATED logic."""
+        """Calculate metrics for a single sub-topic using NUANCED three-way categorization."""
+        from src.services.fin_escalation_analyzer import categorize_fin_outcome
+        
         total = len(conversations)
         if total == 0:
             return {
@@ -696,28 +698,43 @@ Insights:"""
                 'resolution_rate': 0,
                 'knowledge_gap_rate': 0,
                 'escalation_rate': 0,
+                'failed_rate': 0,
                 'avg_rating': None,
                 'rated_count': 0,
                 'resolved_count': 0,
                 'knowledge_gap_count': 0,
-                'escalation_count': 0
+                'escalation_count': 0,
+                'failed_count': 0,
+                'avg_confidence': 0
             }
         
-        # Use same logic as main tier metrics (updated logic)
+        # Use nuanced three-way categorization
         resolved_convs = []
+        escalated_convs = []
+        failed_convs = []
         gap_convs = []
-        escalation_convs = []
         ratings = []
+        confidences = []
         
         for c in conversations:
-            # Use standardized resolution and knowledge gap detection
-            if is_fin_resolved(c):
-                resolved_convs.append(c)
-            else:
-                escalation_convs.append(c)
+            # Get nuanced outcome
+            outcome_data = categorize_fin_outcome(c)
+            outcome = outcome_data['outcome']
+            confidence = outcome_data['confidence']
+            confidences.append(confidence)
             
-            if has_knowledge_gap(c):
-                gap_convs.append(c)
+            if outcome == 'resolved':
+                resolved_convs.append(c)
+            elif outcome == 'escalated':
+                escalated_convs.append(c)
+            elif outcome == 'failed':
+                failed_convs.append(c)
+            
+            # Knowledge gap detection (only for failed cases)
+            if outcome == 'failed' or outcome == 'escalated':
+                from src.services.fin_escalation_analyzer import has_knowledge_gap
+                if has_knowledge_gap(c):
+                    gap_convs.append(c)
             
             # Collect ratings
             rating_data = c.get('conversation_rating')
@@ -730,21 +747,26 @@ Insights:"""
                 ratings.append(rating)
         
         resolution_rate = len(resolved_convs) / total if total > 0 else 0
+        escalation_rate = len(escalated_convs) / total if total > 0 else 0
+        failed_rate = len(failed_convs) / total if total > 0 else 0
         knowledge_gap_rate = len(gap_convs) / total if total > 0 else 0
-        escalation_rate = len(escalation_convs) / total if total > 0 else 0
         avg_rating = sum(ratings) / len(ratings) if ratings else None
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0
         rated_count = len(ratings)
         
         return {
             'total': total,
             'resolution_rate': resolution_rate,
-            'knowledge_gap_rate': knowledge_gap_rate,
             'escalation_rate': escalation_rate,
+            'failed_rate': failed_rate,
+            'knowledge_gap_rate': knowledge_gap_rate,
             'avg_rating': avg_rating,
             'rated_count': rated_count,
             'resolved_count': len(resolved_convs),
+            'escalation_count': len(escalated_convs),
+            'failed_count': len(failed_convs),
             'knowledge_gap_count': len(gap_convs),
-            'escalation_count': len(escalation_convs)
+            'avg_confidence': avg_confidence
         }
 
     def _detect_escalation_request(self, conv: Dict) -> bool:

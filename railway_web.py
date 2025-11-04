@@ -50,6 +50,16 @@ try:
     from src.services.execution_state_manager import ExecutionStateManager, ExecutionStatus
     HAS_CHAT = True
     print("✅ Chat dependencies imported successfully")
+    
+    # Define status priority for preventing successful completions from being overwritten
+    STATUS_PRIORITY = {
+        ExecutionStatus.COMPLETED: 10,   # Highest - if completed, stay completed
+        ExecutionStatus.FAILED: 8,       # Critical failure
+        ExecutionStatus.ERROR: 6,        # Non-critical error
+        ExecutionStatus.RUNNING: 4,      # In progress
+        ExecutionStatus.CANCELLED: 3,    # User cancelled
+        ExecutionStatus.PENDING: 2       # Lowest - initial state
+    }
 except ImportError as e:
     HAS_CHAT = False
     print(f"❌ Chat dependencies import failed: {e}")
@@ -187,6 +197,64 @@ def initialize_chat():
         import traceback
         traceback.print_exc()
         return False
+
+
+async def update_status_with_priority(
+    state_manager_instance,
+    execution_id: str,
+    new_status: ExecutionStatus,
+    **kwargs
+):
+    """
+    Update execution status only if new status has equal or higher priority.
+    
+    This prevents intermediate errors from overwriting final success status.
+    For example, if an execution completes successfully (COMPLETED), 
+    subsequent ERROR messages won't revert it back to ERROR status.
+    
+    Args:
+        state_manager_instance: ExecutionStateManager instance
+        execution_id: Execution ID to update
+        new_status: New status to set
+        **kwargs: Additional arguments to pass to update_execution_status
+        
+    Returns:
+        bool: True if status was updated, False if skipped due to priority
+    """
+    try:
+        # Get current execution status
+        current_execution = await state_manager_instance.get_execution(execution_id)
+        if not current_execution:
+            # No current status, just update
+            await state_manager_instance.update_execution_status(
+                execution_id, new_status, **kwargs
+            )
+            return True
+        
+        current_status = current_execution.get('status')
+        
+        # Get priorities (default to 0 if not in map)
+        current_priority = STATUS_PRIORITY.get(current_status, 0)
+        new_priority = STATUS_PRIORITY.get(new_status, 0)
+        
+        # Only update if new status has higher or equal priority
+        if new_priority >= current_priority:
+            await state_manager_instance.update_execution_status(
+                execution_id, new_status, **kwargs
+            )
+            return True
+        else:
+            # Log that update was skipped
+            print(f"⏭️  Status update skipped for {execution_id}: {current_status} (priority {current_priority}) → {new_status} (priority {new_priority})")
+            return False
+            
+    except Exception as e:
+        # If we can't get current status, just update anyway
+        print(f"⚠️  Error checking status priority: {e}, updating anyway")
+        await state_manager_instance.update_execution_status(
+            execution_id, new_status, **kwargs
+        )
+        return True
 
 if HAS_FASTAPI:
     @app.get("/", response_class=HTMLResponse)
@@ -1270,19 +1338,23 @@ if HAS_FASTAPI:
                                     "data": json.dumps(gamma_metadata)
                                 }
                     
-                    # Update status in state manager
+                    # Update status in state manager (with priority-based logic)
                     if output.get("type") == "status":
                         if "completed successfully" in output.get("data", ""):
-                            await state_manager.update_execution_status(
-                                execution_id, ExecutionStatus.COMPLETED, return_code=0
+                            # Use priority-based update (highest priority)
+                            await update_status_with_priority(
+                                state_manager, execution_id, ExecutionStatus.COMPLETED, return_code=0
                             )
                         elif "Starting" in output.get("data", ""):
-                            await state_manager.update_execution_status(
-                                execution_id, ExecutionStatus.RUNNING
+                            # Use priority-based update
+                            await update_status_with_priority(
+                                state_manager, execution_id, ExecutionStatus.RUNNING
                             )
                     elif output.get("type") == "error":
-                        await state_manager.update_execution_status(
-                            execution_id, ExecutionStatus.FAILED, 
+                        # Use priority-based update (lower priority than COMPLETED)
+                        # This prevents successful executions from being overwritten by intermediate errors
+                        await update_status_with_priority(
+                            state_manager, execution_id, ExecutionStatus.ERROR, 
                             error_message=output.get("data")
                         )
                     

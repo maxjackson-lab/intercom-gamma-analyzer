@@ -57,6 +57,7 @@ class DuckDBStorage:
             admin_assignee_id VARCHAR,
             language VARCHAR,
             conversation_rating INTEGER,
+            conversation_rating_remark TEXT,
             time_to_admin_reply INTEGER,
             handling_time INTEGER,
             count_conversation_parts INTEGER,
@@ -69,7 +70,19 @@ class DuckDBStorage:
             admin_messages TEXT,
             metadata JSON,
             confidence FLOAT DEFAULT 1.0,
-            method VARCHAR DEFAULT 'tagged'
+            method VARCHAR DEFAULT 'tagged',
+            -- NEW FIELDS from INTERCOM_SCHEMA_ANALYSIS.md
+            sla_name VARCHAR,
+            sla_status VARCHAR,
+            channel VARCHAR,
+            waiting_since TIMESTAMP,
+            snoozed_until TIMESTAMP,
+            first_contact_reply_at TIMESTAMP,
+            time_to_assignment INTEGER,
+            median_time_to_reply INTEGER,
+            count_assignments INTEGER,
+            fin_resolution_state VARCHAR,
+            fin_content_sources JSON
         );
         
         -- Tags table (normalized)
@@ -348,6 +361,44 @@ class DuckDBStorage:
         full_text = self._extract_full_text(conv)
         customer_messages, admin_messages = self._extract_messages(conv)
         
+        # Extract rating (handle both dict and direct value)
+        rating_data = conv.get('conversation_rating')
+        if isinstance(rating_data, dict):
+            rating = rating_data.get('rating')
+            rating_remark = rating_data.get('remark')
+        else:
+            rating = rating_data if isinstance(rating_data, (int, float)) else None
+            rating_remark = None
+        
+        # Extract SLA data
+        sla_applied = conv.get('sla_applied') or {}
+        sla_name = sla_applied.get('sla_name') if isinstance(sla_applied, dict) else None
+        sla_status = sla_applied.get('sla_status') if isinstance(sla_applied, dict) else None
+        
+        # Extract channel (source.delivered_as)
+        source = conv.get('source', {}) or {}
+        channel = source.get('delivered_as')
+        
+        # Extract wait time fields
+        waiting_since = self._parse_timestamp(conv.get('waiting_since'))
+        snoozed_until = self._parse_timestamp(conv.get('snoozed_until'))
+        
+        # Extract first contact reply
+        first_contact_reply = conv.get('first_contact_reply') or {}
+        first_contact_reply_at = self._parse_timestamp(
+            first_contact_reply.get('created_at') if isinstance(first_contact_reply, dict) else None
+        )
+        
+        # Extract statistics
+        stats = conv.get('statistics', {}) or {}
+        
+        # Extract Fin AI agent data
+        ai_agent = conv.get('ai_agent') or {}
+        fin_resolution_state = ai_agent.get('resolution_state') if isinstance(ai_agent, dict) else None
+        fin_content_sources = json.dumps(
+            ai_agent.get('content_sources', []) if isinstance(ai_agent, dict) else []
+        )
+        
         return {
             'id': conv.get('id'),
             'created_at': self._parse_timestamp(conv.get('created_at')),
@@ -356,11 +407,12 @@ class DuckDBStorage:
             'priority': conv.get('priority'),
             'admin_assignee_id': conv.get('admin_assignee_id'),
             'language': conv.get('custom_attributes', {}).get('Language', ''),
-            'conversation_rating': conv.get('conversation_rating'),
-            'time_to_admin_reply': conv.get('statistics', {}).get('time_to_admin_reply'),
-            'handling_time': conv.get('statistics', {}).get('handling_time'),
-            'count_conversation_parts': conv.get('statistics', {}).get('count_conversation_parts'),
-            'count_reopens': conv.get('statistics', {}).get('count_reopens'),
+            'conversation_rating': rating,
+            'conversation_rating_remark': rating_remark,
+            'time_to_admin_reply': stats.get('time_to_admin_reply'),
+            'handling_time': stats.get('handling_time'),
+            'count_conversation_parts': stats.get('count_conversation_parts'),
+            'count_reopens': stats.get('count_reopens'),
             'ai_agent_participated': conv.get('ai_agent_participated', False),
             'fin_ai_preview': conv.get('custom_attributes', {}).get('Fin AI Agent: Preview', False),
             'copilot_used': conv.get('custom_attributes', {}).get('Copilot used', False),
@@ -369,7 +421,19 @@ class DuckDBStorage:
             'admin_messages': admin_messages,
             'metadata': json.dumps(conv.get('custom_attributes', {})),
             'confidence': 1.0,  # Default for tagged conversations
-            'method': 'tagged'
+            'method': 'tagged',
+            # NEW FIELDS from INTERCOM_SCHEMA_ANALYSIS.md
+            'sla_name': sla_name,
+            'sla_status': sla_status,
+            'channel': channel,
+            'waiting_since': waiting_since,
+            'snoozed_until': snoozed_until,
+            'first_contact_reply_at': first_contact_reply_at,
+            'time_to_assignment': stats.get('time_to_assignment'),
+            'median_time_to_reply': stats.get('median_time_to_reply'),
+            'count_assignments': stats.get('count_assignments'),
+            'fin_resolution_state': fin_resolution_state,
+            'fin_content_sources': fin_content_sources
         }
     
     def _extract_full_text(self, conv: Dict) -> str:

@@ -322,8 +322,19 @@ class IntercomSDKService:
                             full_conv_data = await self._fetch_full_conversation(conv_id)
                             
                             # Merge conversation_parts into the conversation
+                            # NORMALIZE: Ensure conversation_parts is always dict-wrapped
                             if 'conversation_parts' in full_conv_data:
-                                conv['conversation_parts'] = full_conv_data['conversation_parts']
+                                parts = full_conv_data['conversation_parts']
+                                # If SDK returns a list, wrap it as {'conversation_parts': list}
+                                if isinstance(parts, list):
+                                    conv['conversation_parts'] = {'conversation_parts': parts}
+                                elif isinstance(parts, dict):
+                                    conv['conversation_parts'] = parts
+                                else:
+                                    self.logger.warning(
+                                        f"Unexpected conversation_parts type for {conv_id}: {type(parts)}"
+                                    )
+                                    conv['conversation_parts'] = {'conversation_parts': []}
                                 self.logger.debug(
                                     f"Enriched conversation {conv_id} with conversation_parts"
                                 )
