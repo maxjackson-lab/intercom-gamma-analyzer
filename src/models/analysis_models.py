@@ -35,6 +35,8 @@ class SourceType(str, Enum):
 class CustomerTier(str, Enum):
     """Customer subscription tiers."""
     FREE = "free"
+    TEAM = "team"
+    BUSINESS = "business"
     PRO = "pro"
     PLUS = "plus"
     ULTRA = "ultra"

@@ -113,7 +113,7 @@ class SegmentationAgent(BaseAgent):
             conv: Conversation dictionary
 
         Returns:
-            CustomerTier enum instance (FREE, PRO, PLUS, or ULTRA)
+            CustomerTier enum instance (FREE, TEAM, BUSINESS, PRO, PLUS, or ULTRA)
         """
         conv_id = conv.get('id', 'unknown')
 
@@ -195,7 +195,13 @@ class SegmentationAgent(BaseAgent):
                             
                             # Map Stripe plan to CustomerTier
                             plan_lower = stripe_plan.lower()
-                            if 'plus' in plan_lower:
+                            if 'team' in plan_lower:
+                                self.logger.debug(f"Detected TEAM tier from Stripe plan for conversation {conv_id}")
+                                return CustomerTier.TEAM
+                            elif 'business' in plan_lower:
+                                self.logger.debug(f"Detected BUSINESS tier from Stripe plan for conversation {conv_id}")
+                                return CustomerTier.BUSINESS
+                            elif 'plus' in plan_lower:
                                 self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
                                 return CustomerTier.PLUS
                             elif 'pro' in plan_lower:
@@ -205,9 +211,9 @@ class SegmentationAgent(BaseAgent):
                                 self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
                                 return CustomerTier.ULTRA
                             else:
-                                # Unknown plan, default to PRO
-                                self.logger.debug(f"Unknown Stripe plan '{stripe_plan}', defaulting to PRO for conversation {conv_id}")
-                                return CustomerTier.PRO
+                                # Unknown plan, default to TEAM (lowest paid tier)
+                                self.logger.debug(f"Unknown Stripe plan '{stripe_plan}', defaulting to TEAM for conversation {conv_id}")
+                                return CustomerTier.TEAM
                     
                     # If no segments info and no Stripe data, check if we can get it from the contact data
                     # This is a fallback for when segments are not included in the contact data
@@ -340,7 +346,7 @@ Output: Segmented conversations with agent type labels
                 agent_distribution[agent_type].append(conv)
 
             # Tier distribution tracking and tier data quality
-            tier_distribution = {'free': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
+            tier_distribution = {'free': 0, 'team': 0, 'business': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
             defaulted_tier_count = 0
 
             for conv in conversations:
@@ -380,6 +386,10 @@ Output: Segmented conversations with agent type labels
                     if not has_tier:
                         defaulted_tier_count += 1
 
+                elif tier == CustomerTier.TEAM:
+                    tier_distribution['team'] += 1
+                elif tier == CustomerTier.BUSINESS:
+                    tier_distribution['business'] += 1
                 elif tier == CustomerTier.PRO:
                     tier_distribution['pro'] += 1
                 elif tier == CustomerTier.PLUS:
@@ -393,13 +403,17 @@ Output: Segmented conversations with agent type labels
             total = len(conversations)
             if total > 0:
                 free_pct = round(tier_distribution['free'] / total * 100, 1)
+                team_pct = round(tier_distribution['team'] / total * 100, 1)
+                business_pct = round(tier_distribution['business'] / total * 100, 1)
                 pro_pct = round(tier_distribution['pro'] / total * 100, 1)
                 plus_pct = round(tier_distribution['plus'] / total * 100, 1)
                 ultra_pct = round(tier_distribution['ultra'] / total * 100, 1)
-
+                
                 self.logger.info(f"Tier distribution: {tier_distribution}")
                 self.logger.info(
                     f"   Free: {tier_distribution['free']} ({free_pct}%), "
+                    f"Team: {tier_distribution['team']} ({team_pct}%), "
+                    f"Business: {tier_distribution['business']} ({business_pct}%), "
                     f"Pro: {tier_distribution['pro']} ({pro_pct}%), "
                     f"Plus: {tier_distribution['plus']} ({plus_pct}%), "
                     f"Ultra: {tier_distribution['ultra']} ({ultra_pct}%)"
@@ -626,7 +640,7 @@ Output: Segmented conversations with agent type labels
         3. FIN → VENDOR → SENIOR - Started with Fin, escalated through vendor to senior staff
 
         Tier-first classification:
-        1. Extract customer tier (Free/Pro/Plus/Ultra)
+        1. Extract customer tier (Free/Team/Business/Pro/Plus/Ultra)
         2. Free tier → always ('free', 'fin_ai') regardless of admin assignment
         3. Paid tier → detect escalation chain (if enabled) or simple Paid/Fin split
 
@@ -640,6 +654,9 @@ Output: Segmented conversations with agent type labels
 
         # Step 1: Extract tier FIRST (tier-first classification)
         tier = self._extract_customer_tier(conv)
+        
+        # Paid tiers: TEAM, BUSINESS, PRO, PLUS, ULTRA
+        is_paid_tier = tier in [CustomerTier.TEAM, CustomerTier.BUSINESS, CustomerTier.PRO, CustomerTier.PLUS, CustomerTier.ULTRA]
         self.logger.debug(f"Conversation {conv_id} tier: {tier.value}")
 
         # Step 2: Free tier early return
