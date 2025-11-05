@@ -25,6 +25,10 @@ from src.agents.trend_agent import TrendAgent
 from src.agents.output_formatter_agent import OutputFormatterAgent
 from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
 from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelationAgent
+from src.agents.correlation_agent import CorrelationAgent
+from src.agents.quality_insights_agent import QualityInsightsAgent
+from src.agents.churn_risk_agent import ChurnRiskAgent
+from src.agents.confidence_meta_agent import ConfidenceMetaAgent
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.historical_snapshot_service import HistoricalSnapshotService
@@ -102,12 +106,19 @@ class TopicOrchestrator:
         self._trend_agent = None
         self.output_formatter_agent = OutputFormatterAgent()
         
+        # Analytical insight agents (Phase 4.5)
+        self.correlation_agent = CorrelationAgent()
+        self.quality_insights_agent = QualityInsightsAgent()
+        self.churn_risk_agent = ChurnRiskAgent()
+        self.confidence_meta_agent = ConfidenceMetaAgent()
+        
         # Canny integration agents (lazy-initialized only when needed)
         self.ai_factory = ai_factory or AIModelFactory()
         self._canny_topic_detection_agent = None
         self._cross_platform_correlation_agent = None
         
         self.logger = logging.getLogger(__name__)
+        self.logger.info("Analytical insight agents initialized: Correlation, QualityInsights, ChurnRisk, ConfidenceMeta")
         
         # Concurrency control
         config = get_analysis_mode_config()
@@ -705,6 +716,135 @@ class TopicOrchestrator:
 
             self.logger.info(f"   ✅ Fin analysis complete")
             
+            # PHASE 4.5: Analytical Insights
+            self.logger.info("🔍 Phase 4.5: Analytical Insights (Correlation, Quality, Churn Risk, Confidence)")
+            
+            if self.audit:
+                self.audit.step(
+                    "Phase 4.5: Analytical Insights",
+                    "Starting pattern detection and quality analysis",
+                    {
+                        'agents': ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent'],
+                        'total_conversations': len(conversations)
+                    }
+                )
+            
+            analytical_start_time = datetime.now()
+            analytical_insights = {}
+            
+            try:
+                # Build analytical context with all necessary data
+                analytical_context = context.model_copy()
+                analytical_context.conversations = conversations
+                analytical_context.previous_results = {
+                    'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                    'TopicSentiments': topic_sentiments,
+                    'TopicExamples': topic_examples,
+                    'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                }
+                analytical_context.metadata = {
+                    'week_id': week_id,
+                    'topics_by_conversation': topics_by_conv,
+                    'historical_context': self.historical_snapshot_service.get_historical_context() if self.historical_snapshot_service else {'weeks_available': 0}
+                }
+                
+                # Pass AI client to agents for LLM enrichment
+                client = self.ai_factory.get_ai_model(ai_model)
+                self.correlation_agent.ai_client = client
+                self.quality_insights_agent.ai_client = client
+                self.churn_risk_agent.ai_client = client
+                self.confidence_meta_agent.ai_client = client
+                
+                # Run 4 agents in parallel using asyncio.gather()
+                correlation_result, quality_result, churn_result, confidence_result = await asyncio.gather(
+                    self.correlation_agent.execute(analytical_context),
+                    self.quality_insights_agent.execute(analytical_context),
+                    self.churn_risk_agent.execute(analytical_context),
+                    self.confidence_meta_agent.execute(analytical_context),
+                    return_exceptions=True
+                )
+                
+                # Handle exceptions from gather
+                if isinstance(correlation_result, Exception):
+                    self.logger.error(f"CorrelationAgent failed: {correlation_result}")
+                    correlation_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(correlation_result)}, 'confidence': 0.0})()
+                
+                if isinstance(quality_result, Exception):
+                    self.logger.error(f"QualityInsightsAgent failed: {quality_result}")
+                    quality_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(quality_result)}, 'confidence': 0.0})()
+                
+                if isinstance(churn_result, Exception):
+                    self.logger.error(f"ChurnRiskAgent failed: {churn_result}")
+                    churn_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(churn_result)}, 'confidence': 0.0})()
+                
+                if isinstance(confidence_result, Exception):
+                    self.logger.error(f"ConfidenceMetaAgent failed: {confidence_result}")
+                    confidence_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(confidence_result)}, 'confidence': 0.0})()
+                
+                # Store results in workflow_results
+                workflow_results['CorrelationAgent'] = _normalize_agent_result(correlation_result)
+                workflow_results['QualityInsightsAgent'] = _normalize_agent_result(quality_result)
+                workflow_results['ChurnRiskAgent'] = _normalize_agent_result(churn_result)
+                workflow_results['ConfidenceMetaAgent'] = _normalize_agent_result(confidence_result)
+                
+                # Combine into AnalyticalInsights dict
+                analytical_insights = {
+                    'CorrelationAgent': _normalize_agent_result(correlation_result),
+                    'QualityInsightsAgent': _normalize_agent_result(quality_result),
+                    'ChurnRiskAgent': _normalize_agent_result(churn_result),
+                    'ConfidenceMetaAgent': _normalize_agent_result(confidence_result)
+                }
+                
+                # Display agent results
+                for agent_name in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']:
+                    try:
+                        display.display_agent_result(agent_name, workflow_results[agent_name], show_full_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to display {agent_name} result: {e}")
+                
+                # Calculate phase execution time
+                analytical_execution_time = (datetime.now() - analytical_start_time).total_seconds()
+                
+                # Extract metrics for summary
+                correlations_count = workflow_results['CorrelationAgent'].get('data', {}).get('total_correlations_found', 0)
+                churn_signals_count = workflow_results['ChurnRiskAgent'].get('data', {}).get('risk_breakdown', {}).get('total_risk_signals', 0)
+                anomalies_count = len(workflow_results['QualityInsightsAgent'].get('data', {}).get('anomalies', []))
+                overall_confidence = workflow_results['ConfidenceMetaAgent'].get('data', {}).get('overall_data_quality_score', 0)
+                
+                # Add audit step for completion
+                if self.audit:
+                    self.audit.step(
+                        "Phase 4.5: Analytical Insights",
+                        f"Completed analytical insights in {analytical_execution_time:.1f}s",
+                        {
+                            'execution_time_seconds': analytical_execution_time,
+                            'correlations_found': correlations_count,
+                            'churn_signals': churn_signals_count,
+                            'anomalies_detected': anomalies_count,
+                            'overall_confidence': overall_confidence
+                        }
+                    )
+                
+                self.logger.info(f"   ✅ Analytical insights complete: {correlations_count} correlations, {churn_signals_count} churn signals, {anomalies_count} anomalies")
+                
+            except Exception as e:
+                self.logger.error(f"Phase 4.5 failed: {e}", exc_info=True)
+                analytical_execution_time = (datetime.now() - analytical_start_time).total_seconds()
+                
+                # Create error results for all agents
+                for agent_name in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']:
+                    workflow_results[agent_name] = {
+                        'agent_name': agent_name,
+                        'success': False,
+                        'error_message': str(e),
+                        'execution_time': analytical_execution_time / 4,
+                        'confidence': 0.0,
+                        'data': {}
+                    }
+                
+                analytical_insights = {agent: workflow_results[agent] for agent in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']}
+            
             # PHASE 4.6: Cross-Platform Correlation (if Canny posts provided)
             cross_platform_insights = {}
             if canny_posts and canny_topics_by_category:
@@ -842,12 +982,38 @@ class TopicOrchestrator:
                 'TopicSentiments': topic_sentiments,  # Already normalized dicts
                 'TopicExamples': topic_examples,  # Already normalized dicts
                 'FinPerformanceAgent': _normalize_agent_result(fin_result),
-                'TrendAgent': _normalize_agent_result(trend_result)
+                'TrendAgent': _normalize_agent_result(trend_result),
+                'AnalyticalInsights': analytical_insights  # Phase 4.5 results
             }
+            # Get historical context for "What We Cannot Determine" section
+            historical_context = {'weeks_available': 0}
+            if self.historical_snapshot_service:
+                try:
+                    historical_context = self.historical_snapshot_service.get_historical_context()
+                except Exception as e:
+                    self.logger.warning(f"Error getting historical context: {e}")
+            
+            # Get comparison data if prior snapshot exists
+            comparison_data = None
+            if self.historical_snapshot_service and context.metadata.get('snapshot_id'):
+                try:
+                    snapshot_id = context.metadata['snapshot_id']
+                    prior_snapshot = self.historical_snapshot_service.get_prior_snapshot(snapshot_id, period_type)
+                    if prior_snapshot:
+                        current_snapshot_data = {
+                            'topic_distribution': topic_dist,
+                            'segmentation_summary': segmentation_result.data if segmentation_result and segmentation_result.success else {}
+                        }
+                        comparison_data = self.historical_snapshot_service.calculate_comparison(current_snapshot_data, prior_snapshot)
+                except Exception as e:
+                    self.logger.warning(f"Error getting comparison data: {e}")
+            
             output_context.metadata = {
                 'week_id': week_id,
                 'period_type': period_type,
-                'period_label': period_label
+                'period_label': period_label,
+                'historical_context': historical_context,
+                'comparison_data': comparison_data
             }
             
             formatter_result = await self.output_formatter_agent.execute(output_context)
@@ -1064,6 +1230,12 @@ class TopicOrchestrator:
             'subtopic_detection': metrics['agent_timings'].get('SubTopicDetectionAgent', {}).get('execution_time', 0),
             'per_topic_analysis': sum(m['total_time'] for m in metrics['per_topic_metrics'].values()),
             'fin_analysis': metrics['agent_timings'].get('FinPerformanceAgent', {}).get('execution_time', 0),
+            'analytical_insights': (
+                metrics['agent_timings'].get('CorrelationAgent', {}).get('execution_time', 0) +
+                metrics['agent_timings'].get('QualityInsightsAgent', {}).get('execution_time', 0) +
+                metrics['agent_timings'].get('ChurnRiskAgent', {}).get('execution_time', 0) +
+                metrics['agent_timings'].get('ConfidenceMetaAgent', {}).get('execution_time', 0)
+            ),
             'trend_analysis': metrics['agent_timings'].get('TrendAgent', {}).get('execution_time', 0),
             'output_formatting': metrics['agent_timings'].get('OutputFormatterAgent', {}).get('execution_time', 0)
         }

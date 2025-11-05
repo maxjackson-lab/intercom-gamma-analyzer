@@ -1478,3 +1478,437 @@ def test_format_comparison_section_sentiment_limit(agent):
         topic_count = sum(1 for line in sentiment_section.split('\n') if 'Topic' in line and '**' in line)
         assert topic_count <= 5  # Limited to top 5
 
+
+# ============================================================================
+# PHASE 6 TESTS: Highlights/Lowlights and New Analytical Sections
+# ============================================================================
+
+def test_extract_highlights_lowlights_with_csat(agent):
+    """Test highlights/lowlights extraction based on CSAT scores"""
+    examples = [
+        {'conversation_id': f'conv_{i}', 'preview': f'Example {i}', 'intercom_url': f'https://example.com/{i}'}
+        for i in range(10)
+    ]
+    
+    conversations = [
+        {'id': f'conv_{i}', 'conversation_rating': 5 if i < 3 else 1 if i > 6 else 3}
+        for i in range(10)
+    ]
+    
+    result = agent._extract_highlights_lowlights(examples, 'Test Topic', conversations)
+    
+    assert 'highlights' in result
+    assert 'lowlights' in result
+    assert len(result['highlights']) > 0
+    assert len(result['lowlights']) > 0
+
+
+def test_extract_highlights_lowlights_with_resolution_time(agent):
+    """Test highlights/lowlights extraction based on resolution time"""
+    examples = [
+        {'conversation_id': f'conv_{i}', 'preview': f'Example {i}', 'intercom_url': f'https://example.com/{i}'}
+        for i in range(10)
+    ]
+    
+    conversations = [
+        {'id': f'conv_{i}', 'statistics': {'handling_time': 600 if i < 3 else 25000 if i > 6 else 7200}}
+        for i in range(10)
+    ]
+    
+    result = agent._extract_highlights_lowlights(examples, 'Test Topic', conversations)
+    
+    assert 'highlights' in result
+    assert 'lowlights' in result
+
+
+def test_extract_highlights_lowlights_composite_scoring(agent):
+    """Test composite scoring with CSAT and resolution time"""
+    examples = [
+        {'conversation_id': 'conv_good', 'preview': 'Great service!', 'intercom_url': 'https://example.com/good'},
+        {'conversation_id': 'conv_bad', 'preview': 'Terrible experience', 'intercom_url': 'https://example.com/bad'},
+        {'conversation_id': 'conv_medium', 'preview': 'It was okay', 'intercom_url': 'https://example.com/medium'},
+        {'conversation_id': 'conv_fast', 'preview': 'Quick resolution', 'intercom_url': 'https://example.com/fast'},
+        {'conversation_id': 'conv_slow', 'preview': 'Took forever', 'intercom_url': 'https://example.com/slow'},
+        {'conversation_id': 'conv_mixed', 'preview': 'Mixed feelings', 'intercom_url': 'https://example.com/mixed'},
+    ]
+    
+    conversations = [
+        {'id': 'conv_good', 'conversation_rating': 5, 'statistics': {'handling_time': 600}},
+        {'id': 'conv_bad', 'conversation_rating': 1, 'statistics': {'handling_time': 30000}},
+        {'id': 'conv_medium', 'conversation_rating': 3, 'statistics': {'handling_time': 7200}},
+        {'id': 'conv_fast', 'conversation_rating': 4, 'statistics': {'handling_time': 300}},
+        {'id': 'conv_slow', 'conversation_rating': 2, 'statistics': {'handling_time': 40000}},
+        {'id': 'conv_mixed', 'conversation_rating': 3, 'statistics': {'handling_time': 5000}},
+    ]
+    
+    result = agent._extract_highlights_lowlights(examples, 'Test', conversations)
+    
+    highlights = result['highlights']
+    lowlights = result['lowlights']
+    
+    # conv_good and conv_fast should be highlights
+    highlight_ids = [ex['conversation_id'] for ex in highlights]
+    assert 'conv_good' in highlight_ids or 'conv_fast' in highlight_ids
+    
+    # conv_bad and conv_slow should be lowlights
+    lowlight_ids = [ex['conversation_id'] for ex in lowlights]
+    assert 'conv_bad' in lowlight_ids or 'conv_slow' in lowlight_ids
+
+
+def test_extract_highlights_lowlights_minimum_examples(agent):
+    """Test that insufficient examples returns all as highlights"""
+    examples = [
+        {'conversation_id': f'conv_{i}', 'preview': f'Example {i}', 'intercom_url': f'https://example.com/{i}'}
+        for i in range(3)
+    ]
+    
+    conversations = [
+        {'id': f'conv_{i}', 'conversation_rating': 3}
+        for i in range(3)
+    ]
+    
+    result = agent._extract_highlights_lowlights(examples, 'Test', conversations)
+    
+    # With <5 examples, all should be highlights
+    assert len(result['highlights']) == 3
+    assert len(result['lowlights']) == 0
+
+
+def test_format_pattern_intelligence_section_with_correlations(agent):
+    """Test pattern intelligence section formatting with correlations"""
+    analytical_insights = {
+        'CorrelationAgent': {
+            'data': {
+                'correlations': [
+                    {'description': 'Test Correlation 1', 'strength': 'Strong', 'insight': 'Test insight', 'context': 'Test context'},
+                    {'description': 'Test Correlation 2', 'strength': 'Medium', 'insight': 'Another insight', 'context': 'More context'},
+                ]
+            }
+        },
+        'QualityInsightsAgent': {'data': {}}
+    }
+    
+    result = agent._format_pattern_intelligence_section(analytical_insights)
+    
+    assert '## Pattern Intelligence 🔍' in result
+    assert '### Correlations Detected' in result
+    assert 'Test Correlation 1' in result
+    assert 'Strong' in result
+
+
+def test_format_pattern_intelligence_section_with_anomalies(agent):
+    """Test pattern intelligence section with anomalies"""
+    analytical_insights = {
+        'CorrelationAgent': {'data': {}},
+        'QualityInsightsAgent': {
+            'data': {
+                'anomalies': [
+                    {'type': 'Volume Spike', 'topic': 'Billing', 'observation': 'Unusual increase', 'significance': 'High'},
+                ]
+            }
+        }
+    }
+    
+    result = agent._format_pattern_intelligence_section(analytical_insights)
+    
+    assert '### Statistical Anomalies' in result
+    assert 'Billing' in result
+    assert 'Volume Spike' in result
+
+
+def test_format_pattern_intelligence_section_missing_data(agent):
+    """Test pattern intelligence section with no data"""
+    analytical_insights = {
+        'CorrelationAgent': {'data': {'correlations': []}},
+        'QualityInsightsAgent': {'data': {'anomalies': []}}
+    }
+    
+    result = agent._format_pattern_intelligence_section(analytical_insights)
+    
+    assert '## Pattern Intelligence 🔍' in result
+    assert 'No significant patterns detected' in result
+
+
+def test_format_churn_risk_section_with_signals(agent):
+    """Test churn risk section with high-risk conversations"""
+    churn_data = {
+        'high_risk_conversations': [
+            {
+                'conversation_id': 'conv_1',
+                'tier': 'business',
+                'signals': ['cancellation language', 'competitor mention'],
+                'csat': 1,
+                'intercom_url': 'https://example.com/1',
+                'priority': 'immediate',
+                'quote': 'I want to cancel'
+            },
+            {
+                'conversation_id': 'conv_2',
+                'tier': 'team',
+                'signals': ['frustration'],
+                'csat': 2,
+                'intercom_url': 'https://example.com/2',
+                'priority': 'high'
+            }
+        ],
+        'risk_breakdown': {'high_value_at_risk': 2}
+    }
+    
+    result = agent._format_churn_risk_section(churn_data)
+    
+    assert '## Risk & Opportunity Signals ⚠️' in result
+    assert '2 high-value customers flagged' in result
+    assert 'conv_1' in result
+    assert 'conv_2' in result
+    assert 'cancellation language' in result
+
+
+def test_format_churn_risk_section_no_signals(agent):
+    """Test churn risk section with no signals"""
+    churn_data = {
+        'high_risk_conversations': [],
+        'risk_breakdown': {}
+    }
+    
+    result = agent._format_churn_risk_section(churn_data)
+    
+    assert 'No churn signals detected' in result
+
+
+def test_format_resolution_quality_section_with_fcr(agent):
+    """Test resolution quality section with FCR data"""
+    quality_data = {
+        'fcr_by_topic': {
+            'Billing': {'fcr_rate': 0.85, 'total': 100, 'observation': 'Healthy FCR'},
+            'API': {'fcr_rate': 0.45, 'total': 50, 'observation': 'Concerning FCR'}
+        }
+    }
+    
+    result = agent._format_resolution_quality_section(quality_data)
+    
+    assert '## Resolution Quality Metrics 📈' in result
+    assert '### First Contact Resolution by Topic' in result
+    assert 'Billing' in result
+    assert '85.0% FCR' in result
+
+
+def test_format_resolution_quality_section_with_exceptional_conversations(agent):
+    """Test resolution quality section with exceptional conversations"""
+    quality_data = {
+        'exceptional_conversations': [
+            {
+                'conversation_id': 'conv_fast',
+                'reason': 'Exceptionally fast resolution',
+                'intercom_url': 'https://example.com/fast',
+                'recommendation': 'Study as efficiency example'
+            }
+        ]
+    }
+    
+    result = agent._format_resolution_quality_section(quality_data)
+    
+    assert '### Exceptional Conversations' in result
+    assert 'conv_fast' in result
+    assert 'Study as efficiency example' in result
+
+
+def test_format_confidence_limitations_section_full_data(agent):
+    """Test confidence & limitations section with complete data"""
+    confidence_data = {
+        'confidence_distribution': {
+            'high': [{'agent': 'SegmentationAgent', 'reason': 'Complete tier data'}],
+            'medium': [{'agent': 'TopicDetectionAgent', 'reason': 'Some missing attributes'}],
+            'low': [{'agent': 'TrendAgent', 'reason': 'Insufficient historical data'}]
+        },
+        'data_quality': {
+            'tier_coverage': 0.95,
+            'csat_coverage': 0.65,
+            'statistics_coverage': 0.80,
+            'impact': 'High confidence in tier analysis'
+        },
+        'overall_data_quality_score': 7.5,
+        'limitations': ['Limited historical data', 'Incomplete CSAT coverage'],
+        'what_would_improve_confidence': ['More historical periods', 'Better CSAT response rate']
+    }
+    
+    result = agent._format_confidence_limitations_section(confidence_data)
+    
+    assert '## Analysis Confidence & Limitations 🎯' in result
+    assert '### Confidence Distribution' in result
+    assert 'SegmentationAgent' in result
+    assert '### Data Quality' in result
+    assert '95.0%' in result  # tier_coverage
+    assert '### Current Limitations' in result
+    assert '### What Would Improve Confidence' in result
+
+
+def test_format_cannot_determine_section_week_1(agent):
+    """Test cannot determine section for week 1"""
+    historical_context = {'weeks_available': 0}
+    confidence_data = {'limitations': []}
+    
+    result = agent._format_cannot_determine_section(historical_context, confidence_data)
+    
+    assert '## What We Cannot Determine (Yet) ⏳' in result
+    assert 'Is current volume normal?' in result
+    assert 'Baseline establishes in 4 more weeks' in result
+    assert 'Seasonality patterns?' in result
+    assert 'Getting started' in result
+
+
+def test_format_cannot_determine_section_week_4(agent):
+    """Test cannot determine section for week 4"""
+    historical_context = {'weeks_available': 4}
+    confidence_data = {'limitations': []}
+    
+    result = agent._format_cannot_determine_section(historical_context, confidence_data)
+    
+    # Should not mention needing 4 weeks for baseline (already have it)
+    assert 'Is current volume normal?' not in result
+    # Should still mention seasonality
+    assert 'Seasonality patterns?' in result
+    assert 'Need 8 more weeks' in result
+
+
+@pytest.mark.asyncio
+async def test_execute_with_all_analytical_insights():
+    """Test execute with complete analytical insights"""
+    agent = OutputFormatterAgent()
+    
+    # Create comprehensive context with all analytical insights
+    context = AgentContext(
+        analysis_id="test-full",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}', 'conversation_rating': 3} for i in range(100)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={
+            'week_id': '2024-W18',
+            'period_type': 'weekly',
+            'period_label': 'Weekly',
+            'historical_context': {'weeks_available': 2},
+            'comparison_data': None
+        },
+        previous_results={
+            'SegmentationAgent': {
+                'data': {
+                    'segmentation_summary': {
+                        'paid_count': 60,
+                        'free_count': 40,
+                        'paid_percentage': 60.0,
+                        'free_percentage': 40.0
+                    }
+                }
+            },
+            'TopicDetectionAgent': {
+                'data': {
+                    'topic_distribution': {
+                        'Billing': {'volume': 50, 'percentage': 50.0, 'detection_method': 'attribute'},
+                        'API': {'volume': 30, 'percentage': 30.0, 'detection_method': 'keyword'}
+                    }
+                }
+            },
+            'TopicSentiments': {
+                'Billing': {'data': {'sentiment_insight': 'Frustrated customers'}},
+                'API': {'data': {'sentiment_insight': 'Technical issues'}}
+            },
+            'TopicExamples': {
+                'Billing': {'data': {'examples': []}},
+                'API': {'data': {'examples': []}}
+            },
+            'FinPerformanceAgent': {'data': {}},
+            'TrendAgent': {'data': {'trends': {}}},
+            'AnalyticalInsights': {
+                'CorrelationAgent': {
+                    'data': {
+                        'correlations': [
+                            {'description': 'Test correlation', 'strength': 'Strong', 'insight': 'Test', 'context': 'Test'}
+                        ]
+                    }
+                },
+                'QualityInsightsAgent': {
+                    'data': {
+                        'fcr_by_topic': {},
+                        'anomalies': [{'type': 'Volume Spike', 'topic': 'Billing', 'observation': 'Test', 'significance': 'High'}],
+                        'temporal_clustering': []
+                    }
+                },
+                'ChurnRiskAgent': {
+                    'data': {
+                        'high_risk_conversations': [
+                            {
+                                'conversation_id': 'conv_1',
+                                'tier': 'business',
+                                'signals': ['cancellation'],
+                                'csat': 1,
+                                'intercom_url': 'https://example.com/1',
+                                'priority': 'immediate'
+                            }
+                        ],
+                        'risk_breakdown': {'high_value_at_risk': 1}
+                    }
+                },
+                'ConfidenceMetaAgent': {
+                    'data': {
+                        'confidence_distribution': {'high': [], 'medium': [], 'low': []},
+                        'data_quality': {},
+                        'limitations': ['Test limitation'],
+                        'what_would_improve_confidence': [],
+                        'overall_data_quality_score': 7.0
+                    }
+                }
+            }
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    assert result.success is True
+    formatted_output = result.data['formatted_output']
+    
+    # Verify all new sections are present
+    assert '## Pattern Intelligence 🔍' in formatted_output
+    assert '## Risk & Opportunity Signals ⚠️' in formatted_output
+    assert '## Resolution Quality Metrics 📈' in formatted_output
+    assert '## Analysis Confidence & Limitations 🎯' in formatted_output
+    assert '## What We Cannot Determine (Yet) ⏳' in formatted_output
+
+
+@pytest.mark.asyncio
+async def test_execute_without_analytical_insights():
+    """Test backward compatibility without analytical insights"""
+    agent = OutputFormatterAgent()
+    
+    context = AgentContext(
+        analysis_id="test-legacy",
+        analysis_type="weekly",
+        conversations=[{'id': f'conv_{i}'} for i in range(100)],
+        start_date=datetime(2024, 5, 1, tzinfo=timezone.utc),
+        end_date=datetime(2024, 5, 31, tzinfo=timezone.utc),
+        metadata={'week_id': '2024-W18'},
+        previous_results={
+            'SegmentationAgent': {
+                'data': {'segmentation_summary': {'paid_count': 60, 'free_count': 40, 'paid_percentage': 60.0, 'free_percentage': 40.0}}
+            },
+            'TopicDetectionAgent': {
+                'data': {'topic_distribution': {'Billing': {'volume': 50, 'percentage': 50.0, 'detection_method': 'attribute'}}}
+            },
+            'TopicSentiments': {
+                'Billing': {'data': {'sentiment_insight': 'Frustrated'}}
+            },
+            'TopicExamples': {
+                'Billing': {'data': {'examples': []}}
+            }
+        }
+    )
+    
+    result = await agent.execute(context)
+    
+    # Should succeed even without analytical insights
+    assert result.success is True
+    formatted_output = result.data['formatted_output']
+    
+    # Should not have new sections
+    assert '## Pattern Intelligence' not in formatted_output
+    assert '## Risk & Opportunity Signals' not in formatted_output
+

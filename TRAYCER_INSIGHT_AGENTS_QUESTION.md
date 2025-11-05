@@ -80,3 +80,5 @@ Agent architecture recommendation with:
 - How historical context gets integrated (design for evolution)
 - Anti-pattern warnings (what to avoid)
 
+
+

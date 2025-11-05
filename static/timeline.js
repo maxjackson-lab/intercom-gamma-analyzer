@@ -520,3 +520,5 @@ window.compareSnapshot = compareSnapshot;
 
 console.log('Timeline UI script loaded successfully');
 
+
+

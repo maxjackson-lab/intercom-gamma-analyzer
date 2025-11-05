@@ -434,3 +434,5 @@ async def test_compare_snapshots_empty_topics():
     storage.close()
     Path(db_path).unlink(missing_ok=True)
 
+
+

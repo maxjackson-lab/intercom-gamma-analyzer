@@ -30,7 +30,8 @@ class OutputFormatterAgent(BaseAgent):
         'TrendAgent': {'required': False, 'key': 'trends'},
         'FinPerformanceAgent': {'required': False, 'key': 'fin_performance'},
         'TopicSentiments': {'required': False, 'key': 'sentiments'},
-        'TopicExamples': {'required': False, 'key': 'examples'}
+        'TopicExamples': {'required': False, 'key': 'examples'},
+        'AnalyticalInsights': {'required': False, 'key': 'analytical_insights'}
     }
     
     def __init__(self):
@@ -243,6 +244,41 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 output_sections.append(f"**Primary Languages**: {lang_summary}")
                 output_sections.append("")
             
+            # Auto-generated narrative summary
+            analytical_insights = context.previous_results.get('AnalyticalInsights', {})
+            if analytical_insights:
+                narrative_parts = []
+                
+                # Base narrative
+                narrative_parts.append(f"This week's analysis reveals {len(topic_dist)} customer topics across {total_convs:,} conversations.")
+                
+                # Significant changes (if comparison data available)
+                comparison_data = context.metadata.get('comparison_data')
+                if comparison_data:
+                    significant_changes = comparison_data.get('significant_changes', [])
+                    if significant_changes:
+                        top_change = significant_changes[0]
+                        top_topic = top_change.get('topic', 'Unknown')
+                        pct = top_change.get('pct', 0)
+                        narrative_parts.append(f"Notable changes include {top_topic} ({pct:+.1%}).")
+                
+                # Churn signals
+                churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
+                high_risk_count = len(churn_data.get('high_risk_conversations', []))
+                if high_risk_count > 0:
+                    narrative_parts.append(f"{high_risk_count} conversation{'s' if high_risk_count != 1 else ''} flagged for churn risk review.")
+                
+                # Anomalies
+                quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
+                anomaly_count = len(quality_data.get('anomalies', []))
+                if anomaly_count > 0:
+                    narrative_parts.append(f"{anomaly_count} statistical anomal{'ies' if anomaly_count != 1 else 'y'} detected.")
+                
+                if len(narrative_parts) > 1:
+                    output_sections.append("")
+                    output_sections.append(" ".join(narrative_parts))
+                    output_sections.append("")
+            
             output_sections.append("---")
             output_sections.append("")
             
@@ -256,6 +292,16 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 output_sections.append("")
             else:
                 self.logger.info("No prior snapshot available - skipping week-over-week section")
+            
+            # Pattern Intelligence Section (if analytical insights available)
+            # Note: This now returns separate top-level sections for Correlations and Anomalies
+            if analytical_insights:
+                try:
+                    pattern_section = self._format_pattern_intelligence_section(analytical_insights)
+                    if pattern_section:
+                        output_sections.append(pattern_section)
+                except Exception as e:
+                    self.logger.warning(f"Error adding Pattern Intelligence section: {e}")
             
             # Section 1: Voice of Customer (Paid Customers)
             output_sections.append("## Customer Topics (Paid Tier - Human Support)")
@@ -302,9 +348,23 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     trend_indicator,
                     trend_explanation,
                     period_label,
-                    subtopics_for_topic
+                    subtopics_for_topic,
+                    context.conversations  # Pass conversations for highlights/lowlights extraction
                 )
                 output_sections.append(card)
+            
+            # Churn Risk Section (if analytical insights available)
+            if analytical_insights:
+                try:
+                    churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
+                    if churn_data and churn_data.get('high_risk_conversations'):
+                        churn_section = self._format_churn_risk_section(churn_data)
+                        if churn_section:
+                            output_sections.append(churn_section)
+                            output_sections.append("---")
+                            output_sections.append("")
+                except Exception as e:
+                    self.logger.warning(f"Error adding Churn Risk section: {e}")
             
             # Section 2: Fin AI Performance
             has_tier_data = False
@@ -353,6 +413,42 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 )
                 output_sections.append(placeholder)
             
+            # Resolution Quality Metrics Section (if analytical insights available)
+            if analytical_insights:
+                try:
+                    quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
+                    if quality_data:
+                        quality_section = self._format_resolution_quality_section(quality_data)
+                        if quality_section:
+                            output_sections.append(quality_section)
+                            output_sections.append("---")
+                            output_sections.append("")
+                except Exception as e:
+                    self.logger.warning(f"Error adding Resolution Quality section: {e}")
+            
+            # Analysis Confidence & Limitations Section (if analytical insights available)
+            if analytical_insights:
+                try:
+                    confidence_data = analytical_insights.get('ConfidenceMetaAgent', {}).get('data', {})
+                    if confidence_data:
+                        confidence_section = self._format_confidence_limitations_section(confidence_data)
+                        if confidence_section:
+                            output_sections.append(confidence_section)
+                            output_sections.append("---")
+                            output_sections.append("")
+                except Exception as e:
+                    self.logger.warning(f"Error adding Confidence & Limitations section: {e}")
+            
+            # What We Cannot Determine (Yet) Section
+            historical_context = context.metadata.get('historical_context', {'weeks_available': 0})
+            confidence_data_for_cannot_determine = analytical_insights.get('ConfidenceMetaAgent', {}).get('data', {}) if analytical_insights else {}
+            try:
+                cannot_determine_section = self._format_cannot_determine_section(historical_context, confidence_data_for_cannot_determine)
+                if cannot_determine_section:
+                    output_sections.append(cannot_determine_section)
+            except Exception as e:
+                self.logger.warning(f"Error adding Cannot Determine section: {e}")
+            
             # Combine all sections
             formatted_output = '\n'.join(output_sections)
             
@@ -378,6 +474,16 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                     self.logger.info(f"   Fin AI cards: Free tier ({fin_performance.get('total_free_tier', 0)} convs), Paid tier ({fin_performance.get('total_paid_tier', 0)} convs)")
                 else:
                     self.logger.info(f"   Fin AI card: Legacy format (single unified card)")
+            
+            # Log new analytical sections
+            if analytical_insights:
+                correlations_count = len(analytical_insights.get('CorrelationAgent', {}).get('data', {}).get('correlations', []))
+                churn_signals_count = len(analytical_insights.get('ChurnRiskAgent', {}).get('data', {}).get('high_risk_conversations', []))
+                anomalies_count = len(analytical_insights.get('QualityInsightsAgent', {}).get('data', {}).get('anomalies', []))
+                self.logger.info(f"   Formatted {correlations_count} correlations, {churn_signals_count} churn signals, {anomalies_count} anomalies")
+            
+            # Log total section count
+            self.logger.info(f"   Total sections: {len(output_sections)}")
             
             return AgentResult(
                 agent_name=self.name,
@@ -405,7 +511,7 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 execution_time=execution_time
             )
     
-    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly", subtopics: Dict = None) -> str:
+    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly", subtopics: Dict = None, conversations: List[Dict] = None) -> str:
         """Format a single topic card"""
         detection_method = stats.get('detection_method', 'unknown')
         method_label = "Intercom conversation attribute" if detection_method == 'attribute' else "Keyword detection" if detection_method == 'keyword' else "Detection method not specified"
@@ -450,7 +556,56 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             
             card += "\n"
         
-        card += "**Examples**:\n\n"
+        # Extract highlights/lowlights if conversations are provided
+        if conversations and examples and len(examples) >= 5:
+            try:
+                highlights_lowlights = self._extract_highlights_lowlights(examples, topic_name, conversations)
+                highlights = highlights_lowlights.get('highlights', [])
+                lowlights = highlights_lowlights.get('lowlights', [])
+                
+                # Format highlights
+                if highlights:
+                    card += "**Highlights** (Best Experiences) ✅:\n\n"
+                    for i, example in enumerate(highlights, 1):
+                        preview = example.get('preview', 'No preview available')
+                        url = example.get('intercom_url', '#')
+                        language = example.get('language', 'English')
+                        translation = example.get('translation')
+                        
+                        if translation and language != 'English':
+                            card += f"{i}. \"{translation}\"\n"
+                            card += f"   _{language}: \"{preview}\"_\n"
+                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                        else:
+                            lang_label = f"_{language}_ " if language and language != 'English' else ""
+                            card += f"{i}. {lang_label}\"{preview}\"\n"
+                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                
+                # Format lowlights
+                if lowlights:
+                    card += "**Lowlights** (Areas for Improvement) ⚠️:\n\n"
+                    for i, example in enumerate(lowlights, 1):
+                        preview = example.get('preview', 'No preview available')
+                        url = example.get('intercom_url', '#')
+                        language = example.get('language', 'English')
+                        translation = example.get('translation')
+                        
+                        if translation and language != 'English':
+                            card += f"{i}. \"{translation}\"\n"
+                            card += f"   _{language}: \"{preview}\"_\n"
+                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                        else:
+                            lang_label = f"_{language}_ " if language and language != 'English' else ""
+                            card += f"{i}. {lang_label}\"{preview}\"\n"
+                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
+                
+            except Exception as e:
+                self.logger.warning(f"Error extracting highlights/lowlights for {topic_name}: {e}")
+                # Fall back to showing all examples
+        
+        # If no highlights/lowlights extraction, show all examples
+        if not (conversations and examples and len(examples) >= 5):
+            card += "**Examples**:\n\n"
         
         # Add examples with validation, language info, translation, and enhanced link formatting
         if examples and len(examples) > 0:
@@ -933,4 +1088,522 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         except Exception as e:
             self.logger.warning(f"Error formatting comparison section: {e}")
             return "## Week-over-Week Changes 📊\n\n_Comparison data unavailable_\n\n"
+    
+    def _extract_highlights_lowlights(self, examples: List[Dict], topic_name: str, conversations: List[Dict]) -> Dict[str, List[Dict]]:
+        """
+        Extract highlights (best) and lowlights (worst) from examples based on CSAT, resolution time, and sentiment.
+        
+        Args:
+            examples: List of example dicts
+            topic_name: Topic name for context
+            conversations: Full conversation list for looking up additional data
+            
+        Returns:
+            Dict with 'highlights' and 'lowlights' lists
+        """
+        if len(examples) < 5:
+            # Not enough examples to split meaningfully
+            return {'highlights': examples, 'lowlights': []}
+        
+        # Create conversation lookup with normalized string keys
+        conv_lookup = {str(conv.get('id')): conv for conv in conversations}
+        
+        # Score each example
+        scored_examples = []
+        skipped_count = 0  # Counter for visibility
+        for example in examples:
+            # Normalize conversation_id to string before lookup
+            conv_id = str(example.get('conversation_id'))
+            conv = conv_lookup.get(conv_id)
+            
+            if not conv:
+                # Skip if conversation not found
+                skipped_count += 1
+                continue
+            
+            composite_score = 0.0
+            
+            # CSAT score (if available)
+            csat = conv.get('conversation_rating')
+            if csat:
+                if csat == 5:
+                    composite_score += 2.0
+                elif csat == 4:
+                    composite_score += 1.0
+                elif csat == 3:
+                    composite_score += 0.0
+                elif csat == 2:
+                    composite_score += -1.0
+                elif csat == 1:
+                    composite_score += -2.0
+            
+            # Resolution time score
+            handling_time = conv.get('statistics', {}).get('handling_time')
+            if handling_time:
+                hours = handling_time / 3600
+                if hours < 1:
+                    composite_score += 1.0
+                elif hours > 6:
+                    composite_score += -1.0
+            
+            # Sentiment score (basic keyword matching)
+            preview = example.get('preview', '').lower()
+            positive_keywords = ['love', 'great', 'excellent', 'thank', 'appreciate', 'perfect', 'amazing']
+            negative_keywords = ['hate', 'terrible', 'awful', 'frustrated', 'angry', 'disappointed', 'cancel']
+            
+            if any(kw in preview for kw in positive_keywords):
+                composite_score += 0.5
+            if any(kw in preview for kw in negative_keywords):
+                composite_score += -0.5
+            
+            scored_examples.append((composite_score, example))
+        
+        # Sort by score (highest to lowest)
+        scored_examples.sort(reverse=True, key=lambda x: x[0])
+        
+        # Log how many examples were skipped for visibility
+        if skipped_count > 0:
+            self.logger.info(f"Skipped {skipped_count} examples due to missing conversation matches in highlights/lowlights extraction")
+        
+        # Top 2-3 are highlights, bottom 2-3 are lowlights
+        num_highlights = min(3, len(scored_examples) // 2)
+        num_lowlights = min(3, len(scored_examples) // 2)
+        
+        highlights = [ex for score, ex in scored_examples[:num_highlights]]
+        lowlights = [ex for score, ex in scored_examples[-num_lowlights:]] if num_lowlights > 0 else []
+        
+        return {'highlights': highlights, 'lowlights': lowlights}
+    
+    def _format_pattern_intelligence_section(self, analytical_insights: Dict[str, Any]) -> str:
+        """
+        Format Pattern Intelligence as separate top-level sections for Correlations and Anomalies.
+        
+        Args:
+            analytical_insights: Dict containing CorrelationAgent and QualityInsightsAgent data
+            
+        Returns:
+            Formatted markdown string with separate top-level sections
+        """
+        try:
+            sections = []
+            
+            # Extract data from analytical insights
+            correlation_data = analytical_insights.get('CorrelationAgent', {}).get('data', {})
+            quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
+            
+            # 1. Correlations as top-level section
+            correlations = correlation_data.get('correlations', [])
+            if correlations:
+                sections.append("## Correlations 🔗")
+                sections.append("")
+                
+                # Limit to top 5 correlations
+                for corr in correlations[:5]:
+                    description = corr.get('description', 'Unknown correlation')
+                    strength = corr.get('strength', 'Unknown')
+                    insight = corr.get('insight', '')
+                    context = corr.get('context', '')
+                    
+                    sections.append(f"- **{description}** (strength: {strength})")
+                    if insight:
+                        sections.append(f"  - {insight}")
+                    if context:
+                        sections.append(f"  - Context: {context}")
+                    sections.append("")
+                
+                sections.append("---")
+                sections.append("")
+            
+            # 2. Anomalies as top-level section
+            anomalies = quality_data.get('anomalies', [])
+            temporal_clustering = quality_data.get('temporal_clustering', [])
+            
+            if anomalies or temporal_clustering:
+                sections.append("## Anomalies & Temporal Patterns 📊")
+                sections.append("")
+                
+                # Statistical anomalies
+                if anomalies:
+                    sections.append("### Statistical Anomalies")
+                    sections.append("")
+                    
+                    for anomaly in anomalies:
+                        anomaly_type = anomaly.get('type', 'Unknown')
+                        topic = anomaly.get('topic', 'Unknown')
+                        observation = anomaly.get('observation', '')
+                        significance = anomaly.get('significance', '')
+                        
+                        sections.append(f"- **{topic}**: {anomaly_type}")
+                        if observation:
+                            sections.append(f"  - {observation}")
+                        if significance:
+                            sections.append(f"  - Statistical significance: {significance}")
+                        sections.append("")
+                
+                # Temporal patterns
+                if temporal_clustering:
+                    sections.append("### Temporal Patterns")
+                    sections.append("")
+                    
+                    for cluster in temporal_clustering:
+                        topic = cluster.get('topic', 'Unknown')
+                        observation = cluster.get('observation', '')
+                        clustering_pct = cluster.get('clustering_pct', 0)
+                        
+                        sections.append(f"- **{topic}**: {observation} ({clustering_pct}% concentration)")
+                    sections.append("")
+                
+                sections.append("---")
+                sections.append("")
+            
+            # If no pattern data at all
+            if not correlations and not anomalies and not temporal_clustering:
+                return ""  # Return empty string to skip the section entirely
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting pattern intelligence section: {e}")
+            return ""  # Return empty on error to skip the section
+    
+    def _format_churn_risk_section(self, churn_data: Dict[str, Any]) -> str:
+        """
+        Format Churn Risk section with high-risk conversations.
+        
+        Args:
+            churn_data: ChurnRiskAgent data
+            
+        Returns:
+            Formatted markdown string
+        """
+        try:
+            sections = []
+            sections.append("## Risk & Opportunity Signals ⚠️")
+            sections.append("")
+            
+            high_risk_conversations = churn_data.get('high_risk_conversations', [])
+            risk_breakdown = churn_data.get('risk_breakdown', {})
+            
+            if not high_risk_conversations:
+                sections.append("_No churn signals detected this period_")
+                sections.append("")
+                return '\n'.join(sections)
+            
+            # Show risk breakdown
+            sections.append("### Churn Risk Flagged")
+            sections.append("")
+            
+            high_value_at_risk = risk_breakdown.get('high_value_at_risk', 0)
+            if high_value_at_risk > 0:
+                sections.append(f"**{high_value_at_risk} high-value customers flagged**")
+                sections.append("")
+            
+            # Group by priority
+            immediate = [c for c in high_risk_conversations if c.get('priority') == 'immediate']
+            high = [c for c in high_risk_conversations if c.get('priority') == 'high']
+            medium = [c for c in high_risk_conversations if c.get('priority') == 'medium']
+            
+            # Show immediate priority first (limit to top 10 overall)
+            all_risk_convs = immediate + high + medium
+            for i, conv in enumerate(all_risk_convs[:10], 1):
+                conv_id = conv.get('conversation_id', 'Unknown')
+                tier = conv.get('tier', 'Unknown')
+                signals = ', '.join(conv.get('signals', []))
+                csat = conv.get('csat', 'N/A')
+                intercom_url = conv.get('intercom_url', '#')
+                priority_icon = '🔴' if conv.get('priority') == 'immediate' else '🟠' if conv.get('priority') == 'high' else '🟡'
+                
+                sections.append(f"{i}. {priority_icon} Conv #{conv_id} - {tier} tier, {signals}, CSAT {csat}")
+                sections.append(f"   **[View in Intercom →]({intercom_url})**")
+                
+                # Include quote if available
+                quote = conv.get('quote')
+                if quote:
+                    sections.append(f"   > \"{quote}\"")
+                sections.append("")
+            
+            # Add LLM analysis if available
+            llm_analysis = churn_data.get('llm_analysis')
+            if llm_analysis:
+                sections.append("**AI Analysis**:")
+                sections.append(f"{llm_analysis}")
+                sections.append("")
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting churn risk section: {e}")
+            return "## Risk & Opportunity Signals ⚠️\n\n_Churn risk analysis unavailable_\n\n"
+    
+    def _format_resolution_quality_section(self, quality_data: Dict[str, Any]) -> str:
+        """
+        Format Resolution Quality Metrics section.
+        
+        Args:
+            quality_data: QualityInsightsAgent data
+            
+        Returns:
+            Formatted markdown string
+        """
+        try:
+            sections = []
+            sections.append("## Resolution Quality Metrics 📈")
+            sections.append("")
+            
+            # 1. FCR by Topic
+            fcr_by_topic = quality_data.get('fcr_by_topic', {})
+            if fcr_by_topic:
+                sections.append("### First Contact Resolution by Topic")
+                sections.append("")
+                
+                for topic, fcr_data in fcr_by_topic.items():
+                    fcr_rate = fcr_data.get('fcr_rate', 0)
+                    total = fcr_data.get('total', 0)
+                    observation = fcr_data.get('observation', '')
+                    
+                    sections.append(f"- **{topic}**: {fcr_rate:.1%} FCR ({total} conversations)")
+                    if observation:
+                        sections.append(f"  - {observation}")
+                sections.append("")
+            
+            # 2. Reopen Patterns
+            reopen_patterns = quality_data.get('reopen_patterns', {})
+            if reopen_patterns:
+                sections.append("### Reopen Patterns")
+                sections.append("")
+                
+                for topic, reopen_data in reopen_patterns.items():
+                    reopen_rate = reopen_data.get('reopen_rate', 0)
+                    count = reopen_data.get('reopen_count', 0)
+                    
+                    if reopen_rate > 0.1:  # Only show topics with >10% reopen rate
+                        sections.append(f"- **{topic}**: {reopen_rate:.1%} reopen rate ({count} reopened)")
+                sections.append("")
+            
+            # 3. Multi-Touch Analysis
+            multi_touch = quality_data.get('multi_touch_analysis', {})
+            if multi_touch:
+                sections.append("### Multi-Touch Analysis")
+                sections.append("")
+                
+                for topic, touch_data in multi_touch.items():
+                    avg_touches = touch_data.get('avg_touches', 0)
+                    if avg_touches > 5:  # Only show topics requiring many interactions
+                        sections.append(f"- **{topic}**: {avg_touches:.1f} average interactions")
+                sections.append("")
+            
+            # 4. Resolution Time Distribution
+            resolution_dist = quality_data.get('resolution_distribution', {})
+            if resolution_dist:
+                sections.append("### Resolution Time Distribution")
+                sections.append("")
+                
+                fast = resolution_dist.get('fast_pct', 0)
+                medium = resolution_dist.get('medium_pct', 0)
+                slow = resolution_dist.get('slow_pct', 0)
+                
+                sections.append(f"- Fast (<1 hour): {fast:.1%}")
+                sections.append(f"- Medium (1-6 hours): {medium:.1%}")
+                sections.append(f"- Slow (>6 hours): {slow:.1%}")
+                sections.append("")
+            
+            # 5. Exceptional Conversations
+            exceptional = quality_data.get('exceptional_conversations', [])
+            if exceptional:
+                sections.append("### Exceptional Conversations")
+                sections.append("")
+                
+                for conv in exceptional[:5]:  # Top 5
+                    conv_id = conv.get('conversation_id', 'Unknown')
+                    reason = conv.get('reason', '')
+                    intercom_url = conv.get('intercom_url', '#')
+                    recommendation = conv.get('recommendation', '')
+                    
+                    sections.append(f"- Conv #{conv_id}: {reason}")
+                    sections.append(f"  **[View in Intercom →]({intercom_url})**")
+                    if recommendation:
+                        sections.append(f"  - {recommendation}")
+                sections.append("")
+            
+            # Add LLM insights if available
+            llm_insights = quality_data.get('llm_insights')
+            if llm_insights:
+                sections.append("**Quality Insights**:")
+                sections.append(f"{llm_insights}")
+                sections.append("")
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting resolution quality section: {e}")
+            return "## Resolution Quality Metrics 📈\n\n_Quality metrics unavailable_\n\n"
+    
+    def _format_confidence_limitations_section(self, confidence_data: Dict[str, Any]) -> str:
+        """
+        Format Analysis Confidence & Limitations section.
+        
+        Args:
+            confidence_data: ConfidenceMetaAgent data
+            
+        Returns:
+            Formatted markdown string
+        """
+        try:
+            sections = []
+            sections.append("## Analysis Confidence & Limitations 🎯")
+            sections.append("")
+            
+            # 1. Confidence Distribution
+            confidence_dist = confidence_data.get('confidence_distribution', {})
+            if confidence_dist:
+                sections.append("### Confidence Distribution")
+                sections.append("")
+                
+                high_conf = confidence_dist.get('high', [])
+                medium_conf = confidence_dist.get('medium', [])
+                low_conf = confidence_dist.get('low', [])
+                
+                if high_conf:
+                    sections.append("**High Confidence Insights:**")
+                    for item in high_conf:
+                        agent = item.get('agent', 'Unknown')
+                        reason = item.get('reason', '')
+                        sections.append(f"- {agent}: {reason}")
+                    sections.append("")
+                
+                if medium_conf:
+                    sections.append("**Medium Confidence Insights:**")
+                    for item in medium_conf:
+                        agent = item.get('agent', 'Unknown')
+                        reason = item.get('reason', '')
+                        sections.append(f"- {agent}: {reason}")
+                    sections.append("")
+                
+                if low_conf:
+                    sections.append("**Low Confidence Insights:**")
+                    for item in low_conf:
+                        agent = item.get('agent', 'Unknown')
+                        reason = item.get('reason', '')
+                        sections.append(f"- {agent}: {reason}")
+                    sections.append("")
+            
+            # 2. Data Quality
+            data_quality = confidence_data.get('data_quality', {})
+            if data_quality:
+                sections.append("### Data Quality")
+                sections.append("")
+                
+                tier_coverage = data_quality.get('tier_coverage', 0)
+                csat_coverage = data_quality.get('csat_coverage', 0)
+                stats_coverage = data_quality.get('statistics_coverage', 0)
+                overall_score = confidence_data.get('overall_data_quality_score', 0)
+                
+                sections.append(f"- Tier Coverage: {tier_coverage:.1%}")
+                sections.append(f"- CSAT Coverage: {csat_coverage:.1%}")
+                sections.append(f"- Statistics Coverage: {stats_coverage:.1%}")
+                sections.append(f"- **Overall Quality Score: {overall_score:.2f}/10**")
+                sections.append("")
+                
+                impact = data_quality.get('impact', '')
+                if impact:
+                    sections.append(f"_Impact: {impact}_")
+                    sections.append("")
+            
+            # 3. Current Limitations
+            limitations = confidence_data.get('limitations', [])
+            if limitations:
+                sections.append("### Current Limitations")
+                sections.append("")
+                
+                for limitation in limitations:
+                    sections.append(f"- {limitation}")
+                sections.append("")
+            
+            # 4. What Would Improve Confidence
+            improvements = confidence_data.get('what_would_improve_confidence', [])
+            if improvements:
+                sections.append("### What Would Improve Confidence")
+                sections.append("")
+                
+                for improvement in improvements:
+                    sections.append(f"- {improvement}")
+                sections.append("")
+            
+            # Add LLM meta-analysis if available
+            llm_meta = confidence_data.get('llm_meta_analysis')
+            if llm_meta:
+                sections.append("**Meta-Analysis**:")
+                sections.append(f"{llm_meta}")
+                sections.append("")
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting confidence limitations section: {e}")
+            return "## Analysis Confidence & Limitations 🎯\n\n_Confidence analysis unavailable_\n\n"
+    
+    def _format_cannot_determine_section(self, historical_context: Dict[str, Any], confidence_data: Dict[str, Any]) -> str:
+        """
+        Format "What We Cannot Determine (Yet)" section.
+        
+        Args:
+            historical_context: Historical context data (weeks_available, etc.)
+            confidence_data: Confidence data for additional limitations
+            
+        Returns:
+            Formatted markdown string
+        """
+        try:
+            sections = []
+            sections.append("## What We Cannot Determine (Yet) ⏳")
+            sections.append("")
+            
+            weeks_available = historical_context.get('weeks_available', 0)
+            
+            cannot_determine_items = []
+            
+            # Baseline trends
+            if weeks_available < 4:
+                weeks_needed = 4 - weeks_available
+                cannot_determine_items.append(
+                    f"**Is current volume normal?** (Baseline establishes in {weeks_needed} more week{'s' if weeks_needed != 1 else ''})"
+                )
+            
+            # Seasonality
+            if weeks_available < 12:
+                weeks_needed = 12 - weeks_available
+                cannot_determine_items.append(
+                    f"**Seasonality patterns?** (Need {weeks_needed} more weeks for full seasonal analysis)"
+                )
+            
+            # Long-term trends
+            if weeks_available < 26:
+                cannot_determine_items.append(
+                    "**Long-term trends?** (Need 6+ months of data for reliable trend analysis)"
+                )
+            
+            # Add data gaps from confidence analysis
+            limitations = confidence_data.get('limitations', [])
+            for limitation in limitations:
+                if 'cannot determine' in limitation.lower() or 'insufficient' in limitation.lower():
+                    cannot_determine_items.append(f"**{limitation}**")
+            
+            if cannot_determine_items:
+                for item in cannot_determine_items:
+                    sections.append(f"- {item}")
+                sections.append("")
+            
+            # Add progress indicator
+            if weeks_available > 0:
+                sections.append(f"**Building baseline**: Week {weeks_available} of 12 needed for seasonality detection")
+                sections.append("")
+            else:
+                sections.append("**Getting started**: This is the first analysis period")
+                sections.append("")
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting cannot determine section: {e}")
+            return "## What We Cannot Determine (Yet) ⏳\n\n_Historical context unavailable_\n\n"
 

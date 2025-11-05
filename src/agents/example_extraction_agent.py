@@ -10,6 +10,7 @@ Purpose:
 
 import json
 import logging
+import re
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 
@@ -108,7 +109,7 @@ EXAMPLE EXTRACTION AGENT SPECIFIC RULES:
    - Show diversity (different aspects of the sentiment)
 
 3. For each example, provide:
-   - Brief preview (first 50-100 chars of customer message)
+   - Full sentence preview (100-150 chars)
    - Intercom conversation link
    - Why this example demonstrates the sentiment
 
@@ -343,9 +344,8 @@ Selection criteria:
         if not safe_msg.strip():  # Skip empty messages
             return None
         
-        preview = safe_msg[:80]
-        if len(safe_msg) > 80:
-            preview += "..."
+        # Extract full sentence preview (100-150 chars)
+        preview = self._extract_full_sentence(safe_msg, min_chars=100, max_chars=150)
         
         # Build Intercom URL with validation
         conv_id = conv.get('id')
@@ -377,6 +377,80 @@ Selection criteria:
             'created_at': created_at_str,
             'language': language
         }
+    
+    def _extract_full_sentence(self, text: str, min_chars: int = 100, max_chars: int = 150) -> str:
+        """
+        Extract complete sentences up to max_chars, ensuring at least min_chars when possible.
+        
+        Args:
+            text: Input text to extract from
+            min_chars: Minimum desired character count
+            max_chars: Maximum character count
+            
+        Returns:
+            Extracted text with complete sentences, adding "..." only if truncated
+        """
+        # If text is already short enough, return as-is
+        if len(text) <= max_chars:
+            return text
+        
+        # Pre-slice the input to avoid excessive overhead on very long strings
+        text_window = text[:max_chars + 50]
+        
+        # Try to find sentence boundaries using regex
+        sentence_pattern = re.compile(r'[.!?]\s+')
+        
+        # Find all sentence end positions in the sliced window
+        sentence_ends = [match.end() for match in sentence_pattern.finditer(text_window)]
+        
+        if not sentence_ends:
+            # No sentence boundaries found - use word boundary instead
+            if len(text) <= min_chars:
+                return text
+            
+            # Find last word boundary before max_chars
+            truncated = text[:max_chars]
+            last_space = truncated.rfind(' ')
+            
+            if last_space > 0:
+                return truncated[:last_space] + "..."
+            else:
+                return truncated + "..."
+        
+        # Find the best cutoff point
+        # Try to get at least min_chars but not exceed max_chars
+        best_cutoff = 0
+        for end_pos in sentence_ends:
+            if end_pos <= max_chars:
+                best_cutoff = end_pos
+            else:
+                break
+        
+        # If we found a sentence boundary within limits
+        if best_cutoff > 0:
+            extracted = text[:best_cutoff].strip()
+            
+            # If we're below min_chars and have more sentences available, try to add one more
+            if len(extracted) < min_chars and best_cutoff < len(text):
+                # Look for next sentence
+                next_sentences = [end for end in sentence_ends if end > best_cutoff and end <= max_chars]
+                if next_sentences:
+                    extracted = text[:next_sentences[0]].strip()
+            
+            # Add "..." only if there's more text after our cutoff
+            if best_cutoff < len(text):
+                return extracted + "..."
+            else:
+                return extracted
+        
+        # Fallback: if no good sentence boundary, use word boundary at max_chars
+        truncated = text[:max_chars]
+        last_space = truncated.rfind(' ')
+        
+        if last_space > 0:
+            return truncated[:last_space] + "..."
+        else:
+            return truncated + "..."
     
     async def _translate_examples(self, examples: List[Dict]) -> List[Dict]:
         """

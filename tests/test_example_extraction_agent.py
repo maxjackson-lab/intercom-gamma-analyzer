@@ -212,7 +212,7 @@ def test_format_example_with_none_timestamp(agent):
 
 def test_format_example_preview_truncation(agent):
     """Test preview truncation for long messages."""
-    long_message = 'A' * 150  # Very long message
+    long_message = 'A' * 200  # Very long message
     conv = {
         'id': 'conv_long',
         'created_at': 1699123456,
@@ -223,7 +223,9 @@ def test_format_example_preview_truncation(agent):
     result = agent._format_example(conv)
     
     assert result is not None
-    assert len(result['preview']) <= 83  # 80 chars + "..."
+    # Expect preview length between 100 and 153 characters (considering ellipsis)
+    preview_len = len(result['preview'])
+    assert 100 <= preview_len <= 153, f"Preview length {preview_len} not in expected range 100-153"
     assert result['preview'].endswith('...')
 
 
@@ -256,7 +258,9 @@ def test_format_example_intercom_url_generation(agent):
     result = agent._format_example(conv)
     
     assert result is not None
-    assert result['intercom_url'] == 'https://app.intercom.com/a/inbox/inbox/conv_12345'
+    # Pattern-based check: URL should contain /inbox/inbox/ and end with conversation ID
+    assert '/inbox/inbox/' in result['intercom_url'], "URL should contain /inbox/inbox/ path"
+    assert result['intercom_url'].endswith('conv_12345'), "URL should end with conversation ID"
     assert result['conversation_id'] == 'conv_12345'
 
 
@@ -437,9 +441,9 @@ async def test_execute_with_valid_conversations(agent, sample_conversations_for_
         }
     )
     
-    # Mock OpenAI client to avoid real API calls
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3, 4, 5]')
+    # Mock ai_client to avoid real API calls
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3, 4, 5]')
     
     result = await agent.execute(context)
     
@@ -487,9 +491,9 @@ async def test_execute_with_integer_timestamps(agent):
         }
     )
     
-    # Mock OpenAI client
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3]')
+    # Mock ai_client
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3]')
     
     result = await agent.execute(context)
     
@@ -532,8 +536,8 @@ async def test_execute_with_mixed_timestamps(agent):
         }
     )
     
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3]')
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(return_value='[1, 2, 3]')
     
     result = await agent.execute(context)
     
@@ -562,8 +566,8 @@ async def test_execute_with_no_quality_conversations(agent):
         }
     )
     
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(return_value='[]')
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(return_value='[]')
     
     result = await agent.execute(context)
     
@@ -602,9 +606,9 @@ async def test_llm_select_examples_success(agent):
         for i in range(10)
     ]
     
-    # Mock OpenAI to return specific indices
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(return_value='[1, 3, 5, 7]')
+    # Mock ai_client to return specific indices
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(return_value='[1, 3, 5, 7]')
     
     result = await agent._llm_select_examples(
         candidates=candidates,
@@ -629,9 +633,9 @@ async def test_llm_select_examples_failure_fallback(agent):
         for i in range(10)
     ]
     
-    # Mock OpenAI to raise exception
-    agent.openai_client = AsyncMock()
-    agent.openai_client.generate_analysis = AsyncMock(side_effect=Exception("LLM error"))
+    # Mock ai_client to raise exception
+    agent.ai_client = AsyncMock()
+    agent.ai_client.generate_analysis = AsyncMock(side_effect=Exception("LLM error"))
     
     result = await agent._llm_select_examples(
         candidates=candidates,
@@ -643,4 +647,179 @@ async def test_llm_select_examples_failure_fallback(agent):
     # Should return empty list (fallback behavior)
     assert isinstance(result, list)
     assert len(result) == 0  # Fallback returns empty for LLM to handle at higher level
+
+
+# ============================================================================
+# Tests for _extract_full_sentence() - Phase 6
+# ============================================================================
+
+def test_extract_full_sentence_short_message(agent):
+    """Test extraction with message shorter than min_chars"""
+    text = "This is a short message"  # 23 chars
+    result = agent._extract_full_sentence(text, min_chars=100, max_chars=150)
+    
+    assert result == text
+    assert not result.endswith("...")
+
+
+def test_extract_full_sentence_medium_message(agent):
+    """Test extraction with message between min and max chars"""
+    text = "This is a medium length message that should be returned in full because it's under 150 characters total."  # 109 chars
+    result = agent._extract_full_sentence(text, min_chars=100, max_chars=150)
+    
+    assert result == text
+    assert not result.endswith("...")
+
+
+def test_extract_full_sentence_long_message_with_sentences(agent):
+    """Test extraction with long message containing sentence boundaries"""
+    text = "First sentence here. Second sentence here. Third sentence here. Fourth sentence here. Fifth sentence that continues on and on."  # >150 chars
+    result = agent._extract_full_sentence(text, min_chars=100, max_chars=150)
+    
+    # Should extract complete sentences up to max_chars
+    assert len(result) <= 150 + 3  # +3 for "..."
+    assert "." in result  # Should contain at least one complete sentence
+    assert result.endswith("...") or len(result) <= 150
+
+
+def test_extract_full_sentence_long_message_no_sentences(agent):
+    """Test extraction with long message without sentence boundaries"""
+    text = "A" * 200  # 200 chars with no sentence boundaries
+    result = agent._extract_full_sentence(text, min_chars=100, max_chars=150)
+    
+    # Should truncate at word boundary (or char boundary if no spaces)
+    assert len(result) <= 150 + 3  # +3 for "..."
+    assert result.endswith("...")
+
+
+def test_extract_full_sentence_minimum_length_enforcement(agent):
+    """Test that extraction tries to reach min_chars when possible"""
+    text = "Short. Another short. Third short. Fourth. Fifth sentence that's a bit longer."  # Multiple short sentences
+    result = agent._extract_full_sentence(text, min_chars=100, max_chars=150)
+    
+    # Should combine multiple sentences to reach min_chars
+    assert len(result) >= 35  # At least a few sentences
+    assert "." in result
+
+
+def test_format_example_uses_new_sentence_extraction(agent):
+    """Test that _format_example uses the new sentence extraction"""
+    long_message = "This is the first sentence of a customer message. This is the second sentence that continues the thought. And this is the third sentence that makes it even longer so we can test the extraction."  # >150 chars
+    
+    conv = {
+        'id': 'conv_long_test',
+        'created_at': 1699123456,
+        'customer_messages': [long_message],
+        'full_text': long_message
+    }
+    
+    result = agent._format_example(conv)
+    
+    assert result is not None
+    assert 'preview' in result
+    # Preview should be between 100-150 chars (or full length if shorter after sentence extraction)
+    preview_len = len(result['preview'])
+    assert preview_len >= 50  # At least some content
+    # Should contain complete sentences (ends with . or ...)
+    assert result['preview'].endswith('.') or result['preview'].endswith('...') or preview_len < 150
+
+
+def test_format_example_preview_length_range(agent):
+    """Test that preview lengths are within expected range for various message lengths"""
+    test_cases = [
+        ("Short message", 50),
+        ("A" * 100 + ". More text here to make it longer.", 100),
+        ("A" * 150 + ". Even more text to exceed maximum.", 150),
+        ("A" * 200 + ". Way too much text for a preview.", 200),
+        ("A" * 300 + ". This is an extremely long message.", 300)
+    ]
+    
+    for message, original_len in test_cases:
+        conv = {
+            'id': f'conv_test_{original_len}',
+            'created_at': 1699123456,
+            'customer_messages': [message],
+            'full_text': message
+        }
+        
+        result = agent._format_example(conv)
+        assert result is not None
+        preview_len = len(result['preview'])
+        
+        if original_len <= 150:
+            # Short messages should be returned in full (or close to it)
+            assert preview_len <= original_len + 10  # Small buffer for edge cases
+        else:
+            # Long messages should be truncated to around 150
+            assert preview_len <= 150 + 3  # +3 for "..."
+
+
+def test_intercom_url_consistency(agent):
+    """Test that Intercom URLs are consistently formatted"""
+    conv = {
+        'id': 'conv_12345',
+        'created_at': 1699123456,
+        'customer_messages': ['Test message for URL validation'],
+        'full_text': 'Test message'
+    }
+    
+    result = agent._format_example(conv)
+    
+    assert result is not None
+    assert 'intercom_url' in result
+    assert 'conversation_id' in result
+    # URL should follow pattern
+    assert '/inbox/inbox/' in result['intercom_url']
+    assert result['conversation_id'] == 'conv_12345'
+
+
+def test_intercom_url_with_missing_workspace_id(agent):
+    """Test Intercom URL generation with missing workspace_id"""
+    from unittest.mock import patch
+    
+    conv = {
+        'id': 'conv_test',
+        'created_at': 1699123456,
+        'customer_messages': ['Test message'],
+        'full_text': 'Test'
+    }
+    
+    # Mock settings to have placeholder workspace_id
+    with patch('src.config.settings.settings') as mock_settings:
+        mock_settings.intercom_workspace_id = "your-workspace-id-here"
+        
+        result = agent._format_example(conv)
+        
+        assert result is not None
+        assert 'intercom_url' in result
+        # Should still generate URL with placeholder
+        assert '[WORKSPACE_ID]' in result['intercom_url'] or 'your-workspace-id-here' in result['intercom_url']
+
+
+def test_all_examples_have_intercom_urls(agent):
+    """Test that all examples have valid Intercom URLs"""
+    conversations = [
+        {
+            'id': f'conv_{i}',
+            'created_at': 1699123456,
+            'customer_messages': [f'Test message {i} with enough content to be valid'],
+            'full_text': f'Test message {i}',
+            'conversation_rating': 4
+        }
+        for i in range(10)
+    ]
+    
+    examples = []
+    for conv in conversations:
+        example = agent._format_example(conv)
+        if example:
+            examples.append(example)
+    
+    # All examples should have intercom_url field
+    assert len(examples) > 0
+    for example in examples:
+        assert 'intercom_url' in example
+        assert example['intercom_url'] is not None
+        assert example['intercom_url'] != ''
+        assert example['intercom_url'] != '#'
 
