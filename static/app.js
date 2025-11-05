@@ -235,3 +235,503 @@ style.textContent = `
 document.head.appendChild(style);
 
 console.log('✅ Shared utilities initialized');
+
+/**
+ * ============================================================================
+ * Analysis Form Management
+ * Functions for running analysis and managing the web UI form
+ * ============================================================================
+ */
+
+// Store current execution ID
+let currentExecutionId = null;
+
+/**
+ * Main function to run analysis from form
+ */
+async function runAnalysis() {
+    console.log('🚀 runAnalysis() called');
+    
+    try {
+        // Get form values
+        const analysisType = document.getElementById('analysisType')?.value;
+        const timePeriod = document.getElementById('timePeriod')?.value;
+        const dataSource = document.getElementById('dataSource')?.value;
+        const taxonomyFilter = document.getElementById('taxonomyFilter')?.value;
+        const outputFormat = document.getElementById('outputFormat')?.value;
+        const aiModel = document.getElementById('aiModel')?.value;
+        const testMode = document.getElementById('testMode')?.checked || false;
+        const auditMode = document.getElementById('auditMode')?.checked || false;
+        
+        // Get test mode options if enabled
+        const testDataCount = document.getElementById('testDataCount')?.value || '100';
+        const verboseLogging = document.getElementById('verboseLogging')?.checked || false;
+        
+        // Get sample mode options if sample-mode selected
+        const sampleCount = document.getElementById('sampleCount')?.value || '50';
+        const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
+        
+        // Get custom dates if "custom" time period selected
+        const startDate = document.getElementById('startDate')?.value || null;
+        const endDate = document.getElementById('endDate')?.value || null;
+        
+        console.log('Form values:', {
+            analysisType, timePeriod, dataSource, outputFormat, 
+            aiModel, testMode, auditMode, taxonomyFilter
+        });
+        
+        // Build command based on analysis type
+        let command = 'python';
+        let args = ['src/main.py'];
+        
+        // Map web UI analysis types to CLI commands
+        if (analysisType === 'sample-mode') {
+            args.push('sample-mode');
+            args.push('--count', sampleCount);
+            args.push('--time-period', sampleTimePeriod);
+            
+        } else if (analysisType === 'voice-of-customer-hilary') {
+            args.push('voice-of-customer');
+            args.push('--analysis-type', 'topic-based');
+            args.push('--multi-agent');
+            
+        } else if (analysisType === 'voice-of-customer-synthesis') {
+            args.push('voice-of-customer');
+            args.push('--analysis-type', 'synthesis');
+            args.push('--multi-agent');
+            
+        } else if (analysisType === 'voice-of-customer-complete') {
+            args.push('voice-of-customer');
+            args.push('--analysis-type', 'complete');
+            args.push('--multi-agent');
+            
+        } else if (analysisType.startsWith('agent-performance-')) {
+            args.push('agent-performance');
+            
+            // Extract agent type
+            if (analysisType.includes('horatio')) {
+                args.push('--agent', 'horatio');
+            } else if (analysisType.includes('boldr')) {
+                args.push('--agent', 'boldr');
+            } else if (analysisType.includes('escalated')) {
+                args.push('--agent', 'escalated');
+            }
+            
+            // Check if individual breakdown
+            if (analysisType.includes('individual')) {
+                args.push('--individual-breakdown');
+            }
+            
+        } else if (analysisType.startsWith('agent-coaching-')) {
+            args.push('agent-coaching-report');
+            
+            // Extract vendor
+            if (analysisType.includes('horatio')) {
+                args.push('--vendor', 'horatio');
+            } else if (analysisType.includes('boldr')) {
+                args.push('--vendor', 'boldr');
+            }
+            
+        } else if (analysisType === 'canny-analysis') {
+            args.push('canny-analysis');
+            
+        } else if (analysisType.startsWith('analyze-')) {
+            // Category commands: analyze-billing, analyze-product, etc.
+            args.push(analysisType);
+            
+        } else if (analysisType === 'tech-analysis') {
+            args.push('tech-analysis');
+            
+        } else {
+            showToast('Unknown analysis type: ' + analysisType, 'error');
+            return;
+        }
+        
+        // Add time period (unless it's sample-mode)
+        if (analysisType !== 'sample-mode') {
+            if (timePeriod === 'custom' && startDate && endDate) {
+                args.push('--start-date', startDate);
+                args.push('--end-date', endDate);
+            } else if (timePeriod !== 'custom' && timePeriod) {
+                args.push('--time-period', timePeriod);
+            }
+        }
+        
+        // Add AI model
+        if (aiModel && analysisType !== 'sample-mode') {
+            args.push('--ai-model', aiModel);
+        }
+        
+        // Add output format / generate gamma
+        if (outputFormat === 'gamma') {
+            args.push('--generate-gamma');
+        } else if (outputFormat && analysisType !== 'sample-mode') {
+            args.push('--output-format', outputFormat);
+        }
+        
+        // Add test mode flags
+        if (testMode) {
+            args.push('--test-mode');
+            if (testDataCount) {
+                args.push('--test-data-count', testDataCount);
+            }
+        }
+        
+        // Add verbose flag
+        if (verboseLogging || (testMode && verboseLogging)) {
+            args.push('--verbose');
+        }
+        
+        // Add audit trail
+        if (auditMode) {
+            args.push('--audit-trail');
+        }
+        
+        // Handle data source
+        if (dataSource === 'canny' && analysisType.startsWith('voice-of-customer')) {
+            // Switch to canny-analysis
+            args = ['src/main.py', 'canny-analysis'];
+            if (timePeriod !== 'custom') {
+                args.push('--time-period', timePeriod);
+            }
+        } else if (dataSource === 'both' && analysisType.startsWith('voice-of-customer')) {
+            args.push('--include-canny');
+        }
+        
+        // Taxonomy filter warning (not yet implemented in CLI)
+        if (taxonomyFilter && taxonomyFilter !== '') {
+            console.warn('Taxonomy filter selected but not yet supported:', taxonomyFilter);
+            // TODO: Add --filter-category flag to CLI first
+        }
+        
+        console.log('Executing command:', command, args);
+        
+        // Generate execution ID
+        currentExecutionId = 'exec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // Show terminal container
+        const terminalContainer = document.getElementById('terminalContainer');
+        if (terminalContainer) {
+            terminalContainer.style.display = 'block';
+        }
+        
+        // Clear previous output
+        const terminalOutput = document.getElementById('terminalOutput');
+        if (terminalOutput) {
+            terminalOutput.innerHTML = '<div class="terminal-line">Starting analysis...</div>';
+        }
+        
+        // Show spinner and status
+        const spinner = document.getElementById('executionSpinner');
+        const status = document.getElementById('executionStatus');
+        const cancelBtn = document.getElementById('cancelButton');
+        const tabNav = document.getElementById('tabNavigation');
+        
+        if (spinner) spinner.style.display = 'inline-block';
+        if (status) {
+            status.textContent = 'Running';
+            status.className = 'status-badge';
+            status.style.display = 'inline-block';
+        }
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        if (tabNav) tabNav.style.display = 'flex';
+        
+        // Switch to terminal tab
+        switchTab('terminal');
+        
+        // Build query string for /execute endpoint
+        const params = new URLSearchParams({
+            command: command,
+            args: JSON.stringify(args),
+            execution_id: currentExecutionId
+        });
+        
+        // Get token if available
+        const token = localStorage.getItem('api_token') || '';
+        
+        // Call /execute with SSE streaming
+        const url = `/execute?${params}`;
+        console.log('Opening EventSource:', url);
+        
+        const eventSource = new EventSource(url);
+        
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('Received SSE:', data);
+                
+                // Append output to terminal
+                if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status') {
+                    appendToTerminal(data.data || data.message || '', data.type);
+                }
+                
+                // Handle completion
+                if (data.type === 'complete' || data.status === 'completed') {
+                    if (spinner) spinner.style.display = 'none';
+                    if (status) {
+                        status.textContent = 'Completed ✓';
+                        status.className = 'status-badge status-success';
+                    }
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    eventSource.close();
+                    showToast('Analysis completed successfully!', 'success');
+                }
+                
+                // Handle errors
+                if (data.type === 'error' || data.status === 'failed') {
+                    if (spinner) spinner.style.display = 'none';
+                    if (status) {
+                        status.textContent = 'Failed ✗';
+                        status.className = 'status-badge status-error';
+                    }
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    eventSource.close();
+                    showToast('Analysis failed: ' + (data.message || 'Unknown error'), 'error');
+                }
+                
+                // Handle timeout
+                if (data.type === 'timeout' || data.status === 'timeout') {
+                    if (spinner) spinner.style.display = 'none';
+                    if (status) {
+                        status.textContent = 'Timeout ⏱';
+                        status.className = 'status-badge status-error';
+                    }
+                    if (cancelBtn) cancelBtn.style.display = 'none';
+                    eventSource.close();
+                    showToast('Analysis timed out', 'error');
+                }
+                
+            } catch (e) {
+                console.error('Error parsing SSE data:', e, 'Raw data:', event.data);
+            }
+        };
+        
+        eventSource.onerror = function(error) {
+            console.error('EventSource error:', error);
+            if (spinner) spinner.style.display = 'none';
+            if (status) {
+                status.textContent = 'Error ✗';
+                status.className = 'status-badge status-error';
+            }
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            eventSource.close();
+            showToast('Connection error. Check console for details.', 'error');
+        };
+        
+    } catch (error) {
+        console.error('Error in runAnalysis():', error);
+        showToast('Error starting analysis: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Append text to terminal output with ANSI color support
+ */
+function appendToTerminal(text, type) {
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (!terminalOutput) return;
+    
+    // Use ansi_up if available for color support
+    let formattedText = escapeHtml(text);
+    if (typeof ansi_up !== 'undefined' && ansi_up.ansi_to_html) {
+        try {
+            const ansi = new ansi_up.default();
+            formattedText = ansi.ansi_to_html(text);
+        } catch (e) {
+            console.warn('ansi_up failed, using plain text:', e);
+        }
+    }
+    
+    const line = document.createElement('div');
+    line.className = `terminal-line terminal-${type}`;
+    line.innerHTML = formattedText;
+    
+    terminalOutput.appendChild(line);
+    
+    // Auto-scroll to bottom
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+}
+
+/**
+ * Update analysis options based on selected analysis type
+ */
+function updateAnalysisOptions() {
+    const analysisType = document.getElementById('analysisType')?.value;
+    if (!analysisType) return;
+    
+    console.log('updateAnalysisOptions() called, type:', analysisType);
+    
+    // Show/hide sample mode options
+    const sampleModeOptions = document.getElementById('sampleModeOptions');
+    if (sampleModeOptions) {
+        sampleModeOptions.style.display = (analysisType === 'sample-mode') ? 'block' : 'none';
+    }
+    
+    // Show/hide individual breakdown info
+    const individualInfo = document.getElementById('individualBreakdownInfo');
+    if (individualInfo) {
+        const showIndividual = analysisType.includes('individual');
+        individualInfo.style.display = showIndividual ? 'block' : 'none';
+    }
+    
+    // Show/hide coaching report info
+    const coachingInfo = document.getElementById('coachingReportInfo');
+    if (coachingInfo) {
+        const showCoaching = analysisType.includes('coaching');
+        coachingInfo.style.display = showCoaching ? 'block' : 'none';
+    }
+    
+    // Show/hide team overview info
+    const teamInfo = document.getElementById('teamOverviewInfo');
+    if (teamInfo) {
+        const showTeam = analysisType.includes('team');
+        teamInfo.style.display = showTeam ? 'block' : 'none';
+    }
+    
+    // Show/hide time period selector for sample mode
+    const timePeriodLabel = document.getElementById('timePeriodLabel');
+    const timePeriodSelect = document.getElementById('timePeriod');
+    if (analysisType === 'sample-mode') {
+        if (timePeriodLabel) timePeriodLabel.style.display = 'none';
+        if (timePeriodSelect) timePeriodSelect.style.display = 'none';
+    } else {
+        if (timePeriodLabel) timePeriodLabel.style.display = 'block';
+        if (timePeriodSelect) timePeriodSelect.style.display = 'block';
+    }
+    
+    // Show/hide test mode options when checkbox changes
+    updateTestModeOptions();
+}
+
+/**
+ * Update test mode options visibility
+ */
+function updateTestModeOptions() {
+    const testModeCheckbox = document.getElementById('testMode');
+    const testModeOptions = document.getElementById('testModeOptions');
+    
+    if (testModeOptions && testModeCheckbox) {
+        testModeOptions.style.display = testModeCheckbox.checked ? 'block' : 'none';
+    }
+}
+
+/**
+ * Update custom date inputs visibility
+ */
+function updateCustomDateInputs() {
+    const timePeriodSelect = document.getElementById('timePeriod');
+    const customDateInputs = document.getElementById('customDateInputs');
+    
+    if (customDateInputs && timePeriodSelect) {
+        customDateInputs.style.display = (timePeriodSelect.value === 'custom') ? 'block' : 'none';
+    }
+}
+
+/**
+ * Switch between tabs (Terminal, Summary, Files, Gamma)
+ */
+function switchTab(tabName) {
+    console.log('switchTab() called:', tabName);
+    
+    // Hide all tab panes
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach(pane => {
+        pane.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab pane
+    const targetPane = document.getElementById(tabName + 'TabContent');
+    if (targetPane) {
+        targetPane.classList.add('active');
+    }
+    
+    // Activate selected tab button
+    const targetButton = document.getElementById(tabName + 'Tab');
+    if (targetButton) {
+        targetButton.classList.add('active');
+    }
+}
+
+/**
+ * Cancel running execution
+ */
+async function cancelExecution() {
+    if (!currentExecutionId) {
+        showToast('No execution to cancel', 'info');
+        return;
+    }
+    
+    try {
+        console.log('Cancelling execution:', currentExecutionId);
+        
+        const token = localStorage.getItem('api_token') || '';
+        const response = await fetch(`/api/executions/${currentExecutionId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            showToast('Execution cancelled', 'info');
+            const spinner = document.getElementById('executionSpinner');
+            const status = document.getElementById('executionStatus');
+            const cancelBtn = document.getElementById('cancelButton');
+            
+            if (spinner) spinner.style.display = 'none';
+            if (status) {
+                status.textContent = 'Cancelled';
+                status.className = 'status-badge status-warning';
+            }
+            if (cancelBtn) cancelBtn.style.display = 'none';
+        } else {
+            throw new Error('Failed to cancel execution');
+        }
+    } catch (error) {
+        console.error('Cancel error:', error);
+        showToast('Failed to cancel execution', 'error');
+    }
+}
+
+// Initialize form on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAnalysisForm);
+} else {
+    initializeAnalysisForm();
+}
+
+function initializeAnalysisForm() {
+    console.log('Initializing analysis form...');
+    
+    // Set up event listeners
+    const testModeCheckbox = document.getElementById('testMode');
+    if (testModeCheckbox) {
+        testModeCheckbox.addEventListener('change', updateTestModeOptions);
+    }
+    
+    const timePeriodSelect = document.getElementById('timePeriod');
+    if (timePeriodSelect) {
+        timePeriodSelect.addEventListener('change', updateCustomDateInputs);
+    }
+    
+    // Initial update
+    updateAnalysisOptions();
+    
+    console.log('✅ Analysis form initialized');
+}
+
+// Export functions to window for onclick handlers
+window.runAnalysis = runAnalysis;
+window.updateAnalysisOptions = updateAnalysisOptions;
+window.switchTab = switchTab;
+window.cancelExecution = cancelExecution;
+window.appendToTerminal = appendToTerminal;
+
+console.log('✅ Analysis form functions loaded');
