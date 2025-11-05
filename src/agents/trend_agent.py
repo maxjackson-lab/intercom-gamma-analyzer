@@ -16,6 +16,7 @@ from pathlib import Path
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
+from src.services.historical_snapshot_service import HistoricalSnapshotService
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,26 @@ logger = logging.getLogger(__name__)
 class TrendAgent(BaseAgent):
     """Agent specialized in week-over-week trend analysis with LLM interpretation"""
     
-    def __init__(self, historical_data_dir: Optional[Path] = None):
+    def __init__(
+        self, 
+        historical_data_dir: Optional[Path] = None,
+        historical_snapshot_service: Optional[HistoricalSnapshotService] = None
+    ):
+        """
+        Initialize TrendAgent.
+        
+        Args:
+            historical_data_dir: Directory for legacy JSON storage (deprecated, use historical_snapshot_service)
+            historical_snapshot_service: Service for DuckDB-backed snapshot storage
+        """
         super().__init__(
             name="TrendAgent",
             model="gpt-4o",
             temperature=0.5
         )
         self.ai_client = get_ai_client()
+        self.historical_snapshot_service = historical_snapshot_service
+        # Keep historical_dir for backward compatibility (reading old JSON files during migration)
         self.historical_dir = historical_data_dir or Path("outputs/weekly_history")
         self.historical_dir.mkdir(parents=True, exist_ok=True)
     
@@ -98,6 +112,10 @@ Output trends for:
             week_id = context.metadata.get('week_id', datetime.now().strftime('%Y-W%W'))
             
             self.logger.info(f"TrendAgent: Analyzing trends for week {week_id}")
+            
+            # Warn if no historical snapshot service provided (using legacy JSON storage)
+            if self.historical_snapshot_service is None:
+                self.logger.warning("TrendAgent: No HistoricalSnapshotService provided, using legacy JSON storage")
             
             # Load historical data
             historical_data = self._load_historical_data()
@@ -171,7 +189,32 @@ Output trends for:
             )
     
     def _load_historical_data(self) -> List[Dict]:
-        """Load previous weeks' data"""
+        """Load previous weeks' data from DuckDB or fallback to JSON files"""
+        # NEW LOGIC: Try DuckDB first if service is available
+        if self.historical_snapshot_service is not None:
+            try:
+                self.logger.debug("Loading historical data from DuckDB")
+                snapshots = self.historical_snapshot_service.list_snapshots('weekly', limit=12)
+                
+                # Transform DuckDB snapshot format to expected format
+                historical = []
+                for snapshot in snapshots:
+                    historical.append({
+                        'week_id': snapshot['snapshot_id'],
+                        'timestamp': snapshot['created_at'],
+                        'results': {
+                            'topic_distribution': snapshot.get('topic_volumes', {}),
+                            'topic_sentiments': snapshot.get('topic_sentiments', {})
+                        }
+                    })
+                
+                self.logger.debug(f"Loaded {len(historical)} snapshots from DuckDB")
+                return historical
+            except Exception as e:
+                self.logger.warning(f"Failed to load from DuckDB, falling back to JSON files: {e}")
+        
+        # FALLBACK LOGIC: Use existing JSON file reading
+        self.logger.debug("Loading historical data from JSON files")
         historical = []
         
         for file in sorted(self.historical_dir.glob("week_*.json")):
@@ -185,15 +228,50 @@ Output trends for:
         return historical
     
     def _save_week_data(self, week_id: str, results: Dict):
-        """Save current week data for future comparisons"""
-        filename = self.historical_dir / f"week_{week_id.replace('-', '_')}.json"
+        """Save current week data for future comparisons to DuckDB and/or JSON"""
+        # NEW LOGIC: Try DuckDB first if service is available
+        if self.historical_snapshot_service is not None:
+            try:
+                # Build snapshot data from results
+                snapshot_data = {
+                    'week_id': week_id,
+                    'period_type': 'weekly',
+                    'period_label': week_id,
+                    'summary': {
+                        'total_conversations': results.get('total_conversations', 0)
+                    },
+                    'formatted_report': '',
+                    'metrics': {},
+                    'agent_results': {
+                        'TopicDetectionAgent': {
+                            'data': {
+                                'topic_distribution': results.get('topic_distribution', {})
+                            }
+                        },
+                        'TopicProcessingAgent': {
+                            'data': {
+                                'topic_sentiments': results.get('topic_sentiments', {})
+                            }
+                        }
+                    }
+                }
+                self.historical_snapshot_service.save_snapshot(snapshot_data, 'weekly')
+                self.logger.debug(f"Saved week {week_id} data to DuckDB")
+            except Exception as e:
+                self.logger.warning(f"Failed to save to DuckDB: {e}")
         
-        with open(filename, 'w') as f:
-            json.dump({
-                'week_id': week_id,
-                'timestamp': datetime.now().isoformat(),
-                'results': results
-            }, f, indent=2, default=str)
+        # FALLBACK LOGIC: Keep JSON writing for backward compatibility during transition
+        try:
+            filename = self.historical_dir / f"week_{week_id.replace('-', '_')}.json"
+            with open(filename, 'w') as f:
+                json.dump({
+                    'week_id': week_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'results': results
+                }, f, indent=2, default=str)
+            self.logger.debug(f"Saved week {week_id} data to JSON")
+        except Exception as e:
+            self.logger.warning(f"Failed to save to JSON: {e}")
     
     def _calculate_trends(self, current: Dict, historical: List[Dict]) -> Dict:
         """Calculate week-over-week trends"""

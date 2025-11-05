@@ -1,9 +1,13 @@
 """
 Historical data manager for storing and retrieving VoC analysis snapshots.
+
+DEPRECATED: Use HistoricalSnapshotService with DuckDB storage instead.
+This class will be removed in a future version.
 """
 
 import logging
 import json
+import warnings
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from pathlib import Path
@@ -14,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class HistoricalDataManager:
-    """Manages historical data snapshots for trend analysis."""
+    """
+    Manages historical data snapshots for trend analysis.
+    
+    DEPRECATED: Use HistoricalSnapshotService with DuckDB storage instead.
+    This class will be removed in a future version.
+    """
 
     def __init__(self, storage_dir: str = None, retention_weeks: int = None):
         """
@@ -24,6 +33,12 @@ class HistoricalDataManager:
             storage_dir: Directory for storing snapshots
             retention_weeks: Number of weeks to retain snapshots (default from settings or 52)
         """
+        warnings.warn(
+            "HistoricalDataManager is deprecated. Use HistoricalSnapshotService instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self.storage_dir = Path(storage_dir or settings.output_directory) / "historical_data"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.logger = logging.getLogger(__name__)
@@ -49,6 +64,8 @@ class HistoricalDataManager:
         """
         Store weekly VoC analysis snapshot.
         
+        DEPRECATED: Use HistoricalSnapshotService.save_snapshot() instead.
+        
         Args:
             week_start: Start date of the week
             analysis_results: VoC analysis results
@@ -56,6 +73,12 @@ class HistoricalDataManager:
         Returns:
             Path to stored snapshot
         """
+        warnings.warn(
+            "store_weekly_snapshot is deprecated. Use HistoricalSnapshotService.save_snapshot() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # TODO: Remove after migration to DuckDB complete
         self.logger.info(f"Storing weekly snapshot for week starting {week_start.date()}")
         
         snapshot_data = {
@@ -86,6 +109,8 @@ class HistoricalDataManager:
         """
         Store monthly VoC analysis snapshot.
         
+        DEPRECATED: Use HistoricalSnapshotService.save_snapshot() instead.
+        
         Args:
             month_start: Start date of the month
             analysis_results: VoC analysis results
@@ -93,6 +118,12 @@ class HistoricalDataManager:
         Returns:
             Path to stored snapshot
         """
+        warnings.warn(
+            "store_monthly_snapshot is deprecated. Use HistoricalSnapshotService.save_snapshot() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # TODO: Remove after migration to DuckDB complete
         self.logger.info(f"Storing monthly snapshot for month starting {month_start.date()}")
         
         snapshot_data = {
@@ -123,6 +154,8 @@ class HistoricalDataManager:
         """
         Store quarterly VoC analysis snapshot.
         
+        DEPRECATED: Use HistoricalSnapshotService.save_snapshot() instead.
+        
         Args:
             quarter_start: Start date of the quarter
             analysis_results: VoC analysis results
@@ -130,6 +163,12 @@ class HistoricalDataManager:
         Returns:
             Path to stored snapshot
         """
+        warnings.warn(
+            "store_quarterly_snapshot is deprecated. Use HistoricalSnapshotService.save_snapshot() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        # TODO: Remove after migration to DuckDB complete
         self.logger.info(f"Storing quarterly snapshot for quarter starting {quarter_start.date()}")
         
         snapshot_data = {

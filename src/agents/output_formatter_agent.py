@@ -246,6 +246,17 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append("---")
             output_sections.append("")
             
+            # Week-over-Week Changes Section (if prior snapshot exists)
+            comparison_data = context.metadata.get('comparison_data')
+            if comparison_data:
+                self.logger.info("Adding Week-over-Week Changes section")
+                comparison_section = self._format_comparison_section(comparison_data)
+                output_sections.append(comparison_section)
+                output_sections.append("---")
+                output_sections.append("")
+            else:
+                self.logger.info("No prior snapshot available - skipping week-over-week section")
+            
             # Section 1: Voice of Customer (Paid Customers)
             output_sections.append("## Customer Topics (Paid Tier - Human Support)")
             output_sections.append("")
@@ -786,4 +797,140 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
         card += "\n---\n"
 
         return card
+
+    def _format_comparison_section(self, comparison_data: Dict[str, Any]) -> str:
+        """
+        Format week-over-week comparison section.
+        
+        Args:
+            comparison_data: Comparison data from HistoricalSnapshotService
+            
+        Returns:
+            Formatted markdown string with all comparison subsections
+        """
+        try:
+            sections = []
+            sections.append("## Week-over-Week Changes 📊")
+            sections.append("")
+            
+            # 1. Volume Changes subsection
+            volume_changes = comparison_data.get('volume_changes', {})
+            if volume_changes:
+                sections.append("### Volume Changes")
+                sections.append("")
+                
+                # Sort by absolute change descending, limit to top 10
+                sorted_changes = sorted(
+                    volume_changes.items(),
+                    key=lambda x: abs(x[1].get('change', 0)),
+                    reverse=True
+                )[:10]
+                
+                for topic, changes in sorted_changes:
+                    current = changes.get('current', 0)
+                    change = changes.get('change', 0)
+                    pct = changes.get('pct', 0)
+                    sections.append(f"- **{topic}**: {current} conversations ({change:+d}, {pct:+.1%})")
+                
+                sections.append("")
+            
+            # 2. Significant Changes subsection
+            significant_changes = comparison_data.get('significant_changes', [])
+            if significant_changes:
+                sections.append("### Significant Changes (>25% change, >5 conversations)")
+                sections.append("")
+                
+                for change in significant_changes:
+                    topic = change.get('topic', 'Unknown')
+                    alert = change.get('alert', '')
+                    change_val = change.get('change', 0)
+                    pct = change.get('pct', 0)
+                    direction = change.get('direction', 'unknown')
+                    
+                    sections.append(f"{alert} **{topic}**: {change_val:+d} conversations ({pct:+.1%})")
+                
+                sections.append("")
+                sections.append(f"_Interpretation: {direction} trend detected_")
+                sections.append("")
+            
+            # 3. Emerging Patterns subsection
+            emerging_patterns = comparison_data.get('emerging_patterns', [])
+            if emerging_patterns:
+                sections.append("### Emerging Patterns (New Topics) 🆕")
+                sections.append("")
+                
+                for pattern in emerging_patterns:
+                    topic = pattern.get('topic', 'Unknown')
+                    volume = pattern.get('volume', 0)
+                    sections.append(f"- **{topic}**: {volume} conversations (new this period)")
+                
+                sections.append("")
+                sections.append("_These topics appeared for the first time this period_")
+                sections.append("")
+            
+            # 4. Declining Patterns subsection
+            declining_patterns = comparison_data.get('declining_patterns', [])
+            if declining_patterns:
+                sections.append("### Declining Patterns (Disappeared Topics) 📉")
+                sections.append("")
+                
+                for pattern in declining_patterns:
+                    topic = pattern.get('topic', 'Unknown')
+                    prior_volume = pattern.get('prior_volume', 0)
+                    sections.append(f"- **{topic}**: {prior_volume} conversations last period (disappeared)")
+                
+                sections.append("")
+                sections.append("_These topics were present last period but not this period_")
+                sections.append("")
+            
+            # 5. Sentiment Shifts subsection
+            sentiment_changes = comparison_data.get('sentiment_changes', {})
+            if sentiment_changes:
+                # Filter for notable shifts (>10 percentage point change)
+                notable_shifts = [
+                    (topic, changes) for topic, changes in sentiment_changes.items()
+                    if abs(changes.get('positive_delta', 0)) > 0.1
+                ]
+                
+                if notable_shifts:
+                    sections.append("### Sentiment Shifts")
+                    sections.append("")
+                    
+                    # Sort by absolute positive delta, limit to top 5
+                    notable_shifts.sort(key=lambda x: abs(x[1].get('positive_delta', 0)), reverse=True)
+                    notable_shifts = notable_shifts[:5]
+                    
+                    for topic, changes in notable_shifts:
+                        shift = changes.get('shift', 'stable')
+                        positive_delta = changes.get('positive_delta', 0)
+                        sections.append(f"- **{topic}**: {shift} ({positive_delta:+.1%} positive sentiment)")
+                    
+                    sections.append("")
+            
+            # 6. Resolution Quality Changes subsection
+            resolution_changes = comparison_data.get('resolution_changes', {})
+            if resolution_changes:
+                sections.append("### Resolution Quality Changes")
+                sections.append("")
+                
+                fcr_delta = resolution_changes.get('fcr_rate_delta')
+                if fcr_delta is not None:
+                    interpretation = "improving" if fcr_delta > 0 else "declining" if fcr_delta < 0 else "stable"
+                    sections.append(f"- **First Contact Resolution**: {fcr_delta:+.1%} ({interpretation})")
+                
+                time_delta = resolution_changes.get('resolution_time_delta')
+                if time_delta is not None:
+                    interpretation = "improving" if time_delta < 0 else "declining" if time_delta > 0 else "stable"
+                    sections.append(f"- **Median Resolution Time**: {time_delta:+.1f} hours ({interpretation})")
+                
+                overall_interpretation = resolution_changes.get('interpretation', 'stable')
+                sections.append("")
+                sections.append(f"_Overall: Resolution quality is **{overall_interpretation}**_")
+                sections.append("")
+            
+            return '\n'.join(sections)
+            
+        except Exception as e:
+            self.logger.warning(f"Error formatting comparison section: {e}")
+            return "## Week-over-Week Changes 📊\n\n_Comparison data unavailable_\n\n"
 

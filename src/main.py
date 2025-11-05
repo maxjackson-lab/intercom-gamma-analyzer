@@ -302,6 +302,60 @@ def system_info():
     show_system_info()
 
 
+@cli.command(name='list-snapshots')
+@click.option('--type', '-t', 'analysis_type',
+              type=click.Choice(['weekly', 'monthly', 'quarterly']),
+              help='Filter by snapshot type')
+@click.option('--limit', '-l', type=int, default=10,
+              help='Maximum number of snapshots to display')
+@click.option('--show-reviewed', is_flag=True,
+              help='Show only reviewed snapshots')
+@click.option('--show-unreviewed', is_flag=True,
+              help='Show only unreviewed snapshots')
+def list_snapshots_cmd(analysis_type: Optional[str], limit: int, show_reviewed: bool, show_unreviewed: bool):
+    """List historical analysis snapshots"""
+    from src.cli.commands import list_snapshots
+    asyncio.run(list_snapshots(analysis_type, limit, show_reviewed, show_unreviewed))
+
+
+@cli.command(name='export-snapshot-schema')
+@click.option('--output', '-o', 'output_file',
+              help='Output file path for schema JSON')
+@click.option('--type', '-t', 'schema_type',
+              type=click.Choice(['snapshot', 'comparison', 'all']),
+              default='all',
+              help='Schema type to export')
+def export_snapshot_schema_cmd(output_file: Optional[str], schema_type: str):
+    """Export JSON schema for snapshot data models (API documentation)"""
+    from src.cli.commands import export_snapshot_schema
+    asyncio.run(export_snapshot_schema(output_file, schema_type))
+
+
+@cli.command(name='compare-snapshots')
+@click.option('--current', '-c', 'current_id', required=True,
+              help='Snapshot ID for current period (e.g., weekly_20251114)')
+@click.option('--prior', '-p', 'prior_id', required=True,
+              help='Snapshot ID for prior period (e.g., weekly_20251107)')
+@click.option('--show-details', '-d', is_flag=True, default=False,
+              help='Show detailed comparison including sentiment and resolution metrics')
+def compare_snapshots_cmd(current_id: str, prior_id: str, show_details: bool):
+    """Compare two analysis snapshots"""
+    from src.cli.commands import compare_snapshots
+    
+    console.print("[bold]Comparing Analysis Snapshots[/bold]")
+    console.print(f"Current: {current_id}")
+    console.print(f"Prior: {prior_id}")
+    console.print("")
+    
+    result = asyncio.run(compare_snapshots(current_id, prior_id, show_details))
+    
+    if 'error' in result:
+        console.print(f"[red]Error: {result['error']}[/red]")
+        sys.exit(1)
+    
+    sys.exit(0)
+
+
 @cli.command()
 @click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
 @click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')

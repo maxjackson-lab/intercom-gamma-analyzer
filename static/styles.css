@@ -1147,3 +1147,301 @@ button:disabled {
     color: #e5e7eb;
     border: 1px solid #222;
 }
+
+/* ============================================
+   TIMELINE UI STYLES
+   ============================================ */
+
+/* Context Banner */
+.context-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.context-banner .icon {
+    font-size: 20px;
+}
+
+/* Tab Navigation */
+.tab-navigation {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 2px solid #222;
+}
+
+.tab-button {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
+}
+
+/* Timeline Container */
+.timeline-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+/* Snapshot Card */
+.snapshot-card {
+    background: #111;
+    border: 2px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.snapshot-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Card States */
+.snapshot-card.reviewed {
+    opacity: 0.75;
+    border-color: #4CAF50;
+}
+
+.snapshot-card.current {
+    border-color: #FF9800;
+    background: linear-gradient(135deg, #1a1a1a 0%, #111 100%);
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.3);
+}
+
+.snapshot-card.future {
+    border-style: dashed;
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Card Header */
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #222;
+}
+
+.review-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #4CAF50;
+}
+
+.snapshot-label {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+
+/* Status Badges for Timeline */
+.status-badge.reviewed {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.status-badge.current {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FF9800;
+}
+
+.status-badge.future {
+    background: rgba(158, 158, 158, 0.2);
+    color: #9e9e9e;
+}
+
+/* Card Summary */
+.card-summary {
+    color: #9ca3af;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    min-height: 60px;
+}
+
+/* Card Metrics */
+.card-metrics {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.card-metrics .metric {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.card-metrics .trend-up {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.card-metrics .trend-down {
+    color: #10b981;
+    font-weight: 600;
+}
+
+/* Card Actions */
+.card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.card-actions button {
+    flex: 1;
+    padding: 10px 16px;
+    background: #374151;
+    color: #e5e7eb;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.card-actions button:hover {
+    background: #4b5563;
+    transform: translateY(-1px);
+}
+
+.card-actions button.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.card-actions button.primary:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Trend Chart Section */
+.trend-chart-section {
+    background: #111;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 32px;
+}
+
+.trend-chart-section h3 {
+    color: #e5e7eb;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+#volumeTrendChart {
+    max-height: 400px;
+}
+
+/* Chart Message */
+.chart-message {
+    text-align: center;
+    padding: 16px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 8px;
+    color: #9ca3af;
+    font-size: 14px;
+    margin-top: 16px;
+}
+
+/* Modal Styles (for detail/comparison views) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 12px;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 32px;
+    position: relative;
+}
+
+.modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: #374151;
+    color: #e5e7eb;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    background: #4b5563;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .timeline-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .card-actions {
+        flex-direction: column;
+    }
+    
+    .tab-navigation {
+        flex-direction: column;
+    }
+    
+    .card-metrics {
+        flex-direction: column;
+        gap: 8px;
+    }
+}

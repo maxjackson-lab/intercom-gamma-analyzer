@@ -1215,3 +1215,266 @@ def test_expected_agents_configuration(agent):
         assert isinstance(config['required'], bool)
         assert isinstance(config['key'], str)
 
+
+# ============================================================================
+# TEST CASES FOR PHASE 3: Week-over-Week Comparison Section
+# ============================================================================
+
+@pytest.fixture
+def sample_comparison_data() -> Dict[str, Any]:
+    """Create sample comparison data with all fields"""
+    return {
+        'comparison_id': 'comp_weekly_20251114_weekly_20251107',
+        'volume_changes': {
+            'Billing': {'change': 7, 'pct': 0.156, 'current': 52, 'prior': 45},
+            'API': {'change': 34, 'pct': 1.889, 'current': 52, 'prior': 18},
+            'Sites': {'change': 3, 'pct': 0.136, 'current': 25, 'prior': 22}
+        },
+        'sentiment_changes': {
+            'Billing': {'positive_delta': 0.15, 'negative_delta': -0.10, 'shift': 'more positive'},
+            'API': {'positive_delta': -0.12, 'negative_delta': 0.12, 'shift': 'more negative'}
+        },
+        'resolution_changes': {
+            'fcr_rate_delta': 0.03,
+            'resolution_time_delta': -0.5,
+            'interpretation': 'improving'
+        },
+        'significant_changes': [
+            {'topic': 'API', 'change': 34, 'pct': 1.889, 'direction': 'increasing', 'alert': '⚠️', 'current': 52, 'prior': 18}
+        ],
+        'emerging_patterns': [
+            {'topic': 'NewFeature', 'volume': 12, 'context': 'New topic appeared this period'}
+        ],
+        'declining_patterns': [
+            {'topic': 'OldIssue', 'prior_volume': 8, 'context': 'Topic disappeared this period'}
+        ]
+    }
+
+
+def test_format_comparison_section_includes_all_subsections(agent, sample_comparison_data):
+    """Test comparison section includes all subsections"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    # Verify all subsection headers present
+    assert '## Week-over-Week Changes 📊' in result
+    assert '### Volume Changes' in result
+    assert '### Significant Changes' in result
+    assert '### Emerging Patterns (New Topics)' in result
+    assert '### Declining Patterns (Disappeared Topics)' in result
+    assert '### Sentiment Shifts' in result
+    assert '### Resolution Quality Changes' in result
+
+
+def test_format_comparison_section_handles_missing_data(agent):
+    """Test comparison section handles incomplete data gracefully"""
+    incomplete_data = {
+        'volume_changes': {'Billing': {'change': 5, 'pct': 0.1, 'current': 55, 'prior': 50}},
+        # Missing: sentiment_changes, resolution_changes, etc.
+    }
+    
+    result = agent._format_comparison_section(incomplete_data)
+    
+    # Should not crash
+    assert '## Week-over-Week Changes 📊' in result
+    assert '### Volume Changes' in result
+    # Should not include missing subsections
+    assert '### Sentiment Shifts' not in result
+
+
+def test_format_comparison_section_formats_volume_changes_correctly(agent, sample_comparison_data):
+    """Test volume changes are formatted correctly"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    # Verify formatting
+    assert '**Billing**: 52 conversations (+7, +15.6%)' in result
+    assert '**API**: 52 conversations (+34, +188.9%)' in result
+    assert '**Sites**: 25 conversations (+3, +13.6%)' in result
+
+
+def test_format_comparison_section_highlights_significant_changes(agent, sample_comparison_data):
+    """Test significant changes are highlighted"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    assert '### Significant Changes' in result
+    assert '⚠️ **API**: +34 conversations (+188.9%)' in result
+    assert '_Interpretation: increasing trend detected_' in result
+
+
+def test_format_comparison_section_shows_emerging_patterns(agent, sample_comparison_data):
+    """Test emerging patterns are shown"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    assert '### Emerging Patterns (New Topics) 🆕' in result
+    assert '**NewFeature**: 12 conversations (new this period)' in result
+    assert '_These topics appeared for the first time this period_' in result
+
+
+def test_format_comparison_section_shows_declining_patterns(agent, sample_comparison_data):
+    """Test declining patterns are shown"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    assert '### Declining Patterns (Disappeared Topics) 📉' in result
+    assert '**OldIssue**: 8 conversations last period (disappeared)' in result
+    assert '_These topics were present last period but not this period_' in result
+
+
+def test_format_comparison_section_shows_sentiment_shifts(agent, sample_comparison_data):
+    """Test sentiment shifts are shown for notable changes"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    assert '### Sentiment Shifts' in result
+    assert '**Billing**: more positive (+15.0% positive sentiment)' in result
+    assert '**API**: more negative (-12.0% positive sentiment)' in result
+
+
+def test_format_comparison_section_shows_resolution_changes(agent, sample_comparison_data):
+    """Test resolution quality changes are shown"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    assert '### Resolution Quality Changes' in result
+    assert '**First Contact Resolution**: +3.0% (improving)' in result
+    assert '**Median Resolution Time**: -0.5 hours (improving)' in result
+    assert '_Overall: Resolution quality is **improving**_' in result
+
+
+@pytest.mark.asyncio
+async def test_execute_includes_comparison_section_when_available(agent, mock_context_with_all_results, sample_comparison_data):
+    """Test execute() includes comparison section when data is available"""
+    # Add comparison data to context metadata
+    mock_context_with_all_results.metadata['comparison_data'] = sample_comparison_data
+    
+    result = await agent.execute(mock_context_with_all_results)
+    
+    assert result.success is True
+    formatted_output = result.data['formatted_output']
+    
+    # Verify comparison section is present
+    assert 'Week-over-Week Changes 📊' in formatted_output
+    assert '### Volume Changes' in formatted_output
+
+
+@pytest.mark.asyncio
+async def test_execute_skips_comparison_section_when_not_available(agent, mock_context_with_all_results, caplog):
+    """Test execute() skips comparison section when not available"""
+    import logging
+    caplog.set_level(logging.INFO)
+    
+    # No comparison_data in metadata
+    result = await agent.execute(mock_context_with_all_results)
+    
+    assert result.success is True
+    formatted_output = result.data['formatted_output']
+    
+    # Verify comparison section is NOT present
+    assert 'Week-over-Week Changes' not in formatted_output
+    
+    # Verify info log message
+    assert any('No prior snapshot available' in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_execute_handles_comparison_formatting_error_gracefully(agent, mock_context_with_all_results):
+    """Test execute() handles malformed comparison data gracefully"""
+    # Add malformed comparison data
+    mock_context_with_all_results.metadata['comparison_data'] = {'invalid': 'data'}
+    
+    result = await agent.execute(mock_context_with_all_results)
+    
+    # Should still succeed (doesn't fail entire analysis)
+    assert result.success is True
+    
+    # Rest of report should still be generated
+    formatted_output = result.data['formatted_output']
+    assert 'Executive Summary' in formatted_output
+    assert 'Customer Topics' in formatted_output
+
+
+def test_comparison_section_markdown_validity(agent, sample_comparison_data):
+    """Test comparison section generates valid markdown"""
+    result = agent._format_comparison_section(sample_comparison_data)
+    
+    # Verify basic markdown structure
+    assert result.startswith('##')  # Level 2 heading
+    assert '###' in result  # Level 3 headings
+    assert '**' in result  # Bold text
+    assert '_' in result  # Italic text
+    
+    # Verify no syntax errors (no unmatched brackets/parentheses)
+    assert result.count('[') == result.count(']')
+    assert result.count('(') == result.count(')')
+
+
+def test_format_comparison_section_empty_subsections(agent):
+    """Test comparison section when all lists are empty"""
+    empty_data = {
+        'volume_changes': {},
+        'sentiment_changes': {},
+        'resolution_changes': {},
+        'significant_changes': [],
+        'emerging_patterns': [],
+        'declining_patterns': []
+    }
+    
+    result = agent._format_comparison_section(empty_data)
+    
+    # Should still have header
+    assert '## Week-over-Week Changes 📊' in result
+    # Should not have any subsections
+    assert '###' not in result
+
+
+def test_format_comparison_section_volume_sorting(agent):
+    """Test volume changes are sorted by absolute change descending"""
+    data = {
+        'volume_changes': {
+            'TopicA': {'change': 5, 'pct': 0.1, 'current': 55, 'prior': 50},
+            'TopicB': {'change': -15, 'pct': -0.3, 'current': 35, 'prior': 50},
+            'TopicC': {'change': 25, 'pct': 0.5, 'current': 75, 'prior': 50}
+        }
+    }
+    
+    result = agent._format_comparison_section(data)
+    
+    # TopicC should appear first (abs(25) largest), then TopicB (abs(15)), then TopicA (abs(5))
+    topic_c_idx = result.index('TopicC')
+    topic_b_idx = result.index('TopicB')
+    topic_a_idx = result.index('TopicA')
+    
+    assert topic_c_idx < topic_b_idx < topic_a_idx
+
+
+def test_format_comparison_section_volume_limit(agent):
+    """Test volume changes are limited to top 10"""
+    # Create 15 volume changes
+    volume_changes = {
+        f'Topic{i}': {'change': 100-i, 'pct': 0.1, 'current': 200, 'prior': 100}
+        for i in range(15)
+    }
+    
+    data = {'volume_changes': volume_changes}
+    result = agent._format_comparison_section(data)
+    
+    # Count topic entries in volume changes section
+    volume_section = result.split('###')[1]  # Get Volume Changes section
+    topic_count = sum(1 for line in volume_section.split('\n') if 'Topic' in line and '**' in line)
+    
+    assert topic_count == 10  # Limited to top 10
+
+
+def test_format_comparison_section_sentiment_limit(agent):
+    """Test sentiment shifts are limited to top 5"""
+    # Create 10 sentiment changes (all notable)
+    sentiment_changes = {
+        f'Topic{i}': {'positive_delta': 0.15-i*0.01, 'negative_delta': 0.0, 'shift': 'more positive'}
+        for i in range(10)
+    }
+    
+    data = {'sentiment_changes': sentiment_changes}
+    result = agent._format_comparison_section(data)
+    
+    # Count sentiment entries
+    if '### Sentiment Shifts' in result:
+        sentiment_section = result.split('### Sentiment Shifts')[1].split('###')[0]
+        topic_count = sum(1 for line in sentiment_section.split('\n') if 'Topic' in line and '**' in line)
+        assert topic_count <= 5  # Limited to top 5
+

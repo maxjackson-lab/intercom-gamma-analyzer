@@ -252,6 +252,78 @@ The tool automatically generates professional Gamma presentations with:
 - **Proper markdown structure** optimized for Gamma
 - **Interactive elements** and professional styling
 
+## 📊 **Historical Insights Timeline UI**
+
+The Railway web interface provides a visual timeline for exploring historical Voice of Customer analysis snapshots.
+
+### **Features**
+
+- **Timeline View**: Browse weekly, monthly, and quarterly analysis snapshots
+- **Visual Indicators**: 
+  - ✓ Reviewed snapshots (green border)
+  - ⭐ Current period (orange highlight)
+  - Future periods (dashed border)
+- **Review Management**: Mark snapshots as reviewed with notes
+- **Trend Visualization**: Chart.js charts show topic volume trends (when ≥4 weeks of data)
+- **Comparison View**: Side-by-side comparison of any two periods
+- **Snapshot Details**: View full analysis reports for any period
+
+### **Accessing the UI**
+
+**Local Development:**
+```bash
+python railway_web.py
+# Visit http://localhost:8000
+```
+
+**Railway Deployment:**
+```bash
+# Deployed automatically to Railway
+# Visit your Railway app URL
+```
+
+### **API Endpoints**
+
+**Public Endpoints (No Auth Required):**
+- `GET /` - Timeline UI
+- `GET /api/snapshots/list` - List all snapshots
+- `GET /api/snapshots/{id}` - Get single snapshot
+- `GET /api/snapshots/timeseries` - Get time-series data for charts
+- `GET /analysis/history` - Timeline UI (same as root)
+- `GET /analysis/view/{id}` - Snapshot detail view
+- `GET /analysis/compare/{current}/{prior}` - Comparison view
+- `GET /health` - Health check
+
+**Protected Endpoints (Require Auth Token):**
+- `POST /api/snapshots/{id}/review` - Mark snapshot as reviewed
+  - Header: `Authorization: Bearer <token>`
+  - Body: `{"reviewed_by": "user@example.com", "notes": "Optional notes"}`
+
+### **Authentication**
+
+Set the `EXECUTION_API_TOKEN` environment variable to enable authentication for review endpoints:
+
+```bash
+export EXECUTION_API_TOKEN="your-secret-token"
+```
+
+If not set, the app runs in development mode (no auth required).
+
+### **Data Storage**
+
+Snapshots are automatically saved to DuckDB after each VoC analysis. The database includes:
+- Analysis snapshots (weekly/monthly/quarterly)
+- Comparative analyses (week-over-week deltas)
+- Metrics time-series (for trend charts)
+
+### **Historical Context**
+
+The UI displays available capabilities based on data history:
+- **Week 1**: Basic snapshot viewing
+- **Week 2+**: Week-over-week comparison
+- **Week 4+**: Trend analysis and forecasting
+- **Week 12+**: Seasonality detection
+
 ## 🔍 **API Integration**
 
 ### **Intercom API**

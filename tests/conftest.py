@@ -279,6 +279,156 @@ def duckdb_storage(temp_dir):
     storage.close()
 
 
+# =============================================================================
+# Historical Snapshot Service Fixtures (Shared across snapshot tests)
+# =============================================================================
+
+@pytest.fixture
+def temp_duckdb():
+    """Create temporary DuckDB database for integration tests."""
+    with tempfile.NamedTemporaryFile(suffix='.duckdb', delete=False) as tmp:
+        db_path = Path(tmp.name)
+    
+    storage = DuckDBStorage(str(db_path))
+    yield storage
+    
+    # Cleanup
+    storage.close()
+    db_path.unlink(missing_ok=True)
+
+
+@pytest.fixture
+def temp_duckdb_factory():
+    """Factory fixture for creating multiple temporary DuckDB instances."""
+    created_dbs = []
+    
+    def _create_temp_db():
+        with tempfile.NamedTemporaryFile(suffix='.duckdb', delete=False) as tmp:
+            db_path = Path(tmp.name)
+        storage = DuckDBStorage(str(db_path))
+        created_dbs.append((storage, db_path))
+        return storage, db_path
+    
+    yield _create_temp_db
+    
+    # Cleanup all created databases
+    for storage, db_path in created_dbs:
+        try:
+            storage.close()
+            db_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+@pytest.fixture
+def mock_duckdb_storage():
+    """Mock DuckDBStorage instance for unit tests."""
+    from unittest.mock import Mock
+    
+    mock = Mock(spec=DuckDBStorage)
+    mock.store_analysis_snapshot = Mock(return_value=True)
+    mock.get_analysis_snapshot = Mock(return_value=None)
+    mock.get_snapshots_by_type = Mock(return_value=[])
+    mock.store_comparative_analysis = Mock(return_value=True)
+    mock.store_metrics_timeseries = Mock(return_value=True)
+    mock.mark_snapshot_reviewed = Mock(return_value=True)
+    mock.get_snapshots_by_date_range = Mock(return_value=[])
+    mock.ensure_schema = Mock()
+    
+    return mock
+
+
+@pytest.fixture
+def sample_analysis_output() -> Dict[str, Any]:
+    """Sample TopicOrchestrator final_output for snapshot testing."""
+    return {
+        'week_id': '2025_W45',
+        'period_type': 'weekly',
+        'period_label': 'Nov 1-7, 2025',
+        'period_start': date(2025, 11, 1),
+        'period_end': date(2025, 11, 7),
+        'formatted_report': 'This is a test report with multiple sentences. It contains insights about billing and API issues. Customers experienced increased volume.',
+        'summary': {
+            'total_conversations': 150,
+        },
+        'metrics': {
+            'agent_attribution': {'Horatio': 45, 'Boldr': 78, 'Fin': 27},
+            'resolution_metrics': {'fcr_rate': 0.82, 'median_resolution_hours': 3.5},
+            'fin_performance': {'resolved': 27, 'escalated': 8},
+            'key_patterns': ['Billing increased', 'API errors trending up']
+        },
+        'agent_results': {
+            'TopicDetectionAgent': {
+                'data': {
+                    'topic_distribution': {'Billing': 45, 'API': 18, 'Sites': 22, 'Account': 15}
+                }
+            },
+            'TopicProcessingAgent': {
+                'data': {
+                    'topic_sentiments': {
+                        'Billing': {'positive': 0.6, 'negative': 0.2, 'neutral': 0.2},
+                        'API': {'positive': 0.4, 'negative': 0.4, 'neutral': 0.2}
+                    }
+                }
+            },
+            'SegmentationAgent': {
+                'data': {
+                    'tier_distribution': {'free': 120, 'team': 20, 'business': 10}
+                }
+            }
+        }
+    }
+
+
+@pytest.fixture
+def sample_snapshot_data() -> Dict[str, Any]:
+    """Sample snapshot data matching DuckDB schema."""
+    return {
+        'snapshot_id': 'weekly_20251107',
+        'analysis_type': 'weekly',
+        'period_start': date(2025, 11, 1),
+        'period_end': date(2025, 11, 7),
+        'created_at': datetime.now(),
+        'total_conversations': 150,
+        'date_range_label': 'Nov 1-7, 2025',
+        'insights_summary': 'Test insights summary',
+        'topic_volumes': {'Billing': 45, 'API': 18},
+        'topic_sentiments': {'Billing': {'positive': 0.6, 'negative': 0.2}},
+        'tier_distribution': {'free': 120, 'team': 20},
+        'agent_attribution': {'Horatio': 45, 'Boldr': 78},
+        'resolution_metrics': {'fcr_rate': 0.82},
+        'fin_performance': {'resolved': 27},
+        'key_patterns': ['Billing increased'],
+        'reviewed': False
+    }
+
+
+@pytest.fixture
+def historical_snapshot_service(mock_duckdb_storage):
+    """HistoricalSnapshotService instance with mock DuckDB storage."""
+    from src.services.historical_snapshot_service import HistoricalSnapshotService
+    return HistoricalSnapshotService(mock_duckdb_storage)
+
+
+@pytest.fixture
+def mock_conversations():
+    """Mock conversation data for orchestrator testing."""
+    return [
+        {
+            'id': f'conv_{i}',
+            'created_at': datetime.now().timestamp(),
+            'state': 'closed',
+            'admin_assignee_id': '12345',
+            'conversation_parts': {'conversation_parts': []},
+            'source': {'body': f'Test conversation {i}'},
+            'tags': {'tags': [{'name': 'Billing'}]},
+            'custom_attributes': {},
+            'ai_agent_participated': False
+        }
+        for i in range(10)
+    ]
+
+
 @pytest.fixture
 def sample_analysis_snapshot():
     """Sample analysis snapshot data for testing."""

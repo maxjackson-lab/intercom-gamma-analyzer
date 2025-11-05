@@ -6,6 +6,7 @@ Provides analytical database with optimized performance for conversation analysi
 import duckdb
 import json
 import logging
+from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from datetime import datetime, date
@@ -43,6 +44,43 @@ class DuckDBStorage:
             logger.info(f"DuckDB initialized at {self.db_path}")
         except Exception as e:
             logger.error(f"Failed to initialize DuckDB: {e}")
+            raise
+    
+    @contextmanager
+    def transaction(self):
+        """Context manager for safe transaction handling.
+        
+        Usage:
+            with storage.transaction():
+                storage.store_conversations(...)
+                storage.store_analysis_snapshot(...)
+        
+        Automatically commits on success, rolls back on error.
+        """
+        try:
+            self.conn.begin()
+            yield self.conn
+            self.conn.commit()
+            logger.debug("Transaction committed successfully")
+        except Exception as e:
+            self.conn.rollback()
+            logger.error(f"Transaction rolled back due to error: {e}")
+            raise
+    
+    @contextmanager
+    def get_connection(self):
+        """Context manager for safe connection access.
+        
+        Usage:
+            with storage.get_connection() as conn:
+                result = conn.execute("SELECT * FROM table").fetchall()
+        
+        Ensures proper error handling without closing the connection.
+        """
+        try:
+            yield self.conn
+        except Exception as e:
+            logger.error(f"Connection error: {e}")
             raise
     
     def ensure_schema(self):

@@ -26,6 +26,8 @@ from src.agents.output_formatter_agent import OutputFormatterAgent
 from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
 from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelationAgent
 from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.duckdb_storage import DuckDBStorage
+from src.services.historical_snapshot_service import HistoricalSnapshotService
 from src.utils.agent_output_display import get_display
 from src.config.modes import get_analysis_mode_config
 from src.models.analysis_models import (
@@ -96,7 +98,8 @@ class TopicOrchestrator:
         self.topic_sentiment_agent = TopicSentimentAgent()
         self.example_extraction_agent = ExampleExtractionAgent()
         self.fin_performance_agent = FinPerformanceAgent(audit=self.audit)
-        self.trend_agent = TrendAgent()
+        # TrendAgent will get historical_snapshot_service via lazy property when needed
+        self._trend_agent = None
         self.output_formatter_agent = OutputFormatterAgent()
         
         # Canny integration agents (lazy-initialized only when needed)
@@ -111,6 +114,49 @@ class TopicOrchestrator:
         max_concurrent = config.get_multi_agent_setting('max_concurrent_topics') or 5
         self.topic_semaphore = asyncio.Semaphore(max_concurrent)
         self.logger.info(f"Topic processing concurrency limit: {max_concurrent}")
+        
+        # Historical snapshot service (lazy initialization)
+        self._historical_snapshot_service = None
+        self._duckdb_storage = None
+    
+    @property
+    def duckdb_storage(self):
+        """Lazy-initialize DuckDB storage"""
+        if self._duckdb_storage is None:
+            try:
+                self._duckdb_storage = DuckDBStorage()
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize DuckDB storage: {e}")
+        return self._duckdb_storage
+    
+    @property
+    def historical_snapshot_service(self):
+        """Lazy-initialize historical snapshot service with migration on first access"""
+        if self._historical_snapshot_service is None:
+            try:
+                if self.duckdb_storage is not None:
+                    self._historical_snapshot_service = HistoricalSnapshotService(self.duckdb_storage)
+                    # Run migration on first initialization
+                    try:
+                        migration_result = self._historical_snapshot_service.migrate_json_snapshots()
+                        if migration_result['migrated_count'] > 0:
+                            self.logger.info(
+                                f"Migrated {migration_result['migrated_count']} JSON snapshots to DuckDB"
+                            )
+                    except Exception as e:
+                        self.logger.warning(f"Snapshot migration failed: {e}")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize historical snapshot service: {e}")
+        return self._historical_snapshot_service
+    
+    @property
+    def trend_agent(self):
+        """Lazy-initialize TrendAgent with historical snapshot service"""
+        if self._trend_agent is None:
+            self._trend_agent = TrendAgent(
+                historical_snapshot_service=self.historical_snapshot_service
+            )
+        return self._trend_agent
     
     @property
     def canny_topic_detection_agent(self):
@@ -837,6 +883,8 @@ class TopicOrchestrator:
                 'week_id': week_id,
                 'period_type': period_type,
                 'period_label': period_label,
+                'period_start': context.period_start if hasattr(context, 'period_start') else None,
+                'period_end': context.period_end if hasattr(context, 'period_end') else None,
                 'formatted_report': formatter_result.data.get('formatted_output', ''),
                 'summary': {
                     'total_conversations': len(conversations),
@@ -852,6 +900,32 @@ class TopicOrchestrator:
                 'metrics': metrics,
                 'agent_results': workflow_results
             }
+            
+            # PHASE 6.5: Auto-save analysis snapshot (async to prevent blocking)
+            self.logger.info("💾 Phase 6.5: Auto-saving analysis snapshot...")
+            snapshot_id = None
+            try:
+                if self.historical_snapshot_service is not None:
+                    # Use async method to prevent blocking event loop during DuckDB operations
+                    snapshot_id = await self.historical_snapshot_service.save_snapshot_async(final_output, period_type)
+                    self.logger.info(f"   ✅ Snapshot saved: {snapshot_id}")
+                    
+                    # Add to audit trail if enabled
+                    if self.audit:
+                        self.audit.step(
+                            "Phase 6.5: Snapshot Auto-Save",
+                            f"Saved analysis snapshot: {snapshot_id}",
+                            {'snapshot_id': snapshot_id, 'analysis_type': period_type}
+                        )
+                else:
+                    self.logger.warning("   ⚠️ Historical snapshot service not available")
+            except Exception as e:
+                self.logger.warning(f"   ⚠️ Failed to auto-save snapshot: {e}")
+                # Continue execution - snapshot failure is non-critical
+            
+            # Add snapshot_id to final_output
+            if snapshot_id:
+                final_output['snapshot_id'] = snapshot_id
             
             # Display summary table of all agent results
             if config.get_visibility_setting('show_agent_summary_table', True):
