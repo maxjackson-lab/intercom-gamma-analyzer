@@ -1681,13 +1681,19 @@ if HAS_FASTAPI:
                 detail=f"Total argument length exceeds maximum of {MAX_ARGS_TOTAL_LENGTH} characters"
             )
         
-        # Create and start the execution
+        # Create the execution
+        try:
+            execution = await state_manager.create_execution(execution_id, command, args_list)
+        except ValueError as e:
+            # Domain validation error from state manager
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        
+        # Start the execution (move from queue to active)
         try:
             started = await state_manager.start_execution(execution_id)
             if not started:
                 raise HTTPException(status_code=429, detail="Too many concurrent executions")
         except ValueError as e:
-            # Domain validation error from state manager
             raise HTTPException(status_code=429, detail=str(e)) from e
         
         async def event_generator():
