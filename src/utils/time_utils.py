@@ -5,8 +5,9 @@ This module provides a standardized approach to computing date ranges across all
 ensuring consistent behavior and reducing code duplication.
 """
 
-from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Tuple, Union
+from pathlib import Path
 
 
 def calculate_date_range(
@@ -207,3 +208,89 @@ PERIODS_BACK_HELP = (
     "Number of periods to go back (default: 1). "
     "Example: --time-period month --periods-back 3 analyzes last 3 months"
 )
+
+
+def generate_descriptive_filename(
+    analysis_type: str,
+    start_date: datetime,
+    end_date: datetime,
+    extension: str = "md"
+) -> str:
+    """
+    Generate descriptive filename for analysis outputs.
+    
+    Args:
+        analysis_type: Type of analysis (e.g., 'voice-of-customer', 'billing')
+        start_date: Start datetime
+        end_date: End datetime
+        extension: File extension (default: 'md')
+        
+    Returns:
+        Filename like "voice-of-customer_2025-10-29_to_2025-11-05.md"
+    """
+    start_str = start_date.strftime('%Y-%m-%d')
+    end_str = end_date.strftime('%Y-%m-%d')
+    return f"{analysis_type}_{start_str}_to_{end_str}.{extension}"
+
+
+def to_utc_datetime(dt: Union[datetime, str]) -> datetime:
+    """
+    Convert datetime or string to UTC datetime.
+    
+    Args:
+        dt: Datetime object or ISO format string
+        
+    Returns:
+        Datetime in UTC timezone
+    """
+    if isinstance(dt, str):
+        dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+    
+    if dt.tzinfo is None:
+        # Naive datetime - assume UTC
+        return dt.replace(tzinfo=timezone.utc)
+    
+    # Convert to UTC
+    return dt.astimezone(timezone.utc)
+
+
+def ensure_date(dt: Union[datetime, str]) -> datetime:
+    """
+    Ensure value is a datetime object.
+    
+    Args:
+        dt: Datetime object or ISO format string
+        
+    Returns:
+        Datetime object
+    """
+    if isinstance(dt, str):
+        return datetime.fromisoformat(dt.replace('Z', '+00:00'))
+    return dt
+
+
+def calculate_time_delta_seconds(start: datetime, end: datetime) -> float:
+    """
+    Calculate time delta between two datetimes in seconds.
+    
+    Args:
+        start: Start datetime
+        end: End datetime
+        
+    Returns:
+        Time delta in seconds
+    """
+    return (end - start).total_seconds()
+
+
+def format_datetime_for_display(dt: datetime) -> str:
+    """
+    Format datetime for user-friendly display.
+    
+    Args:
+        dt: Datetime to format
+        
+    Returns:
+        Formatted string like "Nov 05, 2025 03:30 PM"
+    """
+    return dt.strftime('%b %d, %Y %I:%M %p')
