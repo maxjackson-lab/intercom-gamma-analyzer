@@ -750,7 +750,9 @@ class TopicOrchestrator:
                 }
                 
                 # Pass AI client to agents for LLM enrichment
-                client = self.ai_factory.get_ai_model(ai_model)
+                from src.services.ai_model_factory import AIModel
+                ai_model_enum = AIModel.OPENAI_GPT4 if ai_model == 'openai' else AIModel.ANTHROPIC_CLAUDE
+                client = self.ai_factory.get_client(ai_model_enum)
                 self.correlation_agent.ai_client = client
                 self.quality_insights_agent.ai_client = client
                 self.churn_risk_agent.ai_client = client
