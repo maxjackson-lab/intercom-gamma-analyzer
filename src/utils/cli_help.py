@@ -24,72 +24,72 @@ class CLIHelpSystem:
             'tech-analysis': {
                 'category': 'Primary',
                 'description': 'Find technical troubleshooting patterns',
-                'usage': 'python -m src.main tech-analysis --days 30',
-                'options': ['--days', '--start-date', '--end-date', '--generate-ai-report', '--max-pages']
+                'usage': 'python -m src.main tech-analysis --time-period month',
+                'options': ['--time-period', '--periods-back', '--start-date', '--end-date', '--output-format', '--gamma-export', '--max-pages']
             },
             'find-macros': {
                 'category': 'Primary', 
                 'description': 'Discover macro opportunities',
-                'usage': 'python -m src.main find-macros --min-occurrences 5 --days 30',
-                'options': ['--min-occurrences', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main find-macros --min-occurrences 5 --time-period month',
+                'options': ['--min-occurrences', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             'fin-escalations': {
                 'category': 'Primary',
                 'description': 'Analyze Fin → human handoffs', 
-                'usage': 'python -m src.main fin-escalations --days 30',
-                'options': ['--days', '--start-date', '--end-date', '--detailed']
+                'usage': 'python -m src.main fin-escalations --time-period month',
+                'options': ['--time-period', '--periods-back', '--start-date', '--end-date', '--detailed']
             },
             'analyze-agent': {
                 'category': 'Primary',
                 'description': 'Agent-specific performance analysis',
-                'usage': 'python -m src.main analyze-agent "Dae-Ho" --days 30',
-                'options': ['--agent', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main analyze-agent "Dae-Ho" --time-period month',
+                'options': ['--agent', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             
             # Secondary Commands (VoC Reports)
             'analyze-category': {
                 'category': 'Secondary',
                 'description': 'Single taxonomy category report',
-                'usage': 'python -m src.main analyze-category billing --days 30',
-                'options': ['--category', '--days', '--start-date', '--end-date', '--output-format']
+                'usage': 'python -m src.main analyze-category billing --time-period month',
+                'options': ['--category', '--time-period', '--periods-back', '--start-date', '--end-date', '--output-format']
             },
             'analyze-all-categories': {
                 'category': 'Secondary',
                 'description': 'All 13 taxonomy reports',
-                'usage': 'python -m src.main analyze-all-categories --days 30',
-                'options': ['--days', '--start-date', '--end-date', '--parallel']
+                'usage': 'python -m src.main analyze-all-categories --time-period month',
+                'options': ['--time-period', '--periods-back', '--start-date', '--end-date', '--parallel']
             },
             'analyze-subcategory': {
                 'category': 'Secondary',
                 'description': 'Specific subcategory analysis',
-                'usage': 'python -m src.main analyze-subcategory "Billing > Refund" --days 30',
-                'options': ['--subcategory', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main analyze-subcategory "Billing > Refund" --time-period month',
+                'options': ['--subcategory', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             
             # Advanced Commands (Synthesis)
             'synthesize': {
                 'category': 'Advanced',
                 'description': 'Cross-category pattern analysis',
-                'usage': 'python -m src.main synthesize --categories "Billing,Bug" --days 30',
-                'options': ['--categories', '--pattern', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main synthesize --categories "Billing,Bug" --time-period month',
+                'options': ['--categories', '--pattern', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             'analyze-custom-tag': {
                 'category': 'Advanced',
                 'description': 'Custom tag analysis (e.g., "DC")',
-                'usage': 'python -m src.main analyze-custom-tag "DC" --days 30',
-                'options': ['--tag', '--agent', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main analyze-custom-tag "DC" --time-period month',
+                'options': ['--tag', '--agent', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             'analyze-escalations': {
                 'category': 'Advanced',
                 'description': 'Escalation pattern analysis',
-                'usage': 'python -m src.main analyze-escalations --to "Hilary" --days 30',
-                'options': ['--to', '--from', '--days', '--start-date', '--end-date']
+                'usage': 'python -m src.main analyze-escalations --to "Hilary" --time-period month',
+                'options': ['--to', '--from', '--time-period', '--periods-back', '--start-date', '--end-date']
             },
             'analyze-pattern': {
                 'category': 'Advanced',
                 'description': 'Text pattern search',
-                'usage': 'python -m src.main analyze-pattern "email change" --days 30',
-                'options': ['--pattern', '--days', '--start-date', '--end-date', '--case-sensitive']
+                'usage': 'python -m src.main analyze-pattern "email change" --time-period month',
+                'options': ['--pattern', '--time-period', '--periods-back', '--start-date', '--end-date', '--case-sensitive']
             },
             
             # Utility Commands
@@ -126,20 +126,20 @@ class CLIHelpSystem:
             'show-tags': {
                 'category': 'Utility',
                 'description': 'List tags in your data',
-                'usage': 'python -m src.main show-tags',
-                'options': ['--days', '--agent']
+                'usage': 'python -m src.main show-tags --time-period month',
+                'options': ['--time-period', '--periods-back', '--agent']
             },
             'show-agents': {
                 'category': 'Utility',
                 'description': 'List all agents',
-                'usage': 'python -m src.main show-agents',
-                'options': ['--days']
+                'usage': 'python -m src.main show-agents --time-period month',
+                'options': ['--time-period', '--periods-back']
             },
             'sync-taxonomy': {
                 'category': 'Utility',
                 'description': 'Update taxonomy from Intercom',
-                'usage': 'python -m src.main sync-taxonomy --days 90',
-                'options': ['--days', '--auto-update']
+                'usage': 'python -m src.main sync-taxonomy --time-period quarter',
+                'options': ['--time-period', '--periods-back', '--auto-update']
             }
         }
     
@@ -173,9 +173,9 @@ class CLIHelpSystem:
         console.print("  python -m src.main [COMMAND] --help")
         
         console.print(f"\n[bold]Examples:[/bold]")
-        console.print("  python -m src.main tech-analysis --days 30")
-        console.print("  python -m src.main find-macros --min-occurrences 5 --days 30")
-        console.print("  python -m src.main analyze-category billing --days 7")
+        console.print("  python -m src.main tech-analysis --time-period month")
+        console.print("  python -m src.main find-macros --min-occurrences 5 --time-period month")
+        console.print("  python -m src.main analyze-category billing --time-period week")
     
     def show_command_help(self, command: str):
         """Display detailed help for a specific command."""
@@ -212,21 +212,26 @@ class CLIHelpSystem:
         """Show examples for specific commands."""
         examples = {
             'tech-analysis': [
-                "# Analyze last 30 days",
-                "python -m src.main tech-analysis --days 30",
+                "# Analyze last month",
+                "python -m src.main tech-analysis --time-period month",
                 "",
-                "# Specific date range with AI report", 
+                "# Specific date range with Gamma export", 
                 "python -m src.main tech-analysis \\",
                 "  --start-date 2025-09-01 \\",
                 "  --end-date 2025-10-01 \\",
-                "  --generate-ai-report",
+                "  --output-format gamma --gamma-export pdf",
                 "",
-                "# Quick test (3 days, 2 pages)",
-                "python -m src.main tech-analysis --days 3 --max-pages 2"
+                "# Quick test with limited pages",
+                "python -m src.main tech-analysis --time-period week --max-pages 2"
             ],
             'find-macros': [
-                "# Find macros with 5+ occurrences",
-                "python -m src.main find-macros --min-occurrences 5 --days 30",
+                "# Find macros with 5+ occurrences (last month)",
+                "python -m src.main find-macros --min-occurrences 5 --time-period month",
+                "",
+                "# Find macros from last 3 months",
+                "python -m src.main find-macros \\",
+                "  --min-occurrences 3 \\",
+                "  --time-period month --periods-back 3",
                 "",
                 "# Find macros from specific date range",
                 "python -m src.main find-macros \\",
@@ -235,28 +240,32 @@ class CLIHelpSystem:
                 "  --min-occurrences 3"
             ],
             'analyze-category': [
-                "# Analyze billing category",
-                "python -m src.main analyze-category billing --days 30",
+                "# Analyze billing category (last month)",
+                "python -m src.main analyze-category billing --time-period month",
+                "",
+                "# Analyze last week",
+                "python -m src.main analyze-category billing --time-period week",
+                "",
+                "# Analyze last 3 months",
+                "python -m src.main analyze-category billing \\",
+                "  --time-period month --periods-back 3",
                 "",
                 "# Specific date range",
                 "python -m src.main analyze-category billing \\",
                 "  --start-date 2025-09-01 \\",
-                "  --end-date 2025-10-01",
-                "",
-                "# Last 7 days",
-                "python -m src.main analyze-category billing --days 7"
+                "  --end-date 2025-10-01"
             ],
             'synthesize': [
-                "# Cross-category analysis",
+                "# Cross-category analysis (last month)",
                 "python -m src.main synthesize \\",
                 "  --categories \"Billing,Bug\" \\",
-                "  --days 30",
+                "  --time-period month",
                 "",
                 "# Pattern-specific synthesis",
                 "python -m src.main synthesize \\",
                 "  --categories \"Billing,Bug\" \\",
                 "  --pattern \"refund after bug\" \\",
-                "  --days 30"
+                "  --time-period month"
             ]
         }
         
@@ -279,53 +288,59 @@ class CLIHelpSystem:
         
         examples = {
             'TECHNICAL TRIAGE': [
-                "# Basic technical analysis (30 days)",
-                "python -m src.main tech-analysis --days 30",
+                "# Basic technical analysis (last month)",
+                "python -m src.main tech-analysis --time-period month",
                 "",
-                "# With AI-powered insights",
-                "python -m src.main tech-analysis --days 30 --generate-ai-report",
+                "# With Gamma export",
+                "python -m src.main tech-analysis --time-period month --output-format gamma --gamma-export pdf",
                 "",
                 "# Find macro opportunities (min 5 occurrences)",
-                "python -m src.main find-macros --min-occurrences 5 --days 30"
+                "python -m src.main find-macros --min-occurrences 5 --time-period month"
             ],
             'VOICE OF CUSTOMER': [
-                "# Single category (billing)",
-                "python -m src.main analyze-category billing --days 30",
+                "# Single category (billing, last month)",
+                "python -m src.main analyze-category billing --time-period month",
+                "",
+                "# Last week",
+                "python -m src.main analyze-category billing --time-period week",
+                "",
+                "# Last 3 months",
+                "python -m src.main analyze-category billing --time-period month --periods-back 3",
                 "",
                 "# Specific date range",
                 "python -m src.main analyze-category billing \\",
                 "  --start-date 2025-09-01 --end-date 2025-10-01",
                 "",
                 "# All categories at once",
-                "python -m src.main analyze-all-categories --days 30"
+                "python -m src.main analyze-all-categories --time-period month"
             ],
             'FIN ANALYSIS': [
-                "# Fin effectiveness by category",
-                "python -m src.main fin-escalations --days 30",
+                "# Fin effectiveness by category (last month)",
+                "python -m src.main fin-escalations --time-period month",
                 "",
-                "# Detailed Fin performance report",
-                "python -m src.main analyze-fin --days 30 --detailed"
+                "# Detailed Fin performance report (last week)",
+                "python -m src.main analyze-fin --time-period week --detailed"
             ],
             'AGENT PERFORMANCE': [
-                "# Dae-Ho's performance",
-                "python -m src.main analyze-agent \"Dae-Ho\" --days 30",
+                "# Dae-Ho's performance (last month)",
+                "python -m src.main analyze-agent \"Dae-Ho\" --time-period month",
                 "",
-                "# Custom tag analysis",
-                "python -m src.main analyze-custom-tag \"DC\" --days 30"
+                "# Custom tag analysis (last week)",
+                "python -m src.main analyze-custom-tag \"DC\" --time-period week"
             ],
             'ADVANCED': [
                 "# Cross-category synthesis",
                 "python -m src.main synthesize \\",
                 "  --categories \"Billing,Bug\" \\",
                 "  --pattern \"refund after bug\" \\",
-                "  --days 30",
+                "  --time-period month",
                 "",
                 "# Email change pattern search",
-                "python -m src.main analyze-pattern \"email change\" --days 30"
+                "python -m src.main analyze-pattern \"email change\" --time-period month"
             ],
             'UTILITY': [
-                "# Sync taxonomy from Intercom",
-                "python -m src.main sync-taxonomy --days 90",
+                "# Sync taxonomy from Intercom (last 90 days)",
+                "python -m src.main sync-taxonomy --time-period quarter",
                 "",
                 "# Show available categories",
                 "python -m src.main show-categories",
@@ -374,7 +389,7 @@ class CLIHelpSystem:
         console.print(table)
         
         console.print(f"\n[bold]To analyze a category:[/bold]")
-        console.print("  python -m src.main analyze-category billing --days 30")
+        console.print("  python -m src.main analyze-category billing --time-period month")
     
     def interactive_mode(self):
         """Start interactive mode with guided prompts."""

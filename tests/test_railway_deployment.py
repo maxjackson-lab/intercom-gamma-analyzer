@@ -97,7 +97,7 @@ class TestCanonicalCommandMappings:
     def test_voice_of_customer_flags(self):
         """Test voice_of_customer has expected flags."""
         voc = CANONICAL_COMMAND_MAPPINGS['voice_of_customer']
-        expected_flags = ['--time-period', '--analysis-type', '--generate-gamma', '--test-mode', '--audit-trail']
+        expected_flags = ['--time-period', '--analysis-type', '--output-format', '--gamma-export', '--test-mode', '--audit-trail']
         
         for flag in expected_flags:
             assert flag in voc['allowed_flags'], f"voice_of_customer missing {flag}"
@@ -107,7 +107,15 @@ class TestCanonicalCommandMappings:
         assert 'week' in voc['allowed_flags']['--time-period']['values']
         assert 'month' in voc['allowed_flags']['--time-period']['values']
         
-        assert voc['allowed_flags']['--generate-gamma']['type'] == 'boolean'
+        # Validate output format flags (new standard)
+        assert voc['allowed_flags']['--output-format']['type'] == 'enum'
+        assert 'gamma' in voc['allowed_flags']['--output-format']['values']
+        assert 'markdown' in voc['allowed_flags']['--output-format']['values']
+        
+        assert voc['allowed_flags']['--gamma-export']['type'] == 'enum'
+        assert 'pdf' in voc['allowed_flags']['--gamma-export']['values']
+        assert 'pptx' in voc['allowed_flags']['--gamma-export']['values']
+        
         assert voc['allowed_flags']['--test-mode']['type'] == 'boolean'
     
     def test_agent_performance_flags(self):
@@ -181,9 +189,17 @@ class TestAPICommandsEndpoint:
         # time-period should be enum
         assert voc_flags['--time-period']['type'] == 'enum'
         assert 'week' in voc_flags['--time-period']['values']
+        assert '6-weeks' in voc_flags['--time-period']['values']
         
-        # generate-gamma should be boolean
-        assert voc_flags['--generate-gamma']['type'] == 'boolean'
+        # output-format should be enum including gamma
+        assert voc_flags['--output-format']['type'] == 'enum'
+        assert 'gamma' in voc_flags['--output-format']['values']
+        assert 'markdown' in voc_flags['--output-format']['values']
+        
+        # gamma-export should be enum with pdf and pptx
+        assert voc_flags['--gamma-export']['type'] == 'enum'
+        assert 'pdf' in voc_flags['--gamma-export']['values']
+        assert 'pptx' in voc_flags['--gamma-export']['values']
     
     def test_caching_headers(self, client):
         """Test that proper caching headers are set."""
@@ -203,7 +219,8 @@ class TestValidateCommandRequest:
             'voice_of_customer',
             {
                 '--time-period': 'week',
-                '--generate-gamma': True,
+                '--output-format': 'gamma',
+                '--gamma-export': 'pdf',
                 '--test-mode': False
             }
         )

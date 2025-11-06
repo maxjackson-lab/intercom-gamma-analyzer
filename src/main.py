@@ -54,25 +54,30 @@ def show_audit_trail_enabled():
     console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
 
 
-# ===== CLI FLAGS UNIFICATION (Phase 1) =====
-# Define reusable flag groups for consistent behavior across all commands
-# These will be applied to commands in Phase 2
+# ===== CLI FLAGS UNIFICATION =====
+# Import shared utilities for consistent date handling and test data
+from src.utils.time_utils import TIME_PERIOD_CHOICES, TIME_PERIOD_HELP, PERIODS_BACK_HELP
+from src.config.test_data import PRESET_HELP_TEXT
 
+# Define reusable flag groups for consistent behavior across all commands
 DEFAULT_FLAGS = [
     click.option('--start-date', help='Start date (YYYY-MM-DD)'),
     click.option('--end-date', help='End date (YYYY-MM-DD)'),
     click.option('--time-period', 
-                 type=click.Choice(['week', 'month', 'quarter']),
-                 help='Time period shortcut'),
+                 type=click.Choice(TIME_PERIOD_CHOICES),
+                 help=TIME_PERIOD_HELP),
+    click.option('--periods-back', type=int, default=1,
+                 help=PERIODS_BACK_HELP),
 ]
 
 OUTPUT_FLAGS = [
-    click.option('--generate-gamma', is_flag=True, 
-                 help='Generate Gamma presentation'),
     click.option('--output-format', 
-                 type=click.Choice(['gamma', 'markdown', 'json', 'excel']),
+                 type=click.Choice(['markdown', 'json', 'excel', 'gamma']),
                  default='markdown',
                  help='Output format for results'),
+    click.option('--gamma-export', 
+                 type=click.Choice(['pdf', 'pptx']),
+                 help='Gamma export format (when output-format=gamma)'),
     click.option('--output-dir', default='outputs',
                  help='Directory for output files'),
 ]
@@ -81,7 +86,7 @@ TEST_FLAGS = [
     click.option('--test-mode', is_flag=True, 
                  help='Use mock data instead of API calls'),
     click.option('--test-data-count', type=str, default='100',
-                 help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000), xxlarge(20000) or custom number'),
+                 help=PRESET_HELP_TEXT),
 ]
 
 DEBUG_FLAGS = [
@@ -92,25 +97,75 @@ DEBUG_FLAGS = [
 ]
 
 ANALYSIS_FLAGS = [
-    click.option('--multi-agent', is_flag=True,
-                 help='Use multi-agent analysis workflow'),
-    click.option('--analysis-type',
-                 type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete']),
-                 default='topic-based',
-                 help='Type of analysis to perform'),
     click.option('--ai-model',
                  type=click.Choice(['openai', 'claude']),
                  default=None,
                  help='AI model to use for analysis'),
+    click.option('--filter-category',
+                 help='Filter by taxonomy category (e.g., Billing, Bug, API)'),
 ]
 
-# Helper function to apply flag groups (Phase 2 will use this)
+# Helper function to apply flag groups
 def apply_flags(flag_list):
     """Decorator to apply a list of click options to a command"""
     def decorator(func):
         for option in reversed(flag_list):
             func = option(func)
         return func
+    return decorator
+
+# Composite decorator for standard flags
+def standard_flags(
+    include_time=True,
+    include_output=True,
+    include_test=True,
+    include_debug=True,
+    include_analysis=True
+):
+    """
+    Composite decorator that applies standard flag groups to commands.
+    
+    This ensures consistent flag availability across commands unless explicitly opted out.
+    
+    Args:
+        include_time: Include time period flags (start-date, end-date, time-period, periods-back)
+        include_output: Include output flags (output-format, gamma-export, output-dir)
+        include_test: Include test flags (test-mode, test-data-count)
+        include_debug: Include debug flags (verbose, audit-trail)
+        include_analysis: Include analysis flags (ai-model, filter-category)
+    
+    Usage:
+        @cli.command()
+        @standard_flags()
+        def my_command(...):
+            pass
+        
+        # Or with customization:
+        @cli.command()
+        @standard_flags(include_test=False)  # Exclude test flags
+        def my_command(...):
+            pass
+    """
+    def decorator(func):
+        flags_to_apply = []
+        
+        if include_analysis:
+            flags_to_apply.extend(ANALYSIS_FLAGS)
+        if include_debug:
+            flags_to_apply.extend(DEBUG_FLAGS)
+        if include_test:
+            flags_to_apply.extend(TEST_FLAGS)
+        if include_output:
+            flags_to_apply.extend(OUTPUT_FLAGS)
+        if include_time:
+            flags_to_apply.extend(DEFAULT_FLAGS)
+        
+        # Apply flags in reverse order (Click convention)
+        for option in reversed(flags_to_apply):
+            func = option(func)
+        
+        return func
+    
     return decorator
 
 
@@ -427,42 +482,100 @@ def show_categories():
 
 # Primary Commands (Technical Triage)
 @cli.command(name='tech-analysis')
-@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
-@click.option('--start-date', help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', help='End date (YYYY-MM-DD)')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
+@standard_flags()
 @click.option('--max-pages', type=int, help='Maximum pages to fetch (for testing)')
-@click.option('--generate-ai-report', is_flag=True, help='Generate AI-powered insights report')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-def tech_analysis(days: int, start_date: Optional[str], end_date: Optional[str], max_pages: Optional[int], generate_ai_report: bool, verbose: bool = False, audit_trail: bool = False):
+def tech_analysis(
+    days: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    max_pages: Optional[int]
+):
     """Analyze technical troubleshooting patterns in Intercom conversations"""
-    if verbose:
-        setup_verbose_logging()
-    if audit_trail:
-        show_audit_trail_enabled()
+    from src.utils.time_utils import calculate_date_range
+    from src.config.test_data import parse_test_data_count, get_preset_display_name
+    
+    # Deprecation warning for --days
+    if days != 30 or (not time_period and not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
+        console.print("[yellow]   Example: --time-period month --periods-back 1 (for last 30 days)[/yellow]")
     
     console.print(f"[bold green]Technical Troubleshooting Analysis[/bold green]")
     
-    # Calculate date range
-    if start_date and end_date:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-        console.print(f"Analyzing from {start_date} to {end_date}")
-    else:
-        end_dt = datetime.now()
-        start_dt = end_dt - timedelta(days=days)
-        console.print(f"Analyzing last {days} days of conversations")
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
+    
+    # Enable verbose logging if requested
+    if verbose:
+        setup_verbose_logging()
+    
+    # Audit trail indication
+    if audit_trail:
+        show_audit_trail_enabled()
+    
+    # Parse test data count
+    try:
+        test_count, preset_name = parse_test_data_count(test_data_count)
+        preset_display = get_preset_display_name(test_count, preset_name)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
+    
+    # Test mode indication
+    if test_mode:
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({preset_display})[/yellow]")
+    
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+        console.print(f"Analyzing: {start_dt.date()} to {end_dt.date()}")
+    except ValueError as e:
+        # Fallback to --days if time range not specified
+        if not time_period and not (start_date and end_date):
+            from datetime import timedelta
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=days)
+            console.print(f"Analyzing last {days} days of conversations")
+        else:
+            console.print(f"[red]Error: {e}[/red]")
+            return
+    
+    # Determine if AI report should be generated based on output format
+    generate_ai_report = output_format in ['markdown', 'gamma']
     
     # Run technical analysis
     asyncio.run(run_technical_analysis_v2(start_dt, end_dt, max_pages, generate_ai_report))
 
 @cli.command(name='find-macros')
 @click.option('--min-occurrences', type=int, default=5, help='Minimum occurrences for macro (default: 5)')
-@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
 @click.option('--start-date', help='Start date (YYYY-MM-DD)')
 @click.option('--end-date', help='End date (YYYY-MM-DD)')
 def find_macros(min_occurrences: int, days: int, start_date: Optional[str], end_date: Optional[str]):
     """Discover macro opportunities from repeated agent responses"""
+    
+    # Deprecation warning for --days
+    if days != 30 or (not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
     
     console.print(f"[bold green]Macro Discovery Analysis[/bold green]")
     
@@ -482,85 +595,81 @@ def find_macros(min_occurrences: int, days: int, start_date: Optional[str], end_
     asyncio.run(run_macro_analysis(start_dt, end_dt, min_occurrences))
 
 @cli.command(name='fin-escalations')
-@click.option('--days', type=int, default=30, help='Number of days to analyze (default: 30)')
-@click.option('--start-date', help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', help='End date (YYYY-MM-DD)')
-@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter']),
-              help='Time period shortcut (overrides days)')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
+@standard_flags()
 @click.option('--detailed', is_flag=True, help='Generate detailed performance report')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-@click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json', 'excel']), default='markdown',
-              help='Output format for results')
-@click.option('--test-mode', is_flag=True, default=False, help='Use mock test data instead of real API calls')
-@click.option('--test-data-count', type=str, default='100',
-              help='Data volume: micro(100), small(500), medium(1000), large(5000), xlarge(10000), xxlarge(20000) or custom number')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-def fin_escalations(days: int, start_date: Optional[str], end_date: Optional[str], time_period: Optional[str],
-                   detailed: bool, generate_gamma: bool, output_format: str, test_mode: bool,
-                   test_data_count: str, verbose: bool, audit_trail: bool):
+def fin_escalations(
+    days: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    detailed: bool
+):
     """Analyze Fin → human handoffs and effectiveness"""
+    
+    # Deprecation warning for --days
+    if days != 30 or (not time_period and not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
+    from src.utils.time_utils import calculate_date_range
+    from src.config.test_data import parse_test_data_count, get_preset_display_name
     
     console.print(f"[bold green]Fin Escalation Analysis[/bold green]")
     
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
+    
     # Enable verbose logging if requested
     if verbose:
-        import logging
-        logging.getLogger().setLevel(logging.DEBUG)
-        for module in ['agents', 'services', 'src.agents', 'src.services']:
-            logging.getLogger(module).setLevel(logging.DEBUG)
-        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+        setup_verbose_logging()
+    
+    # Audit trail indication
+    if audit_trail:
+        show_audit_trail_enabled()
     
     # Parse test data count
-    test_data_presets = {
-        'micro': 100,
-        'small': 500,
-        'medium': 1000,
-        'large': 5000,
-        'xlarge': 10000,
-        'xxlarge': 20000
-    }
-    
     try:
-        if test_data_count.lower() in test_data_presets:
-            test_data_count_int = test_data_presets[test_data_count.lower()]
-            preset_label = test_data_count.lower()
-        else:
-            test_data_count_int = int(test_data_count)
-            preset_label = None
-    except ValueError:
-        console.print(f"[red]Error: Invalid test data count '{test_data_count}'[/red]")
+        test_count, preset_name = parse_test_data_count(test_data_count)
+        preset_display = get_preset_display_name(test_count, preset_name)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
         return
     
     # Test mode indication
     if test_mode:
-        preset_info = f" ({preset_label})" if preset_label else ""
-        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({preset_display})[/yellow]")
     
-    # Audit trail indication
-    if audit_trail:
-        console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
-    
-    # Calculate date range
-    if time_period:
-        from datetime import timedelta
-        end_dt = datetime.now()
-        if time_period == 'week':
-            start_dt = end_dt - timedelta(weeks=1)
-        elif time_period == 'month':
-            start_dt = end_dt - timedelta(days=30)
-        elif time_period == 'quarter':
-            start_dt = end_dt - timedelta(days=90)
-        console.print(f"Analyzing {time_period}: {start_dt.date()} to {end_dt.date()}")
-    elif start_date and end_date:
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-        console.print(f"Analyzing from {start_date} to {end_date}")
-    else:
-        from datetime import timedelta
-        end_dt = datetime.now()
-        start_dt = end_dt - timedelta(days=days)
-        console.print(f"Analyzing last {days} days of conversations")
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+        console.print(f"Analyzing: {start_dt.date()} to {end_dt.date()}")
+    except ValueError as e:
+        # Fallback to --days if time range not specified
+        if not time_period and not (start_date and end_date):
+            from datetime import timedelta
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=days)
+            console.print(f"Analyzing last {days} days of conversations")
+        else:
+            console.print(f"[red]Error: {e}[/red]")
+            return
     
     # Run Fin analysis
     asyncio.run(run_fin_analysis(start_dt, end_dt, detailed))
@@ -1920,7 +2029,10 @@ async def run_agent_coaching_report(
     start_date: datetime, 
     end_date: datetime, 
     top_n: int, 
-    generate_gamma: bool
+    generate_gamma: bool,
+    test_mode: bool = False,
+    test_data_count: int = 100,
+    output_dir: str = 'outputs'
 ):
     """Run coaching-focused analysis with individual agent breakdowns"""
     try:
@@ -1933,14 +2045,19 @@ async def run_agent_coaching_report(
         
         vendor_name = {'horatio': 'Horatio', 'boldr': 'Boldr'}.get(vendor, vendor.title())
         
-        # Fetch conversations
+        # Fetch conversations (test mode or real)
         console.print("📥 Fetching conversations...")
-        fetcher = ChunkedFetcher()
-        all_conversations = await fetcher.fetch_conversations_chunked(
-            start_date=start_date,
-            end_date=end_date
-        )
-        console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
+        if test_mode:
+            from src.config.test_data import generate_test_conversations
+            all_conversations = generate_test_conversations(test_data_count)
+            console.print(f"   ✅ Generated {len(all_conversations)} test conversations\n")
+        else:
+            fetcher = ChunkedFetcher()
+            all_conversations = await fetcher.fetch_conversations_chunked(
+                start_date=start_date,
+                end_date=end_date
+            )
+            console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
         
         # Filter by vendor
         console.print(f"🔍 Filtering for {vendor_name} conversations...")
@@ -2306,55 +2423,130 @@ async def run_pattern_analysis(pattern: str, start_date: datetime, end_date: dat
 
 # New Category Analysis Commands
 @cli.command(name='analyze-billing')
-@click.option('--days', type=int, default=30, help='Number of days to analyze')
-@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
+@standard_flags()
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
-              help='AI model to use for analysis (overrides config setting)')
-def analyze_billing(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
+def analyze_billing(
+    days: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    max_conversations: Optional[int]
+):
     """Analyze billing conversations (refunds, invoices, credits, discounts)."""
+    
+    # Deprecation warning for --days
+    if days != 30 or (not time_period and not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
+    from src.utils.time_utils import calculate_date_range
+    from src.config.test_data import parse_test_data_count, get_preset_display_name
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+    
+    # Enable verbose logging if requested
     if verbose:
         setup_verbose_logging()
+    
+    # Audit trail indication
     if audit_trail:
         show_audit_trail_enabled()
     
-    if not start_date:
-        start_date = datetime.now() - timedelta(days=days)
-    if not end_date:
-        end_date = datetime.now()
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+    except ValueError as e:
+        # Fallback to --days if time range not specified
+        if not time_period and not (start_date and end_date):
+            from datetime import timedelta
+            end_dt = datetime.now()
+            start_dt = end_dt - timedelta(days=days)
+        else:
+            console.print(f"[red]Error: {e}[/red]")
+            return
     
-    asyncio.run(run_billing_analysis(start_date, end_date, generate_gamma, max_conversations))
+    # Generate gamma flag derived from output format
+    generate_gamma = output_format == 'gamma'
+    
+    asyncio.run(run_billing_analysis(start_dt, end_dt, generate_gamma, max_conversations))
 
 
 @cli.command(name='analyze-product')
-@click.option('--days', type=int, default=30, help='Number of days to analyze')
-@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
+@standard_flags()
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
-              help='AI model to use for analysis (overrides config setting)')
-def analyze_product(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-                   generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
+def analyze_product(
+    days: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    max_conversations: Optional[int]
+):
     """Analyze product conversations (export issues, bugs, feature requests)."""
+    
+    # Deprecation warning for --days
+    if days != 30 or (not time_period and not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
+    from src.utils.time_utils import calculate_date_range
+    from datetime import timedelta
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+    
+    # Enable verbose logging if requested
     if verbose:
         setup_verbose_logging()
+    
+    # Audit trail indication
     if audit_trail:
         show_audit_trail_enabled()
     
-    if not start_date:
-        start_date = datetime.now() - timedelta(days=days)
-    if not end_date:
-        end_date = datetime.now()
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+    except ValueError:
+        # Fallback to --days if time range not specified
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
     
-    asyncio.run(run_product_analysis(start_date, end_date, generate_gamma, max_conversations))
+    # Generate gamma flag derived from output format
+    generate_gamma = output_format == 'gamma'
+    
+    asyncio.run(run_product_analysis(start_dt, end_dt, generate_gamma, max_conversations))
 
 
 @cli.command(name='analyze-sites')
@@ -2384,29 +2576,64 @@ def analyze_sites(days: int, start_date: Optional[datetime], end_date: Optional[
 
 
 @cli.command(name='analyze-api')
-@click.option('--days', type=int, default=30, help='Number of days to analyze')
-@click.option('--start-date', type=click.DateTime(formats=['%Y-%m-%d']), help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', type=click.DateTime(formats=['%Y-%m-%d']), help='End date (YYYY-MM-DD)')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
+@click.option('--days', type=int, default=30, help='[DEPRECATED] Use --time-period instead. Number of days to analyze')
+@standard_flags()
 @click.option('--max-conversations', type=int, help='Maximum conversations to analyze')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
-              help='AI model to use for analysis (overrides config setting)')
-def analyze_api(days: int, start_date: Optional[datetime], end_date: Optional[datetime], 
-               generate_gamma: bool, max_conversations: Optional[int], verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
+def analyze_api(
+    days: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    max_conversations: Optional[int]
+):
     """Analyze API conversations (authentication, integration, performance)."""
+    
+    # Deprecation warning for --days
+    if days != 30 or (not time_period and not start_date and not end_date):
+        console.print("[yellow]⚠️  Warning: --days is deprecated. Please use --time-period and --periods-back instead.[/yellow]")
+    from src.utils.time_utils import calculate_date_range
+    from datetime import timedelta
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+    
+    # Enable verbose logging if requested
     if verbose:
         setup_verbose_logging()
+    
+    # Audit trail indication
     if audit_trail:
         show_audit_trail_enabled()
     
-    if not start_date:
-        start_date = datetime.now() - timedelta(days=days)
-    if not end_date:
-        end_date = datetime.now()
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+    except ValueError:
+        # Fallback to --days if time range not specified
+        end_dt = datetime.now()
+        start_dt = end_dt - timedelta(days=days)
     
-    asyncio.run(run_api_analysis(start_date, end_date, generate_gamma, max_conversations))
+    # Generate gamma flag derived from output format
+    generate_gamma = output_format == 'gamma'
+    
+    asyncio.run(run_api_analysis(start_dt, end_dt, generate_gamma, max_conversations))
 
 
 @cli.command(name='analyze-all-categories')
@@ -3016,43 +3243,77 @@ async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetim
 
 
 @cli.command(name='comprehensive-analysis')
-@click.option('--start-date', required=True, help='Start date (YYYY-MM-DD)')
-@click.option('--end-date', required=True, help='End date (YYYY-MM-DD)')
+@standard_flags()
 @click.option('--max-conversations', default=1000, help='Maximum conversations to analyze')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--gamma-style', default='executive', type=click.Choice(['executive', 'detailed', 'training']), help='Gamma presentation style')
-@click.option('--gamma-export', type=click.Choice(['pdf', 'pptx']), help='Gamma export format')
 @click.option('--export-docs', is_flag=True, help='Generate markdown for Google Docs')
 @click.option('--include-fin-analysis', is_flag=True, default=True, help='Include Fin escalation analysis')
 @click.option('--include-technical-analysis', is_flag=True, default=True, help='Include technical pattern analysis')
 @click.option('--include-macro-analysis', is_flag=True, default=True, help='Include macro opportunity analysis')
-@click.option('--output-dir', default='outputs', help='Output directory for results')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 def comprehensive_analysis(
-    start_date: str,
-    end_date: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
     max_conversations: int,
-    generate_gamma: bool,
     gamma_style: str,
-    gamma_export: str,
     export_docs: bool,
     include_fin_analysis: bool,
     include_technical_analysis: bool,
-    include_macro_analysis: bool,
-    output_dir: str,
-    verbose: bool = False,
-    audit_trail: bool = False
+    include_macro_analysis: bool
 ):
     """Run comprehensive analysis across all categories and components."""
+    from src.utils.time_utils import calculate_date_range
+    from src.config.test_data import parse_test_data_count, get_preset_display_name
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
+    
+    # Enable verbose logging if requested
     if verbose:
         setup_verbose_logging()
+    
+    # Audit trail indication
     if audit_trail:
         show_audit_trail_enabled()
+    
+    # Parse test data count
     try:
-        # Parse dates
-        start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-        end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+        test_count, preset_name = parse_test_data_count(test_data_count)
+        preset_display = get_preset_display_name(test_count, preset_name)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
+    
+    # Test mode indication
+    if test_mode:
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({preset_display})[/yellow]")
+    
+    # Calculate date range using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
+    
+    try:
         
         # Create output directory
         output_path = Path(output_dir)
@@ -4073,7 +4334,7 @@ async def run_test_topic_based(conversations):
 
 
 @cli.command(name='voice-of-customer')
-@click.option('--time-period', type=click.Choice(['week', 'month', 'quarter', 'year', 'yesterday']),
+@click.option('--time-period', type=click.Choice(['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks']),
               help='Time period for analysis (overrides start/end dates if provided)')
 @click.option('--periods-back', type=int, default=1,
               help='Number of periods back to analyze (e.g., --time-period month --periods-back 3)')
@@ -4146,69 +4407,36 @@ def voice_of_customer_analysis(
         # Custom date range
         python src/main.py voice-of-customer --start-date 2024-01-01 --end-date 2024-01-07
         
-        # With Gamma presentation
-        python src/main.py voice-of-customer --time-period week --generate-gamma
+        # With Gamma presentation (PDF export)
+        python src/main.py voice-of-customer --time-period week --output-format gamma --gamma-export pdf
+        
+        # With Gamma presentation (PowerPoint export)
+        python src/main.py voice-of-customer --time-period week --output-format gamma --gamma-export pptx
     """
-    from datetime import datetime, timedelta
-    import calendar
+    from src.utils.time_utils import calculate_date_range, format_date_range_for_display
     
-    # Calculate dates based on time period or use provided dates
-    if time_period:
-        # Get current date (normalized to start of today)
-        end_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        if time_period == 'yesterday':
-            # Yesterday only - fast test (exactly 1 day)
-            start_dt = end_dt - timedelta(days=1)
-            end_dt = end_dt - timedelta(days=1)
-        elif time_period == 'week':
-            # Last N weeks = N * 7 days, ending yesterday (not including today)
-            # This gives us exactly 7 complete days for periods_back=1
-            end_dt = end_dt - timedelta(days=1)  # End yesterday
-            start_dt = end_dt - timedelta(days=7 * periods_back - 1)  # Go back 7 days from yesterday
-        elif time_period == 'month':
-            # Go back N months
-            month = end_dt.month - periods_back
-            year = end_dt.year
-            while month <= 0:
-                month += 12
-                year -= 1
-            start_dt = datetime(year, month, 1)
-        elif time_period == 'quarter':
-            # Calculate quarter start
-            current_quarter = (end_dt.month - 1) // 3
-            quarter_month = current_quarter * 3 + 1
-            
-            # Go back N quarters
-            total_quarters_back = periods_back
-            years_back = total_quarters_back // 4
-            quarters_back = total_quarters_back % 4
-            
-            target_year = end_dt.year - years_back
-            target_quarter = current_quarter - quarters_back
-            
-            while target_quarter < 0:
-                target_quarter += 4
-                target_year -= 1
-            
-            target_month = target_quarter * 3 + 1
-            start_dt = datetime(target_year, target_month, 1)
-        elif time_period == 'year':
-            start_dt = datetime(end_dt.year - periods_back, 1, 1)
-        
+    # Calculate dates using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
         start_date = start_dt.strftime('%Y-%m-%d')
         end_date = end_dt.strftime('%Y-%m-%d')
         
-        console.print(f"[bold]Voice of Customer Analysis - {time_period.capitalize()}[/bold]")
-        console.print(f"Period: Last {periods_back} {time_period}(s)")
-    else:
-        if not start_date or not end_date:
-            console.print("[red]Error: Must provide either --time-period or both --start-date and --end-date[/red]")
-            return
+        if time_period:
+            console.print(f"[bold]Voice of Customer Analysis - {time_period.capitalize()}[/bold]")
+            console.print(f"Period: Last {periods_back} {time_period}(s)")
+        else:
+            console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
         
-        console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
-    
-    console.print(f"Date Range: {start_date} to {end_date} (Pacific Time)")
+        console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
     console.print(f"AI Model: {ai_model}")
     console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
     
@@ -4279,6 +4507,8 @@ def voice_of_customer_analysis(
               help='Show individual agent metrics with taxonomy breakdown (not just team summary)')
 @click.option('--time-period', type=click.Choice(['week', 'month', '6-weeks', 'quarter']),
               help='Time period for analysis')
+@click.option('--periods-back', type=int, default=1,
+              help='Number of periods back to analyze (e.g., --time-period week --periods-back 4 for last 4 weeks)')
 @click.option('--start-date', help='Start date (YYYY-MM-DD) - overrides time-period')
 @click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
 @click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
@@ -4294,36 +4524,41 @@ def voice_of_customer_analysis(
 @click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
               help='AI model to use for analysis (overrides config setting)')
-def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], start_date: Optional[str], 
-                     end_date: Optional[str], focus_categories: Optional[str], generate_gamma: bool, output_format: str,
-                     analyze_troubleshooting: bool = False, test_mode: bool = False, test_data_count: str = '100',
+def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], periods_back: int,
+                     start_date: Optional[str], end_date: Optional[str], focus_categories: Optional[str], 
+                     generate_gamma: bool, output_format: str, analyze_troubleshooting: bool = False, 
+                     test_mode: bool = False, test_data_count: str = '100',
                      verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
     """Analyze support agent/team performance with operational metrics"""
-    from datetime import timedelta
+    from src.utils.time_utils import calculate_date_range, format_date_range_for_display
     
     # Set AI model if specified
     if ai_model:
         os.environ['AI_MODEL'] = ai_model
         console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
     
-    # Calculate dates
-    if time_period:
-        end_dt = datetime.now()
-        if time_period == 'week':
-            start_dt = end_dt - timedelta(weeks=1)
-        elif time_period == 'month':
-            start_dt = end_dt - timedelta(days=30)
-        elif time_period == '6-weeks':
-            start_dt = end_dt - timedelta(weeks=6)
-        elif time_period == 'quarter':
-            start_dt = end_dt - timedelta(days=90)
+    # Calculate dates using shared utility
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+        start_date_str = start_dt.strftime('%Y-%m-%d')
+        end_date_str = end_dt.strftime('%Y-%m-%d')
         
-        start_date = start_dt.strftime('%Y-%m-%d')
-        end_date = end_dt.strftime('%Y-%m-%d')
-    else:
-        if not start_date or not end_date:
-            console.print("[red]Error: Provide either --time-period or both --start-date and --end-date[/red]")
-            return
+        if time_period:
+            console.print(f"[bold]Agent Performance Analysis - {time_period.capitalize()}[/bold]")
+            console.print(f"Period: Last {periods_back} {time_period}(s)")
+        else:
+            console.print(f"[bold]Agent Performance Analysis - Custom Range[/bold]")
+        
+        console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
     
     agent_name = {'horatio': 'Horatio', 'boldr': 'Boldr', 'escalated': 'Senior Staff'}.get(agent, agent)
     
@@ -4366,15 +4601,11 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
         console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
     
     console.print(f"[bold green]{agent_name} Performance Analysis[/bold green]")
-    console.print(f"Date Range: {start_date} to {end_date}")
+    console.print(f"Date Range: {start_date_str} to {end_date_str}")
     if individual_breakdown:
         console.print("[cyan]Mode: Individual Agent Breakdown with Taxonomy Analysis[/cyan]")
     if focus_categories:
         console.print(f"Focus: {focus_categories}")
-    
-    # Convert string dates to datetime objects
-    start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
     
     asyncio.run(run_agent_performance_analysis(
         agent, start_dt, end_dt, focus_categories, generate_gamma, individual_breakdown,
@@ -4385,32 +4616,81 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
 @cli.command(name='agent-coaching-report')
 @click.option('--vendor', type=click.Choice(['horatio', 'boldr']), required=True,
               help='Vendor to analyze (horatio or boldr)')
-@click.option('--time-period', type=click.Choice(['week', 'month']), default='week',
-              help='Time period for analysis')
+@standard_flags()
 @click.option('--top-n', default=3, help='Number of top/bottom performers to highlight')
-@click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
-@click.option('--verbose', is_flag=True, default=False, help='Enable verbose DEBUG logging')
-@click.option('--audit-trail', is_flag=True, default=False, help='Enable audit trail logging')
-@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
-              help='AI model to use for analysis (overrides config setting)')
-def agent_coaching_report(vendor: str, time_period: str, top_n: int, generate_gamma: bool, verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
+def agent_coaching_report(
+    vendor: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    time_period: Optional[str],
+    periods_back: int,
+    output_format: str,
+    gamma_export: Optional[str],
+    output_dir: str,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str],
+    filter_category: Optional[str],
+    top_n: int
+):
     """Generate coaching-focused report with individual agent performance and taxonomy breakdown"""
+    from src.utils.time_utils import calculate_date_range
+    from src.config.test_data import parse_test_data_count, get_preset_display_name
+    
+    console.print(f"\n📋 [bold cyan]{vendor.title()} Coaching Report[/bold cyan]")
+    
+    # Set AI model if specified
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
+    
+    # Enable verbose logging if requested
     if verbose:
         setup_verbose_logging()
+    
+    # Audit trail indication
     if audit_trail:
         show_audit_trail_enabled()
     
-    from datetime import timedelta
+    # Parse test data count
+    try:
+        test_count, preset_name = parse_test_data_count(test_data_count)
+        preset_display = get_preset_display_name(test_count, preset_name)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
     
-    # Calculate date range
-    end_dt = datetime.now()
-    start_dt = end_dt - timedelta(weeks=1 if time_period == 'week' else 4)
+    # Test mode indication
+    if test_mode:
+        console.print(f"[yellow]🧪 Test Mode: ENABLED ({preset_display})[/yellow]")
     
-    console.print(f"\n📋 [bold cyan]{vendor.title()} Coaching Report[/bold cyan]")
+    # Calculate date range - default to week if not specified
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period or 'week',
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
+    
     console.print(f"Period: {start_dt.date()} to {end_dt.date()}")
     console.print(f"Highlighting: Top {top_n} and Bottom {top_n} performers\n")
     
-    asyncio.run(run_agent_coaching_report(vendor, start_dt, end_dt, top_n, generate_gamma))
+    # Generate gamma flag derived from output format
+    generate_gamma = output_format == 'gamma'
+    
+    asyncio.run(run_agent_coaching_report(
+        vendor, start_dt, end_dt, top_n, generate_gamma,
+        test_mode=test_mode,
+        test_data_count=test_count,
+        output_dir=output_dir
+    ))
 
 
 @cli.command()

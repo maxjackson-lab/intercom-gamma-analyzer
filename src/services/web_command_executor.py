@@ -55,7 +55,7 @@ class WebCommandExecutor:
                 # Help and info
                 "--help", "-h", "--version", "-v", "--verbose", "--test-mode", "--test-data-count",
                 # Output options
-                "--output-dir", "--output-format", "--generate-gamma",
+                "--output-dir", "--output-format", "--gamma-export",
                 # Date/time options - with strict validation
                 "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
                 # Sample mode options
@@ -75,15 +75,16 @@ class WebCommandExecutor:
                 # Debugging and audit options
                 "--audit-trail", "--analyze-troubleshooting",
                 # Other options
-                "--export-format", "--limit", "--category", "--subcategory"
+                "--export-format", "--limit", "--category", "--subcategory", "--filter-category"
             },
             # Per-flag validation schemas
             "flag_schemas": {
-                "--time-period": {"type": "enum", "values": ["yesterday", "week", "month", "quarter", "year"]},
+                "--time-period": {"type": "enum", "values": ["yesterday", "week", "month", "quarter", "year", "6-weeks"]},
                 "--days": {"type": "int", "min": 1, "max": 365},
                 "--limit": {"type": "int", "min": 1, "max": 10000},
                 "--top-n": {"type": "int", "min": 1, "max": 100},
-                "--test-data-count": {"type": "int", "min": 1, "max": 25000},
+                "--test-data-count": {"type": "string"},
+                "--gamma-export": {"type": "enum", "values": ["pdf", "pptx"]},
                 "--agent": {"type": "enum", "values": ["horatio", "boldr", "escalated"]},
                 "--vendor": {"type": "enum", "values": ["horatio", "boldr"]},
                 "--analysis-type": {"type": "enum", "values": ["topic-based", "synthesis", "complete"]},
