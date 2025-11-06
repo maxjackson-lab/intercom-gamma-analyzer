@@ -398,10 +398,15 @@ async function runAnalysis() {
             args.push('--include-canny');
         }
         
-        // Taxonomy filter warning (not yet implemented in CLI)
+        // Add taxonomy filter if specified (now supported in CLI)
         if (taxonomyFilter && taxonomyFilter !== '') {
-            console.warn('Taxonomy filter selected but not yet supported:', taxonomyFilter);
-            // TODO: Add --filter-category flag to CLI first
+            // Apply to voice-of-customer, agent-performance, and category commands
+            if (analysisType.startsWith('voice-of-customer') || 
+                analysisType.startsWith('agent-performance') ||
+                analysisType.startsWith('analyze-')) {
+                args.push('--filter-category', taxonomyFilter);
+                console.log('Applied taxonomy filter:', taxonomyFilter);
+            }
         }
         
         console.log('Executing command:', command, args);
@@ -462,7 +467,11 @@ async function runAnalysis() {
                 
                 // Append output to terminal
                 if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status') {
-                    appendToTerminal(data.data || data.message || '', data.type);
+                    const outputText = data.data || data.message || '';
+                    appendToTerminal(outputText, data.type);
+                    
+                    // Parse output for tab population (Comment 16)
+                    parseOutputForTabs(outputText);
                 }
                 
                 // Handle completion
@@ -475,6 +484,9 @@ async function runAnalysis() {
                     if (cancelBtn) cancelBtn.style.display = 'none';
                     eventSource.close();
                     showToast('Analysis completed successfully!', 'success');
+                    
+                    // Load output files after completion
+                    loadOutputFiles();
                 }
                 
                 // Handle errors
@@ -597,6 +609,22 @@ function updateAnalysisOptions() {
     } else {
         if (timePeriodLabel) timePeriodLabel.style.display = 'block';
         if (timePeriodSelect) timePeriodSelect.style.display = 'block';
+    }
+    
+    // Restrict Data Source control to VoC only (Comment 2)
+    const dataSourceLabel = document.querySelector('label[for="dataSource"]');
+    const dataSourceSelect = document.getElementById('dataSource');
+    const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
+    
+    if (dataSourceLabel) {
+        dataSourceLabel.style.display = isVoC ? 'block' : 'none';
+    }
+    if (dataSourceSelect) {
+        dataSourceSelect.style.display = isVoC ? 'block' : 'none';
+        // Reset to default if not VoC
+        if (!isVoC) {
+            dataSourceSelect.value = 'intercom';
+        }
     }
     
     // Show/hide test mode options when checkbox changes
@@ -725,6 +753,128 @@ function initializeAnalysisForm() {
     updateAnalysisOptions();
     
     console.log('✅ Analysis form initialized');
+}
+
+/**
+ * Parse terminal output for special markers and populate tabs (Comment 16)
+ */
+function parseOutputForTabs(outputText) {
+    if (!outputText) return;
+    
+    // Detect Gamma URL
+    const gammaMatch = outputText.match(/Gamma (?:URL|presentation):\s*(https?:\/\/[^\s]+)/i);
+    if (gammaMatch) {
+        const gammaUrl = gammaMatch[1];
+        console.log('Detected Gamma URL:', gammaUrl);
+        addGammaLink(gammaUrl);
+    }
+    
+    // Detect file outputs
+    const fileMatch = outputText.match(/(?:Saved|Generated|Output).*?:\s*([^\s]+\.(md|json|csv|xlsx|pdf|pptx))/i);
+    if (fileMatch) {
+        const filePath = fileMatch[1];
+        console.log('Detected output file:', filePath);
+        // Files will be loaded via loadOutputFiles() after completion
+    }
+    
+    // Detect summary sections (e.g., lines starting with ## or **Summary**)
+    if (outputText.match(/^##\s+/m) || outputText.match(/\*\*Summary\*\*/i)) {
+        // Summary content detected - could be parsed further if needed
+        console.log('Detected summary content');
+    }
+}
+
+/**
+ * Add a Gamma link to the Gamma tab
+ */
+function addGammaLink(url) {
+    const gammaContainer = document.querySelector('#gammaLinks .gamma-links');
+    if (!gammaContainer) return;
+    
+    // Check if already added
+    const existing = gammaContainer.querySelector(`a[href="${url}"]`);
+    if (existing) return;
+    
+    const linkElement = document.createElement('div');
+    linkElement.style.cssText = 'margin: 10px 0; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.3);';
+    linkElement.innerHTML = `
+        <a href="${url}" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 500;">
+            📊 View Gamma Presentation
+        </a>
+        <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
+            ${url}
+        </div>
+    `;
+    
+    gammaContainer.appendChild(linkElement);
+    
+    // Show gamma tab if hidden
+    const gammaTab = document.getElementById('gammaTab');
+    if (gammaTab) {
+        gammaTab.style.display = 'inline-block';
+    }
+}
+
+/**
+ * Load output files from the server
+ */
+async function loadOutputFiles() {
+    try {
+        const response = await fetch('/outputs?limit=10');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const files = data.files || [];
+        
+        if (files.length === 0) return;
+        
+        const filesContainer = document.querySelector('#filesList .files-list');
+        if (!filesContainer) return;
+        
+        filesContainer.innerHTML = '';
+        
+        files.forEach(file => {
+            const fileElement = document.createElement('div');
+            fileElement.style.cssText = 'margin: 8px 0; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.3);';
+            
+            const icon = file.extension === '.md' ? '📄' : 
+                        file.extension === '.json' ? '📋' :
+                        file.extension === '.xlsx' ? '📊' :
+                        file.extension === '.csv' ? '📈' : '📁';
+            
+            fileElement.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 16px;">${icon}</span>
+                        <a href="/outputs/${file.path}" target="_blank" style="color: #10b981; text-decoration: none; margin-left: 8px;">
+                            ${file.name}
+                        </a>
+                    </div>
+                    <span style="color: #9ca3af; font-size: 12px;">${formatFileSize(file.size)}</span>
+                </div>
+            `;
+            
+            filesContainer.appendChild(fileElement);
+        });
+        
+        // Show files tab if hidden
+        const filesTab = document.getElementById('filesTab');
+        if (filesTab) {
+            filesTab.style.display = 'inline-block';
+        }
+        
+    } catch (error) {
+        console.error('Error loading output files:', error);
+    }
+}
+
+/**
+ * Format file size for display
+ */
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // Export functions to window for onclick handlers

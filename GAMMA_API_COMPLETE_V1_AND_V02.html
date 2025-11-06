@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gamma Generate API - Complete Documentation (v1.0 + v0.2)</title>
+    <style>
+        /* Screen styles */
+        @media screen {
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+                color: #24292e;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 40px 20px;
+                background-color: #ffffff;
+            }
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                font-size: 11pt;
+                line-height: 1.5;
+                color: #000;
+                margin: 0;
+                padding: 0;
+            }
+            
+            @page {
+                size: letter;
+                margin: 0.75in;
+            }
+        }
+        
+        /* Common styles */
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #000;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 12px;
+            margin-top: 32px;
+            margin-bottom: 20px;
+            page-break-after: avoid;
+        }
+        
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #000;
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 10px;
+            margin-top: 28px;
+            margin-bottom: 16px;
+            page-break-after: avoid;
+        }
+        
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #000;
+            margin-top: 24px;
+            margin-bottom: 12px;
+            page-break-after: avoid;
+        }
+        
+        h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            page-break-after: avoid;
+        }
+        
+        h5, h6 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        
+        p {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+        
+        code {
+            background-color: #f6f8fa;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-family: "SF Mono", Monaco, Consolas, "Courier New", monospace;
+            font-size: 85%;
+            color: #e83e8c;
+        }
+        
+        pre {
+            background-color: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 16px 0;
+            page-break-inside: avoid;
+        }
+        
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #24292e;
+            font-size: 12px;
+            border: none;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 16px 0;
+            font-size: 13px;
+            page-break-inside: avoid;
+        }
+        
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f6f8fa;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #fafbfc;
+        }
+        
+        blockquote {
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+            margin-left: 0;
+            color: #666;
+            background-color: #f8f9ff;
+            padding: 16px;
+            padding-left: 20px;
+            margin: 16px 0;
+            border-radius: 4px;
+        }
+        
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        ul, ol {
+            margin-top: 0;
+            margin-bottom: 12px;
+            padding-left: 32px;
+        }
+        
+        li {
+            margin-bottom: 6px;
+        }
+        
+        hr {
+            border: none;
+            border-top: 2px solid #eaecef;
+            margin: 32px 0;
+        }
+        
+        /* Print button (hidden when printing) */
+        .print-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background-color: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            z-index: 1000;
+        }
+        
+        .print-button:hover {
+            background-color: #5568d3;
+        }
+        
+        @media print {
+            .print-button {
+                display: none;
+            }
+        }
+        
+        /* Table of contents styling */
+        #toc {
+            background-color: #f8f9ff;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+        
+        #toc ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        #toc li {
+            margin-bottom: 8px;
+        }
+        
+        #toc a {
+            color: #667eea;
+        }
+        
+        /* Warning boxes */
+        blockquote:has(p:first-child:contains("🚧")),
+        blockquote:has(p:first-child:contains("⚠️")) {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <button class="print-button" onclick="window.print()">🖨️ Print to PDF</button>
+    
+    <h1 id="gamma-generate-api-complete-documentation-v10-v02-legacy">Gamma Generate API - Complete Documentation (v1.0 + v0.2 Legacy)</h1>
+<p><strong>Source</strong>: https://developers.gamma.app<br />
+<strong>Scraped</strong>: November 5, 2025<br />
+<strong>Current Version</strong>: v1.0 (GA - Generally Available as of Nov 5, 2025)<br />
+<strong>Legacy Version</strong>: v0.2 (Deprecated, will sunset January 16, 2026)</p>
+<hr />
+<h1 id="important-api-version-information">⚠️ IMPORTANT: API Version Information</h1>
+<h2 id="current-version-v10-use-this">Current Version: v1.0 (Use This!)</h2>
+<ul>
+<li><strong>Status</strong>: Generally Available (GA)</li>
+<li><strong>Base URL</strong>: <code>https://public-api.gamma.app/v1.0/</code></li>
+<li><strong>Released</strong>: November 5, 2025</li>
+<li><strong>Recommended</strong>: Yes - all new integrations should use v1.0</li>
+</ul>
+<h2 id="legacy-version-v02-deprecated">Legacy Version: v0.2 (Deprecated)</h2>
+<ul>
+<li><strong>Status</strong>: Deprecated</li>
+<li><strong>Base URL</strong>: <code>https://public-api.gamma.app/v0.2/</code></li>
+<li><strong>Sunset Date</strong>: January 16, 2026</li>
+<li><strong>Action Required</strong>: Migrate to v1.0 before Jan 16, 2026</li>
+</ul>
+<h2 id="key-differences-between-v10-and-v02">Key Differences Between v1.0 and v0.2</h2>
+<h3 id="new-in-v10">New in v1.0:</h3>
+<ul>
+<li>✅ <strong>Generate webpages</strong> (new format option)</li>
+<li>✅ <strong>Headers and footers</strong> customization</li>
+<li>✅ <strong>Input image URLs</strong> directly in content</li>
+<li>✅ <strong>Define folders</strong> for organization</li>
+<li>✅ <strong>Share via email</strong> to specific recipients</li>
+<li>✅ <strong>Create from Template API</strong> (beta) - Remix feature via API</li>
+<li>✅ <strong>List Themes API</strong> - Programmatically fetch themes</li>
+<li>✅ <strong>List Folders API</strong> - Programmatically fetch folders</li>
+<li>✅ <strong>No hard limits</strong> on generations (subject to rate limits)</li>
+<li>✅ Parameter name changes: <code>themeName</code> → <code>themeId</code></li>
+</ul>
+<h3 id="removed-hard-limits">Removed Hard Limits:</h3>
+<ul>
+<li>v0.2: 50 generations/day → v1.0: 50 generations/hour (soft limit)</li>
+</ul>
+<hr />
+<h1 id="table-of-contents">Table of Contents</h1>
+<h2 id="v10-documentation-current">v1.0 Documentation (Current)</h2>
+<ol>
+<li><a href="#v10-introduction--getting-started">v1.0 Introduction &amp; Getting Started</a></li>
+<li><a href="#v10-access-and-pricing">v1.0 Access and Pricing</a></li>
+<li><a href="#v10-generate-api-parameters-explained">v1.0 Generate API Parameters</a></li>
+<li><a href="#v10-list-themes-and-list-folders-apis">v1.0 List Themes and Folders APIs</a></li>
+<li><a href="#v10-error-codes">v1.0 Error Codes</a></li>
+</ol>
+<h2 id="v02-documentation-legacy">v0.2 Documentation (Legacy)</h2>
+<ol>
+<li><a href="#v02-legacy-api-reference">v0.2 Legacy API Reference</a></li>
+<li><a href="#v02-legacy-endpoints">v0.2 Legacy Endpoints</a></li>
+</ol>
+<h2 id="reference-data-applies-to-both-versions">Reference Data (Applies to Both Versions)</h2>
+<ol>
+<li><a href="#supported-languages-both-versions">Supported Languages</a></li>
+<li><a href="#ai-image-models-both-versions">AI Image Models</a></li>
+</ol>
+<hr />
+<h1 id="v10-documentation-current_1">v1.0 Documentation (Current)</h1>
+<hr />
+<h1 id="v10-introduction-getting-started">v1.0 Introduction &amp; Getting Started</h1>
+<blockquote>
+<p>🚧</p>
+<h3 id="the-generate-api-is-currently-in-beta">The Generate API is currently in beta</h3>
+<ul>
+<li>Gamma Pro and Ultra users get up to 50 generations/hour.</li>
+<li>Functionality, rate limits, and pricing are subject to change.</li>
+<li>During the beta, we may introduce breaking changes to the API with limited notice.</li>
+</ul>
+</blockquote>
+<p>The Generate API allows you to programmatically create presentations, documents, and social media posts using Gamma. This API mirrors much of the AI generation functionality available through Gamma's web application.</p>
+<p><img alt="" src="https://files.readme.io/952dc4226d8f9cb0f57aff2f3fe9bb2bd1d9250910ad9efc01d362033ec9a037-CleanShot_2025-07-01_at_09.41.412x.jpg" /></p>
+<h2 id="what-is-gamma">What is Gamma?</h2>
+<p><a href="https://gamma.app/about">Gamma</a> is an AI-powered design partner that helps you create professional-looking presentations, documents, and social posts quickly using AI-generated content and images. The Gamma API extends this functionality to developers and users of automation tools, allowing them to integrate Gamma's content generation capabilities into their own applications and workflows.</p>
+<h2 id="key-features">Key Features</h2>
+<p><strong>Versatile Content Creation</strong></p>
+<p>Create presentations, documents, and social posts in various sizes and styles. Generate from any text -- a one-line prompt, messy notes, or polished content. Support for 60+ languages makes your content globally accessible.</p>
+<p><strong>Intelligent Design</strong></p>
+<p>Get thoughtfully designed content with customizable themes and images from AI or a source of your choosing. Fine-tune your output by defining tone, audience, and detail level.</p>
+<p><strong>Seamless Workflow</strong></p>
+<p>Further refine your API generated content in the Gamma app or export directly to PDF or PPTX via API. You can also connect Gamma into your favorite automation tool to create an end to end workflow.</p>
+<h2 id="ways-to-use-the-api">Ways to use the API</h2>
+<p>You can use the Gamma API in multiple ways:</p>
+<ul>
+<li>On automation platforms like Make, <a href="https://zapier.com/apps/gamma/integrations">Zapier</a>, Workato, N8N, etc, to automate your workflows</li>
+<li>By directly integrating it into backend code to power your apps</li>
+</ul>
+<p><img alt="" src="https://files.readme.io/97b4fc25ccdbc19261161c824d67bbf060755d1130cb2f20b398586ad7e35d52-CleanShot_2025-09-15_at_07.54.302x.png" /></p>
+<h2 id="limitations">Limitations</h2>
+<blockquote>
+<p>🚧</p>
+<h3 id="the-generate-api-is-currently-in-beta_1">The Generate API is currently in beta.</h3>
+<p><strong>Functionality, rate limits, and pricing are subject to change.</strong></p>
+</blockquote>
+<p>The beta version of the API has the following limitations:</p>
+<ul>
+<li>Rate limits: Maximum of 50 generations per hour per user.</li>
+<li>Authentication: We currently support authentication via API keys only, and OAuth is not yet supported.</li>
+</ul>
+<hr />
+<h1 id="v10-access-and-pricing">v1.0 Access and Pricing</h1>
+<h2 id="access">Access</h2>
+<ul>
+<li>API access is available to subscribers on Pro, Ultra, Teams, and Business plans. View <a href="https://gamma.app/pricing">pricing plans here</a>.</li>
+<li>To get started, you can generate an API key through your account settings as shown below.</li>
+</ul>
+<p><img alt="" src="https://files.readme.io/2192df8ddd3190fe7d98eb06e2f5370d3a8300f2251bb0aa83a63790f3e35c6a-CleanShot_2025-07-28_at_12.43.382x.png" /></p>
+<h2 id="usage-and-pricing">Usage and pricing</h2>
+<ul>
+<li>API billing is conducted using a credit-based system, and higher tier subscribers receive more monthly credits.</li>
+<li>If you run out of credits, you can upgrade to a higher subscription tier, purchase credits ad hoc, or enable auto-recharge (<em>recommended</em>) at <a href="https://gamma.app/settings/billing">https://gamma.app/settings/billing</a></li>
+</ul>
+<p><img alt="" src="https://files.readme.io/7088518f8139672d05c42610c1e1a172e600d6f00ec2e6a16c5d0f45f7e46c7a-CleanShot_2025-10-01_at_07.40.082x.png" /></p>
+<h2 id="how-credits-work">How credits work</h2>
+<p>Credit charges are determined based on several factors and are returned in the GET response.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>API parameter</th>
+<th>Credits Charged*</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Number of cards</td>
+<td><code>numCards</code></td>
+<td>3-4 credits/card</td>
+</tr>
+<tr>
+<td>AI image model</td>
+<td><code>imageOptions.model</code></td>
+<td>- Basic models: ~2 credits/image<br>- Advanced models: ~10-20 credits/image<br>- Premium models: ~20-40 credits/image<br>- Ultra models: ~40-120 credits/image</td>
+</tr>
+</tbody>
+</table>
+<p>*Credit charges subject to change.</p>
+<p><strong>Illustrative scenarios</strong></p>
+<ul>
+<li>Deck with 10 cards + 5 images generated using a basic image model = ~40-50 credits</li>
+<li>Doc with 20 cards + 15 images generated using a premium image model = ~360-680 credits</li>
+<li>Socials with 30 cards + 30 images generated using an ultra image model = ~1290-3720 credits</li>
+</ul>
+<p>To learn more about credits, you can visit our <a href="https://help.gamma.app/en/articles/7834324-how-do-ai-credits-work-in-gamma">Help Center</a>.</p>
+<hr />
+<h1 id="v10-generate-api-parameters-explained">v1.0 Generate API Parameters Explained</h1>
+<p>The sample API requests below shows all required and optional API parameters, as well as sample responses.</p>
+<h2 id="sample-api-requests-v10">Sample API Requests (v1.0)</h2>
+<h3 id="generate-post-request">Generate POST request</h3>
+<pre><code class="language-curl">curl --request POST \
+     --url https://public-api.gamma.app/v1.0/generations \
+     --header 'Content-Type: application/json' \
+     --header 'X-API-KEY: sk-gamma-xxxxxxxx' \
+     --data '
+{
+  &quot;inputText&quot;: &quot;Best hikes in the United States&quot;,
+  &quot;textMode&quot;: &quot;generate&quot;,
+  &quot;format&quot;: &quot;presentation&quot;,
+  &quot;themeId&quot;: &quot;Oasis&quot;,
+  &quot;numCards&quot;: 10,
+  &quot;cardSplit&quot;: &quot;auto&quot;,
+  &quot;additionalInstructions&quot;: &quot;Make the titles catchy&quot;,
+  &quot;folderIds&quot;: [&quot;123abc456&quot;, &quot;456def789&quot;],
+  &quot;exportAs&quot;: &quot;pdf&quot;,
+  &quot;textOptions&quot;: {
+    &quot;amount&quot;: &quot;detailed&quot;,
+    &quot;tone&quot;: &quot;professional, inspiring&quot;,
+    &quot;audience&quot;: &quot;outdoors enthusiasts, adventure seekers&quot;,
+    &quot;language&quot;: &quot;en&quot;
+  },
+  &quot;imageOptions&quot;: {
+    &quot;source&quot;: &quot;aiGenerated&quot;,
+    &quot;model&quot;: &quot;imagen-4-pro&quot;,
+    &quot;style&quot;: &quot;photorealistic&quot;
+  },
+  &quot;cardOptions&quot;: {
+    &quot;dimensions&quot;: &quot;fluid&quot;,
+    &quot;headerFooter&quot;: {
+      &quot;topRight&quot;: {
+        &quot;type&quot;: &quot;image&quot;,
+        &quot;source&quot;: &quot;themeLogo&quot;,
+        &quot;size&quot;: &quot;sm&quot;
+      },
+      &quot;bottomRight&quot;: {
+        &quot;type&quot;: &quot;cardNumber&quot;
+      },
+      &quot;hideFromFirstCard&quot;: true,
+      &quot;hideFromLastCard&quot;: false
+    }
+  },
+  &quot;sharingOptions&quot;: {
+    &quot;workspaceAccess&quot;: &quot;view&quot;,
+    &quot;externalAccess&quot;: &quot;noAccess&quot;,
+    &quot;emailOptions&quot;: {
+      &quot;recipients&quot;: [&quot;email@example.com&quot;],
+      &quot;access&quot;: &quot;comment&quot;
+    }
+  },
+}
+'
+</code></pre>
+<h3 id="success-response">Success response</h3>
+<pre><code class="language-json">{
+  &quot;generationId&quot;: &quot;yyyyyyyyyy&quot;
+}
+</code></pre>
+<h3 id="error-response">Error response</h3>
+<pre><code class="language-json">{
+  &quot;message&quot;: &quot;Input validation errors: 1. …&quot;,
+  &quot;statusCode&quot;: 400
+}
+</code></pre>
+<h3 id="error-no-credits">Error: No credits</h3>
+<pre><code class="language-json">{
+  &quot;message&quot;: &quot;Forbidden&quot;,
+  &quot;statusCode&quot;: 403
+}
+</code></pre>
+<h3 id="get-request">GET request</h3>
+<pre><code class="language-curl">curl --request GET \
+     --url https://public-api.gamma.app/v1.0/generations/yyyyyyyyyy \
+     --header 'X-API-KEY: sk-gamma-xxxxxxxx' \
+     --header 'accept: application/json'
+</code></pre>
+<h3 id="success-status-pending">Success: status pending</h3>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;pending&quot;,
+  &quot;generationId&quot;: &quot;XXXXXXXXXXX&quot;
+}
+</code></pre>
+<h3 id="success-status-completed">Success: status completed</h3>
+<pre><code class="language-json">{
+  &quot;generationId&quot;: &quot;XXXXXXXXXXX&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;gammaUrl&quot;: &quot;https://gamma.app/docs/yyyyyyyyyy&quot;,
+  &quot;credits&quot;:{&quot;deducted&quot;:150,&quot;remaining&quot;:3000}
+}
+</code></pre>
+<h3 id="error-response_1">Error response</h3>
+<pre><code class="language-json">{
+  &quot;message&quot;: &quot;Generation ID not found. generationId: xxxxxx&quot;,
+  &quot;statusCode&quot;: 404,
+  &quot;credits&quot;:{&quot;deducted&quot;:0,&quot;remaining&quot;:3000}
+}
+</code></pre>
+<hr />
+<h1 id="top-level-parameters-v10">Top level parameters (v1.0)</h1>
+<h2 id="inputtext-required"><code>inputText</code> <em>(required)</em></h2>
+<p>Content used to generate your gamma, including text and image URLs.</p>
+<p><strong>Add images to the input</strong></p>
+<p>You can provide URLs for specific images you want to include. Simply insert the URLs into your content where you want each image to appear (see example below). You can also add instructions for how to display the images in <code>additionalInstructions</code>, eg, "Group the last 10 images into a gallery to showcase them together."</p>
+<p>Note: If you want your gamma to use <em>only</em> the images you provide (and not generate additional ones), set <code>imageOptions.source</code> to <code>noImages</code>.</p>
+<p><strong>Token limits</strong></p>
+<p>The token limit is 100,000, which is approximately 400,000 characters. However, in some cases, the token limit may be lower, especially if your use case requires extra reasoning from our AI models. We highly recommend keeping inputText below 100,000 tokens and testing out a variety of inputs to get a good sense of what works for your use case.</p>
+<p><strong>Other tips</strong></p>
+<ul>
+<li>Text can be as little as a few words that describe the topic of the content you want to generate.</li>
+<li>You can also input longer text -- pages of messy notes or highly structured, detailed text.</li>
+<li>You can control where cards are split by adding \n---\n to the text.</li>
+<li>You may need to apply JSON escaping to your text. Find out more about JSON escaping and <a href="https://www.devtoolsdaily.com/json/escape/">try it out here</a>.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;inputText&quot;: &quot;Ways to use AI for productivity&quot;
+</code></pre>
+<h2 id="textmode-required"><code>textMode</code> <em>(required)</em></h2>
+<p>Determines how your <code>inputText</code> is modified, if at all.</p>
+<ul>
+<li>You can choose between <code>generate</code>, <code>condense</code>, or <code>preserve</code></li>
+<li><code>generate</code>: Using your <code>inputText</code> as a starting point, Gamma will rewrite and expand the content. Works best when you have brief text in the input that you want to elaborate on.</li>
+<li><code>condense</code>: Gamma will summarize your <code>inputText</code> to fit the content length you want. Works best when you start with a large amount of text that you'd like to summarize.</li>
+<li><code>preserve</code>: Gamma will retain the exact text in <code>inputText</code>, sometimes structuring it where it makes sense to do so, eg, adding headings to sections. (If you do not want any modifications at all, you can specify this in the <code>additionalInstructions</code> parameter.)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;textMode&quot;: &quot;generate&quot;
+</code></pre>
+<h2 id="format-optional-defaults-to-presentation"><code>format</code> <em>(optional, defaults to <code>presentation</code>)</em></h2>
+<p>Determines the artifact Gamma will create for you.</p>
+<ul>
+<li>You can choose between <code>presentation</code>, <code>document</code>, <code>social</code>, or <code>webpage</code>.</li>
+<li>You can use the <code>cardOptions.dimensions</code> field to further specify the shape of your output.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;format&quot;: &quot;presentation&quot;
+</code></pre>
+<h2 id="themeid-optional-defaults-to-workspace-default-theme"><code>themeId</code> <em>(optional, defaults to workspace default theme)</em></h2>
+<p>Defines which theme from Gamma will be used for the output. Themes determine the look and feel of the gamma, including colors and fonts.</p>
+<ul>
+<li>You can use the <a href="https://developers.gamma.app/v1.0/update/docs/list-themes-and-folders-apis#/">GET Themes</a> endpoint to pull a list of themes from your workspace. Or you can copy over the themeId from the app directly.</li>
+</ul>
+<p><img alt="" src="https://files.readme.io/d01171ca7562e427d8469ee2d0391e54400235ca558d6da8e61cf35e957d8833-CleanShot_2025-11-03_at_14.24.272x.png" /></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;themeId&quot;: &quot;abc123def456ghi&quot;
+</code></pre>
+<h2 id="numcards-optional-defaults-to-10"><code>numCards</code> <em>(optional, defaults to <code>10</code>)</em></h2>
+<p>Determines how many cards are created if <code>auto</code> is chosen in <code>cardSplit</code></p>
+<ul>
+<li>Pro users can choose any integer between 1 and 60.</li>
+<li>Ultra users can choose any integer between 1 and 75.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;numCards&quot;: 10
+</code></pre>
+<h2 id="cardsplit-optional-defaults-to-auto"><code>cardSplit</code> <em>(optional, defaults to <code>auto</code>)</em></h2>
+<p>Determines how your content will be divided into cards.</p>
+<ul>
+<li>You can choose between <code>auto</code> or <code>inputTextBreaks</code></li>
+<li>Choosing <code>auto</code> tells Gamma to looks at the <code>numCards</code> field and divide up content accordingly. (It will not adhere to text breaks \n---\n in your <code>inputText</code>.)</li>
+<li>Choosing <code>inputTextBreaks</code> tells Gamma that it should look for text breaks \n---\n in your <code>inputText</code> and divide the content based on this. (It will not respect <code>numCards</code>.)</li>
+<li>Note: One \n---\n = one break, ie, text with one break will produce two cards, two break will produce three cards, and so on.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>inputText contains \n---\n<br>and how many</th>
+<th>cardSplit</th>
+<th>numCards</th>
+<th>output has</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No</td>
+<td>auto</td>
+<td>9</td>
+<td>9 cards</td>
+</tr>
+<tr>
+<td>No</td>
+<td>auto</td>
+<td>left blank</td>
+<td>10 cards (default)</td>
+</tr>
+<tr>
+<td>No</td>
+<td>inputTextBreaks</td>
+<td>9</td>
+<td>1 card</td>
+</tr>
+<tr>
+<td>Yes, 5</td>
+<td>auto</td>
+<td>9</td>
+<td>9 cards</td>
+</tr>
+<tr>
+<td>Yes, 5</td>
+<td>inputTextBreaks</td>
+<td>9</td>
+<td>6 cards</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;cardSplit&quot;: &quot;auto&quot;
+</code></pre>
+<h2 id="additionalinstructions-optional"><code>additionalInstructions</code> <em>(optional)</em></h2>
+<p>Helps you add more specifications about your desired output.</p>
+<ul>
+<li>You can add specifications to steer content, layouts, and other aspects of the output.</li>
+<li>Works best when the instructions do not conflict with other parameters.</li>
+<li>Character limits: 1-2000.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;additionalInstructions&quot;: &quot;Make the card headings humorous and catchy&quot;
+</code></pre>
+<h2 id="folderids-optional"><code>folderIds</code> <em>(optional)</em></h2>
+<p>Defines which folder(s) your gamma is stored in.</p>
+<ul>
+<li>You can use the <a href="https://developers.gamma.app/v1.0/update/docs/list-themes-and-folders-apis#/">GET Folders</a> endpoint to pull a list of folders. Or you can copy over the folderIds from the app directly.</li>
+</ul>
+<p><img alt="" src="https://files.readme.io/eefcb9b3f6404e96978f1a92aed2820c178ed1dbf550873c6e3da0538c466740-CleanShot_2025-11-03_at_14.27.362x.png" /></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;folderIds&quot;: [&quot;123abc456def&quot;, &quot;456123abcdef&quot;]
+</code></pre>
+<h2 id="exportas-optional"><code>exportAs</code> <em>(optional)</em></h2>
+<p>Indicates if you'd like to return the generated gamma as a PDF or PPTX file as well as a Gamma URL.</p>
+<ul>
+<li>Options are <code>pdf</code> or <code>pptx</code></li>
+<li>Download the files once generated as the links will become invalid after a period of time.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;exportAs&quot;: &quot;pdf&quot;
+</code></pre>
+<hr />
+<h1 id="textoptions-v10">textOptions (v1.0)</h1>
+<h2 id="textoptionsamount-optional-defaults-to-medium"><code>textOptions.amount</code> <em>(optional, defaults to <code>medium</code>)</em></h2>
+<p>Influences how much text each card contains. Relevant only if <code>textMode</code> is set to <code>generate</code> or <code>condense</code>.</p>
+<ul>
+<li>You can choose between <code>brief</code>, <code>medium</code>, <code>detailed</code> or <code>extensive</code></li>
+</ul>
+<h2 id="textoptionstone-optional"><code>textOptions.tone</code> <em>(optional)</em></h2>
+<p>Defines the mood or voice of the output. Relevant only if <code>textMode</code> is set to <code>generate</code>.</p>
+<ul>
+<li>Character limits: 1-500.</li>
+</ul>
+<h2 id="textoptionsaudience-optional"><code>textOptions.audience</code> <em>(optional)</em></h2>
+<p>Describes who will be reading/viewing the gamma. Relevant only if <code>textMode</code> is set to <code>generate</code>.</p>
+<ul>
+<li>Character limits: 1-500.</li>
+</ul>
+<h2 id="textoptionslanguage-optional-defaults-to-en"><code>textOptions.language</code> <em>(optional, defaults to <code>en</code>)</em></h2>
+<p>Determines the language in which your gamma is generated, regardless of the language of the <code>inputText</code>.</p>
+<ul>
+<li>See <a href="#supported-languages-both-versions">Supported Languages</a> section below.</li>
+</ul>
+<hr />
+<h1 id="imageoptions-v10">imageOptions (v1.0)</h1>
+<h2 id="imageoptionssource-optional-defaults-to-aigenerated"><code>imageOptions.source</code> <em>(optional, defaults to <code>aiGenerated</code>)</em></h2>
+<p>Determines where the images for the gamma are sourced from.</p>
+<table>
+<thead>
+<tr>
+<th>Options for <code>source</code></th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>aiGenerated</code></td>
+<td>If you choose this option, you can also specify the <code>imageOptions.model</code> and <code>imageOptions.style</code>.</td>
+</tr>
+<tr>
+<td><code>pictographic</code></td>
+<td>Pulls images from Pictographic.</td>
+</tr>
+<tr>
+<td><code>unsplash</code></td>
+<td>Gets images from Unsplash.</td>
+</tr>
+<tr>
+<td><code>giphy</code></td>
+<td>Gets GIFs from Giphy.</td>
+</tr>
+<tr>
+<td><code>webAllImages</code></td>
+<td>Pulls the most relevant images from the web, even if licensing is unknown.</td>
+</tr>
+<tr>
+<td><code>webFreeToUse</code></td>
+<td>Pulls images licensed for personal use.</td>
+</tr>
+<tr>
+<td><code>webFreeToUseCommercially</code></td>
+<td>Gets images licensed for commercial use.</td>
+</tr>
+<tr>
+<td><code>placeholder</code></td>
+<td>Creates a gamma with placeholders for images.</td>
+</tr>
+<tr>
+<td><code>noImages</code></td>
+<td>Creates a gamma with no images. Select this if providing your own image URLs in <code>inputText</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="imageoptionsmodel-optional"><code>imageOptions.model</code> <em>(optional)</em></h2>
+<p>Relevant if <code>imageOptions.source</code> is <code>aiGenerated</code>. Determines which AI model generates images.</p>
+<ul>
+<li>See <a href="#ai-image-models-both-versions">AI Image Models</a> section below.</li>
+<li>If not specified, Gamma automatically selects a model.</li>
+</ul>
+<h2 id="imageoptionsstyle-optional"><code>imageOptions.style</code> <em>(optional)</em></h2>
+<p>Relevant if <code>imageOptions.source</code> is <code>aiGenerated</code>. Influences the artistic style of generated images.</p>
+<ul>
+<li>Character limits: 1-500.</li>
+<li>Highly recommended to add direction for visual consistency.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">&quot;imageOptions&quot;: {
+    &quot;style&quot;: &quot;minimal, black and white, line art&quot;
+}
+</code></pre>
+<hr />
+<h1 id="cardoptions-v10">cardOptions (v1.0)</h1>
+<h2 id="cardoptionsdimensions-optional"><code>cardOptions.dimensions</code> <em>(optional)</em></h2>
+<p>Determines the aspect ratio of the cards. Not applicable if <code>format</code> is <code>webpage</code>.</p>
+<ul>
+<li><strong>If <code>format</code> is <code>presentation</code></strong>: <code>fluid</code> (default), <code>16x9</code>, <code>4x3</code></li>
+<li><strong>If <code>format</code> is <code>document</code></strong>: <code>fluid</code> (default), <code>pageless</code>, <code>letter</code>, <code>a4</code></li>
+<li><strong>If <code>format</code> is <code>social</code></strong>: <code>1x1</code>, <code>4x5</code> (default), <code>9x16</code></li>
+</ul>
+<h2 id="cardoptionsheaderfooter-optional-new-in-v10"><code>cardOptions.headerFooter</code> <em>(optional)</em> <strong>[NEW IN v1.0]</strong></h2>
+<p>Allows you to specify elements in the header and footer of cards. Not applicable if <code>format</code> is <code>webpage</code>.</p>
+<p><strong>Positions</strong>: <code>topLeft</code>, <code>topRight</code>, <code>topCenter</code>, <code>bottomLeft</code>, <code>bottomRight</code>, <code>bottomCenter</code></p>
+<p><strong>Types</strong>: <code>text</code>, <code>image</code>, <code>cardNumber</code></p>
+<p><strong>Configuration</strong>:
+- For <code>text</code>: define <code>value</code> (required)
+- For <code>image</code>: 
+  - Set <code>source</code>: <code>themeLogo</code> or <code>custom</code> (required)
+  - Set <code>size</code>: <code>sm</code>, <code>md</code>, <code>lg</code>, <code>xl</code> (optional)
+  - For <code>custom</code>, define <code>src</code> URL (required)
+- For <code>cardNumber</code>: no additional config</p>
+<p><strong>Visibility controls</strong>:
+- <code>hideFromFirstCard</code> (optional, default: false)
+- <code>hideFromLastCard</code> (optional, default: false)</p>
+<hr />
+<h1 id="sharingoptions-v10">sharingOptions (v1.0)</h1>
+<h2 id="sharingoptionsworkspaceaccess-optional"><code>sharingOptions.workspaceAccess</code> <em>(optional)</em></h2>
+<p>Level of access for workspace members.</p>
+<ul>
+<li>Options: <code>noAccess</code>, <code>view</code>, <code>comment</code>, <code>edit</code>, <code>fullAccess</code></li>
+</ul>
+<h2 id="sharingoptionsexternalaccess-optional"><code>sharingOptions.externalAccess</code> <em>(optional)</em></h2>
+<p>Level of access for external users.</p>
+<ul>
+<li>Options: <code>noAccess</code>, <code>view</code>, <code>comment</code>, <code>edit</code></li>
+</ul>
+<h2 id="sharingoptionsemailoptions-optional-new-in-v10"><code>sharingOptions.emailOptions</code> <em>(optional)</em> <strong>[NEW IN v1.0]</strong></h2>
+<p>Share with specific recipients via email.</p>
+<h3 id="recipients-optional"><code>recipients</code> <em>(optional)</em></h3>
+<p>Array of email addresses.</p>
+<h3 id="access-optional"><code>access</code> <em>(optional)</em></h3>
+<p>Access level for recipients: <code>view</code>, <code>comment</code>, <code>edit</code>, or <code>fullAccess</code></p>
+<hr />
+<h1 id="v10-list-themes-and-list-folders-apis">v1.0 List Themes and List Folders APIs</h1>
+<p>List API methods support bulk fetching through cursor-based pagination.</p>
+<h2 id="endpoints">Endpoints</h2>
+<ul>
+<li><code>GET /v1.0/folders</code> - List all folders</li>
+<li><code>GET /v1.0/themes</code> - List all themes</li>
+</ul>
+<h2 id="common-parameters">Common parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query</code></td>
+<td>string (optional)</td>
+<td>Search by name (case-insensitive)</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>integer (optional)</td>
+<td>Items per page. Maximum: 50</td>
+</tr>
+<tr>
+<td><code>after</code></td>
+<td>string (optional)</td>
+<td>Cursor token for next page</td>
+</tr>
+</tbody>
+</table>
+<h2 id="response-format">Response format</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>data</code></td>
+<td>array</td>
+<td>Array of objects</td>
+</tr>
+<tr>
+<td><code>hasMore</code></td>
+<td>boolean</td>
+<td>Indicates if more pages exist</td>
+</tr>
+<tr>
+<td><code>nextCursor</code></td>
+<td>string or null</td>
+<td>Cursor for next page</td>
+</tr>
+</tbody>
+</table>
+<h2 id="list-themes-example">List Themes Example</h2>
+<pre><code class="language-curl">curl -X GET https://public-api.gamma.app/v1.0/themes \
+-H &quot;X-API-KEY: sk-gamma-xxxxxxxx&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;abcdefghi&quot;,
+  &quot;name&quot;: &quot;Prism&quot;,
+  &quot;type&quot;: &quot;custom&quot;,
+  &quot;colorKeywords&quot;: [&quot;light&quot;,&quot;blue&quot;,&quot;pink&quot;,&quot;purple&quot;],
+  &quot;toneKeywords&quot;: [&quot;playful&quot;,&quot;friendly&quot;,&quot;creative&quot;]
+}
+</code></pre>
+<p>The <code>type</code> field:
+- <code>standard</code>: Global themes available to all workspaces
+- <code>custom</code>: Workspace-specific themes</p>
+<h2 id="list-folders-example">List Folders Example</h2>
+<pre><code class="language-curl">curl -X GET https://public-api.gamma.app/v1.0/folders \
+-H &quot;X-API-KEY: sk-gamma-xxxxxxxx&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;abc123def456&quot;,
+  &quot;name&quot;: &quot;Business Proposals&quot;
+}
+</code></pre>
+<h2 id="pagination-example">Pagination Example</h2>
+<p><strong>First page:</strong></p>
+<pre><code>GET /v1.0/folders?limit=50
+</code></pre>
+<p><strong>Next page:</strong></p>
+<pre><code>GET /v1.0/folders?limit=50&amp;after=abc123def456ghi789
+</code></pre>
+<hr />
+<h1 id="v10-error-codes">v1.0 Error Codes</h1>
+<table>
+<thead>
+<tr>
+<th>Status Code</th>
+<th>Message</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td>Input validation errors</td>
+<td>Invalid parameters. Check error details.</td>
+</tr>
+<tr>
+<td>401</td>
+<td>Invalid API key</td>
+<td>API key is invalid or not associated with Pro account.</td>
+</tr>
+<tr>
+<td>403</td>
+<td>Forbidden</td>
+<td>No credits left. Upgrade or refill credits.</td>
+</tr>
+<tr>
+<td>404</td>
+<td>Generation ID not found</td>
+<td>Generation ID could not be located.</td>
+</tr>
+<tr>
+<td>422</td>
+<td>Failed to generate text</td>
+<td>Generation produced empty output. Review inputs.</td>
+</tr>
+<tr>
+<td>429</td>
+<td>Too many requests</td>
+<td>Rate limit exceeded. Retry after limit period.</td>
+</tr>
+<tr>
+<td>500</td>
+<td>An error occurred</td>
+<td>Unexpected error. Contact support with x-request-id.</td>
+</tr>
+<tr>
+<td>502</td>
+<td>Bad gateway</td>
+<td>Temporary gateway issue. Try again.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="v02-legacy-api-reference">v0.2 Legacy API Reference</h1>
+<p>⚠️ <strong>DEPRECATED - Will sunset January 16, 2026</strong></p>
+<h2 id="v02-endpoints">v0.2 Endpoints</h2>
+<h3 id="post-generate-a-gamma">POST - Generate a gamma</h3>
+<pre><code class="language-curl">curl --request POST \
+     --url https://public-api.gamma.app/v0.2/generations \
+     --header 'Content-Type: application/json' \
+     --header 'X-API-KEY: sk-gamma-xxxxxxxx' \
+     --data '
+{
+  &quot;inputText&quot;: &quot;Your content here&quot;,
+  &quot;textMode&quot;: &quot;generate&quot;,
+  &quot;format&quot;: &quot;presentation&quot;,
+  &quot;themeName&quot;: &quot;Oasis&quot;,
+  &quot;numCards&quot;: 10
+}
+'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;generationId&quot;: &quot;xxxxxxxxxxx&quot;
+}
+</code></pre>
+<h3 id="get-check-generation-status">GET - Check generation status</h3>
+<pre><code class="language-curl">curl --request GET \
+     --url https://public-api.gamma.app/v0.2/generations/generationId \
+     --header 'X-API-KEY: sk-gamma-xxxxxxxx' \
+     --header 'accept: application/json'
+</code></pre>
+<p><strong>Response when completed:</strong></p>
+<pre><code class="language-json">{
+  &quot;generationId&quot;: &quot;XXXXXXXXXXX&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;gammaUrl&quot;: &quot;https://gamma.app/docs/yyyyyyyyyy&quot;,
+  &quot;credits&quot;: {
+    &quot;deducted&quot;: 150,
+    &quot;remaining&quot;: 3000
+  }
+}
+</code></pre>
+<h2 id="v02-legacy-parameters">v0.2 Legacy Parameters</h2>
+<h3 id="key-differences-from-v10">Key Differences from v1.0:</h3>
+<table>
+<thead>
+<tr>
+<th>v0.2 Parameter</th>
+<th>v1.0 Parameter</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>themeName</code></td>
+<td><code>themeId</code></td>
+<td>Changed to use IDs instead of names</td>
+</tr>
+<tr>
+<td>N/A</td>
+<td><code>folderIds</code></td>
+<td>New in v1.0 - organize gammas</td>
+</tr>
+<tr>
+<td>N/A</td>
+<td><code>cardOptions.headerFooter</code></td>
+<td>New in v1.0 - customize headers/footers</td>
+</tr>
+<tr>
+<td>N/A</td>
+<td><code>sharingOptions.emailOptions</code></td>
+<td>New in v1.0 - share via email</td>
+</tr>
+<tr>
+<td>N/A</td>
+<td><code>format: "webpage"</code></td>
+<td>New in v1.0 - create webpages</td>
+</tr>
+<tr>
+<td>Character limit: 750,000</td>
+<td>Token limit: 100,000 (~400k chars)</td>
+<td>Changed to token-based limit</td>
+</tr>
+<tr>
+<td><code>additionalInstructions</code>: 1-500</td>
+<td><code>additionalInstructions</code>: 1-2000</td>
+<td>Increased character limit</td>
+</tr>
+</tbody>
+</table>
+<h3 id="v02-parameters-list">v0.2 Parameters List</h3>
+<p><strong>Required:</strong>
+- <code>inputText</code> (string, 1-750,000 characters)
+- <code>textMode</code> (string: generate, condense, preserve)</p>
+<p><strong>Optional:</strong>
+- <code>format</code> (string: presentation, document, social) - Default: presentation
+- <code>themeName</code> (string) - Default: workspace default
+- <code>numCards</code> (integer: 1-60 for Pro, 1-75 for Ultra) - Default: 10
+- <code>cardSplit</code> (string: auto, inputTextBreaks) - Default: auto
+- <code>additionalInstructions</code> (string, 1-500 characters)
+- <code>exportAs</code> (string: pdf, pptx)
+- <code>textOptions</code> (object)
+- <code>imageOptions</code> (object)
+- <code>cardOptions</code> (object) - <strong>Note</strong>: No headerFooter support in v0.2
+- <code>sharingOptions</code> (object) - <strong>Note</strong>: No emailOptions support in v0.2</p>
+<hr />
+<h1 id="supported-languages-both-versions">Supported Languages (Both Versions)</h1>
+<p>Use in <code>textOptions.language</code> parameter. Default: <code>en</code></p>
+<table>
+<thead>
+<tr>
+<th>Language</th>
+<th>Key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Afrikaans</td>
+<td><code>af</code></td>
+</tr>
+<tr>
+<td>Albanian</td>
+<td><code>sq</code></td>
+</tr>
+<tr>
+<td>Arabic</td>
+<td><code>ar</code></td>
+</tr>
+<tr>
+<td>Arabic (Saudi Arabia)</td>
+<td><code>ar-sa</code></td>
+</tr>
+<tr>
+<td>Bengali</td>
+<td><code>bn</code></td>
+</tr>
+<tr>
+<td>Bosnian</td>
+<td><code>bs</code></td>
+</tr>
+<tr>
+<td>Bulgarian</td>
+<td><code>bg</code></td>
+</tr>
+<tr>
+<td>Catalan</td>
+<td><code>ca</code></td>
+</tr>
+<tr>
+<td>Croatian</td>
+<td><code>hr</code></td>
+</tr>
+<tr>
+<td>Czech</td>
+<td><code>cs</code></td>
+</tr>
+<tr>
+<td>Danish</td>
+<td><code>da</code></td>
+</tr>
+<tr>
+<td>Dutch</td>
+<td><code>nl</code></td>
+</tr>
+<tr>
+<td>English (India)</td>
+<td><code>en-in</code></td>
+</tr>
+<tr>
+<td>English (UK)</td>
+<td><code>en-gb</code></td>
+</tr>
+<tr>
+<td>English (US)</td>
+<td><code>en</code></td>
+</tr>
+<tr>
+<td>Estonian</td>
+<td><code>et</code></td>
+</tr>
+<tr>
+<td>Finnish</td>
+<td><code>fi</code></td>
+</tr>
+<tr>
+<td>French</td>
+<td><code>fr</code></td>
+</tr>
+<tr>
+<td>German</td>
+<td><code>de</code></td>
+</tr>
+<tr>
+<td>Greek</td>
+<td><code>el</code></td>
+</tr>
+<tr>
+<td>Gujarati</td>
+<td><code>gu</code></td>
+</tr>
+<tr>
+<td>Hausa</td>
+<td><code>ha</code></td>
+</tr>
+<tr>
+<td>Hebrew</td>
+<td><code>he</code></td>
+</tr>
+<tr>
+<td>Hindi</td>
+<td><code>hi</code></td>
+</tr>
+<tr>
+<td>Hungarian</td>
+<td><code>hu</code></td>
+</tr>
+<tr>
+<td>Icelandic</td>
+<td><code>is</code></td>
+</tr>
+<tr>
+<td>Indonesian</td>
+<td><code>id</code></td>
+</tr>
+<tr>
+<td>Italian</td>
+<td><code>it</code></td>
+</tr>
+<tr>
+<td>Japanese (です/ます style)</td>
+<td><code>ja</code></td>
+</tr>
+<tr>
+<td>Japanese (だ/である style)</td>
+<td><code>ja-da</code></td>
+</tr>
+<tr>
+<td>Kannada</td>
+<td><code>kn</code></td>
+</tr>
+<tr>
+<td>Kazakh</td>
+<td><code>kk</code></td>
+</tr>
+<tr>
+<td>Korean</td>
+<td><code>ko</code></td>
+</tr>
+<tr>
+<td>Latvian</td>
+<td><code>lv</code></td>
+</tr>
+<tr>
+<td>Lithuanian</td>
+<td><code>lt</code></td>
+</tr>
+<tr>
+<td>Macedonian</td>
+<td><code>mk</code></td>
+</tr>
+<tr>
+<td>Malay</td>
+<td><code>ms</code></td>
+</tr>
+<tr>
+<td>Malayalam</td>
+<td><code>ml</code></td>
+</tr>
+<tr>
+<td>Marathi</td>
+<td><code>mr</code></td>
+</tr>
+<tr>
+<td>Norwegian</td>
+<td><code>nb</code></td>
+</tr>
+<tr>
+<td>Persian</td>
+<td><code>fa</code></td>
+</tr>
+<tr>
+<td>Polish</td>
+<td><code>pl</code></td>
+</tr>
+<tr>
+<td>Portuguese (Brazil)</td>
+<td><code>pt-br</code></td>
+</tr>
+<tr>
+<td>Portuguese (Portugal)</td>
+<td><code>pt-pt</code></td>
+</tr>
+<tr>
+<td>Romanian</td>
+<td><code>ro</code></td>
+</tr>
+<tr>
+<td>Russian</td>
+<td><code>ru</code></td>
+</tr>
+<tr>
+<td>Serbian</td>
+<td><code>sr</code></td>
+</tr>
+<tr>
+<td>Simplified Chinese</td>
+<td><code>zh-cn</code></td>
+</tr>
+<tr>
+<td>Slovenian</td>
+<td><code>sl</code></td>
+</tr>
+<tr>
+<td>Spanish</td>
+<td><code>es</code></td>
+</tr>
+<tr>
+<td>Spanish (Latin America)</td>
+<td><code>es-419</code></td>
+</tr>
+<tr>
+<td>Spanish (Mexico)</td>
+<td><code>es-mx</code></td>
+</tr>
+<tr>
+<td>Spanish (Spain)</td>
+<td><code>es-es</code></td>
+</tr>
+<tr>
+<td>Swahili</td>
+<td><code>sw</code></td>
+</tr>
+<tr>
+<td>Swedish</td>
+<td><code>sv</code></td>
+</tr>
+<tr>
+<td>Tagalog</td>
+<td><code>tl</code></td>
+</tr>
+<tr>
+<td>Tamil</td>
+<td><code>ta</code></td>
+</tr>
+<tr>
+<td>Telugu</td>
+<td><code>te</code></td>
+</tr>
+<tr>
+<td>Thai</td>
+<td><code>th</code></td>
+</tr>
+<tr>
+<td>Traditional Chinese</td>
+<td><code>zh-tw</code></td>
+</tr>
+<tr>
+<td>Turkish</td>
+<td><code>tr</code></td>
+</tr>
+<tr>
+<td>Ukrainian</td>
+<td><code>uk</code></td>
+</tr>
+<tr>
+<td>Urdu</td>
+<td><code>ur</code></td>
+</tr>
+<tr>
+<td>Uzbek</td>
+<td><code>uz</code></td>
+</tr>
+<tr>
+<td>Vietnamese</td>
+<td><code>vi</code></td>
+</tr>
+<tr>
+<td>Welsh</td>
+<td><code>cy</code></td>
+</tr>
+<tr>
+<td>Yoruba</td>
+<td><code>yo</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total</strong>: 67 languages supported</p>
+<hr />
+<h1 id="ai-image-models-both-versions">AI Image Models (Both Versions)</h1>
+<p>Use in <code>imageOptions.model</code> parameter when <code>imageOptions.source</code> is <code>aiGenerated</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Model Name</th>
+<th>String</th>
+<th>Credits/Image</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Basic Models (2 credits)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Fast 1.1</td>
+<td><code>flux-1-quick</code></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Kontext Fast</td>
+<td><code>flux-kontext-fast</code></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>Imagen 3 Fast</td>
+<td><code>imagen-3-flash</code></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>Luma Photon Flash</td>
+<td><code>luma-photon-flash-1</code></td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Advanced Models (8-10 credits)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Pro</td>
+<td><code>flux-1-pro</code></td>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td>Imagen 3</td>
+<td><code>imagen-3-pro</code></td>
+<td>8</td>
+<td></td>
+</tr>
+<tr>
+<td>Ideogram 3 Turbo</td>
+<td><code>ideogram-v3-turbo</code></td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td>Luma Photon</td>
+<td><code>luma-photon-1</code></td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Premium Models (15-20 credits)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Leonardo Phoenix</td>
+<td><code>leonardo-phoenix</code></td>
+<td>15</td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Kontext Pro</td>
+<td><code>flux-kontext-pro</code></td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td>Gemini 2.5 Flash</td>
+<td><code>gemini-2.5-flash-image</code></td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td>Ideogram 3</td>
+<td><code>ideogram-v3</code></td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td>Imagen 4</td>
+<td><code>imagen-4-pro</code></td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td>Recraft</td>
+<td><code>recraft-v3</code></td>
+<td>20</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Ultra Models (30-120 credits)</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>GPT Image</td>
+<td><code>gpt-image-1-medium</code></td>
+<td>30</td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Ultra</td>
+<td><code>flux-1-ultra</code></td>
+<td>30</td>
+<td>Ultra plan only</td>
+</tr>
+<tr>
+<td>Imagen 4 Ultra</td>
+<td><code>imagen-4-ultra</code></td>
+<td>30</td>
+<td>Ultra plan only</td>
+</tr>
+<tr>
+<td>Dall E 3</td>
+<td><code>dall-e-3</code></td>
+<td>33</td>
+<td></td>
+</tr>
+<tr>
+<td>Flux Kontext Max</td>
+<td><code>flux-kontext-max</code></td>
+<td>40</td>
+<td>Ultra plan only</td>
+</tr>
+<tr>
+<td>Recraft Vector Illustration</td>
+<td><code>recraft-v3-svg</code></td>
+<td>40</td>
+<td></td>
+</tr>
+<tr>
+<td>Ideogram 3.0 Quality</td>
+<td><code>ideogram-v3-quality</code></td>
+<td>45</td>
+<td>Ultra plan only</td>
+</tr>
+<tr>
+<td>GPT Image Detailed</td>
+<td><code>gpt-image-1-high</code></td>
+<td>120</td>
+<td>Ultra plan only</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total</strong>: 22 AI image models available</p>
+<hr />
+<h1 id="migration-guide-v02-v10">Migration Guide: v0.2 → v1.0</h1>
+<h2 id="breaking-changes">Breaking Changes</h2>
+<h3 id="1-parameter-name-changes">1. Parameter Name Changes</h3>
+<p><strong>Change <code>themeName</code> to <code>themeId</code>:</strong></p>
+<pre><code class="language-diff">- &quot;themeName&quot;: &quot;Oasis&quot;
++ &quot;themeId&quot;: &quot;abc123def456&quot;
+</code></pre>
+<p><strong>Action</strong>: Use the List Themes API to get theme IDs, or copy from the app.</p>
+<h3 id="2-base-url-change">2. Base URL Change</h3>
+<pre><code class="language-diff">- POST https://public-api.gamma.app/v0.2/generations
++ POST https://public-api.gamma.app/v1.0/generations
+</code></pre>
+<h3 id="3-input-character-limits">3. Input Character Limits</h3>
+<pre><code class="language-diff">- Character limit: 750,000
++ Token limit: 100,000 (~400,000 characters)
+</code></pre>
+<p><strong>Action</strong>: Most use cases unaffected. For very large inputs, consider chunking.</p>
+<h3 id="4-additional-instructions-limit">4. Additional Instructions Limit</h3>
+<pre><code class="language-diff">- Character limits: 1-500
++ Character limits: 1-2000
+</code></pre>
+<h2 id="new-features-to-adopt">New Features to Adopt</h2>
+<h3 id="1-folder-organization">1. Folder Organization</h3>
+<pre><code class="language-json">{
+  &quot;folderIds&quot;: [&quot;123abc456def&quot;, &quot;456123abcdef&quot;]
+}
+</code></pre>
+<h3 id="2-headers-and-footers">2. Headers and Footers</h3>
+<pre><code class="language-json">{
+  &quot;cardOptions&quot;: {
+    &quot;headerFooter&quot;: {
+      &quot;topRight&quot;: {
+        &quot;type&quot;: &quot;image&quot;,
+        &quot;source&quot;: &quot;themeLogo&quot;,
+        &quot;size&quot;: &quot;sm&quot;
+      },
+      &quot;bottomRight&quot;: {
+        &quot;type&quot;: &quot;cardNumber&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="3-email-sharing">3. Email Sharing</h3>
+<pre><code class="language-json">{
+  &quot;sharingOptions&quot;: {
+    &quot;emailOptions&quot;: {
+      &quot;recipients&quot;: [&quot;email@example.com&quot;],
+      &quot;access&quot;: &quot;comment&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="4-webpage-format">4. Webpage Format</h3>
+<pre><code class="language-json">{
+  &quot;format&quot;: &quot;webpage&quot;
+}
+</code></pre>
+<h3 id="5-image-urls-in-input">5. Image URLs in Input</h3>
+<p>Simply include image URLs directly in your <code>inputText</code>:</p>
+<pre><code># My Presentation
+https://example.com/image1.jpg
+Some text here
+https://example.com/image2.jpg
+</code></pre>
+<hr />
+<h1 id="changelog">Changelog</h1>
+<h2 id="november-5-2025">November 5, 2025</h2>
+<p><strong>🎉 v1.0 Generally Available + v0.2 Deprecation Notice</strong></p>
+<ul>
+<li>✅ Generate API moved from beta to GA</li>
+<li>✅ Create from Template API launched (beta)</li>
+<li>✅ New features: webpages, headers/footers, image URLs, folders, email sharing</li>
+<li>✅ List Themes and List Folders APIs released</li>
+<li>✅ Removed hard generation limits</li>
+<li>✅ Official Make.com integration</li>
+<li>⚠️ <strong>v0.2 will be deprecated January 16, 2026</strong></li>
+</ul>
+<h2 id="october-1-2025">October 1, 2025</h2>
+<ul>
+<li>Increased generation caps: 50/hour (from 50/day)</li>
+<li>Added credit purchase and auto-recharge options</li>
+<li>API generated gammas appear in separate dashboard tab</li>
+</ul>
+<h2 id="september-15-2025">September 15, 2025</h2>
+<ul>
+<li>Increased usage caps to 50 generations/user/day</li>
+<li>New Ultra tier with more powerful image models</li>
+<li>Ultra users can generate up to 75-card gammas</li>
+<li>Introduced credits-based pricing system</li>
+</ul>
+<h2 id="july-28-2025">July 28, 2025</h2>
+<ul>
+<li>Initial beta release of Generate API (v0.2)</li>
+<li>POST and GET endpoints launched</li>
+</ul>
+<hr />
+<h2 id="additional-resources">Additional Resources</h2>
+<ul>
+<li><strong>Slack Community</strong>: <a href="https://join.slack.com/t/gambassadors/shared_invite/zt-39mcf05ys-419f~BVFyEtsCsDb9Ij3ow">Join the Gamma API Slack channel</a></li>
+<li><strong>Feedback Form</strong>: <a href="https://docs.google.com/forms/d/e/1FAIpQLSeRHjChH8DS6YC4WS23LlOb1SC1Fw2HvuPFZ3HFM4rYj16oCg/viewform?usp=header">Provide feedback</a></li>
+<li><strong>Support</strong>: <a href="https://help.gamma.app/en/articles/11016434-how-can-i-contact-gamma-support-or-provide-feedback">Contact Support</a></li>
+<li><strong>Help Center</strong>: <a href="https://help.gamma.app/en/articles/7834324-how-do-ai-credits-work-in-gamma">How AI Credits Work</a></li>
+<li><strong>Pricing</strong>: <a href="https://gamma.app/pricing">View Plans</a></li>
+<li><strong>About</strong>: <a href="https://gamma.app/about">Learn More</a></li>
+<li><strong>Make Integration</strong>: <a href="https://www.make.com/en/integrations/gamma-app">Gamma on Make.com</a></li>
+<li><strong>Zapier Integration</strong>: <a href="https://zapier.com/apps/gamma/integrations">Gamma on Zapier</a></li>
+</ul>
+<hr />
+<p><strong>End of Documentation</strong></p>
+    
+    <script>
+        // Instructions for PDF export
+        console.log('📄 To save as PDF:');
+        console.log('1. Click the Print button above (or Cmd+P / Ctrl+P)');
+        console.log('2. Select "Save as PDF" as the printer');
+        console.log('3. Click Save');
+        console.log('');
+        console.log('The document is pre-styled for optimal PDF output!');
+    </script>
+</body>
+</html>

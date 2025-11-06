@@ -289,7 +289,7 @@ CANONICAL_COMMAND_MAPPINGS = {
         'command': 'python',
         'args': ['src/main.py', 'sample-mode'],
         'display_name': 'Sample Mode (Quick Data Check)',
-        'description': 'Pull 50-100 real conversations with ultra-rich logging for schema validation',
+        'description': 'Pull 25-100 real conversations with ultra-rich logging for schema validation',
         'allowed_flags': {
             '--count': {
                 'type': 'integer',
@@ -314,8 +314,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--save-to-file': {
                 'type': 'boolean',
-                'default': False,  # Default to console-only for web UI
-                'description': 'Save raw JSON to outputs/ (optional - all data shown in console)'
+                'default': False,
+                'description': 'Save raw JSON to outputs/'
             },
             '--verbose': {
                 'type': 'boolean',
@@ -333,9 +333,16 @@ CANONICAL_COMMAND_MAPPINGS = {
         'allowed_flags': {
             '--time-period': {
                 'type': 'enum',
-                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'default': 'week',
                 'description': 'Time period for analysis'
+            },
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'min': 1,
+                'max': 12,
+                'description': 'Number of periods to analyze'
             },
             '--analysis-type': {
                 'type': 'enum',
@@ -348,10 +355,21 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': True,
                 'description': 'Use multi-agent workflow'
             },
-            '--generate-gamma': {
-                'type': 'boolean',
-                'default': False,
-                'description': 'Generate Gamma presentation'
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format (when output-format=gamma)'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory for files'
             },
             '--test-mode': {
                 'type': 'boolean',
@@ -359,11 +377,9 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'description': 'Use test data for faster execution'
             },
             '--test-data-count': {
-                'type': 'integer',
-                'default': 100,
-                'min': 10,
-                'max': 25000,
-                'description': 'Number of test conversations to generate'
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count (tiny, micro, small, medium, large, xlarge, xxlarge, or number)'
             },
             '--audit-trail': {
                 'type': 'boolean',
@@ -381,6 +397,10 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': 'openai',
                 'description': 'AI model to use (ChatGPT or Claude)'
             },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category (e.g., Billing, Bug, API)'
+            },
             '--start-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
@@ -390,10 +410,6 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
                 'description': 'End date for custom range'
-            },
-            '--focus-areas': {
-                'type': 'string',
-                'description': 'Filter by taxonomy category'
             },
             '--include-canny': {
                 'type': 'boolean',
@@ -417,19 +433,37 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'values': ['week', 'month', '6-weeks', 'quarter'],
                 'default': 'week',
                 'description': 'Time period for analysis'
+            },
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'min': 1,
+                'max': 12,
+                'description': 'Number of periods to analyze'
             },
             '--individual-breakdown': {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Include per-agent metrics and taxonomy breakdown'
             },
-            '--generate-gamma': {
-                'type': 'boolean',
-                'default': False,
-                'description': 'Generate Gamma presentation'
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format (when output-format=gamma)'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory for files'
             },
             '--test-mode': {
                 'type': 'boolean',
@@ -437,22 +471,29 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'description': 'Use test data'
             },
             '--test-data-count': {
-                'type': 'integer',
-                'default': 100,
-                'min': 10,
-                'max': 25000,
-                'description': 'Number of test conversations'
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count (tiny, micro, small, medium, large, xlarge, xxlarge, or number)'
             },
             '--audit-trail': {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate audit trail'
             },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
                 'default': 'openai',
                 'description': 'AI model to use (ChatGPT or Claude)'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category (focus area)'
             },
             '--start-date': {
                 'type': 'date',
@@ -481,14 +522,32 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['yesterday', 'week', 'month', 'quarter'],
+                'values': ['week', 'month'],
                 'default': 'week',
                 'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
-                'type': 'boolean',
-                'default': False,
-                'description': 'Generate Gamma presentation'
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'min': 1,
+                'max': 12,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format (when output-format=gamma)'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory for files'
             },
             '--test-mode': {
                 'type': 'boolean',
@@ -496,22 +555,35 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'description': 'Use test data'
             },
             '--test-data-count': {
-                'type': 'integer',
-                'default': 100,
-                'min': 10,
-                'max': 25000,
-                'description': 'Number of test conversations'
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count (tiny, micro, small, medium, large, xlarge, xxlarge, or number)'
             },
             '--audit-trail': {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate audit trail'
             },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
                 'default': 'openai',
                 'description': 'AI model to use (ChatGPT or Claude)'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for custom range'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for custom range'
             }
         },
         'estimated_duration': '5-15 minutes'
@@ -522,17 +594,61 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'Billing Analysis',
         'description': 'Analyze billing, refunds, and subscription issues',
         'allowed_flags': {
-            '--days': {
-                'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Generate Gamma presentation'
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
             },
             '--start-date': {
                 'type': 'date',
@@ -543,12 +659,6 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
                 'description': 'End date for analysis'
-            },
-            '--ai-model': {
-                'type': 'enum',
-                'values': ['openai', 'claude'],
-                'default': 'openai',
-                'description': 'AI model to use (ChatGPT or Claude)'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -559,23 +669,71 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'Product Feedback Analysis',
         'description': 'Analyze product questions and feature requests',
         'allowed_flags': {
-            '--days': {
-                'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Generate Gamma presentation'
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
             },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
                 'default': 'openai',
-                'description': 'AI model to use (ChatGPT or Claude)'
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -586,23 +744,71 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'API Issues & Integration',
         'description': 'Analyze API and integration problems',
         'allowed_flags': {
-            '--days': {
-                'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Generate Gamma presentation'
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
             },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
                 'default': 'openai',
-                'description': 'AI model to use (ChatGPT or Claude)'
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -613,17 +819,71 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'Escalations Analysis',
         'description': 'Analyze escalation patterns and causes',
         'allowed_flags': {
-            '--days': {
-                'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Generate Gamma presentation'
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
             }
         },
         'estimated_duration': '3-10 minutes'
@@ -634,12 +894,71 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'Technical Troubleshooting Analysis',
         'description': 'Analyze technical issues and support patterns',
         'allowed_flags': {
-            '--days': {
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
+            },
+            '--periods-back': {
                 'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
             }
         },
         'estimated_duration': '5-15 minutes'
@@ -650,23 +969,71 @@ CANONICAL_COMMAND_MAPPINGS = {
         'display_name': 'All Categories Analysis',
         'description': 'Comprehensive analysis across all categories',
         'allowed_flags': {
-            '--days': {
-                'type': 'integer',
-                'default': 7,
-                'min': 1,
-                'max': 90,
-                'description': 'Number of days to analyze'
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'description': 'Time period for analysis'
             },
-            '--generate-gamma': {
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'description': 'Number of periods to analyze'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['markdown', 'json', 'excel', 'gamma'],
+                'default': 'markdown',
+                'description': 'Output format for results'
+            },
+            '--gamma-export': {
+                'type': 'enum',
+                'values': ['pdf', 'pptx'],
+                'description': 'Gamma export format'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
+            },
+            '--test-mode': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Generate Gamma presentation'
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
             },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
                 'default': 'openai',
-                'description': 'AI model to use (ChatGPT or Claude)'
+                'description': 'AI model to use'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Start date for analysis'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'End date for analysis'
             }
         },
         'estimated_duration': '15-45 minutes'
@@ -1108,26 +1475,7 @@ if HAS_FASTAPI:
                 <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>
             
-            <!-- Old chat input removed - use form wizard above -->
-            
-            <div style="margin-bottom: 20px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; border: 1px solid rgba(102, 126, 234, 0.3); display:none;">
-                <div style="margin-bottom: 12px;">
-                    <label style="display: block; color: #e5e7eb; font-weight: 500; margin-bottom: 8px;">🤖 Multi-Agent Analysis Mode:</label>
-                    <select id="analysisMode" style="width: 100%; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 6px; color: #e5e7eb; font-size: 14px;">
-                        <option value="topic-based" selected>📋 Topic-Based (Hilary's VoC Cards)</option>
-                        <option value="synthesis">🧠 Synthesis (Strategic Insights)</option>
-                        <option value="complete">🎯 Complete (Both Formats)</option>
-                    </select>
-                </div>
-                <div style="font-size: 11px; color: #6b7280;">
-                    <strong>Topic-Based:</strong> Per-topic sentiment cards, Paid/Free separation, Fin analysis, 3-10 examples<br>
-                    <strong>Synthesis:</strong> Cross-category patterns, Operational metrics (FCR, resolution time), Strategic recommendations<br>
-                    <strong>Complete:</strong> Both Hilary's cards AND synthesis insights (recommended)
-                </div>
-                <div style="margin-top: 8px; padding: 8px; background: rgba(34, 197, 94, 0.1); border-radius: 4px; font-size: 11px; color: #10b981;">
-                    ℹ️ This branch is multi-agent only. For single-agent analysis, use the main branch.
-                </div>
-            </div>
+            <!-- Old chat input and redundant analysisMode removed -->
             
             <div id="status"></div>
             
