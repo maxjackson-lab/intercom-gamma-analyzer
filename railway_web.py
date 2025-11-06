@@ -157,7 +157,12 @@ if HAS_FASTAPI:
     </head>
     <body>
         <div class="container">
-        <h1>📊 Voice of Customer - Historical Insights</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin: 0;">📊 Voice of Customer - Historical Insights</h1>
+            <a href="javascript:history.back()" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.3)';">
+                ← Back to Main UI
+            </a>
+        </div>
         
         <!-- Historical Context Banner -->
         <div id="contextBanner" class="context-banner" style="display:none;"></div>

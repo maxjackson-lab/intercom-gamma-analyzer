@@ -252,9 +252,54 @@ The tool automatically generates professional Gamma presentations with:
 - **Proper markdown structure** optimized for Gamma
 - **Interactive elements** and professional styling
 
-## 📊 **Historical Insights Timeline UI**
+## 🖥️ **Web User Interfaces**
 
-The Railway web interface provides a visual timeline for exploring historical Voice of Customer analysis snapshots.
+The tool provides **two complementary web interfaces**:
+
+### **1. Main Analysis UI** (`deploy/railway_web.py`)
+- **Purpose**: Run new analyses and configure parameters
+- **Port**: 3000 (or `PORT` env var in production)
+- **Features**:
+  - Interactive form for selecting analysis types
+  - Real-time streaming of analysis output
+  - AI model selection (GPT-4o or Claude)
+  - Test mode and sample mode options
+  - File downloads and Gamma presentation access
+- **Access**: 
+  - Local: `python deploy/railway_web.py` → http://localhost:3000
+  - Production: Your main Railway deployment URL
+- **Navigation**: Click "📊 View Historical Analysis" button to access historical timeline
+
+### **2. Historical Timeline UI** (`railway_web.py`)
+- **Purpose**: View and compare past analysis snapshots
+- **Port**: 8000 (or `PORT` env var)
+- **Features**:
+  - Timeline view of weekly/monthly/quarterly snapshots
+  - Trend charts and volume comparisons
+  - Review management (mark snapshots as reviewed)
+  - Side-by-side period comparisons
+- **Access**:
+  - Local: `python railway_web.py` → http://localhost:8000
+  - Production: Set `HISTORICAL_UI_URL` env var in main UI
+- **Navigation**: Click "← Back to Main UI" to return to analysis interface
+
+### **Connecting the Two UIs**
+
+**For Local Development:**
+1. Run both servers simultaneously on different ports
+2. Main UI automatically links to http://localhost:8000 for historical view
+
+**For Production (Railway):**
+1. Deploy main analysis UI as primary service
+2. Deploy historical timeline UI as a separate service (optional)
+3. Set `HISTORICAL_UI_URL` environment variable in main UI to point to timeline service
+4. Example: `HISTORICAL_UI_URL=https://your-historical-ui.up.railway.app`
+
+---
+
+## 📊 **Historical Insights Timeline UI (Details)**
+
+The Historical Timeline UI provides a visual interface for exploring historical Voice of Customer analysis snapshots.
 
 ### **Features**
 

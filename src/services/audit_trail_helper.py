@@ -248,3 +248,4 @@ def finalize_audit_trail(
             f'Analysis failed{error_detail}'
         )
 
+
