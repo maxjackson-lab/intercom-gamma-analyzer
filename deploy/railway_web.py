@@ -1600,8 +1600,7 @@ if HAS_FASTAPI:
         command: str,
         args: str,
         execution_id: str,
-        request: Request,
-        token: str = Depends(verify_token)
+        request: Request
     ):
         """
         Execute a command with Server-Sent Events stream.
