@@ -134,6 +134,41 @@ def get_days_difference(start_dt: datetime, end_dt: datetime) -> int:
     return (end_dt - start_dt).days
 
 
+def detect_period_type(start_dt: datetime, end_dt: datetime) -> Tuple[str, str]:
+    """
+    Detect the period type from date range.
+    
+    Args:
+        start_dt: Start datetime
+        end_dt: End datetime
+        
+    Returns:
+        Tuple of (period_type, period_label)
+        - period_type: 'daily', 'weekly', 'monthly', 'quarterly', or 'custom'
+        - period_label: Human-readable label like "Week of Nov 01, 2025"
+    """
+    days = get_days_difference(start_dt, end_dt)
+    
+    # Determine period type based on duration
+    if days <= 1:
+        period_type = 'daily'
+        period_label = f"Day of {start_dt.strftime('%b %d, %Y')}"
+    elif 5 <= days <= 9:
+        period_type = 'weekly'
+        period_label = f"Week of {start_dt.strftime('%b %d, %Y')}"
+    elif 25 <= days <= 35:
+        period_type = 'monthly'
+        period_label = f"Month of {start_dt.strftime('%B %Y')}"
+    elif 80 <= days <= 100:
+        period_type = 'quarterly'
+        period_label = f"Quarter ending {end_dt.strftime('%b %Y')}"
+    else:
+        period_type = 'custom'
+        period_label = format_date_range_for_display(start_dt, end_dt)
+    
+    return period_type, period_label
+
+
 # Standard time period choices for CLI options
 TIME_PERIOD_CHOICES = ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks']
 
