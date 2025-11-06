@@ -169,6 +169,29 @@ def detect_period_type(start_dt: datetime, end_dt: datetime) -> Tuple[str, str]:
     return period_type, period_label
 
 
+def format_duration(seconds: float) -> str:
+    """
+    Format duration in seconds to human-readable string.
+    
+    Args:
+        seconds: Duration in seconds
+        
+    Returns:
+        Formatted string like "2h 30m 15s" or "45s"
+    """
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.1f}m"
+    else:
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        if minutes > 0:
+            return f"{int(hours)}h {int(minutes)}m"
+        return f"{int(hours)}h"
+
+
 # Standard time period choices for CLI options
 TIME_PERIOD_CHOICES = ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks']
 
