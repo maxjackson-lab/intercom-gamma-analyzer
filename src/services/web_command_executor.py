@@ -55,7 +55,7 @@ class WebCommandExecutor:
                 # Help and info
                 "--help", "-h", "--version", "-v", "--verbose", "--test-mode", "--test-data-count",
                 # Output options
-                "--output-dir", "--output-format", "--gamma-export",
+                "--output-dir", "--output-format", "--gamma-export", "--generate-gamma",
                 # Date/time options - with strict validation
                 "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
                 # Sample mode options
