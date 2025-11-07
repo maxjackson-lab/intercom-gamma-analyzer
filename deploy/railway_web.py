@@ -2517,6 +2517,80 @@ if HAS_FASTAPI:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
     
+    @app.post("/api/notify-completion")
+    async def notify_completion(
+        request: Request,
+        execution_id: str = None,
+        status: str = None,
+        duration_seconds: int = None
+    ):
+        """
+        Send completion notification via Slack webhook (optional).
+        
+        To enable Slack notifications:
+        1. Ask a Slack admin or channel member to create an Incoming Webhook
+        2. Set SLACK_WEBHOOK_URL environment variable on Railway
+        3. Notifications will be sent automatically when jobs complete
+        
+        Browser notifications work automatically (no setup needed).
+        """
+        # Parse JSON body if sent
+        try:
+            body = await request.json()
+            execution_id = body.get('execution_id', execution_id)
+            status = body.get('status', status)
+            duration_seconds = body.get('duration_seconds', duration_seconds)
+        except Exception:
+            pass  # Use query params instead
+        
+        slack_webhook_url = os.getenv('SLACK_WEBHOOK_URL')
+        
+        if not slack_webhook_url:
+            # Slack not configured - return success silently
+            return {"message": "Slack webhook not configured (optional)", "notified": False}
+        
+        try:
+            import httpx
+            
+            minutes = duration_seconds // 60 if duration_seconds else 0
+            seconds = duration_seconds % 60 if duration_seconds else 0
+            time_str = f"{minutes}m {seconds}s"
+            
+            # Build Slack message
+            if status == 'completed':
+                text = f"✅ *Analysis Completed!*\n\nExecution ID: `{execution_id}`\nDuration: {time_str}\n\n<{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'https://agile-exploration-production.up.railway.app')}|View Results>"
+                color = "#10b981"  # Green
+            else:
+                text = f"❌ *Analysis {status.title()}*\n\nExecution ID: `{execution_id}`\nDuration: {time_str}\n\n<{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'https://agile-exploration-production.up.railway.app')}|View Logs>"
+                color = "#ef4444"  # Red
+            
+            # Send to Slack
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    slack_webhook_url,
+                    json={
+                        "text": text,
+                        "attachments": [{
+                            "color": color,
+                            "fields": [
+                                {"title": "Status", "value": status.title(), "short": True},
+                                {"title": "Duration", "value": time_str, "short": True}
+                            ]
+                        }]
+                    }
+                )
+            
+            if response.status_code == 200:
+                logger.info(f"Slack notification sent for execution {execution_id}")
+                return {"message": "Slack notification sent", "notified": True}
+            else:
+                logger.warning(f"Slack notification failed: {response.status_code}")
+                return {"message": "Slack notification failed", "notified": False}
+                
+        except Exception as e:
+            logger.error(f"Failed to send Slack notification: {e}")
+            return {"message": f"Slack notification error: {str(e)}", "notified": False}
+    
     @app.get("/history", response_class=HTMLResponse)
     async def historical_timeline_redirect():
         """

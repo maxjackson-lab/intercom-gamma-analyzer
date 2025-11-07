@@ -534,7 +534,10 @@ async function runBackgroundExecution(command, args) {
         
         appendToTerminal(`✓ Task queued with ID: ${currentExecutionId}\n`, 'status');
         appendToTerminal('⏳ Polling for status updates...\n\n', 'status');
-        appendToTerminal('💡 Tip: You can refresh the page - the task will continue running\n', 'status');
+        appendToTerminal('💡 Tip: You can close this window - the task will continue running\n', 'status');
+        
+        // Request notification permission for completion alerts
+        requestNotificationPermission();
         
         // Poll for status updates
         await pollExecutionStatus(currentExecutionId, token);
@@ -627,6 +630,9 @@ async function pollExecutionStatus(executionId, token) {
                 
                 appendToTerminal('\n✅ Analysis completed successfully!\n', 'status');
                 
+                // Send completion notifications
+                await sendCompletionNotifications(executionId, statusData, 'completed');
+                
                 // Clear saved execution ID
                 localStorage.removeItem('active_execution_id');
                 localStorage.removeItem('active_execution_start');
@@ -651,6 +657,9 @@ async function pollExecutionStatus(executionId, token) {
             if (['failed', 'timeout', 'error'].includes(currentStatus)) {
                 const errorMsg = statusData.error_message || 'Unknown error';
                 appendToTerminal(`\n❌ Analysis ${currentStatus}: ${errorMsg}\n`, 'error');
+                
+                // Send failure notifications
+                await sendCompletionNotifications(executionId, statusData, currentStatus);
                 
                 // Clear saved execution ID
                 localStorage.removeItem('active_execution_id');
@@ -1289,6 +1298,80 @@ function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/**
+ * Request browser notification permission
+ */
+function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+        console.log('Browser notifications not supported');
+        return;
+    }
+    
+    if (Notification.permission === 'default') {
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                appendToTerminal('🔔 Notifications enabled - you\'ll be notified when the job completes\n', 'status');
+            }
+        });
+    }
+}
+
+/**
+ * Send completion notifications (browser + Slack)
+ */
+async function sendCompletionNotifications(executionId, statusData, finalStatus) {
+    const duration = statusData.duration_seconds || 0;
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    const timeStr = `${minutes}m ${seconds}s`;
+    
+    // Browser notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const title = finalStatus === 'completed' 
+            ? '✅ Analysis Completed!' 
+            : `❌ Analysis ${finalStatus}`;
+        
+        const body = finalStatus === 'completed'
+            ? `Your analysis finished in ${timeStr}. Click to view results.`
+            : `Analysis ${finalStatus} after ${timeStr}. ${statusData.error_message || ''}`;
+        
+        const notification = new Notification(title, {
+            body: body,
+            icon: '/static/favicon.ico',
+            badge: '/static/favicon.ico',
+            tag: executionId, // Prevent duplicates
+            requireInteraction: finalStatus === 'completed' // Keep notification visible for success
+        });
+        
+        notification.onclick = function() {
+            window.focus();
+            this.close();
+        };
+        
+        console.log('📱 Browser notification sent:', title);
+    }
+    
+    // Slack notification (if webhook URL configured on server)
+    try {
+        const token = localStorage.getItem('api_token') || '';
+        await fetch('/api/notify-completion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                execution_id: executionId,
+                status: finalStatus,
+                duration_seconds: duration
+            })
+        });
+    } catch (error) {
+        // Silently fail - Slack is optional
+        console.log('Slack notification not sent (webhook not configured or error):', error.message);
+    }
 }
 
 // Export functions to window for onclick handlers
