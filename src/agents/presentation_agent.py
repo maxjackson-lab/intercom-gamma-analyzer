@@ -184,18 +184,24 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
                 recommendations=insight_data.get('recommendations', [])
             )
             
-            # Generate Gamma presentation
-            gamma_result = await self.gamma_generator.generate(
-                prompt=prompt,
-                style=presentation_style,
-                num_slides=10
+            # Generate Gamma presentation using markdown method
+            # The prompt is already formatted markdown, so use generate_from_markdown
+            gamma_result = await self.gamma_generator.generate_from_markdown(
+                input_text=prompt,
+                num_cards=10,
+                theme_name="Night Sky",  # Professional dark theme
+                text_options={
+                    "tone": "professional, analytical",
+                    "audience": "executives, leadership team"
+                }
             )
             
             # Prepare result
             result_data = {
                 'presentation_content': prompt,
-                'gamma_url': gamma_result.get('url'),
-                'gamma_status': gamma_result.get('status'),
+                'gamma_url': gamma_result.get('gamma_url'),
+                'gamma_status': 'completed' if gamma_result.get('gamma_url') else 'pending',
+                'generation_id': gamma_result.get('generation_id'),
                 'presentation_quality': self._assess_presentation_quality(prompt),
                 'hallucination_check': self._check_for_hallucinations(prompt)
             }

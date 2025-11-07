@@ -25,11 +25,12 @@ class GammaGenerator:
     Service for generating professional Gamma presentations from analysis results.
     
     Features:
-    - Real Gamma API integration with v0.2 endpoints
+    - Real Gamma API integration with v1.0 endpoints
     - Multiple presentation styles (executive, detailed, training)
     - Customer quote integration with Intercom links
     - Automated polling and error handling
     - Export options (PDF, PPTX)
+    - Automatic theme name→ID resolution
     """
     
     def __init__(self, gamma_client: Optional[GammaClient] = None, presentation_builder: Optional[PresentationBuilder] = None):
@@ -263,10 +264,10 @@ class GammaGenerator:
         Ideal for topic-based Hilary format output.
 
         Args:
-            input_text: Markdown text (1-750,000 characters)
+            input_text: Markdown text (1-400,000 characters, v1.0 token limit: ~100k tokens)
             title: Optional presentation title
             num_cards: Number of slides (default 10)
-            theme_name: Gamma theme name (e.g., "Night Sky")
+            theme_name: Gamma theme name (e.g., "Night Sky") - automatically resolved to themeId
             export_format: Export format ("pdf" or "pptx")
             output_dir: Output directory for saving results
 
@@ -287,9 +288,12 @@ class GammaGenerator:
         start_time = time.time()
 
         try:
-            # Validate input text length
-            if len(input_text) < 1 or len(input_text) > 750000:
-                raise ValueError(f"Input text must be 1-750,000 characters, got {len(input_text)}")
+            # Validate input text length (v1.0: ~100k tokens ≈ 400k chars)
+            if len(input_text) < 1 or len(input_text) > 400000:
+                raise ValueError(
+                    f"Input text must be 1-400,000 characters (v1.0 token limit: ~100k tokens), "
+                    f"got {len(input_text)}"
+                )
 
             # Validate Hilary markdown format
             hilary_validation_errors = self._validate_hilary_markdown(input_text)
@@ -900,8 +904,11 @@ class GammaGenerator:
         # Critical Check 1: Character limit (strict)
         if len(input_text) < 1:
             validation_errors.append("Input text is empty")
-        elif len(input_text) > 750000:
-            validation_errors.append(f"Input text too long: {len(input_text)} chars (max 750,000)")
+        elif len(input_text) > 400000:
+            validation_errors.append(
+                f"Input text too long: {len(input_text)} chars "
+                f"(max 400,000 for v1.0, token limit: ~100k tokens)"
+            )
 
         # Critical Check 2: Minimum content quality (strict)
         if len(input_text) < 200:
