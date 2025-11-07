@@ -1712,11 +1712,48 @@ if HAS_FASTAPI:
             last_output_time = time.time()
             execution_task = None
             first_output_received = False
+            output_count = 0
+            keepalive_count = 0
+            
+            # Rich logging: SSE connection established
+            logger.info(
+                f"[SSE] Connection established for execution {execution_id} | "
+                f"Command: {command} | Args: {len(validated_args)} arguments | "
+                f"Keepalive interval: {SSE_KEEPALIVE_INTERVAL}s | Max duration: {MAX_SSE_DURATION}s"
+            )
+            
+            # Stream log to terminal window
+            yield {
+                "event": "message",
+                "data": json.dumps({
+                    'type': 'status',
+                    'data': f'[SSE] Connection established | Execution ID: {execution_id} | Command: {command}',
+                    'execution_id': execution_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'log_level': 'info'
+                })
+            }
             
             try:
+                # Rich logging: Command execution starting
+                cwd = command_executor._get_project_root() if hasattr(command_executor, '_get_project_root') else Path.cwd()
+                logger.info(
+                    f"[EXEC] Starting command execution {execution_id} | "
+                    f"Command: {command} | "
+                    f"Args: {validated_args[:3]}... ({len(validated_args)} total) | "
+                    f"Working dir: {cwd}"
+                )
+                
                 # Create async iterator from command executor
+                iterator_start = time.time()
                 output_iterator = command_executor.execute_command(
                     command, validated_args, execution_id=execution_id
+                )
+                iterator_creation_time = time.time() - iterator_start
+                
+                logger.info(
+                    f"[EXEC] Command executor returned iterator in {iterator_creation_time:.3f}s | "
+                    f"Execution ID: {execution_id}"
                 )
                 
                 # Process output with timeout and keepalive
@@ -1724,43 +1761,100 @@ if HAS_FASTAPI:
                 output_iter = output_iterator.__aiter__()
                 
                 # Comment 1: Immediately yield "Starting..." message to prevent SSE stall
+                init_message = {
+                    'type': 'status',
+                    'data': f'Starting analysis... | Execution ID: {execution_id} | Iterator created in {iterator_creation_time:.3f}s',
+                    'execution_id': execution_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'log_level': 'info'
+                }
                 yield {
                     "event": "message",
-                    "data": json.dumps({
-                        'type': 'status',
-                        'data': 'Starting analysis...',
-                        'execution_id': execution_id,
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    "data": json.dumps(init_message)
                 }
+                logger.debug(f"[SSE] Sent initial 'Starting...' message for {execution_id}")
                 
                 while True:
                     try:
+                        # Rich logging: Waiting for output
+                        wait_start = time.time()
+                        time_since_last_output = time.time() - last_output_time
+                        if time_since_last_output > 5:
+                            logger.debug(
+                                f"[SSE] Waiting for output from {execution_id} | "
+                                f"Time since last output: {time_since_last_output:.1f}s | "
+                                f"Output count: {output_count} | Keepalives: {keepalive_count}"
+                            )
+                        
                         # Wait for next output with timeout for keepalive
                         output = await asyncio.wait_for(
                             output_iter.__anext__(),
                             timeout=SSE_KEEPALIVE_INTERVAL
                         )
+                        
+                        wait_duration = time.time() - wait_start
+                        if wait_duration > 1.0:
+                            logger.debug(
+                                f"[SSE] Received output after {wait_duration:.3f}s wait | "
+                                f"Execution ID: {execution_id} | Type: {output.get('type', 'unknown')}"
+                            )
                     except asyncio.TimeoutError:
                         # No output for SSE_KEEPALIVE_INTERVAL seconds - send keepalive or progress
+                        keepalive_count += 1
+                        elapsed_since_start = time.time() - start_time
+                        time_since_last_output = time.time() - last_output_time
+                        
+                        logger.debug(
+                            f"[SSE] Keepalive timeout for {execution_id} | "
+                            f"Elapsed: {elapsed_since_start:.1f}s | "
+                            f"Time since last output: {time_since_last_output:.1f}s | "
+                            f"First output received: {first_output_received} | "
+                            f"Keepalive count: {keepalive_count}"
+                        )
+                        
                         if not first_output_received:
                             # Comment 1: Send periodic progress status until first real output
-                            elapsed_since_start = time.time() - start_time
+                            progress_msg = f'Initializing... ({int(elapsed_since_start)}s elapsed, {keepalive_count} keepalives)'
+                            logger.info(
+                                f"[SSE] Sending initialization progress for {execution_id} | "
+                                f"{progress_msg}"
+                            )
                             yield {
                                 "event": "message",
                                 "data": json.dumps({
                                     'type': 'status',
-                                    'data': f'Initializing... ({int(elapsed_since_start)}s elapsed)',
+                                    'data': progress_msg,
                                     'execution_id': execution_id,
-                                    'timestamp': datetime.now().isoformat()
+                                    'timestamp': datetime.now().isoformat(),
+                                    'log_level': 'info',
+                                    'keepalive_count': keepalive_count
                                 })
                             }
                         else:
                             # Regular keepalive after first output
-                            yield {"event": "comment", "data": "keepalive"}
+                            logger.debug(f"[SSE] Sending keepalive #{keepalive_count} for {execution_id}")
+                            yield {"event": "comment", "data": f"keepalive-{keepalive_count}"}
                         continue
                     except StopAsyncIteration:
                         # Iterator exhausted normally
+                        elapsed_total = time.time() - start_time
+                        logger.info(
+                            f"[SSE] Iterator exhausted normally for {execution_id} | "
+                            f"Total time: {elapsed_total:.2f}s | "
+                            f"Output chunks: {output_count} | "
+                            f"Keepalives: {keepalive_count} | "
+                            f"First output delay: {last_output_time - start_time:.2f}s"
+                        )
+                        yield {
+                            "event": "message",
+                            "data": json.dumps({
+                                'type': 'status',
+                                'data': f'[SSE] Iterator completed | Total time: {elapsed_total:.2f}s | Output chunks: {output_count}',
+                                'execution_id': execution_id,
+                                'timestamp': datetime.now().isoformat(),
+                                'log_level': 'info'
+                            })
+                        }
                         break
                     # Check timeout (use MAX_SSE_DURATION)
                     elapsed = time.time() - start_time
@@ -1823,10 +1917,33 @@ if HAS_FASTAPI:
                         }
                         break
                     
+                    # Rich logging: Output received
+                    output_count += 1
+                    output_type = output.get("type", "unknown")
+                    output_size = len(str(output.get("data", "")))
+                    time_since_start = time.time() - start_time
+                    
+                    logger.debug(
+                        f"[SSE] Output #{output_count} received for {execution_id} | "
+                        f"Type: {output_type} | Size: {output_size} bytes | "
+                        f"Elapsed: {time_since_start:.2f}s | "
+                        f"Time since last: {time.time() - last_output_time:.2f}s"
+                    )
+                    
                     # Truncate large chunks
                     if output.get("data") and len(output["data"]) > MAX_SSE_CHUNK_SIZE:
+                        original_size = len(output["data"])
                         output["data"] = truncate_chunk(output["data"], MAX_SSE_CHUNK_SIZE)
                         output["truncated"] = True
+                        logger.warning(
+                            f"[SSE] Truncated large output chunk for {execution_id} | "
+                            f"Original: {original_size} bytes | Truncated to: {MAX_SSE_CHUNK_SIZE} bytes"
+                        )
+                        # Add truncation info to output
+                        output["_truncation_info"] = {
+                            "original_size": original_size,
+                            "truncated_size": len(output["data"])
+                        }
                     
                     # Update state manager with output
                     await state_manager.add_output(execution_id, output)
@@ -1861,13 +1978,38 @@ if HAS_FASTAPI:
                     # Mark first output received
                     if not first_output_received:
                         first_output_received = True
+                        first_output_delay = time.time() - start_time
+                        logger.info(
+                            f"[SSE] First real output received for {execution_id} | "
+                            f"Delay: {first_output_delay:.2f}s | "
+                            f"Type: {output_type} | "
+                            f"Keepalives sent before first output: {keepalive_count}"
+                        )
+                        # Stream this milestone to terminal
+                        yield {
+                            "event": "message",
+                            "data": json.dumps({
+                                'type': 'status',
+                                'data': f'[SSE] First output received after {first_output_delay:.2f}s | Keepalives: {keepalive_count}',
+                                'execution_id': execution_id,
+                                'timestamp': datetime.now().isoformat(),
+                                'log_level': 'info'
+                            })
+                        }
                     
                     # Update last output time
                     last_output_time = time.time()
                 
             except asyncio.CancelledError:
                 # Client disconnected or cancelled
-                logger.info(f"Execution {execution_id} cancelled")
+                elapsed_total = time.time() - start_time
+                logger.warning(
+                    f"[SSE] Execution {execution_id} cancelled via CancelledError | "
+                    f"Elapsed: {elapsed_total:.2f}s | "
+                    f"Output chunks: {output_count} | "
+                    f"Keepalives: {keepalive_count} | "
+                    f"First output received: {first_output_received}"
+                )
                 await state_manager.update_execution_status(
                     execution_id, ExecutionStatus.CANCELLED
                 )
@@ -1902,18 +2044,54 @@ if HAS_FASTAPI:
                 }
             except Exception as e:
                 # Unexpected error - log but don't expose details to client
-                import logging
-                logging.getLogger(__name__).exception(f"Unexpected error in execution {execution_id}")
+                elapsed_total = time.time() - start_time
+                error_type = type(e).__name__
+                import traceback
+                error_traceback = traceback.format_exc()
+                
+                logger.error(
+                    f"[SSE] Unexpected error in execution {execution_id} | "
+                    f"Error type: {error_type} | "
+                    f"Error message: {str(e)} | "
+                    f"Elapsed: {elapsed_total:.2f}s | "
+                    f"Output chunks: {output_count} | "
+                    f"Keepalives: {keepalive_count} | "
+                    f"First output received: {first_output_received}",
+                    exc_info=True
+                )
+                
                 await state_manager.update_execution_status(
                     execution_id, ExecutionStatus.ERROR, error_message=str(e)
                 )
+                
+                # Stream error details to terminal (sanitized)
                 yield {
                     "event": "error",
-                    "data": json.dumps({"type": "error", "data": "Internal server error during execution"})
+                    "data": json.dumps({
+                        "type": "error",
+                        "data": f"Internal server error: {error_type}",
+                        "execution_id": execution_id,
+                        "timestamp": datetime.now().isoformat(),
+                        "log_level": "error",
+                        "_debug": {
+                            "elapsed_seconds": elapsed_total,
+                            "output_count": output_count,
+                            "keepalive_count": keepalive_count,
+                            "first_output_received": first_output_received
+                        }
+                    })
                 }
             finally:
-                # Cleanup
-                pass
+                # Rich logging: Connection cleanup
+                elapsed_total = time.time() - start_time
+                first_output_delay_str = f"{last_output_time - start_time:.2f}s" if first_output_received else "N/A"
+                logger.info(
+                    f"[SSE] Connection cleanup for {execution_id} | "
+                    f"Total duration: {elapsed_total:.2f}s | "
+                    f"Output chunks streamed: {output_count} | "
+                    f"Keepalives sent: {keepalive_count} | "
+                    f"First output delay: {first_output_delay_str}"
+                )
         
         # Comment 6: Construct EventSourceResponse with proper headers for no-buffering
         return EventSourceResponse(

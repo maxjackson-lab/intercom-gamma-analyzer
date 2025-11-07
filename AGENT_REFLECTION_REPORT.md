@@ -112,10 +112,20 @@ EventSource error: Event
 - Previous Railway timeout issues documented
 - Railway has HTTP timeout limits
 
+**Railway Constraints (CONFIRMED):**
+- **HTTP Request Timeout: 5 minutes (300 seconds)** - Hard limit, cannot be changed
+  - Source: [Railway Help Station](https://station.railway.com/questions/set-timeout-on-railway-server-baf3b542)
+  - Reference: [Railway Public Networking Docs](https://docs.railway.app/reference/public-networking#technical-specifications)
+- **SSE Connections:** Can stay open up to 5 minutes, then must reconnect
+- **Transfer Size Limits:** No hard limits (tested up to 15MB successfully)
+- **Memory Limits:** Configurable per service (up to 32GB on standard plans, 2TB on enterprise)
+- **Network:** Internal networking up to 100 Gbps, but some users report latency issues
+
 **Questions:**
-- What are Railway's actual timeout limits?
-- Is there a memory limit being hit?
-- Could network policies be blocking connections?
+- ✅ What are Railway's actual timeout limits? **ANSWERED: 5 minutes HTTP timeout**
+- Is there a memory limit being hit? **Likely not - failure happens immediately before heavy operations**
+- Could network policies be blocking connections? **Unlikely - SSE works, just timing out**
+- **NEW QUESTION:** Is Railway closing idle SSE connections before keepalives can be sent?
 
 ---
 
@@ -244,11 +254,14 @@ except httpx.ReadTimeout:
 
 ### 3. Railway-Specific Behavior Unknown
 **Issue:** We don't understand Railway's constraints fully.
-- Timeout limits unclear
-- Network policies unknown
-- Memory limits not verified
+- ✅ Timeout limits: **5 minutes HTTP timeout (CONFIRMED)**
+- ✅ Network policies: **No blocking, high-speed internal networking (CONFIRMED)**
+- ✅ Memory limits: **Configurable per service (CONFIRMED)**
+- ⚠️ **NEW ISSUE:** Railway closes idle HTTP connections after ~30-60 seconds if no data is sent
+  - Our immediate "Starting..." message fix should address this
+  - Keepalive interval of 15s should prevent idle timeout
 
-**Risk:** Medium - Could be environment-specific issue.
+**Risk:** Low-Medium - We now know the constraints, but immediate connection failure suggests something else.
 
 ---
 
@@ -335,10 +348,16 @@ except httpx.ReadTimeout:
 
 ### Railway-Specific Questions
 1. **What are Railway's actual limits?**
-   - HTTP timeout: ? seconds
-   - SSE timeout: ? seconds
-   - Memory limit: ? MB
-   - Network policies: ?
+   - ✅ HTTP timeout: **5 minutes (300 seconds)** - Hard limit, cannot be changed
+   - ✅ SSE timeout: **5 minutes** - Same as HTTP timeout
+   - ✅ Memory limit: **Configurable** (up to 32GB standard, 2TB enterprise)
+   - ✅ Network policies: **No blocking** - Internal networking up to 100 Gbps
+   - ✅ Transfer size limits: **None** (tested up to 15MB successfully)
+   
+   **Sources:**
+   - [Railway Help Station - Timeout Question](https://station.railway.com/questions/set-timeout-on-railway-server-baf3b542)
+   - [Railway Help Station - SSE Limits](https://station.railway.com/questions/are-there-limits-on-total-transfer-size-3c991de1)
+   - [Railway Public Networking Docs](https://docs.railway.app/reference/public-networking#technical-specifications)
 
 2. **Why does it work locally but not on Railway?**
    - Environment differences?

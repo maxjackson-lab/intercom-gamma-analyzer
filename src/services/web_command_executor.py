@@ -14,6 +14,7 @@ import shutil
 import signal
 import sys
 import uuid
+import time
 from collections import deque
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, AsyncIterator, Any, Deque
@@ -465,16 +466,41 @@ class WebCommandExecutor:
         }
         
         try:
-            # Yield start event
+            # Rich logging: Command execution start
+            exec_start_time = time.time()
+            cwd = str(self._get_project_root())  # Get working directory first
+            
+            self.logger.info(
+                f"[EXEC] Starting command execution {execution_id} | "
+                f"Command: {command_path} | "
+                f"Args count: {len(validated_args)} | "
+                f"Working dir: {cwd} | "
+                f"Timeout: {timeout}s"
+            )
+            
+            # Yield start event with rich details
             yield {
                 "type": "status",
-                "data": f"Starting command: {command} {' '.join(validated_args)}",
+                "data": f"[EXEC] Starting command: {command} {' '.join(validated_args[:3])}{'...' if len(validated_args) > 3 else ''}",
                 "execution_id": execution_id,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "log_level": "info",
+                "_exec_details": {
+                    "command_path": command_path,
+                    "args_count": len(validated_args),
+                    "working_dir": cwd,
+                    "timeout_seconds": timeout
+                }
             }
             
-            # Get working directory (environment-agnostic)
-            cwd = str(self._get_project_root())
+            # Rich logging: Environment details
+            self.logger.debug(
+                f"[EXEC] Environment for {execution_id} | "
+                f"Working dir: {cwd} | "
+                f"Platform: {sys.platform} | "
+                f"Python: {sys.version.split()[0]} | "
+                f"PID: {os.getpid()}"
+            )
             
             # Create subprocess with new session for process group management
             # IMPORTANT: Using create_subprocess_exec (not shell=True) to prevent shell injection
@@ -491,16 +517,38 @@ class WebCommandExecutor:
             if sys.platform != "win32":
                 process_kwargs["start_new_session"] = True
             
+            # Rich logging: Process creation
+            process_start_time = time.time()
             process = await asyncio.create_subprocess_exec(
                 command_path, *validated_args,
                 **process_kwargs
             )
+            process_creation_time = time.time() - process_start_time
             
-            # Log process start
+            # Log process start with rich details
             self.logger.info(
-                f"[{execution_id}] Started subprocess PID {process.pid}: "
-                f"{command_path} {' '.join(validated_args[:5])}{'...' if len(validated_args) > 5 else ''}"
+                f"[EXEC] Subprocess created for {execution_id} | "
+                f"PID: {process.pid} | "
+                f"Command: {command_path} | "
+                f"Args: {validated_args[:3]}... ({len(validated_args)} total) | "
+                f"Creation time: {process_creation_time:.3f}s | "
+                f"Working dir: {cwd} | "
+                f"Platform: {sys.platform} | "
+                f"New session: {process_kwargs.get('start_new_session', False)}"
             )
+            
+            # Stream process creation to terminal
+            yield {
+                "type": "status",
+                "data": f"[EXEC] Process started | PID: {process.pid} | Created in {process_creation_time:.3f}s",
+                "execution_id": execution_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "log_level": "info",
+                "_process_info": {
+                    "pid": process.pid,
+                    "creation_time_seconds": process_creation_time
+                }
+            }
             
             # Store process reference
             self.active_processes[execution_id] = process
@@ -515,17 +563,42 @@ class WebCommandExecutor:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
+            # Rich logging: Start streaming
+            line_count = {"stdout": 0, "stderr": 0}
+            stream_start_time = time.time()
+            self.logger.info(
+                f"[EXEC] Starting output stream for {execution_id} | "
+                f"PID: {process.pid} | "
+                f"Streaming stdout and stderr concurrently"
+            )
+            
             # Stream output from both stdout and stderr concurrently to avoid deadlock
             async for stream_type, line_data in self._merge_async_iters(
                 process.stdout, process.stderr, execution_id
             ):
                 if line_data:  # Skip empty lines
+                    line_count[stream_type] += 1
+                    total_lines = line_count["stdout"] + line_count["stderr"]
+                    
                     # Filter sensitive data from output
                     filtered_data = self._filter_sensitive_output(line_data)
                     
+                    # Rich logging: Every 100 lines or for stderr
+                    if total_lines % 100 == 0 or stream_type == "stderr":
+                        elapsed_stream = time.time() - stream_start_time
+                        lines_per_sec = total_lines / elapsed_stream if elapsed_stream > 0 else 0
+                        self.logger.debug(
+                            f"[EXEC] Output line #{total_lines} for {execution_id} | "
+                            f"Type: {stream_type} | "
+                            f"Lines/sec: {lines_per_sec:.1f} | "
+                            f"Stdout: {line_count['stdout']} | Stderr: {line_count['stderr']}"
+                        )
+                    
                     # Log stderr to Railway logs for debugging
                     if stream_type == "stderr":
-                        self.logger.warning(f"[{execution_id}] stderr: {filtered_data}")
+                        self.logger.warning(
+                            f"[EXEC] stderr line #{line_count['stderr']} for {execution_id}: {filtered_data[:200]}"
+                        )
                     
                     # Buffer output with bounded deque (automatically drops oldest)
                     self.execution_states[execution_id]["output_buffer"].append({
@@ -534,19 +607,37 @@ class WebCommandExecutor:
                         "timestamp": datetime.now(timezone.utc).isoformat()
                     })
                     
+                    # Yield with rich metadata
                     yield {
                         "type": stream_type,
                         "data": filtered_data,
                         "execution_id": execution_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "_line_metadata": {
+                            "line_number": total_lines,
+                            "stream_type": stream_type,
+                            "stdout_count": line_count["stdout"],
+                            "stderr_count": line_count["stderr"]
+                        }
                     }
             
             # Wait for process completion with timeout
             try:
+                wait_start_time = time.time()
                 return_code = await asyncio.wait_for(process.wait(), timeout=timeout)
+                wait_duration = time.time() - wait_start_time
+                total_duration = time.time() - exec_start_time
                 
-                # Log process completion to Railway logs
-                self.logger.info(f"[{execution_id}] Process completed with exit code: {return_code}")
+                # Rich logging: Process completion
+                self.logger.info(
+                    f"[EXEC] Process completed for {execution_id} | "
+                    f"PID: {process.pid} | "
+                    f"Exit code: {return_code} | "
+                    f"Total duration: {total_duration:.2f}s | "
+                    f"Wait duration: {wait_duration:.2f}s | "
+                    f"Output lines: {line_count['stdout']} stdout, {line_count['stderr']} stderr | "
+                    f"Lines/sec: {(line_count['stdout'] + line_count['stderr']) / total_duration:.1f}"
+                )
                 
                 # Log recent stderr output if process failed
                 if return_code != 0:
@@ -565,17 +656,36 @@ class WebCommandExecutor:
                     self.execution_states[execution_id]["status"] = "completed"
                     yield {
                         "type": "status",
-                        "data": f"Command completed successfully (exit code: {return_code})",
+                        "data": f"[EXEC] Command completed successfully | Exit code: {return_code} | Duration: {total_duration:.2f}s | Output: {line_count['stdout']} lines",
                         "execution_id": execution_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "log_level": "info",
+                        "_completion_stats": {
+                            "exit_code": return_code,
+                            "total_duration_seconds": total_duration,
+                            "stdout_lines": line_count["stdout"],
+                            "stderr_lines": line_count["stderr"]
+                        }
                     }
                 else:
                     self.execution_states[execution_id]["status"] = "failed"
+                    self.logger.error(
+                        f"[EXEC] Command failed for {execution_id} | "
+                        f"Exit code: {return_code} | "
+                        f"Duration: {total_duration:.2f}s | "
+                        f"Stderr lines: {line_count['stderr']}"
+                    )
                     yield {
                         "type": "error",
-                        "data": f"Command failed with exit code: {return_code}",
+                        "data": f"[EXEC] Command failed | Exit code: {return_code} | Duration: {total_duration:.2f}s | Check logs for details",
                         "execution_id": execution_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "log_level": "error",
+                        "_failure_stats": {
+                            "exit_code": return_code,
+                            "total_duration_seconds": total_duration,
+                            "stderr_lines": line_count["stderr"]
+                        }
                     }
                     
             except asyncio.TimeoutError:
