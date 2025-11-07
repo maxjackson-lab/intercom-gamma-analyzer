@@ -505,7 +505,6 @@ class WebCommandExecutor:
             # Create subprocess with new session for process group management
             # IMPORTANT: Using create_subprocess_exec (not shell=True) to prevent shell injection
             # Inherit current environment variables
-            import os
             process_kwargs = {
                 "stdout": asyncio.subprocess.PIPE,
                 "stderr": asyncio.subprocess.PIPE,
