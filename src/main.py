@@ -1690,7 +1690,19 @@ async def run_agent_performance_analysis(
 ):
     """Run comprehensive agent performance analysis with optional Gamma generation."""
     try:
+        # Comment 3: Add timing logs for heavy imports
+        verbose_imports = verbose or os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
+        if verbose_imports:
+            import time as time_module
+            import_start = time_module.monotonic()
+            console.print(f"[dim]⏱️  Importing ChunkedFetcher...[/dim]")
+        
         from src.services.chunked_fetcher import ChunkedFetcher
+        
+        if verbose_imports:
+            import_duration = time_module.monotonic() - import_start
+            console.print(f"[dim]✅ ChunkedFetcher imported in {import_duration:.2f}s[/dim]")
+        
         from src.agents.agent_performance_agent import AgentPerformanceAgent
         from src.agents.base_agent import AgentContext
         from src.services.gamma_generator import GammaGenerator
@@ -2036,7 +2048,19 @@ async def run_agent_coaching_report(
 ):
     """Run coaching-focused analysis with individual agent breakdowns"""
     try:
+        # Comment 3: Add timing logs for heavy imports
+        verbose_imports = verbose or os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
+        if verbose_imports:
+            import time as time_module
+            import_start = time_module.monotonic()
+            console.print(f"[dim]⏱️  Importing ChunkedFetcher...[/dim]")
+        
         from src.services.chunked_fetcher import ChunkedFetcher
+        
+        if verbose_imports:
+            import_duration = time_module.monotonic() - import_start
+            console.print(f"[dim]✅ ChunkedFetcher imported in {import_duration:.2f}s[/dim]")
+        
         from src.agents.agent_performance_agent import AgentPerformanceAgent
         from src.agents.base_agent import AgentContext
         from src.services.data_preprocessor import DataPreprocessor
@@ -4291,7 +4315,18 @@ def test_mode(test_type: str, num_conversations: int):
 
 async def run_test_topic_based(conversations):
     """Run topic-based analysis with test data"""
+    # Comment 3: Add timing logs for heavy imports (TopicOrchestrator, ChunkedFetcher)
+    verbose_imports = os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
+    if verbose_imports:
+        import time as time_module
+        import_start = time_module.monotonic()
+        console.print(f"[dim]⏱️  Importing TopicOrchestrator...[/dim]")
+    
     from src.agents.topic_orchestrator import TopicOrchestrator
+    
+    if verbose_imports:
+        import_duration = time_module.monotonic() - import_start
+        console.print(f"[dim]✅ TopicOrchestrator imported in {import_duration:.2f}s[/dim]")
     
     orchestrator = TopicOrchestrator()
     
@@ -4742,190 +4777,208 @@ async def run_topic_based_analysis_custom(
     audit_trail: bool = False
 ):
     """Run topic-based analysis with custom date range"""
-    from src.agents.topic_orchestrator import TopicOrchestrator
-    from src.services.chunked_fetcher import ChunkedFetcher
-    from src.services.gamma_generator import GammaGenerator
-    from src.services.audit_trail import AuditTrail
-    from src.utils.time_utils import detect_period_type
-    
-    # Initialize audit trail if enabled
-    audit = None
-    if audit_trail:
-        audit = AuditTrail()
-        audit.step("Initialization", "Started Voice of Customer Analysis", {
-            'start_date': start_date.strftime('%Y-%m-%d'),
-            'end_date': end_date.strftime('%Y-%m-%d'),
-            'test_mode': test_mode,
-            'generate_gamma': generate_gamma
-        })
-        console.print("📋 [purple]Audit Trail Mode: ENABLED[/purple] - Generating detailed analysis narration\n")
-    
-    # Fetch conversations (or generate test data)
-    if test_mode:
-        console.print(f"🧪 [yellow]TEST MODE: Generating {test_data_count} mock conversations...[/yellow]")
-        from src.services.test_data_generator import TestDataGenerator
-        generator = TestDataGenerator()
-        conversations = generator.generate_conversations(
-            count=int(test_data_count),
-            start_date=start_date,
-            end_date=end_date
-        )
-        console.print(f"   ✅ Generated {len(conversations)} test conversations\n")
+    try:
+        # Comment 3: Add timing logs for heavy imports
+        verbose_imports = os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
+        if verbose_imports:
+            import time as time_module
+            import_start = time_module.monotonic()
+            console.print(f"[dim]⏱️  Importing TopicOrchestrator and ChunkedFetcher...[/dim]")
         
-        if audit:
-            audit.step("Data Generation", f"Generated {len(conversations)} test conversations", {
-                'count': len(conversations),
-                'method': 'TestDataGenerator',
-                'distribution': 'Realistic (tiers, topics, languages)'
-            })
-    else:
-        console.print("📥 Fetching conversations from Intercom...")
-        if audit:
-            audit.step("Data Fetching", "Started fetching conversations from Intercom API", {
+        from src.agents.topic_orchestrator import TopicOrchestrator
+        from src.services.chunked_fetcher import ChunkedFetcher
+        
+        if verbose_imports:
+            import_duration = time_module.monotonic() - import_start
+            console.print(f"[dim]✅ Heavy imports completed in {import_duration:.2f}s[/dim]")
+        
+        from src.services.gamma_generator import GammaGenerator
+        from src.services.audit_trail import AuditTrail
+        from src.utils.time_utils import detect_period_type
+        
+        # Initialize audit trail if enabled
+        audit = None
+        if audit_trail:
+            audit = AuditTrail()
+            audit.step("Initialization", "Started Voice of Customer Analysis", {
                 'start_date': start_date.strftime('%Y-%m-%d'),
                 'end_date': end_date.strftime('%Y-%m-%d'),
-                'api': 'Intercom Conversations Search API'
+                'test_mode': test_mode,
+                'generate_gamma': generate_gamma
             })
+            console.print("📋 [purple]Audit Trail Mode: ENABLED[/purple] - Generating detailed analysis narration\n")
         
-        # ChunkedFetcher now uses simple mode - no chunking, no timeouts
-        fetcher = ChunkedFetcher()
-        conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
-        console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+        # Fetch conversations (or generate test data)
+        if test_mode:
+            console.print(f"🧪 [yellow]TEST MODE: Generating {test_data_count} mock conversations...[/yellow]")
+            from src.services.test_data_generator import TestDataGenerator
+            generator = TestDataGenerator()
+            conversations = generator.generate_conversations(
+                count=int(test_data_count),
+                start_date=start_date,
+                end_date=end_date
+            )
+            console.print(f"   ✅ Generated {len(conversations)} test conversations\n")
+            
+            if audit:
+                audit.step("Data Generation", f"Generated {len(conversations)} test conversations", {
+                    'count': len(conversations),
+                    'method': 'TestDataGenerator',
+                    'distribution': 'Realistic (tiers, topics, languages)'
+                })
+        else:
+            console.print("📥 Fetching conversations from Intercom...")
+            if audit:
+                audit.step("Data Fetching", "Started fetching conversations from Intercom API", {
+                    'start_date': start_date.strftime('%Y-%m-%d'),
+                    'end_date': end_date.strftime('%Y-%m-%d'),
+                    'api': 'Intercom Conversations Search API'
+                })
+            
+            # ChunkedFetcher now uses simple mode - no chunking, no timeouts
+            fetcher = ChunkedFetcher()
+            conversations = await fetcher.fetch_conversations_chunked(start_date, end_date)
+            console.print(f"   ✅ Fetched {len(conversations)} conversations\n")
+            
+            if audit:
+                audit.step("Data Fetching", f"Fetched {len(conversations)} conversations", {
+                    'count': len(conversations),
+                    'method': 'ChunkedFetcher',
+                    'chunking_strategy': 'Daily chunks with preprocessing'
+                })
+        
+        # Detect period type from date range
+        period_type, period_label = detect_period_type(start_date, end_date)
         
         if audit:
-            audit.step("Data Fetching", f"Fetched {len(conversations)} conversations", {
-                'count': len(conversations),
-                'method': 'ChunkedFetcher',
-                'chunking_strategy': 'Daily chunks with preprocessing'
-            })
-    
-    # Detect period type from date range
-    period_type, period_label = detect_period_type(start_date, end_date)
-    
-    if audit:
-        audit.decision(
-            "What time period does this analysis cover?",
-            f"{period_type} ({period_label})",
-            f"Based on date range {start_date.date()} to {end_date.date()}",
-            {'period_type': period_type, 'period_label': period_label}
-        )
-    
-    orchestrator = TopicOrchestrator(audit_trail=audit)
-    week_id = start_date.strftime('%Y-W%W')
-    
-    results = await orchestrator.execute_weekly_analysis(
-        conversations=conversations,
-        week_id=week_id,
-        start_date=start_date,
-        end_date=end_date,
-        period_type=period_type,
-        period_label=period_label
-    )
-    
-    # Save output
-    output_dir = Path("outputs")
-    output_dir.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    report_file = output_dir / f"topic_based_{week_id}_{timestamp}.md"
-    
-    with open(report_file, 'w') as f:
-        f.write(results.get('formatted_report', ''))
-    
-    # Save audit trail if enabled
-    if audit:
-        audit.step("Output Generation", "Saved analysis report", {
-            'file': str(report_file),
-            'format': 'markdown'
-        })
-        
-        audit_md = audit.save_report()
-        audit_json = audit.save_json()
-        
-        console.print(f"\n📋 [purple]Audit Trail Reports Generated:[/purple]")
-        console.print(f"   📄 Narrative Report: {audit_md}")
-        console.print(f"   📊 JSON Data: {audit_json}")
-        console.print(f"   ℹ️  Review these files to validate the analysis methodology\n")
-    
-    console.print(f"✅ Topic-based analysis complete")
-    console.print(f"📁 Report: {report_file}")
-    
-    # Generate Gamma presentation if requested
-    if generate_gamma:
-        console.print("\n🎨 Generating Gamma presentation...")
-        try:
-            from src.services.gamma_client import GammaClient
-            
-            gamma_client = GammaClient()
-            
-            # Send our multi-agent markdown report directly to Gamma
-            # Don't use PresentationBuilder - it throws away our work and uses generic templates
-            markdown_report = results.get('formatted_report', '')
-            
-            if not markdown_report:
-                console.print("[yellow]⚠️  No markdown report found - skipping Gamma generation[/yellow]")
-                return
-            
-            console.print(f"   Sending {len(markdown_report)} characters to Gamma API...")
-            
-            generation_id = await gamma_client.generate_presentation(
-                input_text=markdown_report,
-                format="presentation",
-                text_mode="preserve",  # Preserve our markdown text
-                card_split="inputTextBreaks",  # Use our --- breaks for slides
-                theme_name="Night Sky",  # Professional dark theme
-                text_options={
-                    "tone": "professional, analytical",
-                    "audience": "executives, leadership team"
-                }
+            audit.decision(
+                "What time period does this analysis cover?",
+                f"{period_type} ({period_label})",
+                f"Based on date range {start_date.date()} to {end_date.date()}",
+                {'period_type': period_type, 'period_label': period_label}
             )
+        
+        orchestrator = TopicOrchestrator(audit_trail=audit)
+        week_id = start_date.strftime('%Y-W%W')
+        
+        results = await orchestrator.execute_weekly_analysis(
+            conversations=conversations,
+            week_id=week_id,
+            start_date=start_date,
+            end_date=end_date,
+            period_type=period_type,
+            period_label=period_label
+        )
+        
+        # Save output
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = output_dir / f"topic_based_{week_id}_{timestamp}.md"
+        
+        with open(report_file, 'w') as f:
+            f.write(results.get('formatted_report', ''))
+        
+        # Save audit trail if enabled
+        if audit:
+            audit.step("Output Generation", "Saved analysis report", {
+                'file': str(report_file),
+                'format': 'markdown'
+            })
             
-            console.print(f"   ✅ Generation ID: {generation_id}")
-            console.print("   ⏳ Waiting for Gamma to process (max 8 minutes)...")
+            audit_md = audit.save_report()
+            audit_json = audit.save_json()
             
-            # Use GammaClient.poll_generation() with backoff
-            status = await gamma_client.poll_generation(generation_id, max_polls=30, poll_interval=2.0)
-            
-            console.print(f"   Poll completed with status: {status.get('status')}")
-            
-            if status.get('status') == 'completed':
-                gamma_url = status.get('gammaUrl')  # Use v0.2 field name
-                if gamma_url:
-                    console.print(f"\n🎉 [bold green]SUCCESS![/bold green]")
-                    console.print(f"📊 Gamma URL: {gamma_url}")
-                    
-                    # Save URL to file with descriptive name
-                    from src.utils.time_utils import generate_descriptive_filename
-                    url_filename = generate_descriptive_filename(
-                        'Gamma_URL_Topic', start_date, end_date, file_type='txt', 
-                        period_label=results.get('period_label', 'Custom')
-                    )
-                    url_file = output_dir / url_filename
-                    with open(url_file, 'w') as f:
-                        f.write(gamma_url)
-                    console.print(f"📁 URL saved to: {url_file}")
-                    
-                    # Return URL for CLI output
-                    return {'gamma_url': gamma_url, 'url_file': str(url_file)}
-                else:
-                    console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
-            elif status.get('status') == 'failed':
-                error_msg = status.get('error', 'Unknown error')
-                console.print(f"[red]❌ Gamma generation FAILED: {error_msg}[/red]")
-                console.print(f"[yellow]Generation ID: {generation_id}[/yellow]")
-            else:
-                console.print(f"[yellow]⚠️  Unexpected status: {status.get('status')}[/yellow]")
-                console.print(f"[yellow]Full status response: {status}[/yellow]")
+            console.print(f"\n📋 [purple]Audit Trail Reports Generated:[/purple]")
+            console.print(f"   📄 Narrative Report: {audit_md}")
+            console.print(f"   📊 JSON Data: {audit_json}")
+            console.print(f"   ℹ️  Review these files to validate the analysis methodology\n")
+        
+        console.print(f"✅ Topic-based analysis complete")
+        console.print(f"📁 Report: {report_file}")
+        
+        # Generate Gamma presentation if requested
+        if generate_gamma:
+            console.print("\n🎨 Generating Gamma presentation...")
+            try:
+                from src.services.gamma_client import GammaClient
                 
-        except Exception as e:
-            console.print(f"\n[red]{'='*60}[/red]")
-            console.print(f"[red]❌ GAMMA GENERATION ERROR[/red]")
-            console.print(f"[red]{'='*60}[/red]")
-            console.print(f"[red]Error: {e}[/red]")
-            console.print(f"[red]Type: {type(e).__name__}[/red]")
-            import traceback
-            console.print(f"[red]{traceback.format_exc()}[/red]")
-            console.print(f"[red]{'='*60}[/red]")
-            # Don't raise - let the analysis complete without Gamma
+                gamma_client = GammaClient()
+                
+                # Send our multi-agent markdown report directly to Gamma
+                # Don't use PresentationBuilder - it throws away our work and uses generic templates
+                markdown_report = results.get('formatted_report', '')
+                
+                if not markdown_report:
+                    console.print("[yellow]⚠️  No markdown report found - skipping Gamma generation[/yellow]")
+                    return
+                
+                console.print(f"   Sending {len(markdown_report)} characters to Gamma API...")
+                
+                generation_id = await gamma_client.generate_presentation(
+                    input_text=markdown_report,
+                    format="presentation",
+                    text_mode="preserve",  # Preserve our markdown text
+                    card_split="inputTextBreaks",  # Use our --- breaks for slides
+                    theme_name="Night Sky",  # Professional dark theme
+                    text_options={
+                        "tone": "professional, analytical",
+                        "audience": "executives, leadership team"
+                    }
+                )
+                
+                console.print(f"   ✅ Generation ID: {generation_id}")
+                console.print("   ⏳ Waiting for Gamma to process (max 8 minutes)...")
+                
+                # Use GammaClient.poll_generation() with backoff
+                status = await gamma_client.poll_generation(generation_id, max_polls=30, poll_interval=2.0)
+                
+                console.print(f"   Poll completed with status: {status.get('status')}")
+                
+                if status.get('status') == 'completed':
+                    gamma_url = status.get('gammaUrl')  # Use v0.2 field name
+                    if gamma_url:
+                        console.print(f"\n🎉 [bold green]SUCCESS![/bold green]")
+                        console.print(f"📊 Gamma URL: {gamma_url}")
+                        
+                        # Save URL to file with descriptive name
+                        from src.utils.time_utils import generate_descriptive_filename
+                        url_filename = generate_descriptive_filename(
+                            'Gamma_URL_Topic', start_date, end_date, file_type='txt', 
+                            period_label=results.get('period_label', 'Custom')
+                        )
+                        url_file = output_dir / url_filename
+                        with open(url_file, 'w') as f:
+                            f.write(gamma_url)
+                        console.print(f"📁 URL saved to: {url_file}")
+                        
+                        # Return URL for CLI output
+                        return {'gamma_url': gamma_url, 'url_file': str(url_file)}
+                    else:
+                        console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
+                elif status.get('status') == 'failed':
+                    error_msg = status.get('error', 'Unknown error')
+                    console.print(f"[red]❌ Gamma generation FAILED: {error_msg}[/red]")
+                    console.print(f"[yellow]Generation ID: {generation_id}[/yellow]")
+                else:
+                    console.print(f"[yellow]⚠️  Unexpected status: {status.get('status')}[/yellow]")
+                    console.print(f"[yellow]Full status response: {status}[/yellow]")
+                    
+            except Exception as e:
+                console.print(f"\n[red]{'='*60}[/red]")
+                console.print(f"[red]❌ GAMMA GENERATION ERROR[/red]")
+                console.print(f"[red]{'='*60}[/red]")
+                console.print(f"[red]Error: {e}[/red]")
+                console.print(f"[red]Type: {type(e).__name__}[/red]")
+                import traceback
+                console.print(f"[red]{traceback.format_exc()}[/red]")
+                console.print(f"[red]{'='*60}[/red]")
+                # Don't raise - let the analysis complete without Gamma
+    except Exception as e:
+        console.print(f"[red]❌ Analysis failed: {e}[/red]")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool, audit_trail: bool = False):

@@ -8,6 +8,7 @@ import sys
 import json
 import asyncio
 import logging
+import signal
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
@@ -136,8 +137,17 @@ MAX_REQUEST_SIZE = 10 * 1024 * 1024
 # Allow configurable timeout via environment variable, default to 60 minutes for large datasets
 MAX_EXECUTION_DURATION = int(os.getenv('MAX_EXECUTION_DURATION', 60 * 60))  # Default: 60 minutes
 
-# Send keepalive every 15 seconds when no output
-SSE_KEEPALIVE_INTERVAL = 15
+# Comment 5: Read SSE keepalive interval from env with default
+SSE_KEEPALIVE_INTERVAL = int(os.getenv('SSE_KEEPALIVE_INTERVAL', 15))
+# Comment 5: Read max SSE duration from env with default (reuse MAX_EXECUTION_DURATION name)
+MAX_SSE_DURATION = int(os.getenv('MAX_SSE_DURATION', os.getenv('MAX_EXECUTION_DURATION', 60 * 60)))
+
+# Comment 5: Validate and log SSE configuration at startup (after definitions)
+logger.info(f"SSE Configuration: keepalive_interval={SSE_KEEPALIVE_INTERVAL}s, max_duration={MAX_SSE_DURATION}s")
+if SSE_KEEPALIVE_INTERVAL < 5 or SSE_KEEPALIVE_INTERVAL > 300:
+    logger.warning(f"SSE_KEEPALIVE_INTERVAL={SSE_KEEPALIVE_INTERVAL}s is outside recommended range (5-300s)")
+if MAX_SSE_DURATION < 60 or MAX_SSE_DURATION > 7200:
+    logger.warning(f"MAX_SSE_DURATION={MAX_SSE_DURATION}s is outside recommended range (60-7200s)")
 
 # Maximum size per SSE event (10KB)
 MAX_SSE_CHUNK_SIZE = 10 * 1024
@@ -1701,6 +1711,7 @@ if HAS_FASTAPI:
             start_time = time.time()
             last_output_time = time.time()
             execution_task = None
+            first_output_received = False
             
             try:
                 # Create async iterator from command executor
@@ -1712,6 +1723,17 @@ if HAS_FASTAPI:
                 # Use asyncio.wait_for to implement keepalive during long waits
                 output_iter = output_iterator.__aiter__()
                 
+                # Comment 1: Immediately yield "Starting..." message to prevent SSE stall
+                yield {
+                    "event": "message",
+                    "data": json.dumps({
+                        'type': 'status',
+                        'data': 'Starting analysis...',
+                        'execution_id': execution_id,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                }
+                
                 while True:
                     try:
                         # Wait for next output with timeout for keepalive
@@ -1720,16 +1742,30 @@ if HAS_FASTAPI:
                             timeout=SSE_KEEPALIVE_INTERVAL
                         )
                     except asyncio.TimeoutError:
-                        # No output for SSE_KEEPALIVE_INTERVAL seconds - send keepalive
-                        yield {"event": "comment", "data": "keepalive"}
+                        # No output for SSE_KEEPALIVE_INTERVAL seconds - send keepalive or progress
+                        if not first_output_received:
+                            # Comment 1: Send periodic progress status until first real output
+                            elapsed_since_start = time.time() - start_time
+                            yield {
+                                "event": "message",
+                                "data": json.dumps({
+                                    'type': 'status',
+                                    'data': f'Initializing... ({int(elapsed_since_start)}s elapsed)',
+                                    'execution_id': execution_id,
+                                    'timestamp': datetime.now().isoformat()
+                                })
+                            }
+                        else:
+                            # Regular keepalive after first output
+                            yield {"event": "comment", "data": "keepalive"}
                         continue
                     except StopAsyncIteration:
                         # Iterator exhausted normally
                         break
-                    # Check timeout
+                    # Check timeout (use MAX_SSE_DURATION)
                     elapsed = time.time() - start_time
-                    if elapsed > MAX_EXECUTION_DURATION:
-                        timeout_minutes = MAX_EXECUTION_DURATION / 60
+                    if elapsed > MAX_SSE_DURATION:
+                        timeout_minutes = MAX_SSE_DURATION / 60
                         logger.warning(f"Execution {execution_id} exceeded timeout of {MAX_EXECUTION_DURATION}s")
                         await command_executor.cancel_execution(execution_id)
                         await state_manager.update_execution_status(
@@ -1750,10 +1786,30 @@ if HAS_FASTAPI:
                     # Check for client disconnect
                     if await request.is_disconnected():
                         logger.info(f"Client disconnected for execution {execution_id}")
-                        await command_executor.cancel_execution(execution_id)
+                        # Comment 2: Check return of cancel_execution, attempt force kill if False
+                        cancelled = await command_executor.cancel_execution(execution_id)
+                        if not cancelled:
+                            logger.warning(f"cancel_execution returned False for {execution_id}, attempting force kill")
+                            # Wait briefly before force kill
+                            await asyncio.sleep(2)
+                            # Force kill via process group if available
+                            if execution_id in command_executor.active_processes:
+                                process = command_executor.active_processes[execution_id]
+                                try:
+                                    if sys.platform != "win32" and hasattr(os, 'killpg'):
+                                        pgid = os.getpgid(process.pid)
+                                        os.killpg(pgid, signal.SIGKILL)
+                                    else:
+                                        process.kill()
+                                    logger.info(f"Force killed process group for {execution_id}")
+                                except Exception as e:
+                                    logger.error(f"Force kill failed for {execution_id}: {e}")
+                        
+                        # Comment 2: Update state with definitive final status and timestamp
                         await state_manager.update_execution_status(
                             execution_id, ExecutionStatus.CANCELLED,
-                            error_message='Client disconnected'
+                            error_message='Client disconnected',
+                            end_time=datetime.now()
                         )
                         yield {
                             "event": "message",
@@ -1761,7 +1817,8 @@ if HAS_FASTAPI:
                                 'type': 'cancelled',
                                 'status': 'cancelled',
                                 'message': 'Client disconnected',
-                                'execution_id': execution_id
+                                'execution_id': execution_id,
+                                'timestamp': datetime.now().isoformat()
                             })
                         }
                         break
@@ -1800,6 +1857,10 @@ if HAS_FASTAPI:
                         "event": "message",
                         "data": json.dumps(output)
                     }
+                    
+                    # Mark first output received
+                    if not first_output_received:
+                        first_output_received = True
                     
                     # Update last output time
                     last_output_time = time.time()
@@ -1854,7 +1915,15 @@ if HAS_FASTAPI:
                 # Cleanup
                 pass
         
-        return EventSourceResponse(event_generator())
+        # Comment 6: Construct EventSourceResponse with proper headers for no-buffering
+        return EventSourceResponse(
+            event_generator(),
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+            },
+            media_type='text/event-stream; charset=utf-8'
+        )
     
     async def run_command_background(execution_id: str, command: str, args: list):
         """Run command in background and update state."""

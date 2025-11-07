@@ -44,10 +44,13 @@ class GammaClient:
         self.jitter = jitter
         self.max_5xx_retries = max_5xx_retries
 
-        # Configure httpx timeout with proper Timeout object
-        # connect=60s for slow connections, read=30s for API responses
+        # Comment 4: Configure httpx timeout with explicit read timeout separate from connect
+        # connect=60s for slow connections, read=30s for regular API responses
         timeout_seconds = getattr(settings, 'gamma_timeout', 30)
-        self.timeout = httpx.Timeout(timeout_seconds, connect=60.0)
+        self.timeout = httpx.Timeout(timeout_seconds, connect=60.0, read=timeout_seconds)
+        
+        # Comment 4: Longer read timeout for polling endpoints (60-120s)
+        self.polling_timeout = httpx.Timeout(120.0, connect=60.0, read=120.0)
         
         # Lazy initialization: Create httpx client on first use
         # This prevents issues during import/initialization
@@ -383,14 +386,16 @@ class GammaClient:
             raise GammaAPIError("Gamma API key not provided")
 
         try:
-            # Use reusable client with proper timeout configuration
-            response = await self.client.get(
-                f"{self.base_url}/generations/{generation_id}",
-                headers=self.headers
-            )
-            response.raise_for_status()
+            # Comment 4: Use longer timeout for polling endpoints
+            # Create temporary client with polling timeout for this request
+            async with httpx.AsyncClient(timeout=self.polling_timeout, limits=self._client_limits) as poll_client:
+                response = await poll_client.get(
+                    f"{self.base_url}/generations/{generation_id}",
+                    headers=self.headers
+                )
+                response.raise_for_status()
 
-            result = response.json()
+                result = response.json()
 
             self.logger.debug(
                 "gamma_generation_status_checked",
