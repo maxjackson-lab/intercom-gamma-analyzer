@@ -214,7 +214,10 @@ def generate_descriptive_filename(
     analysis_type: str,
     start_date: datetime,
     end_date: datetime,
-    extension: str = "md"
+    extension: str = "md",
+    file_type: str = None,
+    period_label: str = None,
+    week_id: str = None
 ) -> str:
     """
     Generate descriptive filename for analysis outputs.
@@ -224,13 +227,29 @@ def generate_descriptive_filename(
         start_date: Start datetime
         end_date: End datetime
         extension: File extension (default: 'md')
+        file_type: Alias for extension (for backward compatibility)
+        period_label: Optional period label to include in filename
+        week_id: Optional week ID to include in filename
         
     Returns:
         Filename like "voice-of-customer_2025-10-29_to_2025-11-05.md"
     """
+    # Use file_type if provided (backward compatibility)
+    ext = file_type if file_type is not None else extension
+    
     start_str = start_date.strftime('%Y-%m-%d')
     end_str = end_date.strftime('%Y-%m-%d')
-    return f"{analysis_type}_{start_str}_to_{end_str}.{extension}"
+    
+    # Build filename with optional components
+    filename = f"{analysis_type}_{start_str}_to_{end_str}"
+    
+    if period_label:
+        filename += f"_{period_label}"
+    
+    if week_id:
+        filename += f"_{week_id}"
+    
+    return f"{filename}.{ext}"
 
 
 def to_utc_datetime(dt: Union[datetime, str]) -> datetime:

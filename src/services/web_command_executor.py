@@ -614,9 +614,7 @@ class WebCommandExecutor:
                     if gamma_metadata:
                         self.execution_states[execution_id]["gamma_metadata"] = gamma_metadata
                         self.logger.info(
-                            "gamma_metadata_extracted",
-                            execution_id=execution_id,
-                            metadata_keys=list(gamma_metadata.keys())
+                            f"[{execution_id}] Gamma metadata extracted: {list(gamma_metadata.keys())}"
                         )
                 
                 # Update final state with timezone-aware timestamp
