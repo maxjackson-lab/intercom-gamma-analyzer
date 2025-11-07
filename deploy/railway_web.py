@@ -1625,6 +1625,12 @@ if HAS_FASTAPI:
         Set MAX_EXECUTION_DURATION environment variable to allow longer execution times.
         Example: MAX_EXECUTION_DURATION=7200 (2 hours)
         
+        **⚠️ PRODUCTION RECOMMENDATION:**
+        For production workloads (multi-agent analysis, full-week data, Gamma generation):
+        - Use /execute/start endpoint for background execution (no SSE timeout)
+        - Poll /execute/status/{execution_id} for progress updates
+        - This prevents connection timeout issues on long-running tasks
+        
         **Timeout Handling:**
         If execution exceeds the max duration, the stream will send a timeout
         status and terminate. For very large datasets, consider using --test-mode
@@ -2131,7 +2137,28 @@ if HAS_FASTAPI:
     
     @app.post("/execute/start")
     async def start_execution(command: str, args: str, request: Request, token: str = Depends(verify_token)):
-        """Start a new command execution as a background task."""
+        """
+        Start a new command execution as a background task (RECOMMENDED FOR PRODUCTION).
+        
+        **Use this endpoint for:**
+        - Multi-agent analysis (voice-of-customer with --multi-agent)
+        - Full week/month/quarter analysis with Gamma generation
+        - Any task expected to run longer than 5-10 minutes
+        - Production workloads where connection stability matters
+        
+        **Workflow:**
+        1. POST to /execute/start to queue the task (returns execution_id immediately)
+        2. Poll GET /execute/status/{execution_id} for progress updates
+        3. Access results via /execute/output/{execution_id} or download files
+        
+        **Benefits:**
+        - No SSE connection timeout issues
+        - Task continues even if client disconnects
+        - Queryable status and resumable results
+        - Better for mobile/unstable connections
+        
+        **Note:** Returns immediately with execution_id. Task runs in background.
+        """
         # Check rate limit
         await check_rate_limit(request)
         
