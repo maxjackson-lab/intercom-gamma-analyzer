@@ -492,21 +492,152 @@ CRITICAL HALLUCINATION PREVENTION RULES:
         
         return confidence, level
     
-    async def verify_output(self, output: Dict[str, Any], context: AgentContext) -> bool:
+    async def reflect_on_output(
+        self,
+        result: AgentResult,
+        context: AgentContext,
+        reflection_prompt: Optional[str] = None
+    ) -> AgentResult:
         """
-        Implement Chain-of-Verification pattern.
-
-        From research: Can improve accuracy by 23%.
-
+        Reflection pattern: Review and improve low-confidence outputs.
+        
+        When confidence is low (<0.7), this method:
+        1. Reviews the original output
+        2. Identifies potential issues
+        3. Generates improved output with higher confidence
+        
         Args:
-            output: Agent's output to verify
-            context: Original context
-
+            result: Original agent result with low confidence
+            context: Original context used for execution
+            reflection_prompt: Optional custom reflection prompt
+            
         Returns:
-            True if verification passes
+            Improved AgentResult with higher confidence (or original if reflection fails)
         """
-        # Subclasses can override with specific verification logic
-        return True
+        if result.confidence >= 0.7:
+            # Already high confidence, no reflection needed
+            return result
+        
+        self.logger.info(
+            f"Reflecting on {self.name} output (confidence: {result.confidence:.2f})"
+        )
+        
+        try:
+            from src.utils.ai_client_helper import get_ai_client
+            
+            # Build reflection prompt
+            if not reflection_prompt:
+                reflection_prompt = self._build_reflection_prompt(result, context)
+            
+            # Get AI client
+            client = get_ai_client()
+            
+            # Call AI for reflection
+            reflection_response = await client.generate_analysis(reflection_prompt)
+            
+            # Parse reflection feedback
+            reflection_data = self._parse_reflection_response(reflection_response)
+            
+            # If reflection suggests improvements, retry with improved prompt
+            if reflection_data.get('should_retry', False):
+                self.logger.info(f"Reflection suggests retry for {self.name}")
+                
+                # Build improved prompt based on reflection
+                improved_context = self._apply_reflection_improvements(context, reflection_data)
+                
+                # Retry execution with improved context
+                improved_result = await self.execute(improved_context)
+                
+                # Use improved result if it's better
+                if improved_result.confidence > result.confidence:
+                    self.logger.info(
+                        f"Reflection improved confidence: {result.confidence:.2f} -> {improved_result.confidence:.2f}"
+                    )
+                    return improved_result
+            
+            # Return original result with reflection notes
+            result.limitations.append(f"Reflection reviewed: {reflection_data.get('feedback', 'No specific improvements identified')}")
+            return result
+            
+        except Exception as e:
+            self.logger.warning(f"Reflection failed for {self.name}: {e}")
+            # Return original result if reflection fails
+            return result
+    
+    def _build_reflection_prompt(self, result: AgentResult, context: AgentContext) -> str:
+        """Build reflection prompt for reviewing low-confidence output"""
+        return f"""
+You are reviewing the output of {self.name} agent.
+
+ORIGINAL OUTPUT (Confidence: {result.confidence:.2f}):
+{json.dumps(result.data, indent=2, default=str)}
+
+ORIGINAL CONTEXT:
+- Analysis ID: {context.analysis_id}
+- Analysis Type: {context.analysis_type}
+- Date Range: {context.start_date} to {context.end_date}
+- Conversations: {len(context.conversations) if context.conversations else 0}
+
+LIMITATIONS IDENTIFIED:
+{chr(10).join(result.limitations) if result.limitations else "None"}
+
+REFLECTION TASK:
+1. Review the output for accuracy and completeness
+2. Identify any potential issues or gaps
+3. Suggest specific improvements
+4. Determine if a retry with improved prompt would help
+
+Respond in JSON format:
+{{
+    "should_retry": true/false,
+    "issues_found": ["issue1", "issue2"],
+    "feedback": "What was wrong and how to improve",
+    "improved_instructions": "Specific instructions for retry"
+}}
+"""
+    
+    def _parse_reflection_response(self, reflection_text: str) -> Dict[str, Any]:
+        """Parse reflection response from AI"""
+        try:
+            # Try to extract JSON from response
+            import re
+            json_match = re.search(r'\{.*\}', reflection_text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except Exception as e:
+            self.logger.warning(f"Failed to parse reflection response: {e}")
+        
+        # Fallback: return basic structure
+        return {
+            'should_retry': False,
+            'issues_found': [],
+            'feedback': 'Could not parse reflection response',
+            'improved_instructions': ''
+        }
+    
+    def _apply_reflection_improvements(
+        self,
+        context: AgentContext,
+        reflection_data: Dict[str, Any]
+    ) -> AgentContext:
+        """Apply reflection improvements to context"""
+        # Add reflection feedback to metadata
+        improved_metadata = context.metadata.copy()
+        improved_metadata['reflection_feedback'] = reflection_data.get('feedback', '')
+        improved_metadata['reflection_instructions'] = reflection_data.get('improved_instructions', '')
+        
+        # Create improved context
+        improved_context = AgentContext(
+            analysis_id=context.analysis_id,
+            analysis_type=context.analysis_type,
+            start_date=context.start_date,
+            end_date=context.end_date,
+            conversations=context.conversations,
+            previous_results=context.previous_results.copy(),
+            metadata=improved_metadata
+        )
+        
+        return improved_context
 
     async def _call_ai_with_tools(self, messages: List[Dict], context: AgentContext) -> Any:
         """

@@ -21,12 +21,14 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from src.agents.base_agent import BaseAgent, AgentContext, AgentResult
+from src.agents.base_agent import BaseAgent, AgentContext, AgentResult, ConfidenceLevel
 from src.agents.data_agent import DataAgent
 from src.agents.category_agent import CategoryAgent
 from src.agents.sentiment_agent import SentimentAgent
 from src.agents.insight_agent import InsightAgent
 from src.agents.presentation_agent import PresentationAgent
+from src.utils.backoff import exponential_backoff_retry
+from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,15 @@ class MultiAgentOrchestrator:
         self.sentiment_agent = SentimentAgent()
         self.insight_agent = InsightAgent()
         self.presentation_agent = PresentationAgent()
+        
+        # Initialize circuit breakers for error recovery
+        self.circuit_breakers = {
+            'data_agent': CircuitBreaker('data_agent', CircuitBreakerConfig(failure_threshold=3, timeout_seconds=60)),
+            'category_agent': CircuitBreaker('category_agent', CircuitBreakerConfig(failure_threshold=5, timeout_seconds=120)),
+            'sentiment_agent': CircuitBreaker('sentiment_agent', CircuitBreakerConfig(failure_threshold=5, timeout_seconds=120)),
+            'insight_agent': CircuitBreaker('insight_agent', CircuitBreakerConfig(failure_threshold=3, timeout_seconds=60)),
+            'presentation_agent': CircuitBreaker('presentation_agent', CircuitBreakerConfig(failure_threshold=3, timeout_seconds=60))
+        }
         
         self.logger = logging.getLogger(__name__)
     
@@ -217,9 +228,19 @@ class MultiAgentOrchestrator:
         self,
         agent: BaseAgent,
         context: AgentContext,
-        workflow_state: Dict[str, Any]
+        workflow_state: Dict[str, Any],
+        enable_reflection: bool = True,
+        max_retries: int = 2
     ) -> AgentResult:
-        """Execute agent with checkpointing and timeout for recovery"""
+        """
+        Execute agent with checkpointing, timeout, circuit breaker, and reflection.
+        
+        Enhanced error recovery:
+        - Circuit breaker prevents cascading failures
+        - Exponential backoff for transient errors
+        - Reflection for low-confidence results
+        - Graceful degradation on repeated failures
+        """
         import asyncio
 
         try:
@@ -229,42 +250,107 @@ class MultiAgentOrchestrator:
                 self.logger.info(f"   📂 Resuming {agent.name} from checkpoint")
                 return AgentResult(**checkpoint)
 
+            # Get circuit breaker for this agent
+            breaker_key = agent.name.lower().replace('agent', '_agent')
+            breaker = self.circuit_breakers.get(breaker_key)
+            
             # Get timeout for this agent (default 300 seconds = 5 minutes)
             timeout = self._get_agent_timeout(agent.name)
 
-            try:
-                # Execute agent with timeout
-                self.logger.debug(f"Executing {agent.name} with {timeout}s timeout")
-                result = await asyncio.wait_for(
-                    agent.execute(context),
-                    timeout=timeout
-                )
-
-                # Save checkpoint
-                self._save_checkpoint(context.analysis_id, agent.name, result.dict())
-
-                return result
-
-            except asyncio.TimeoutError:
-                self.logger.error(
-                    f"Agent {agent.name} timed out after {timeout}s",
-                    extra={
-                        "agent": agent.name,
-                        "timeout_seconds": timeout,
-                        "status": "timeout"
-                    }
-                )
-                # Return partial result with timeout status
-                return AgentResult(
-                    status="timeout",
-                    data={"error": f"Agent timed out after {timeout}s"},
-                    metadata={"agent": agent.name, "timeout": timeout},
-                    confidence=0.0
-                )
+            # Execute with circuit breaker protection and retry logic
+            async def execute_with_retry():
+                """Execute agent with retry logic"""
+                for attempt in range(max_retries + 1):
+                    try:
+                        # Execute agent with timeout
+                        self.logger.debug(f"Executing {agent.name} (attempt {attempt + 1}/{max_retries + 1}) with {timeout}s timeout")
+                        
+                        if breaker:
+                            # Use circuit breaker
+                            result = await breaker.call_async(
+                                lambda: asyncio.wait_for(agent.execute(context), timeout=timeout)
+                            )
+                        else:
+                            # No circuit breaker, direct execution
+                            result = await asyncio.wait_for(agent.execute(context), timeout=timeout)
+                        
+                        # Check confidence and apply reflection if needed
+                        if enable_reflection and result.confidence < 0.7:
+                            self.logger.info(f"Low confidence ({result.confidence:.2f}) - applying reflection")
+                            result = await agent.reflect_on_output(result, context)
+                        
+                        # Save checkpoint on success
+                        self._save_checkpoint(context.analysis_id, agent.name, result.dict())
+                        
+                        return result
+                        
+                    except CircuitBreakerOpenError as e:
+                        # Circuit breaker is open - service is failing
+                        self.logger.warning(f"Circuit breaker open for {agent.name}: {e}")
+                        return AgentResult(
+                            agent_name=agent.name,
+                            success=False,
+                            data={"error": str(e), "circuit_breaker_open": True},
+                            confidence=0.0,
+                            confidence_level=ConfidenceLevel.LOW,
+                            error_message=str(e),
+                            limitations=["Service temporarily unavailable due to repeated failures"]
+                        )
+                        
+                    except asyncio.TimeoutError:
+                        if attempt < max_retries:
+                            # Retry with exponential backoff
+                            delay = 2 ** attempt  # 1s, 2s, 4s...
+                            self.logger.warning(f"Agent {agent.name} timed out, retrying in {delay}s...")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            # Max retries reached
+                            self.logger.error(f"Agent {agent.name} timed out after {max_retries + 1} attempts")
+                            return AgentResult(
+                                agent_name=agent.name,
+                                success=False,
+                                data={"error": f"Agent timed out after {max_retries + 1} attempts"},
+                                confidence=0.0,
+                                confidence_level=ConfidenceLevel.LOW,
+                                error_message=f"Timeout after {max_retries + 1} attempts"
+                            )
+                    
+                    except Exception as e:
+                        if attempt < max_retries:
+                            # Retry with exponential backoff for transient errors
+                            delay = 2 ** attempt
+                            self.logger.warning(f"Agent {agent.name} failed (attempt {attempt + 1}), retrying in {delay}s: {e}")
+                            await asyncio.sleep(delay)
+                            continue
+                        else:
+                            # Max retries reached, re-raise
+                            raise
+            
+            # Execute with exponential backoff wrapper for transient errors
+            result = await exponential_backoff_retry(
+                execute_with_retry,
+                max_retries=1,  # Outer retry for transient network errors
+                base_delay=1.0,
+                max_delay=10.0,
+                exceptions=(ConnectionError, TimeoutError)
+            )
+            
+            return result
 
         except Exception as e:
-            self.logger.error(f"Agent execution error: {e}")
-            raise
+            self.logger.error(f"Agent execution error: {e}", exc_info=True)
+            
+            # Return graceful error result instead of raising
+            return AgentResult(
+                agent_name=agent.name,
+                success=False,
+                data={"error": str(e)},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                error_message=str(e),
+                limitations=["Execution failed after all retry attempts"]
+            )
 
     def _get_agent_timeout(self, agent_name: str) -> float:
         """

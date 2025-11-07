@@ -1,0 +1,136 @@
+# Cursor Rules for Intercom Analysis Tool
+
+## Project Context
+This is a multi-agent ETL system that analyzes Intercom conversations using specialized AI agents. The system uses:
+- Python async/await patterns
+- Pydantic models for validation
+- Custom BaseAgent pattern for all agents
+- Intercom SDK for data fetching
+- Gamma API for presentation generation
+
+## Code Style & Patterns
+
+### Agent Development
+- All agents inherit from `BaseAgent` and implement `execute(context: AgentContext) -> AgentResult`
+- Use `AgentContext` to pass data between agents
+- Return `AgentResult` with confidence scores, limitations, and sources
+- Always validate input/output using `validate_input()` and `validate_output()`
+- Use confidence levels: HIGH (>0.8), MEDIUM (0.6-0.8), LOW (<0.6)
+
+### Error Handling
+- Use `exponential_backoff_retry()` from `src.utils.backoff` for transient failures
+- Return `AgentResult` with `success=False` instead of raising exceptions when possible
+- Log errors with context: `self.logger.error("error_key", agent=agent.name, error=str(e))`
+- Use circuit breaker pattern for repeated failures (see `src/utils/circuit_breaker.py`)
+
+### Async Patterns
+- Always use `async def` for agent methods
+- Use `asyncio.Semaphore` for concurrency control
+- Use `asyncio.wait_for()` with timeouts for agent execution
+- Never block the event loop - use `await` for all I/O operations
+
+### Data Validation
+- Use Pydantic models for all data structures
+- Validate conversation data before processing
+- Check for required fields before accessing nested data
+- Use `extract_conversation_text()` utility for text extraction
+
+### Hallucination Prevention
+- Always use "According to the analysis" or "Based on the data" for claims
+- Never invent URLs, conversation links, or external references
+- State limitations when data is incomplete
+- Use confidence scores to qualify uncertain insights
+- Implement reflection pattern for low-confidence results (<0.7)
+
+## File Organization
+
+### Agent Files (`src/agents/`)
+- One agent per file: `{agent_name}_agent.py`
+- Import from `src.agents.base_agent` for BaseAgent, AgentContext, AgentResult
+- Keep agent-specific logic in the agent class
+- Use `src.agents.tools` for reusable tools
+
+### Service Files (`src/services/`)
+- API clients: `{service}_client.py` (e.g., `intercom_sdk_service.py`, `gamma_client.py`)
+- Business logic: `{domain}_service.py` (e.g., `chunked_fetcher.py`)
+- Use async/await for all service methods
+- Implement retry logic with exponential backoff
+
+### Utilities (`src/utils/`)
+- Conversation processing: `conversation_utils.py`
+- Time handling: `time_utils.py`, `timezone_utils.py`
+- Retry logic: `retry.py`, `backoff.py`
+- Error recovery: `circuit_breaker.py`
+
+## API Integration Patterns
+
+### Intercom API
+- Use `IntercomSDKService` for all Intercom API calls
+- Handle rate limits automatically (SDK does this)
+- Use `ChunkedFetcher` for large date ranges (>3 days)
+- Always deduplicate conversations by ID
+
+### Gamma API
+- Use `GammaClient` for presentation generation
+- Theme names automatically resolve to themeIds (v1.0 API)
+- Use `GammaGenerator` wrapper for higher-level operations
+- Handle polling with exponential backoff
+
+## Testing Patterns
+- Test agents with `AgentContext` fixtures
+- Mock external APIs (Intercom, Gamma)
+- Test error recovery and retry logic
+- Test confidence scoring and reflection
+
+## Common Mistakes to Avoid
+
+### ❌ DON'T:
+- Raise exceptions in agent `execute()` methods (return AgentResult with success=False)
+- Block the event loop with synchronous I/O
+- Invent conversation links or URLs
+- Access nested dict keys without checking existence
+- Use hardcoded timeouts (use configurable timeouts)
+- Skip input validation
+
+### ✅ DO:
+- Return AgentResult for all agent outputs
+- Use async/await for all I/O
+- Ground all claims in data ("According to...")
+- Use safe dict access: `conv.get('field', default)`
+- Use configurable timeouts from settings
+- Validate inputs before processing
+
+## Prompting Guidelines for Cursor
+
+### When asking for agent code:
+- Specify the agent's purpose and input/output format
+- Include example AgentContext and AgentResult structures
+- Mention confidence scoring requirements
+- Specify error handling approach
+
+### When asking for fixes:
+- Include the full error traceback
+- Specify which agent/service is failing
+- Mention if it's a transient or permanent error
+- Include relevant context (date range, conversation count, etc.)
+
+### When asking for new features:
+- Describe the agent's role in the workflow
+- Specify dependencies on other agents
+- Mention if it needs tools or external APIs
+- Include expected confidence levels
+
+## Performance Considerations
+- Use semaphores to limit concurrent agent execution
+- Batch API calls when possible
+- Cache theme IDs and other static data
+- Use checkpointing for long-running analyses
+- Implement circuit breakers for failing services
+
+## Security & Best Practices
+- Never log API keys or sensitive tokens
+- Use environment variables for configuration
+- Validate all user inputs
+- Sanitize conversation text before logging
+- Use structured logging with context
+
