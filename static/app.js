@@ -1039,7 +1039,7 @@ async function resumeActiveExecution() {
         return; // No active execution
     }
     
-    console.log('🔄 Found active execution, resuming:', activeExecutionId);
+    console.log('🔄 Found active execution, checking status:', activeExecutionId);
     
     try {
         const token = localStorage.getItem('api_token') || '';
@@ -1059,64 +1059,113 @@ async function resumeActiveExecution() {
         const statusData = await response.json();
         const currentStatus = statusData.status;
         
-        // Only resume if still running or queued
+        // Show active job banner if still running
         if (['running', 'queued'].includes(currentStatus)) {
-            currentExecutionId = activeExecutionId;
-            
-            // Show terminal container
-            const terminalContainer = document.getElementById('terminalContainer');
-            if (terminalContainer) {
-                terminalContainer.style.display = 'block';
-            }
-            
-            // Clear and show resume message
-            const terminalOutput = document.getElementById('terminalOutput');
-            if (terminalOutput) {
-                terminalOutput.innerHTML = '';
-            }
-            
-            appendToTerminal('🔄 Resumed active execution after page refresh\n', 'status');
-            appendToTerminal(`📌 Execution ID: ${activeExecutionId}\n`, 'status');
-            
             const elapsed = Math.floor((Date.now() - parseInt(executionStart)) / 1000);
             const minutes = Math.floor(elapsed / 60);
             const seconds = elapsed % 60;
-            appendToTerminal(`⏱ Task has been running for ${minutes}m ${seconds}s\n`, 'status');
-            appendToTerminal('⏳ Resuming status updates...\n\n', 'status');
             
-            // Show UI elements
-            const spinner = document.getElementById('executionSpinner');
-            const status = document.getElementById('executionStatus');
-            const cancelBtn = document.getElementById('cancelButton');
-            const tabNav = document.getElementById('tabNavigation');
+            const banner = document.getElementById('activeJobBanner');
+            const info = document.getElementById('activeJobInfo');
             
-            if (spinner) spinner.style.display = 'inline-block';
-            if (status) {
-                status.textContent = 'Running';
-                status.className = 'status-badge';
-                status.style.display = 'inline-block';
+            if (banner && info) {
+                info.innerHTML = `
+                    Job started ${minutes}m ${seconds}s ago • Status: ${currentStatus} • ID: ${activeExecutionId.substring(0, 20)}...
+                `;
+                banner.style.display = 'block';
             }
-            if (cancelBtn) cancelBtn.style.display = 'inline-block';
-            if (tabNav) tabNav.style.display = 'flex';
             
-            // Switch to terminal tab
-            switchTab('terminal');
-            
-            // Resume polling
-            await pollExecutionStatus(activeExecutionId, token);
-            
-        } else if (['completed', 'failed', 'timeout', 'error'].includes(currentStatus)) {
-            // Task finished while page was refreshing
-            appendToTerminal(`ℹ️ Previous task ${currentStatus}\n`, 'status');
+            // Don't auto-resume - let user click "View Progress" button
+            console.log('ℹ️ Active job detected - banner shown. Click "View Progress" to resume.');
+            return;
+        }
+        
+        // If completed, show notification but don't auto-resume
+        if (currentStatus === 'completed') {
+            showToast('Previous job completed! Check Files tab for results.', 'success');
             localStorage.removeItem('active_execution_id');
             localStorage.removeItem('active_execution_start');
+            return;
+        }
+        
+        // If failed, clear storage
+        if (['failed', 'timeout', 'error'].includes(currentStatus)) {
+            localStorage.removeItem('active_execution_id');
+            localStorage.removeItem('active_execution_start');
+            return;
         }
         
     } catch (error) {
+        console.error('Failed to check active execution:', error);
+        // Don't clear - might be temporary network issue
+    }
+}
+
+/**
+ * Resume execution from banner click
+ */
+async function resumeFromBanner() {
+    const activeExecutionId = localStorage.getItem('active_execution_id');
+    const executionStart = localStorage.getItem('active_execution_start');
+    
+    if (!activeExecutionId) {
+        showToast('No active job found', 'info');
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('api_token') || '';
+        currentExecutionId = activeExecutionId;
+        
+        // Show terminal container
+        const terminalContainer = document.getElementById('terminalContainer');
+        if (terminalContainer) {
+            terminalContainer.style.display = 'block';
+        }
+        
+        // Clear and show resume message
+        const terminalOutput = document.getElementById('terminalOutput');
+        if (terminalOutput) {
+            terminalOutput.innerHTML = '';
+        }
+        
+        appendToTerminal('🔄 Resuming active execution\n', 'status');
+        appendToTerminal(`📌 Execution ID: ${activeExecutionId}\n`, 'status');
+        
+        const elapsed = Math.floor((Date.now() - parseInt(executionStart)) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        appendToTerminal(`⏱ Task has been running for ${minutes}m ${seconds}s\n`, 'status');
+        appendToTerminal('⏳ Fetching current progress...\n\n', 'status');
+        
+        // Show UI elements
+        const spinner = document.getElementById('executionSpinner');
+        const status = document.getElementById('executionStatus');
+        const cancelBtn = document.getElementById('cancelButton');
+        const tabNav = document.getElementById('tabNavigation');
+        
+        if (spinner) spinner.style.display = 'inline-block';
+        if (status) {
+            status.textContent = 'Running';
+            status.className = 'status-badge';
+            status.style.display = 'inline-block';
+        }
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        if (tabNav) tabNav.style.display = 'flex';
+        
+        // Switch to terminal tab
+        switchTab('terminal');
+        
+        // Hide banner
+        const banner = document.getElementById('activeJobBanner');
+        if (banner) banner.style.display = 'none';
+        
+        // Resume polling
+        await pollExecutionStatus(activeExecutionId, token);
+        
+    } catch (error) {
         console.error('Failed to resume execution:', error);
-        // Clear stale execution ID
-        localStorage.removeItem('active_execution_id');
-        localStorage.removeItem('active_execution_start');
+        showToast('Failed to resume job: ' + error.message, 'error');
     }
 }
 
@@ -1248,5 +1297,6 @@ window.updateAnalysisOptions = updateAnalysisOptions;
 window.switchTab = switchTab;
 window.cancelExecution = cancelExecution;
 window.appendToTerminal = appendToTerminal;
+window.resumeFromBanner = resumeFromBanner;
 
 console.log('✅ Analysis form functions loaded');

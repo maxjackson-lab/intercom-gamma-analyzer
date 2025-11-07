@@ -1259,6 +1259,21 @@ if HAS_FASTAPI:
                 </a>
             </div>
             
+            <!-- Active Job Banner (hidden by default, shown by resumeActiveExecution) -->
+            <div id="activeJobBanner" style="display: none; margin-bottom: 20px; padding: 15px 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; border: 2px solid #fbbf24; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 5px;">
+                            ⚡ Active Job Running
+                        </div>
+                        <div id="activeJobInfo" style="font-size: 13px; color: #fef3c7;"></div>
+                    </div>
+                    <button onclick="resumeFromBanner()" style="padding: 10px 20px; background: #fff; color: #d97706; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        👁️ View Progress
+                    </button>
+                </div>
+            </div>
+            
             <!-- Simple Dropdown Form -->
             <div class="analysis-form">
                 <h2>Configure Analysis</h2>
