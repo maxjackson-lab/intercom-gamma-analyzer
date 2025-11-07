@@ -189,11 +189,7 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             gamma_result = await self.gamma_generator.generate_from_markdown(
                 input_text=prompt,
                 num_cards=10,
-                theme_name="Night Sky",  # Professional dark theme
-                text_options={
-                    "tone": "professional, analytical",
-                    "audience": "executives, leadership team"
-                }
+                theme_name="Night Sky"  # Professional dark theme (automatically resolved to themeId)
             )
             
             # Prepare result
