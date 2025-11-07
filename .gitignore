@@ -89,3 +89,8 @@ coverage.xml
 
 # Documentation builds
 docs/_build/
+INTERCOM_DEVELOPER_DOCS.md
+OPENAI_API_DOCS.md
+RAILWAY_DOCS.md
+PYDANTIC_DOCS.md
+HTTPX_DOCS.md
