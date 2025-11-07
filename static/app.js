@@ -363,9 +363,10 @@ async function runAnalysis() {
         }
         
         // Add output format / generate gamma
+        // Note: voice-of-customer commands don't support --output-format, only --generate-gamma
         if (outputFormat === 'gamma') {
             args.push('--generate-gamma');
-        } else if (outputFormat && analysisType !== 'sample-mode') {
+        } else if (outputFormat && analysisType !== 'sample-mode' && !analysisType.startsWith('voice-of-customer')) {
             args.push('--output-format', outputFormat);
         }
         
