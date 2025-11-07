@@ -32,32 +32,13 @@ class CannyClient:
         """
         self.api_key = settings.canny_api_key
         self.base_url = settings.canny_base_url
+        self.timeout = settings.canny_timeout
         self.max_retries = settings.canny_max_retries
-
-        # Configure httpx timeout with proper Timeout object
-        # connect=30s for connections, read=30s for API responses
-        timeout_seconds = settings.canny_timeout
-        self.timeout = httpx.Timeout(timeout_seconds, connect=30.0)
-        
-        # Lazy initialization: Create httpx client on first use
-        # This prevents issues during import/initialization
-        self._client: Optional[httpx.AsyncClient] = None
-        self._client_limits = httpx.Limits(max_connections=50, max_keepalive_connections=10)
 
         if require_api_key and not self.api_key:
             raise ValueError("CANNY_API_KEY is required but not configured")
 
         self.logger = logging.getLogger(__name__)
-    
-    @property
-    def client(self) -> httpx.AsyncClient:
-        """Get or create httpx client (lazy initialization)."""
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                timeout=self.timeout,
-                limits=self._client_limits
-            )
-        return self._client
     
     async def _make_request_with_retry(
         self,
@@ -88,47 +69,32 @@ class CannyClient:
 
         for attempt in range(self.max_retries):
             try:
-                # Use reusable client with proper timeout configuration
-                if method == "POST":
-                    response = await self.client.post(
-                        f"{self.base_url}/{endpoint}",
-                        data=data
-                    )
-                else:
-                    response = await self.client.get(
-                        f"{self.base_url}/{endpoint}",
-                        params=data
-                    )
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    if method == "POST":
+                        response = await client.post(
+                            f"{self.base_url}/{endpoint}",
+                            data=data
+                        )
+                    else:
+                        response = await client.get(
+                            f"{self.base_url}/{endpoint}",
+                            params=data
+                        )
 
-                # Handle rate limiting
-                if response.status_code == 429:
-                    retry_after = int(response.headers.get('Retry-After', 0))
-                    if retry_after == 0:
-                        retry_after = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
-                    self.logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt + 1}/{self.max_retries})")
-                    await asyncio.sleep(retry_after)
-                    continue
+                    # Handle rate limiting
+                    if response.status_code == 429:
+                        retry_after = int(response.headers.get('Retry-After', 0))
+                        if retry_after == 0:
+                            retry_after = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
+                        self.logger.warning(f"Rate limited. Retrying after {retry_after}s (attempt {attempt + 1}/{self.max_retries})")
+                        await asyncio.sleep(retry_after)
+                        continue
 
-                # Raise for other HTTP errors
-                response.raise_for_status()
-                return response.json()
+                    # Raise for other HTTP errors
+                    response.raise_for_status()
+                    return response.json()
 
-            except httpx.ConnectTimeout:
-                if attempt == self.max_retries - 1:
-                    self.logger.error(f"Connection timeout after {self.max_retries} attempts")
-                    raise
-                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
-                self.logger.warning(f"Connection timeout. Retrying in {delay:.2f}s (attempt {attempt + 1}/{self.max_retries})")
-                await asyncio.sleep(delay)
-            except httpx.ReadTimeout:
-                if attempt == self.max_retries - 1:
-                    self.logger.error(f"Read timeout after {self.max_retries} attempts")
-                    raise
-                delay = calculate_backoff_delay(attempt, base_delay=1.0, max_delay=30.0)
-                self.logger.warning(f"Read timeout. Retrying in {delay:.2f}s (attempt {attempt + 1}/{self.max_retries})")
-                await asyncio.sleep(delay)
             except httpx.TimeoutException as e:
-                # Generic timeout fallback
                 if attempt == self.max_retries - 1:
                     self.logger.error(f"Request timeout after {self.max_retries} attempts: {e}")
                     raise
@@ -393,19 +359,3 @@ class CannyClient:
         """Determine if a post is trending based on engagement."""
         engagement_score = self._calculate_engagement_score(post)
         return engagement_score >= threshold
-    
-    async def __aenter__(self):
-        """Async context manager entry."""
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit - closes httpx client."""
-        await self.close()
-        return False
-    
-    async def close(self):
-        """Close the httpx client and release resources."""
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
-            self.logger.debug("Canny client closed")

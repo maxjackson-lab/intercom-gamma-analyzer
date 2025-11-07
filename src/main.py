@@ -43,7 +43,6 @@ console = Console()
 # ===== HELPER FUNCTIONS =====
 def setup_verbose_logging():
     """Enable DEBUG level logging for all relevant modules."""
-    import logging
     logging.getLogger().setLevel(logging.DEBUG)
     for module in ['agents', 'services', 'src.agents', 'src.services']:
         logging.getLogger(module).setLevel(logging.DEBUG)
@@ -3713,6 +3712,9 @@ async def run_canny_analysis(
 ):
     """Run Canny product feedback analysis."""
     from src.utils.time_utils import detect_period_type
+    from src.services.ai_model_factory import AIModelFactory
+    from src.services.canny_client import CannyClient
+    from src.analyzers.canny_analyzer import CannyAnalyzer
     
     try:
         console.print(f"[bold blue]Starting Canny Analysis[/bold blue]")
@@ -3865,6 +3867,11 @@ async def run_voc_analysis(
 ):
     """Run Voice of Customer analysis."""
     from src.utils.time_utils import detect_period_type
+    from src.services.ai_model_factory import AIModelFactory, AIModel
+    from src.services.agent_feedback_separator import AgentFeedbackSeparator
+    from src.analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
+    from src.services.canny_client import CannyClient
+    from src.analyzers.canny_analyzer import CannyAnalyzer
     
     try:
         console.print(f"[bold blue]Starting Voice of Customer Analysis[/bold blue]")
@@ -3875,8 +3882,8 @@ async def run_voc_analysis(
         # Initialize components
         ai_factory = AIModelFactory()
         agent_separator = AgentFeedbackSeparator()
-        historical_manager = HistoricalDataManager(output_dir)
-        voc_analyzer = VoiceOfCustomerAnalyzer(ai_factory, agent_separator, historical_manager)
+        # HistoricalDataManager deprecated - pass None (historical features disabled)
+        voc_analyzer = VoiceOfCustomerAnalyzer(ai_factory, agent_separator, historical_manager=None)
         
         # Parse dates
         start_dt = datetime.strptime(start_date, '%Y-%m-%d')

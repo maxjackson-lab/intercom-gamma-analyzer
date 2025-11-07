@@ -9,7 +9,6 @@ from collections import Counter, defaultdict
 
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.agent_feedback_separator import AgentFeedbackSeparator
-from src.services.historical_data_manager import HistoricalDataManager
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +20,15 @@ class VoiceOfCustomerAnalyzer:
         self, 
         ai_model_factory: AIModelFactory,
         agent_separator: AgentFeedbackSeparator,
-        historical_manager: HistoricalDataManager
+        historical_manager: Optional[Any] = None  # Deprecated: HistoricalDataManager removed
     ):
         self.ai_model_factory = ai_model_factory
         self.agent_separator = agent_separator
-        self.historical_manager = historical_manager
+        self.historical_manager = historical_manager  # Optional - deprecated, will be removed
         self.logger = logging.getLogger(__name__)
+        
+        if historical_manager is not None:
+            self.logger.warning("HistoricalDataManager is deprecated and will be removed. Historical trends disabled.")
         
         self.logger.info("VoiceOfCustomerAnalyzer initialized")
     
@@ -586,19 +588,18 @@ Return ONLY valid JSON in this exact format:
     
     def _get_historical_trends(self) -> Dict[str, Any]:
         """Get historical trends for comparison."""
-        try:
-            return self.historical_manager.get_trend_analysis(weeks_back=12)
-        except Exception as e:
-            self.logger.warning(f"Failed to get historical trends: {e}")
-            return {'error': 'Historical trends unavailable'}
+        # Deprecated: HistoricalDataManager removed - return empty trends
+        self.logger.debug("Historical trends disabled (HistoricalDataManager deprecated)")
+        return {
+            'trends': {},
+            'insights': ['Historical trends unavailable (deprecated HistoricalDataManager removed)'],
+            'periods_analyzed': 0
+        }
     
     async def _store_historical_snapshot(self, analysis_results: Dict[str, Any]):
         """Store current analysis as historical snapshot."""
-        try:
-            week_start = datetime.now() - timedelta(days=datetime.now().weekday())
-            await self.historical_manager.store_weekly_snapshot(week_start, analysis_results)
-        except Exception as e:
-            self.logger.warning(f"Failed to store historical snapshot: {e}")
+        # Deprecated: HistoricalDataManager removed - no-op
+        self.logger.debug("Historical snapshot storage disabled (HistoricalDataManager deprecated)")
     
     def generate_insights(self, analysis_results: Dict[str, Any]) -> List[str]:
         """Generate actionable insights from analysis results."""

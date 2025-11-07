@@ -39,7 +39,6 @@ from src.services.canny_client import CannyClient
 from src.services.canny_preprocessor import CannyPreprocessor
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.agent_feedback_separator import AgentFeedbackSeparator
-from src.services.historical_data_manager import HistoricalDataManager
 from src.agents.agent_performance_agent import AgentPerformanceAgent
 from src.agents.base_agent import AgentContext
 from src.agents.topic_orchestrator import TopicOrchestrator
