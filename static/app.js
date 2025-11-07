@@ -445,122 +445,345 @@ async function runAnalysis() {
         // Switch to terminal tab
         switchTab('terminal');
         
-        // Build query string for /execute endpoint
-        const params = new URLSearchParams({
-            command: command,
-            args: JSON.stringify(args),
-            execution_id: currentExecutionId
-        });
+        // Determine if this is a long-running task that should use background execution
+        const isLongRunning = shouldUseBackgroundExecution(args, timePeriod);
         
-        // Get token if available
-        const token = localStorage.getItem('api_token') || '';
+        if (isLongRunning) {
+            // Use background execution for long-running tasks
+            console.log('🔄 Using background execution (long-running task detected)');
+            appendToTerminal('ℹ️ Long-running task detected - using background execution mode\n', 'status');
+            await runBackgroundExecution(command, args);
+        } else {
+            // Use SSE streaming for quick tasks
+            console.log('⚡ Using SSE streaming (quick task)');
+            await runSSEExecution(command, args);
+        }
         
-        // Call /execute with SSE streaming
-        const url = `/execute?${params}`;
-        console.log('Opening EventSource:', url);
-        
-        const eventSource = new EventSource(url);
-        
-        eventSource.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
-                console.log('Received SSE:', data);
-                
-                // Append output to terminal
-                if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status' || data.type === 'error') {
-                    const outputText = data.data || data.message || '';
-                    appendToTerminal(outputText, data.type);
-                    
-                    // Parse output for tab population (Comment 16)
-                    parseOutputForTabs(outputText);
-                }
-                
-                // Handle completion
-                if (data.type === 'complete' || data.status === 'completed') {
-                    if (spinner) spinner.style.display = 'none';
-                    if (status) {
-                        status.textContent = 'Completed ✓';
-                        status.className = 'status-badge status-success';
-                    }
-                    if (cancelBtn) cancelBtn.style.display = 'none';
-                    eventSource.close();
-                    showToast('Analysis completed successfully!', 'success');
-                    
-                    // Load output files after completion
-                    loadOutputFiles();
-                }
-                
-                // Handle errors - display in terminal first, then close
-                if (data.type === 'error' || data.status === 'failed') {
-                    // Display error message prominently in terminal if not already shown
-                    const errorMessage = data.data || data.message || 'Unknown error occurred';
-                    if (data.type !== 'error' || !data.data) {
-                        // Only append if we haven't already appended it above
-                        appendToTerminal(`\n❌ ERROR: ${errorMessage}`, 'error');
-                    }
-                    
-                    if (spinner) spinner.style.display = 'none';
-                    if (status) {
-                        status.textContent = 'Failed ✗';
-                        status.className = 'status-badge status-error';
-                    }
-                    if (cancelBtn) cancelBtn.style.display = 'none';
-                    
-                    // Show toast notification
-                    showToast('Analysis failed: ' + errorMessage, 'error');
-                    
-                    // Close connection after a brief delay to ensure error is displayed
-                    setTimeout(() => {
-                        eventSource.close();
-                    }, 500);
-                }
-                
-                // Handle timeout
-                if (data.type === 'timeout' || data.status === 'timeout') {
-                    const timeoutMessage = data.data || data.message || 'Execution timed out';
-                    appendToTerminal(`\n⏱ TIMEOUT: ${timeoutMessage}`, 'error');
-                    
-                    if (spinner) spinner.style.display = 'none';
-                    if (status) {
-                        status.textContent = 'Timeout ⏱';
-                        status.className = 'status-badge status-error';
-                    }
-                    if (cancelBtn) cancelBtn.style.display = 'none';
-                    showToast('Analysis timed out', 'error');
-                    
-                    setTimeout(() => {
-                        eventSource.close();
-                    }, 500);
-                }
-                
-            } catch (e) {
-                console.error('Error parsing SSE data:', e, 'Raw data:', event.data);
-            }
-        };
-        
-        eventSource.onerror = function(error) {
-            console.error('EventSource error:', error);
-            
-            // Display connection error in terminal
-            const terminalOutput = document.getElementById('terminalOutput');
-            if (terminalOutput) {
-                appendToTerminal('\n❌ Connection Error: Lost connection to server. Check your network connection.', 'error');
-            }
-            
-            if (spinner) spinner.style.display = 'none';
-            if (status) {
-                status.textContent = 'Error ✗';
-                status.className = 'status-badge status-error';
-            }
-            if (cancelBtn) cancelBtn.style.display = 'none';
-            eventSource.close();
-            showToast('Connection error. Check terminal for details.', 'error');
-        };
         
     } catch (error) {
         console.error('Error in runAnalysis():', error);
         showToast('Error starting analysis: ' + error.message, 'error');
     }
+}
+
+/**
+ * Determine if task should use background execution based on command args
+ */
+function shouldUseBackgroundExecution(args, timePeriod) {
+    // Check for long-running indicators
+    const hasMultiAgent = args.includes('--multi-agent');
+    const hasGamma = args.includes('--generate-gamma') || args.includes('--output-format') && args.includes('gamma');
+    const isLongPeriod = ['week', 'month', 'quarter', '6-weeks'].includes(timePeriod);
+    const isVoC = args.includes('voice-of-customer');
+    const isAgentPerformance = args.includes('agent-performance') || args.includes('agent-coaching-report');
+    
+    // Use background execution if:
+    // 1. Multi-agent analysis (always long-running)
+    // 2. Week or longer with Gamma generation
+    // 3. Agent performance/coaching (database-heavy)
+    if (hasMultiAgent) {
+        console.log('→ Background mode: multi-agent analysis detected');
+        return true;
+    }
+    
+    if (isLongPeriod && hasGamma) {
+        console.log('→ Background mode: long period + Gamma generation');
+        return true;
+    }
+    
+    if (isAgentPerformance && isLongPeriod) {
+        console.log('→ Background mode: agent performance on long period');
+        return true;
+    }
+    
+    // Default to SSE for quick tasks
+    console.log('→ SSE mode: quick task');
+    return false;
+}
+
+/**
+ * Run command using background execution (recommended for production)
+ */
+async function runBackgroundExecution(command, args) {
+    try {
+        const token = localStorage.getItem('api_token') || '';
+        
+        // Start background task
+        const response = await fetch('/execute/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Bearer ${token}`
+            },
+            body: new URLSearchParams({
+                command: command,
+                args: JSON.stringify(args)
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to start execution: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        currentExecutionId = result.execution_id;
+        
+        appendToTerminal(`✓ Task queued with ID: ${currentExecutionId}\n`, 'status');
+        appendToTerminal('⏳ Polling for status updates...\n\n', 'status');
+        
+        // Poll for status updates
+        await pollExecutionStatus(currentExecutionId, token);
+        
+    } catch (error) {
+        console.error('Background execution error:', error);
+        appendToTerminal(`\n❌ Failed to start background execution: ${error.message}`, 'error');
+        showToast('Failed to start analysis: ' + error.message, 'error');
+        
+        const spinner = document.getElementById('executionSpinner');
+        const status = document.getElementById('executionStatus');
+        if (spinner) spinner.style.display = 'none';
+        if (status) {
+            status.textContent = 'Failed ✗';
+            status.className = 'status-badge status-error';
+        }
+    }
+}
+
+/**
+ * Poll execution status until completion
+ */
+async function pollExecutionStatus(executionId, token) {
+    const pollInterval = 3000; // 3 seconds
+    let lastDuration = 0;
+    
+    while (true) {
+        try {
+            const response = await fetch(`/execute/status/${executionId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Status check failed: ${response.status}`);
+            }
+            
+            const statusData = await response.json();
+            const currentStatus = statusData.status;
+            const duration = statusData.duration_seconds || 0;
+            
+            // Show progress update (only if duration changed significantly)
+            if (duration - lastDuration >= 10) {
+                const minutes = Math.floor(duration / 60);
+                const seconds = duration % 60;
+                appendToTerminal(
+                    `⏱ Running... ${minutes}m ${seconds}s elapsed (status: ${currentStatus})\n`,
+                    'status'
+                );
+                lastDuration = duration;
+            }
+            
+            // Check if completed
+            if (currentStatus === 'completed') {
+                appendToTerminal('\n✅ Analysis completed successfully!\n', 'status');
+                await loadBackgroundOutput(executionId, token);
+                
+                const spinner = document.getElementById('executionSpinner');
+                const status = document.getElementById('executionStatus');
+                const cancelBtn = document.getElementById('cancelButton');
+                
+                if (spinner) spinner.style.display = 'none';
+                if (status) {
+                    status.textContent = 'Completed ✓';
+                    status.className = 'status-badge status-success';
+                }
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                
+                showToast('Analysis completed successfully!', 'success');
+                loadOutputFiles();
+                break;
+            }
+            
+            // Check for errors
+            if (['failed', 'timeout', 'error'].includes(currentStatus)) {
+                const errorMsg = statusData.error_message || 'Unknown error';
+                appendToTerminal(`\n❌ Analysis ${currentStatus}: ${errorMsg}\n`, 'error');
+                
+                const spinner = document.getElementById('executionSpinner');
+                const status = document.getElementById('executionStatus');
+                const cancelBtn = document.getElementById('cancelButton');
+                
+                if (spinner) spinner.style.display = 'none';
+                if (status) {
+                    status.textContent = currentStatus === 'timeout' ? 'Timeout ⏱' : 'Failed ✗';
+                    status.className = 'status-badge status-error';
+                }
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                
+                showToast(`Analysis ${currentStatus}`, 'error');
+                break;
+            }
+            
+            // Continue polling
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            
+        } catch (error) {
+            console.error('Status polling error:', error);
+            appendToTerminal(`\n❌ Failed to check status: ${error.message}\n`, 'error');
+            showToast('Status check failed: ' + error.message, 'error');
+            break;
+        }
+    }
+}
+
+/**
+ * Load output from completed background execution
+ */
+async function loadBackgroundOutput(executionId, token) {
+    try {
+        const response = await fetch(`/execute/output/${executionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            appendToTerminal('⚠️ Could not load detailed output (task completed but output unavailable)\n', 'status');
+            return;
+        }
+        
+        const output = await response.json();
+        
+        // Display key output lines if available
+        if (output.output && Array.isArray(output.output)) {
+            appendToTerminal('\n📋 Task Output:\n', 'status');
+            output.output.slice(-20).forEach(line => {  // Show last 20 lines
+                if (line.data) {
+                    appendToTerminal(line.data + '\n', line.type || 'stdout');
+                }
+            });
+        }
+        
+    } catch (error) {
+        console.error('Failed to load background output:', error);
+    }
+}
+
+/**
+ * Run command using SSE streaming (for quick interactive tasks)
+ */
+async function runSSEExecution(command, args) {
+    // Build query string for /execute endpoint
+    const params = new URLSearchParams({
+        command: command,
+        args: JSON.stringify(args),
+        execution_id: currentExecutionId
+    });
+    
+    // Get token if available
+    const token = localStorage.getItem('api_token') || '';
+    
+    // Call /execute with SSE streaming
+    const url = `/execute?${params}`;
+    console.log('Opening EventSource:', url);
+    
+    const eventSource = new EventSource(url);
+    
+    const spinner = document.getElementById('executionSpinner');
+    const status = document.getElementById('executionStatus');
+    const cancelBtn = document.getElementById('cancelButton');
+    
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('Received SSE:', data);
+            
+            // Append output to terminal
+            if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status' || data.type === 'error') {
+                const outputText = data.data || data.message || '';
+                appendToTerminal(outputText, data.type);
+                
+                // Parse output for tab population (Comment 16)
+                parseOutputForTabs(outputText);
+            }
+            
+            // Handle completion
+            if (data.type === 'complete' || data.status === 'completed') {
+                if (spinner) spinner.style.display = 'none';
+                if (status) {
+                    status.textContent = 'Completed ✓';
+                    status.className = 'status-badge status-success';
+                }
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                eventSource.close();
+                showToast('Analysis completed successfully!', 'success');
+                
+                // Load output files after completion
+                loadOutputFiles();
+            }
+            
+            // Handle errors - display in terminal first, then close
+            if (data.type === 'error' || data.status === 'failed') {
+                // Display error message prominently in terminal if not already shown
+                const errorMessage = data.data || data.message || 'Unknown error occurred';
+                if (data.type !== 'error' || !data.data) {
+                    // Only append if we haven't already appended it above
+                    appendToTerminal(`\n❌ ERROR: ${errorMessage}`, 'error');
+                }
+                
+                if (spinner) spinner.style.display = 'none';
+                if (status) {
+                    status.textContent = 'Failed ✗';
+                    status.className = 'status-badge status-error';
+                }
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                
+                // Show toast notification
+                showToast('Analysis failed: ' + errorMessage, 'error');
+                
+                // Close connection after a brief delay to ensure error is displayed
+                setTimeout(() => {
+                    eventSource.close();
+                }, 500);
+            }
+            
+            // Handle timeout
+            if (data.type === 'timeout' || data.status === 'timeout') {
+                const timeoutMessage = data.data || data.message || 'Execution timed out';
+                appendToTerminal(`\n⏱ TIMEOUT: ${timeoutMessage}`, 'error');
+                
+                if (spinner) spinner.style.display = 'none';
+                if (status) {
+                    status.textContent = 'Timeout ⏱';
+                    status.className = 'status-badge status-error';
+                }
+                if (cancelBtn) cancelBtn.style.display = 'none';
+                showToast('Analysis timed out', 'error');
+                
+                setTimeout(() => {
+                    eventSource.close();
+                }, 500);
+            }
+            
+        } catch (e) {
+            console.error('Error parsing SSE data:', e, 'Raw data:', event.data);
+        }
+    };
+    
+    eventSource.onerror = function(error) {
+        console.error('EventSource error:', error);
+        
+        // Display connection error in terminal
+        const terminalOutput = document.getElementById('terminalOutput');
+        if (terminalOutput) {
+            appendToTerminal('\n❌ Connection Error: Lost connection to server. Check your network connection.', 'error');
+        }
+        
+        if (spinner) spinner.style.display = 'none';
+        if (status) {
+            status.textContent = 'Error ✗';
+            status.className = 'status-badge status-error';
+        }
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        eventSource.close();
+        showToast('Connection error. Check terminal for details.', 'error');
+    };
 }
 
 /**
