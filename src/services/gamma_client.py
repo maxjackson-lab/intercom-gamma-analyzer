@@ -1,5 +1,6 @@
 """
-Gamma client for generating presentations using verified v0.2 API.
+Gamma client for generating presentations using Gamma API v1.0.
+Migrated from v0.2 (deprecated, sunsets Jan 16, 2026).
 """
 
 import asyncio
@@ -15,7 +16,7 @@ logger = structlog.get_logger()
 
 
 class GammaClient:
-    """Client for Gamma presentation generation using v0.2 API."""
+    """Client for Gamma presentation generation using v1.0 API."""
 
     def __init__(
         self,
@@ -36,7 +37,7 @@ class GammaClient:
             max_5xx_retries: Maximum retries for 5xx errors
         """
         self.api_key = settings.gamma_api_key
-        self.base_url = "https://public-api.gamma.app/v0.2"
+        self.base_url = "https://public-api.gamma.app/v1.0"
         self.timeout = settings.gamma_timeout
         self.max_polls = max_polls
         self.poll_interval = poll_interval
@@ -50,14 +51,95 @@ class GammaClient:
         } if self.api_key else {}
 
         self.logger = structlog.get_logger()
+        
+        # Cache for theme name -> ID mapping
+        self._theme_cache: Optional[Dict[str, str]] = None
 
         self.logger.info(
             "gamma_client_initialized",
             api_key_present=bool(self.api_key),
             base_url=self.base_url,
+            api_version="v1.0",
             max_total_wait_seconds=max_total_wait_seconds,
             max_polls=max_polls
         )
+    
+    async def list_themes(self, query: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        List available themes from Gamma API v1.0.
+        
+        Args:
+            query: Optional search query (case-insensitive)
+            limit: Maximum items per page (max 50)
+            
+        Returns:
+            List of theme dictionaries with 'id' and 'name' fields
+        """
+        if not self.api_key:
+            raise GammaAPIError("Gamma API key not provided")
+        
+        try:
+            params = {"limit": min(limit, 50)}
+            if query:
+                params["query"] = query
+                
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/themes",
+                    headers=self.headers,
+                    params=params
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                themes = result.get('data', [])
+                self.logger.info(
+                    "gamma_themes_listed",
+                    theme_count=len(themes),
+                    query=query
+                )
+                return themes
+        except Exception as e:
+            self.logger.error("gamma_list_themes_failed", error=str(e), exc_info=True)
+            raise GammaAPIError(f"Failed to list themes: {e}")
+    
+    async def _resolve_theme_id(self, theme_name: Optional[str]) -> Optional[str]:
+        """
+        Resolve theme name to theme ID using List Themes API.
+        Caches results for performance.
+        
+        Args:
+            theme_name: Theme name (e.g., "Night Sky") or None
+            
+        Returns:
+            Theme ID or None if not found/not provided
+        """
+        if not theme_name:
+            return None
+        
+        # Check cache first
+        if self._theme_cache is None:
+            try:
+                themes = await self.list_themes()
+                self._theme_cache = {theme['name'].lower(): theme['id'] for theme in themes}
+                self.logger.debug("gamma_theme_cache_populated", cache_size=len(self._theme_cache))
+            except Exception as e:
+                self.logger.warning("gamma_theme_resolution_failed", error=str(e))
+                # Return None to fall back to default theme
+                return None
+        
+        # Look up theme ID by name (case-insensitive)
+        theme_id = self._theme_cache.get(theme_name.lower())
+        if theme_id:
+            self.logger.debug("gamma_theme_resolved", theme_name=theme_name, theme_id=theme_id)
+            return theme_id
+        else:
+            self.logger.warning(
+                "gamma_theme_not_found",
+                theme_name=theme_name,
+                available_themes=list(self._theme_cache.keys())[:10]  # Log first 10
+            )
+            return None
     
     async def test_connection(self) -> bool:
         """Test connection to Gamma API."""
@@ -70,6 +152,7 @@ class GammaClient:
                 # Test with a simple generation request
                 test_payload = {
                     "inputText": "Test connection",
+                    "textMode": "generate",
                     "format": "presentation",
                     "numCards": 1
                 }
@@ -93,24 +176,33 @@ class GammaClient:
         text_mode: str = "generate",
         card_split: str = "auto",
         theme_name: Optional[str] = None,
+        theme_id: Optional[str] = None,
         export_as: Optional[str] = None,
         additional_instructions: Optional[str] = None,
         image_options: Optional[Dict] = None,
         text_options: Optional[Dict] = None,
         card_options: Optional[Dict] = None,
-        sharing_options: Optional[Dict] = None
+        sharing_options: Optional[Dict] = None,
+        folder_ids: Optional[List[str]] = None
     ) -> str:
         """
         Generate a Gamma presentation and return generation ID for polling.
         
+        Uses Gamma API v1.0 (migrated from v0.2).
+        
         Args:
-            input_text: Content for presentation (1-750,000 characters)
-            format: "presentation", "document", or "social"
+            input_text: Content for presentation (token limit: ~100k tokens ≈ 400k chars)
+            format: "presentation", "document", "social", or "webpage" (v1.0)
             num_cards: Number of slides (1-60 for Pro, 1-75 for Ultra)
             text_mode: "generate", "condense", or "preserve"
+            theme_name: Theme name (e.g., "Night Sky") - will be resolved to themeId
+            theme_id: Theme ID (takes precedence over theme_name)
             export_as: "pdf" or "pptx" for direct download
-            additional_instructions: Custom instructions (1-500 chars)
+            additional_instructions: Custom instructions (1-2000 chars in v1.0)
             image_options: Image generation settings
+            card_options: Card customization (supports headerFooter in v1.0)
+            sharing_options: Sharing settings (supports emailOptions in v1.0)
+            folder_ids: List of folder IDs for organization (v1.0 feature)
             
         Returns:
             Generation ID for polling
@@ -121,8 +213,13 @@ class GammaClient:
         if not self.api_key:
             raise GammaAPIError("Gamma API key not provided")
         
-        if len(input_text) < 1 or len(input_text) > 750000:
-            raise GammaAPIError(f"Input text must be 1-750,000 characters, got {len(input_text)}")
+        # v1.0 uses token limits (~100k tokens ≈ 400k chars)
+        # Keep conservative character limit check
+        if len(input_text) < 1 or len(input_text) > 400000:
+            raise GammaAPIError(
+                f"Input text must be 1-400,000 characters (v1.0 token limit: ~100k tokens), "
+                f"got {len(input_text)}"
+            )
         
         self.logger.info(
             "gamma_generate_request_start",
@@ -130,28 +227,43 @@ class GammaClient:
             format=format,
             num_cards=num_cards,
             text_mode=text_mode,
-            export_as=export_as
+            theme_name=theme_name,
+            theme_id=theme_id,
+            export_as=export_as,
+            api_version="v1.0"
         )
         
         start_time = time.time()
         
-        # Build request payload according to Gamma API v0.2 spec
+        # Build request payload according to Gamma API v1.0 spec
         payload = {
             "inputText": input_text,
+            "textMode": text_mode,
             "format": format,
             "numCards": num_cards,
-            "textMode": text_mode,
             "cardSplit": card_split
         }
         
-        if theme_name:
-            payload["themeName"] = theme_name
+        # Resolve theme: prefer theme_id, fall back to resolving theme_name
+        theme_id_to_use = theme_id
+        if not theme_id_to_use and theme_name:
+            theme_id_to_use = await self._resolve_theme_id(theme_name)
+            if not theme_id_to_use:
+                self.logger.warning(
+                    "gamma_theme_fallback",
+                    theme_name=theme_name,
+                    message="Theme not found, using workspace default"
+                )
+        
+        if theme_id_to_use:
+            payload["themeId"] = theme_id_to_use
         
         if export_as:
             payload["exportAs"] = export_as
         
         if additional_instructions:
-            payload["additionalInstructions"] = additional_instructions[:500]
+            # v1.0 limit: 1-2000 chars (was 1-500 in v0.2)
+            payload["additionalInstructions"] = additional_instructions[:2000]
         
         if text_options:
             payload["textOptions"] = text_options
@@ -164,6 +276,9 @@ class GammaClient:
         
         if sharing_options:
             payload["sharingOptions"] = sharing_options
+        
+        if folder_ids:
+            payload["folderIds"] = folder_ids
         
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
