@@ -508,17 +508,17 @@ async function runBackgroundExecution(command, args) {
     try {
         const token = localStorage.getItem('api_token') || '';
         
-        // Start background task
-        const response = await fetch('/execute/start', {
+        // Start background task using query parameters (matching /execute/start endpoint)
+        const params = new URLSearchParams({
+            command: command,
+            args: JSON.stringify(args)
+        });
+        
+        const response = await fetch(`/execute/start?${params}`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': `Bearer ${token}`
-            },
-            body: new URLSearchParams({
-                command: command,
-                args: JSON.stringify(args)
-            })
+            }
         });
         
         if (!response.ok) {
