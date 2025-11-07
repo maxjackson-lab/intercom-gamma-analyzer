@@ -49,12 +49,10 @@ class GammaClient:
         timeout_seconds = getattr(settings, 'gamma_timeout', 30)
         self.timeout = httpx.Timeout(timeout_seconds, connect=60.0)
         
-        # Create reusable httpx client with connection pooling
-        # Limits: max 100 connections, 20 keepalive connections
-        self.client = httpx.AsyncClient(
-            timeout=self.timeout,
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
-        )
+        # Lazy initialization: Create httpx client on first use
+        # This prevents issues during import/initialization
+        self._client: Optional[httpx.AsyncClient] = None
+        self._client_limits = httpx.Limits(max_connections=100, max_keepalive_connections=20)
 
         self.headers = {
             'X-API-KEY': self.api_key,
@@ -74,6 +72,16 @@ class GammaClient:
             max_total_wait_seconds=max_total_wait_seconds,
             max_polls=max_polls
         )
+    
+    @property
+    def client(self) -> httpx.AsyncClient:
+        """Get or create httpx client (lazy initialization)."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=self._client_limits
+            )
+        return self._client
     
     async def list_themes(self, query: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
         """
@@ -672,8 +680,10 @@ class GammaClient:
     
     async def close(self):
         """Close the httpx client and release resources."""
-        await self.client.aclose()
-        self.logger.debug("Gamma client closed")
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+            self.logger.debug("Gamma client closed")
 
 
 class GammaAPIError(Exception):

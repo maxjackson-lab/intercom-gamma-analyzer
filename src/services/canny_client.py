@@ -39,16 +39,25 @@ class CannyClient:
         timeout_seconds = settings.canny_timeout
         self.timeout = httpx.Timeout(timeout_seconds, connect=30.0)
         
-        # Create reusable httpx client with connection pooling
-        self.client = httpx.AsyncClient(
-            timeout=self.timeout,
-            limits=httpx.Limits(max_connections=50, max_keepalive_connections=10)
-        )
+        # Lazy initialization: Create httpx client on first use
+        # This prevents issues during import/initialization
+        self._client: Optional[httpx.AsyncClient] = None
+        self._client_limits = httpx.Limits(max_connections=50, max_keepalive_connections=10)
 
         if require_api_key and not self.api_key:
             raise ValueError("CANNY_API_KEY is required but not configured")
 
         self.logger = logging.getLogger(__name__)
+    
+    @property
+    def client(self) -> httpx.AsyncClient:
+        """Get or create httpx client (lazy initialization)."""
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=self._client_limits
+            )
+        return self._client
     
     async def _make_request_with_retry(
         self,
@@ -396,5 +405,7 @@ class CannyClient:
     
     async def close(self):
         """Close the httpx client and release resources."""
-        await self.client.aclose()
-        self.logger.debug("Canny client closed")
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+            self.logger.debug("Canny client closed")
