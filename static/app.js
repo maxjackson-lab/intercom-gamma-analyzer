@@ -555,10 +555,12 @@ async function runBackgroundExecution(command, args) {
 async function pollExecutionStatus(executionId, token) {
     const pollInterval = 3000; // 3 seconds
     let lastDuration = 0;
+    let lastOutputIndex = 0; // Track which outputs we've already displayed
     
     while (true) {
         try {
-            const response = await fetch(`/execute/status/${executionId}`, {
+            // Fetch status with incremental output using 'since' parameter
+            const response = await fetch(`/execute/status/${executionId}?since=${lastOutputIndex}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
@@ -569,9 +571,26 @@ async function pollExecutionStatus(executionId, token) {
             const statusData = await response.json();
             const currentStatus = statusData.status;
             const duration = statusData.duration_seconds || 0;
+            const newOutput = statusData.output_buffer || [];
             
-            // Show progress update (only if duration changed significantly)
-            if (duration - lastDuration >= 10) {
+            // Display new output in real-time (shows "Fetching X conversations..." etc.)
+            if (newOutput.length > 0) {
+                newOutput.forEach(outputItem => {
+                    const outputText = outputItem.data || outputItem.message || '';
+                    const outputType = outputItem.type || 'stdout';
+                    
+                    if (outputText) {
+                        appendToTerminal(outputText, outputType);
+                        parseOutputForTabs(outputText);
+                    }
+                });
+                
+                // Update index to avoid showing same output again
+                lastOutputIndex += newOutput.length;
+            }
+            
+            // Show heartbeat progress (only if no new output and duration changed significantly)
+            if (newOutput.length === 0 && duration - lastDuration >= 10) {
                 const minutes = Math.floor(duration / 60);
                 const seconds = duration % 60;
                 appendToTerminal(
@@ -583,8 +602,25 @@ async function pollExecutionStatus(executionId, token) {
             
             // Check if completed
             if (currentStatus === 'completed') {
+                // Fetch any remaining output we might have missed
+                if (statusData.total_output_count > lastOutputIndex) {
+                    const finalResponse = await fetch(`/execute/status/${executionId}?since=${lastOutputIndex}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (finalResponse.ok) {
+                        const finalData = await finalResponse.json();
+                        const finalOutput = finalData.output_buffer || [];
+                        finalOutput.forEach(outputItem => {
+                            const outputText = outputItem.data || outputItem.message || '';
+                            if (outputText) {
+                                appendToTerminal(outputText, outputItem.type || 'stdout');
+                                parseOutputForTabs(outputText);
+                            }
+                        });
+                    }
+                }
+                
                 appendToTerminal('\n✅ Analysis completed successfully!\n', 'status');
-                await loadBackgroundOutput(executionId, token);
                 
                 const spinner = document.getElementById('executionSpinner');
                 const status = document.getElementById('executionStatus');
@@ -634,36 +670,7 @@ async function pollExecutionStatus(executionId, token) {
     }
 }
 
-/**
- * Load output from completed background execution
- */
-async function loadBackgroundOutput(executionId, token) {
-    try {
-        const response = await fetch(`/execute/output/${executionId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-            appendToTerminal('⚠️ Could not load detailed output (task completed but output unavailable)\n', 'status');
-            return;
-        }
-        
-        const output = await response.json();
-        
-        // Display key output lines if available
-        if (output.output && Array.isArray(output.output)) {
-            appendToTerminal('\n📋 Task Output:\n', 'status');
-            output.output.slice(-20).forEach(line => {  // Show last 20 lines
-                if (line.data) {
-                    appendToTerminal(line.data + '\n', line.type || 'stdout');
-                }
-            });
-        }
-        
-    } catch (error) {
-        console.error('Failed to load background output:', error);
-    }
-}
+// Note: loadBackgroundOutput removed - we now stream output incrementally during polling
 
 /**
  * Run command using SSE streaming (for quick interactive tasks)
