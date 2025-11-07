@@ -1699,7 +1699,7 @@ if HAS_FASTAPI:
         async def event_generator():
             """Generate SSE events from command output with timeout, keepalive, and disconnect detection."""
             start_time = time.time()
-            last_keepalive = time.time()
+            last_output_time = time.time()
             execution_task = None
             
             try:
@@ -1709,7 +1709,23 @@ if HAS_FASTAPI:
                 )
                 
                 # Process output with timeout and keepalive
-                async for output in output_iterator:
+                # Use asyncio.wait_for to implement keepalive during long waits
+                output_iter = output_iterator.__aiter__()
+                
+                while True:
+                    try:
+                        # Wait for next output with timeout for keepalive
+                        output = await asyncio.wait_for(
+                            output_iter.__anext__(),
+                            timeout=SSE_KEEPALIVE_INTERVAL
+                        )
+                    except asyncio.TimeoutError:
+                        # No output for SSE_KEEPALIVE_INTERVAL seconds - send keepalive
+                        yield {"event": "comment", "data": "keepalive"}
+                        continue
+                    except StopAsyncIteration:
+                        # Iterator exhausted normally
+                        break
                     # Check timeout
                     elapsed = time.time() - start_time
                     if elapsed > MAX_EXECUTION_DURATION:
@@ -1785,13 +1801,8 @@ if HAS_FASTAPI:
                         "data": json.dumps(output)
                     }
                     
-                    # Update last keepalive time when we send output
-                    last_keepalive = time.time()
-                    
-                    # Send keepalive if needed (check between outputs)
-                    if time.time() - last_keepalive > SSE_KEEPALIVE_INTERVAL:
-                        yield {"event": "comment", "data": "keepalive"}
-                        last_keepalive = time.time()
+                    # Update last output time
+                    last_output_time = time.time()
                 
             except asyncio.CancelledError:
                 # Client disconnected or cancelled
