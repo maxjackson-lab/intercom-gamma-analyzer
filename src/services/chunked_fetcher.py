@@ -76,14 +76,21 @@ class ChunkedFetcher:
         progress_callback: Optional[callable] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch conversations - SIMPLIFIED, no chunking, no timeouts.
-        Just call the SDK and let it finish.
+        Fetch conversations with intelligent mode selection.
+        
+        - SIMPLE mode: For small date ranges (<= 3 days) - single async call
+        - CHUNKED mode: For large date ranges (> 3 days) - daily chunks with progress updates
+        
+        CHUNKED mode is required for Railway/web deployments because:
+        - Yields progress updates between days (allows keepalives to work)
+        - Prevents HTTP timeout during 20+ minute fetches
+        - Provides better visibility into fetch progress
         
         Args:
             start_date: Start date for fetching
             end_date: End date for fetching
             max_conversations: Maximum conversations (for testing)
-            progress_callback: Optional callback for progress updates (not used)
+            progress_callback: Optional callback for progress updates
             
         Returns:
             List of all conversations fetched
@@ -91,36 +98,45 @@ class ChunkedFetcher:
         Raises:
             FetchError: If fetching fails
         """
-        self.logger.info(f"Fetching conversations from {start_date.date()} to {end_date.date()}")
-        self.logger.info("Using SIMPLE mode - no chunking, no timeouts, just fetch until done")
+        days_diff = (end_date.date() - start_date.date()).days + 1
+        self.logger.info(f"Fetching conversations from {start_date.date()} to {end_date.date()} ({days_diff} days)")
         
-        try:
-            # Just fetch - let the SDK handle everything
-            conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                start_date, 
-                end_date, 
-                max_conversations=max_conversations
+        # Use CHUNKED mode for large date ranges to prevent Railway timeouts
+        # CHUNKED mode yields progress between days, allowing keepalives to work
+        if days_diff > 3:
+            self.logger.info(f"Using CHUNKED mode ({days_diff} days > 3) - daily chunks with progress updates")
+            return await self._fetch_daily_chunks(
+                start_date, end_date, max_conversations, progress_callback
             )
-            
-            self.logger.info(f"✅ Fetched {len(conversations)} conversations")
-            
-            # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
-            if self.enable_preprocessing and self.preprocessor and conversations:
-                self.logger.info(f"Preprocessing {len(conversations)} conversations...")
-                conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
-                    conversations,
-                    options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+        else:
+            self.logger.info(f"Using SIMPLE mode ({days_diff} days <= 3) - single async call")
+            try:
+                # Just fetch - let the SDK handle everything
+                conversations = await self.intercom_service.fetch_conversations_by_date_range(
+                    start_date, 
+                    end_date, 
+                    max_conversations=max_conversations
                 )
-                self.logger.info(
-                    f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
-                    f"{len(preprocess_stats.get('validation_errors', []))} errors"
-                )
-            
-            return conversations
-            
-        except Exception as e:
-            self.logger.error(f"❌ Fetch failed: {e}")
-            raise FetchError(f"Failed to fetch conversations: {e}") from e
+                
+                self.logger.info(f"✅ Fetched {len(conversations)} conversations")
+                
+                # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
+                if self.enable_preprocessing and self.preprocessor and conversations:
+                    self.logger.info(f"Preprocessing {len(conversations)} conversations...")
+                    conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                        conversations,
+                        options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+                    )
+                    self.logger.info(
+                        f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                        f"{len(preprocess_stats.get('validation_errors', []))} errors"
+                    )
+                
+                return conversations
+                
+            except Exception as e:
+                self.logger.error(f"❌ Fetch failed: {e}")
+                raise FetchError(f"Failed to fetch conversations: {e}") from e
     
     async def _fetch_single_chunk(
         self, 
