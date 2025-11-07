@@ -38,12 +38,23 @@ class GammaClient:
         """
         self.api_key = settings.gamma_api_key
         self.base_url = "https://public-api.gamma.app/v1.0"
-        self.timeout = settings.gamma_timeout
         self.max_polls = max_polls
         self.poll_interval = poll_interval
         self.max_total_wait_seconds = max_total_wait_seconds
         self.jitter = jitter
         self.max_5xx_retries = max_5xx_retries
+
+        # Configure httpx timeout with proper Timeout object
+        # connect=60s for slow connections, read=30s for API responses
+        timeout_seconds = getattr(settings, 'gamma_timeout', 30)
+        self.timeout = httpx.Timeout(timeout_seconds, connect=60.0)
+        
+        # Create reusable httpx client with connection pooling
+        # Limits: max 100 connections, 20 keepalive connections
+        self.client = httpx.AsyncClient(
+            timeout=self.timeout,
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20)
+        )
 
         self.headers = {
             'X-API-KEY': self.api_key,
@@ -83,22 +94,22 @@ class GammaClient:
             if query:
                 params["query"] = query
                 
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/themes",
-                    headers=self.headers,
-                    params=params
-                )
-                response.raise_for_status()
-                result = response.json()
+            # Use reusable client with proper timeout configuration
+            response = await self.client.get(
+                f"{self.base_url}/themes",
+                headers=self.headers,
+                params=params
+            )
+            response.raise_for_status()
+            result = response.json()
                 
-                themes = result.get('data', [])
-                self.logger.info(
-                    "gamma_themes_listed",
-                    theme_count=len(themes),
-                    query=query
-                )
-                return themes
+            themes = result.get('data', [])
+            self.logger.info(
+                "gamma_themes_listed",
+                theme_count=len(themes),
+                query=query
+            )
+            return themes
         except Exception as e:
             self.logger.error("gamma_list_themes_failed", error=str(e), exc_info=True)
             raise GammaAPIError(f"Failed to list themes: {e}")
@@ -148,22 +159,27 @@ class GammaClient:
             return False
         
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Test with a simple generation request
-                test_payload = {
-                    "inputText": "Test connection",
-                    "textMode": "generate",
-                    "format": "presentation",
-                    "numCards": 1
-                }
-                response = await client.post(
-                    f"{self.base_url}/generations",
-                    headers=self.headers,
-                    json=test_payload
-                )
-                response.raise_for_status()
-                self.logger.info("Gamma API connection successful")
-                return True
+            # Use reusable client with proper timeout configuration
+            test_payload = {
+                "inputText": "Test connection",
+                "textMode": "generate",
+                "format": "presentation",
+                "numCards": 1
+            }
+            response = await self.client.post(
+                f"{self.base_url}/generations",
+                headers=self.headers,
+                json=test_payload
+            )
+            response.raise_for_status()
+            self.logger.info("Gamma API connection successful")
+            return True
+        except httpx.ConnectTimeout:
+            self.logger.error("Gamma API connection timeout - connection failed", exc_info=True)
+            raise GammaAPIError("Failed to connect to Gamma API (connection timeout)")
+        except httpx.ReadTimeout:
+            self.logger.error("Gamma API read timeout - server slow to respond", exc_info=True)
+            raise GammaAPIError("Gamma API read timeout - server slow to respond")
         except Exception as e:
             self.logger.error("Gamma API connection failed", error=str(e), exc_info=True)
             raise
@@ -281,32 +297,46 @@ class GammaClient:
             payload["folderIds"] = folder_ids
         
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/generations",
-                    headers=self.headers,
-                    json=payload
-                )
-                response.raise_for_status()
-                
-                result = response.json()
-                generation_id = result.get('generationId')
-                
-                if not generation_id:
-                    raise GammaAPIError("No generationId returned from API")
-                
-                elapsed_time_ms = (time.time() - start_time) * 1000
-                
-                self.logger.info(
-                    "gamma_generate_request_success",
-                    generation_id=generation_id,
-                    response_time_ms=elapsed_time_ms,
-                    input_length=len(input_text),
-                    num_cards=num_cards
-                )
-                
-                return generation_id
-                
+            # Use reusable client with proper timeout configuration
+            response = await self.client.post(
+                f"{self.base_url}/generations",
+                headers=self.headers,
+                json=payload
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            generation_id = result.get('generationId')
+            
+            if not generation_id:
+                raise GammaAPIError("No generationId returned from API")
+            
+            elapsed_time_ms = (time.time() - start_time) * 1000
+            
+            self.logger.info(
+                "gamma_generate_request_success",
+                generation_id=generation_id,
+                response_time_ms=elapsed_time_ms,
+                input_length=len(input_text),
+                num_cards=num_cards
+            )
+            
+            return generation_id
+            
+        except httpx.ConnectTimeout:
+            self.logger.error(
+                "gamma_connect_timeout",
+                error="Connection timeout - failed to connect to Gamma API",
+                exc_info=True
+            )
+            raise GammaAPIError("Failed to connect to Gamma API (connection timeout)")
+        except httpx.ReadTimeout:
+            self.logger.error(
+                "gamma_read_timeout",
+                error="Read timeout - Gamma API slow to respond",
+                exc_info=True
+            )
+            raise GammaAPIError("Gamma API read timeout - server slow to respond")
         except httpx.HTTPStatusError as e:
             self.logger.error(
                 "gamma_api_error",
@@ -345,23 +375,47 @@ class GammaClient:
             raise GammaAPIError("Gamma API key not provided")
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/generations/{generation_id}",
-                    headers=self.headers
-                )
-                response.raise_for_status()
+            # Use reusable client with proper timeout configuration
+            response = await self.client.get(
+                f"{self.base_url}/generations/{generation_id}",
+                headers=self.headers
+            )
+            response.raise_for_status()
 
-                result = response.json()
+            result = response.json()
 
-                self.logger.debug(
-                    "gamma_generation_status_checked",
-                    generation_id=generation_id,
-                    status=result.get('status')
-                )
+            self.logger.debug(
+                "gamma_generation_status_checked",
+                generation_id=generation_id,
+                status=result.get('status')
+            )
 
-                return result
+            return result
 
+        except httpx.ConnectTimeout:
+            self.logger.warning(
+                "gamma_status_connect_timeout",
+                generation_id=generation_id,
+                retry_count=retry_count
+            )
+            # Retry on connect timeout (network issue)
+            if retry_count < self.max_5xx_retries:
+                retry_wait = self._calculate_backoff(retry_count, base=2.0, max_wait=30)
+                await asyncio.sleep(retry_wait)
+                return await self.get_generation_status(generation_id, retry_count + 1)
+            raise GammaAPIError(f"Connection timeout checking generation status: {generation_id}")
+        except httpx.ReadTimeout:
+            self.logger.warning(
+                "gamma_status_read_timeout",
+                generation_id=generation_id,
+                retry_count=retry_count
+            )
+            # Retry on read timeout (server slow)
+            if retry_count < self.max_5xx_retries:
+                retry_wait = self._calculate_backoff(retry_count, base=2.0, max_wait=30)
+                await asyncio.sleep(retry_wait)
+                return await self.get_generation_status(generation_id, retry_count + 1)
+            raise GammaAPIError(f"Read timeout checking generation status: {generation_id}")
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
 
@@ -605,6 +659,21 @@ class GammaClient:
             f"Generation polling exceeded {max_polls} attempts "
             f"(elapsed: {elapsed_total:.1f}s, rate limits: {rate_limit_count})"
         )
+
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit - closes httpx client."""
+        await self.close()
+        return False
+    
+    async def close(self):
+        """Close the httpx client and release resources."""
+        await self.client.aclose()
+        self.logger.debug("Gamma client closed")
 
 
 class GammaAPIError(Exception):
