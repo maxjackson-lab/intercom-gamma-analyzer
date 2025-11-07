@@ -579,7 +579,7 @@ async function pollExecutionStatus(executionId, token) {
             const statusData = await response.json();
             const currentStatus = statusData.status;
             const duration = statusData.duration_seconds || 0;
-            const newOutput = statusData.output_buffer || [];
+            const newOutput = statusData.output || []; // Fixed: API returns 'output' not 'output_buffer'
             
             // Display new output in real-time (shows "Fetching X conversations..." etc.)
             if (newOutput.length > 0) {
@@ -611,13 +611,13 @@ async function pollExecutionStatus(executionId, token) {
             // Check if completed
             if (currentStatus === 'completed') {
                 // Fetch any remaining output we might have missed
-                if (statusData.total_output_count > lastOutputIndex) {
+                if (statusData.output_length > lastOutputIndex) {
                     const finalResponse = await fetch(`/execute/status/${executionId}?since=${lastOutputIndex}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (finalResponse.ok) {
                         const finalData = await finalResponse.json();
-                        const finalOutput = finalData.output_buffer || [];
+                        const finalOutput = finalData.output || []; // Fixed: API returns 'output' not 'output_buffer'
                         finalOutput.forEach(outputItem => {
                             const outputText = outputItem.data || outputItem.message || '';
                             if (outputText) {
