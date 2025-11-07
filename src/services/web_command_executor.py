@@ -362,7 +362,9 @@ class WebCommandExecutor:
                 async for line in stream_iter:
                     await queue.put((stream_type, line))
             except Exception as e:
-                self.logger.exception(f"Error reading {stream_type} for execution {execution_id}")
+                self.logger.exception(f"Error reading {stream_type} for execution {execution_id}: {e}")
+                # Put error marker in queue
+                await queue.put((stream_type, f"<Stream read error: {str(e)}>".encode()))
             finally:
                 await queue.put((stream_type, None))  # Signal end of stream
         
@@ -494,6 +496,12 @@ class WebCommandExecutor:
                 **process_kwargs
             )
             
+            # Log process start
+            self.logger.info(
+                f"[{execution_id}] Started subprocess PID {process.pid}: "
+                f"{command_path} {' '.join(validated_args[:5])}{'...' if len(validated_args) > 5 else ''}"
+            )
+            
             # Store process reference
             self.active_processes[execution_id] = process
             self.execution_states[execution_id]["process"] = process
@@ -515,6 +523,10 @@ class WebCommandExecutor:
                     # Filter sensitive data from output
                     filtered_data = self._filter_sensitive_output(line_data)
                     
+                    # Log stderr to Railway logs for debugging
+                    if stream_type == "stderr":
+                        self.logger.warning(f"[{execution_id}] stderr: {filtered_data}")
+                    
                     # Buffer output with bounded deque (automatically drops oldest)
                     self.execution_states[execution_id]["output_buffer"].append({
                         "type": stream_type,
@@ -532,6 +544,22 @@ class WebCommandExecutor:
             # Wait for process completion with timeout
             try:
                 return_code = await asyncio.wait_for(process.wait(), timeout=timeout)
+                
+                # Log process completion to Railway logs
+                self.logger.info(f"[{execution_id}] Process completed with exit code: {return_code}")
+                
+                # Log recent stderr output if process failed
+                if return_code != 0:
+                    output_buffer = self.execution_states[execution_id].get("output_buffer", deque())
+                    recent_stderr = [
+                        entry.get("data", "") 
+                        for entry in list(output_buffer)[-20:]  # Last 20 lines
+                        if entry.get("type") == "stderr"
+                    ]
+                    if recent_stderr:
+                        self.logger.error(
+                            f"[{execution_id}] Recent stderr output:\n" + "\n".join(recent_stderr)
+                        )
                 
                 if return_code == 0:
                     self.execution_states[execution_id]["status"] = "completed"

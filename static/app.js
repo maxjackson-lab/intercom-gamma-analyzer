@@ -466,7 +466,7 @@ async function runAnalysis() {
                 console.log('Received SSE:', data);
                 
                 // Append output to terminal
-                if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status') {
+                if (data.type === 'stdout' || data.type === 'stderr' || data.type === 'status' || data.type === 'error') {
                     const outputText = data.data || data.message || '';
                     appendToTerminal(outputText, data.type);
                     
@@ -489,28 +489,47 @@ async function runAnalysis() {
                     loadOutputFiles();
                 }
                 
-                // Handle errors
+                // Handle errors - display in terminal first, then close
                 if (data.type === 'error' || data.status === 'failed') {
+                    // Display error message prominently in terminal if not already shown
+                    const errorMessage = data.data || data.message || 'Unknown error occurred';
+                    if (data.type !== 'error' || !data.data) {
+                        // Only append if we haven't already appended it above
+                        appendToTerminal(`\n❌ ERROR: ${errorMessage}`, 'error');
+                    }
+                    
                     if (spinner) spinner.style.display = 'none';
                     if (status) {
                         status.textContent = 'Failed ✗';
                         status.className = 'status-badge status-error';
                     }
                     if (cancelBtn) cancelBtn.style.display = 'none';
-                    eventSource.close();
-                    showToast('Analysis failed: ' + (data.message || 'Unknown error'), 'error');
+                    
+                    // Show toast notification
+                    showToast('Analysis failed: ' + errorMessage, 'error');
+                    
+                    // Close connection after a brief delay to ensure error is displayed
+                    setTimeout(() => {
+                        eventSource.close();
+                    }, 500);
                 }
                 
                 // Handle timeout
                 if (data.type === 'timeout' || data.status === 'timeout') {
+                    const timeoutMessage = data.data || data.message || 'Execution timed out';
+                    appendToTerminal(`\n⏱ TIMEOUT: ${timeoutMessage}`, 'error');
+                    
                     if (spinner) spinner.style.display = 'none';
                     if (status) {
                         status.textContent = 'Timeout ⏱';
                         status.className = 'status-badge status-error';
                     }
                     if (cancelBtn) cancelBtn.style.display = 'none';
-                    eventSource.close();
                     showToast('Analysis timed out', 'error');
+                    
+                    setTimeout(() => {
+                        eventSource.close();
+                    }, 500);
                 }
                 
             } catch (e) {
@@ -520,6 +539,13 @@ async function runAnalysis() {
         
         eventSource.onerror = function(error) {
             console.error('EventSource error:', error);
+            
+            // Display connection error in terminal
+            const terminalOutput = document.getElementById('terminalOutput');
+            if (terminalOutput) {
+                appendToTerminal('\n❌ Connection Error: Lost connection to server. Check your network connection.', 'error');
+            }
+            
             if (spinner) spinner.style.display = 'none';
             if (status) {
                 status.textContent = 'Error ✗';
@@ -527,7 +553,7 @@ async function runAnalysis() {
             }
             if (cancelBtn) cancelBtn.style.display = 'none';
             eventSource.close();
-            showToast('Connection error. Check console for details.', 'error');
+            showToast('Connection error. Check terminal for details.', 'error');
         };
         
     } catch (error) {

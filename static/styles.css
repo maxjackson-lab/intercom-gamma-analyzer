@@ -243,15 +243,28 @@ button:disabled {
     color: #d4d4d4;
 }
 .terminal-line.stderr {
-    color: #ef4444;
+    color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 4px 8px;
+    border-left: 3px solid #ef4444;
+    margin: 4px 0;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
 }
 .terminal-line.status {
     color: #10b981;
     font-weight: bold;
 }
 .terminal-line.error {
-    color: #ef4444;
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.15);
+    padding: 6px 10px;
+    border-left: 4px solid #ef4444;
+    margin: 6px 0;
+    border-radius: 4px;
     font-weight: bold;
+    font-family: 'Consolas', 'Monaco', monospace;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
 /* Progress indicators */
