@@ -528,8 +528,13 @@ async function runBackgroundExecution(command, args) {
         const result = await response.json();
         currentExecutionId = result.execution_id;
         
+        // Save execution ID to localStorage for recovery after page refresh
+        localStorage.setItem('active_execution_id', currentExecutionId);
+        localStorage.setItem('active_execution_start', Date.now());
+        
         appendToTerminal(`✓ Task queued with ID: ${currentExecutionId}\n`, 'status');
         appendToTerminal('⏳ Polling for status updates...\n\n', 'status');
+        appendToTerminal('💡 Tip: You can refresh the page - the task will continue running\n', 'status');
         
         // Poll for status updates
         await pollExecutionStatus(currentExecutionId, token);
@@ -622,6 +627,10 @@ async function pollExecutionStatus(executionId, token) {
                 
                 appendToTerminal('\n✅ Analysis completed successfully!\n', 'status');
                 
+                // Clear saved execution ID
+                localStorage.removeItem('active_execution_id');
+                localStorage.removeItem('active_execution_start');
+                
                 const spinner = document.getElementById('executionSpinner');
                 const status = document.getElementById('executionStatus');
                 const cancelBtn = document.getElementById('cancelButton');
@@ -642,6 +651,10 @@ async function pollExecutionStatus(executionId, token) {
             if (['failed', 'timeout', 'error'].includes(currentStatus)) {
                 const errorMsg = statusData.error_message || 'Unknown error';
                 appendToTerminal(`\n❌ Analysis ${currentStatus}: ${errorMsg}\n`, 'error');
+                
+                // Clear saved execution ID
+                localStorage.removeItem('active_execution_id');
+                localStorage.removeItem('active_execution_start');
                 
                 const spinner = document.getElementById('executionSpinner');
                 const status = document.getElementById('executionStatus');
@@ -1009,7 +1022,102 @@ function initializeAnalysisForm() {
     // Initial update
     updateAnalysisOptions();
     
+    // Check for active execution on page load (resume after refresh)
+    resumeActiveExecution();
+    
     console.log('✅ Analysis form initialized');
+}
+
+/**
+ * Resume polling for active execution after page refresh
+ */
+async function resumeActiveExecution() {
+    const activeExecutionId = localStorage.getItem('active_execution_id');
+    const executionStart = localStorage.getItem('active_execution_start');
+    
+    if (!activeExecutionId) {
+        return; // No active execution
+    }
+    
+    console.log('🔄 Found active execution, resuming:', activeExecutionId);
+    
+    try {
+        const token = localStorage.getItem('api_token') || '';
+        
+        // Check if execution is still running
+        const response = await fetch(`/execute/status/${activeExecutionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            // Execution not found - clear storage
+            localStorage.removeItem('active_execution_id');
+            localStorage.removeItem('active_execution_start');
+            return;
+        }
+        
+        const statusData = await response.json();
+        const currentStatus = statusData.status;
+        
+        // Only resume if still running or queued
+        if (['running', 'queued'].includes(currentStatus)) {
+            currentExecutionId = activeExecutionId;
+            
+            // Show terminal container
+            const terminalContainer = document.getElementById('terminalContainer');
+            if (terminalContainer) {
+                terminalContainer.style.display = 'block';
+            }
+            
+            // Clear and show resume message
+            const terminalOutput = document.getElementById('terminalOutput');
+            if (terminalOutput) {
+                terminalOutput.innerHTML = '';
+            }
+            
+            appendToTerminal('🔄 Resumed active execution after page refresh\n', 'status');
+            appendToTerminal(`📌 Execution ID: ${activeExecutionId}\n`, 'status');
+            
+            const elapsed = Math.floor((Date.now() - parseInt(executionStart)) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            appendToTerminal(`⏱ Task has been running for ${minutes}m ${seconds}s\n`, 'status');
+            appendToTerminal('⏳ Resuming status updates...\n\n', 'status');
+            
+            // Show UI elements
+            const spinner = document.getElementById('executionSpinner');
+            const status = document.getElementById('executionStatus');
+            const cancelBtn = document.getElementById('cancelButton');
+            const tabNav = document.getElementById('tabNavigation');
+            
+            if (spinner) spinner.style.display = 'inline-block';
+            if (status) {
+                status.textContent = 'Running';
+                status.className = 'status-badge';
+                status.style.display = 'inline-block';
+            }
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            if (tabNav) tabNav.style.display = 'flex';
+            
+            // Switch to terminal tab
+            switchTab('terminal');
+            
+            // Resume polling
+            await pollExecutionStatus(activeExecutionId, token);
+            
+        } else if (['completed', 'failed', 'timeout', 'error'].includes(currentStatus)) {
+            // Task finished while page was refreshing
+            appendToTerminal(`ℹ️ Previous task ${currentStatus}\n`, 'status');
+            localStorage.removeItem('active_execution_id');
+            localStorage.removeItem('active_execution_start');
+        }
+        
+    } catch (error) {
+        console.error('Failed to resume execution:', error);
+        // Clear stale execution ID
+        localStorage.removeItem('active_execution_id');
+        localStorage.removeItem('active_execution_start');
+    }
 }
 
 /**
