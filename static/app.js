@@ -485,11 +485,14 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     const isLongPeriod = ['week', 'month', 'quarter', '6-weeks'].includes(timePeriod);
     const isVoC = args.includes('voice-of-customer');
     const isAgentPerformance = args.includes('agent-performance') || args.includes('agent-coaching-report');
+    const isSampleMode = args.includes('sample-mode');
+    const schemaMode = args.includes('--schema-mode') ? args[args.indexOf('--schema-mode') + 1] : null;
     
     // Use background execution if:
     // 1. Multi-agent analysis (always long-running)
     // 2. Week or longer with Gamma generation
     // 3. Agent performance/coaching (database-heavy)
+    // 4. Schema dump in deep/comprehensive mode (enrichment takes long)
     if (hasMultiAgent) {
         console.log('→ Background mode: multi-agent analysis detected');
         return true;
@@ -502,6 +505,11 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     
     if (isAgentPerformance && isLongPeriod) {
         console.log('→ Background mode: agent performance on long period');
+        return true;
+    }
+    
+    if (isSampleMode && schemaMode && ['deep', 'comprehensive'].includes(schemaMode)) {
+        console.log(`→ Background mode: schema dump in ${schemaMode} mode (long enrichment)`);
         return true;
     }
     
