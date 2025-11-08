@@ -392,8 +392,8 @@ async function runAnalysis() {
             args.push('--verbose');
         }
         
-        // Add audit trail
-        if (auditMode) {
+        // Add audit trail (skip for sample-mode and schema-dump - diagnostic tools only)
+        if (auditMode && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
             args.push('--audit-trail');
         }
         
