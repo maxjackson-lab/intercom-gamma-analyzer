@@ -134,3 +134,68 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Sanitize conversation text before logging
 - Use structured logging with context
 
+## CLI ↔ Web UI ↔ Railway Alignment (CRITICAL)
+
+### The 3-Layer Contract
+Every CLI command has 3 implementations that MUST stay aligned:
+1. **CLI** (`src/main.py`) - Source of truth, actual implementation
+2. **Railway** (`deploy/railway_web.py`) - Validation layer in CANONICAL_COMMAND_MAPPINGS
+3. **Frontend** (`static/app.js`) - UI that sends commands
+
+### MANDATORY: When Adding/Changing ANY Flag
+
+**Always update ALL 3 layers in this order:**
+
+1. **CLI First** (`src/main.py`):
+```python
+@cli.command(name='your-command')
+@click.option('--your-flag', type=click.Choice(['val1', 'val2']), default='val1')
+def your_command(..., your_flag: str):  # ← MUST be in signature!
+    # Actually USE the flag (don't just accept it)
+```
+
+2. **Railway Second** (`deploy/railway_web.py`):
+```python
+CANONICAL_COMMAND_MAPPINGS = {
+    'your_command': {
+        'allowed_flags': {
+            '--your-flag': {
+                'type': 'enum',  # MUST match CLI type
+                'values': ['val1', 'val2'],  # MUST match CLI choices
+                'default': 'val1'  # MUST match CLI default
+            }
+        }
+    }
+}
+```
+
+3. **Frontend Last** (`static/app.js`):
+```javascript
+if (analysisType === 'your-command') {
+    const flagValue = document.getElementById('yourFlag')?.value;
+    args.push('--your-flag', flagValue);
+}
+```
+
+### Verification Checklist
+
+Before committing changes to commands/flags:
+- [ ] Run `python scripts/check_cli_web_alignment.py`
+- [ ] Verify flag is in CLI `@click.option`
+- [ ] Verify flag is in function signature
+- [ ] Verify flag is in Railway `allowed_flags`
+- [ ] Verify types match (enum=Choice, boolean=is_flag)
+- [ ] Verify frontend sends flag conditionally (not to all commands)
+- [ ] Test in web UI (no validation errors)
+
+### Common Mistakes
+- ❌ Adding flag to Railway but forgetting CLI function signature
+- ❌ Frontend sending --verbose to diagnostic modes (sample-mode)
+- ❌ Type mismatch: Railway says 'boolean' but CLI uses Choice
+- ❌ Values mismatch: Railway says ['quick'] but CLI says ['fast']
+
+### Reference
+See `CLI_WEB_ALIGNMENT_CHECKLIST.md` for detailed guide
+
+
+
