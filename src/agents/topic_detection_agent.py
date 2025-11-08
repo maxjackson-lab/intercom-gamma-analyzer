@@ -317,14 +317,16 @@ For each conversation:
                     + (f" | Fallback: {methods['fallback']} ({fallback_pct}%)" if methods['fallback'] > 0 else "")
                 )
             
-            # Group conversations by topic
+            # Group conversations by PRIMARY topic only (prevents double-counting)
             conversations_by_topic = {}
             for conv in conversations:
                 conv_id = conv.get('id', 'unknown')
                 detected_topics = topics_by_conversation.get(conv_id, [])
                 
-                for topic_assignment in detected_topics:
-                    topic = topic_assignment['topic']
+                # Only use PRIMARY topic (highest confidence) to prevent double-counting
+                if detected_topics:
+                    primary_topic = max(detected_topics, key=lambda x: x.get('confidence', 0))
+                    topic = primary_topic['topic']
                     if topic not in conversations_by_topic:
                         conversations_by_topic[topic] = []
                     conversations_by_topic[topic].append(conv)
@@ -356,10 +358,13 @@ For each conversation:
                     'fallback_count': methods.get('fallback', 0)
                 }
             
-            # LLM Enhancement: Discover additional semantic topics
-            self.logger.info("Enhancing with LLM for semantic topic discovery...")
-            llm_topics, llm_token_count = await self._enhance_with_llm(conversations, topic_distribution)
-            if llm_topics:
+            # LLM Enhancement: DISABLED - was discovering duplicates of existing subcategories
+            # e.g., "Invoice/Receipt Issues" when Invoice is already a Billing subcategory
+            # The full taxonomy already covers all needed topics
+            self.logger.info("LLM topic discovery disabled (using full taxonomy instead)")
+            llm_topics = {}
+            llm_token_count = 0
+            if False and llm_topics:
                 self.logger.info(f"Rescanning conversations for {len(llm_topics)} LLM-discovered topics...")
                 # Rescan conversations to assign matches to LLM-discovered topics
                 for topic_name, topic_info in llm_topics.items():
@@ -489,7 +494,18 @@ For each conversation:
         keyword_detections = {}
         sdk_detections = {}
         
-        for topic_name, config in self.topics.items():
+        # PRIORITY SYSTEM: Check specific topics before generic ones
+        # This prevents "how do I refund" from being classified as Product Question
+        # Order: High-specificity topics first, then general ones
+        topic_priority_order = self._get_topic_priority_order()
+        
+        for topic_name in topic_priority_order:
+            # Skip if topic not in our configuration
+            if topic_name not in self.topics:
+                continue
+                
+            config = self.topics[topic_name]
+            
             # ===== STEP 1: KEYWORD DETECTION (PRIMARY) =====
             matched_keywords = []
             for kw in config['keywords']:
@@ -534,10 +550,17 @@ For each conversation:
                         'value': config['attribute']
                     }
         
-        # ===== STEP 3: HYBRID SCORING =====
+        # ===== STEP 3: HYBRID SCORING WITH PRIORITY =====
         # Combine keyword + SDK detections with smart confidence scoring
+        # Process in priority order and stop at first high-confidence match
         
-        for topic_name in set(list(keyword_detections.keys()) + list(sdk_detections.keys())):
+        all_detected_topics = set(list(keyword_detections.keys()) + list(sdk_detections.keys()))
+        
+        # Sort by priority order
+        sorted_topics = [t for t in topic_priority_order if t in all_detected_topics]
+        sorted_topics.extend([t for t in all_detected_topics if t not in topic_priority_order])
+        
+        for topic_name in sorted_topics:
             has_keywords = topic_name in keyword_detections
             has_sdk = topic_name in sdk_detections
             
