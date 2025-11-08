@@ -2,13 +2,16 @@
 
 ## The Fundamental Problem
 
-**Every command has 3 implementations that MUST match:**
+**Every command has 4 implementations that MUST match:**
 
 1. **CLI** (`src/main.py`) - The actual command logic
-2. **Railway Validation** (`deploy/railway_web.py`) - What flags are allowed
-3. **Frontend** (`static/app.js`) - What the UI sends
+2. **Railway Validation** (`deploy/railway_web.py`) - CANONICAL_COMMAND_MAPPINGS
+3. **WebCommandExecutor** (`src/services/web_command_executor.py`) - COMMAND_SCHEMAS ← HIDDEN LAYER!
+4. **Frontend** (`static/app.js`) - What the UI sends
 
 **If these don't align → Validation errors, ignored flags, broken features**
+
+⚠️ **Critical:** WebCommandExecutor has a SEPARATE whitelist that's easy to forget!
 
 ---
 
@@ -34,7 +37,23 @@ def your_command(..., your_flag: str):  # ← Add to function signature!
 
 ---
 
-**Step 2: Railway Validation (`deploy/railway_web.py`)**
+**Step 2: WebCommandExecutor Whitelist (`src/services/web_command_executor.py`) - EASY TO FORGET!**
+
+Add to `COMMAND_SCHEMAS['python']['allowed_flags']`:
+```python
+"allowed_flags": {
+    # ...existing flags...
+    "--your-flag",  # Add to the set!
+}
+```
+
+✅ **Verification:**
+- [ ] Flag added to allowed_flags set (line ~63)
+- [ ] No typos in flag name
+
+---
+
+**Step 3: Railway Validation (`deploy/railway_web.py`)**
 
 Find the command in `CANONICAL_COMMAND_MAPPINGS`:
 ```python
@@ -60,7 +79,7 @@ Find the command in `CANONICAL_COMMAND_MAPPINGS`:
 
 ---
 
-**Step 3: Frontend (`static/app.js`)**
+**Step 4: Frontend (`static/app.js`)**
 
 In `runAnalysis()` function:
 ```javascript
