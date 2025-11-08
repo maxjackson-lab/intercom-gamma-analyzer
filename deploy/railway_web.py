@@ -327,6 +327,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Save raw JSON to outputs/'
             },
+            '--test-llm': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Run actual LLM sentiment test on top 2 topics'
+            },
             '--verbose': {
                 'type': 'boolean',
                 'default': False,

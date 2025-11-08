@@ -640,7 +640,11 @@ async function pollExecutionStatus(executionId, token) {
                 // Send completion notifications
                 await sendCompletionNotifications(executionId, statusData, 'completed');
                 
-                // Clear saved execution ID
+                // Save last completed job (don't clear immediately)
+                localStorage.setItem('last_completed_job', executionId);
+                localStorage.setItem('last_completed_time', Date.now());
+                
+                // Clear active execution ID (job is done)
                 localStorage.removeItem('active_execution_id');
                 localStorage.removeItem('active_execution_start');
                 
