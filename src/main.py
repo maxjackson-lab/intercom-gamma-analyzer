@@ -4213,8 +4213,13 @@ def canny_analysis(
               help='🧪 Run actual LLM sentiment analysis to see what agents produce')
 @click.option('--schema-mode', type=click.Choice(['quick', 'standard', 'deep', 'comprehensive']), default='quick',
               help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai',
+              help='AI model for LLM sentiment test (only used if --test-llm enabled)')
+@click.option('--verbose', is_flag=True, default=False,
+              help='Enable verbose DEBUG logging')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
-                time_period: str, save_to_file: bool, test_llm: bool, schema_mode: str):
+                time_period: str, save_to_file: bool, test_llm: bool, schema_mode: str,
+                ai_model: str, verbose: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4255,6 +4260,19 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         'comprehensive': '1000 tickets, 20 samples, 7 LLM topics (~10 min)'
     }
     console.print(f"\n[cyan]Schema Mode: {schema_mode} - {mode_descriptions[schema_mode]}[/cyan]\n")
+    
+    # Set AI model for LLM test if test_llm is enabled
+    if test_llm and ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model for LLM Test: {ai_model.upper()}[/cyan]\n")
+    
+    # Enable verbose logging if requested
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED[/yellow]\n")
     
     # Run sample mode
     result = asyncio.run(run_sample_mode(
