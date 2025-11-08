@@ -1280,8 +1280,9 @@ if HAS_FASTAPI:
                 
                 <label>Analysis Type:</label>
                 <select id="analysisType" onchange="updateAnalysisOptions()">
-                    <!-- Quick Diagnostic Tool - Always at Top -->
+                    <!-- Quick Diagnostic Tools - Always at Top -->
                     <option value="sample-mode">🔬 Sample Mode (Quick Debug: 25-100 Tickets)</option>
+                    <option value="schema-dump">📋 Schema Dump (See What Fields Are Actually Populated)</option>
                     <option disabled>──────────────────────────</option>
                     
                     <optgroup label="Voice of Customer">
@@ -1368,6 +1369,30 @@ if HAS_FASTAPI:
                     <option value="month">Last Month (full analysis)</option>
                     <option value="custom">Custom Date Range...</option>
                 </select>
+                
+                <!-- Schema Dump Info (hidden by default) -->
+                <div id="schemaDumpInfo" style="display:none; background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <div style="margin-bottom: 10px; color: #0369a1; font-weight: bold;">
+                        📋 Schema Dump: What's Actually There?
+                    </div>
+                    <p style="margin: 10px 0; font-size: 14px; color: #555;">
+                        Pulls <strong>50 real tickets</strong> and shows you exactly what fields Intercom populates.
+                        Perfect for understanding your data structure and tag coverage.
+                    </p>
+                    <div style="margin-top: 10px; padding: 10px; background: #e0f2fe; border-left: 4px solid #0369a1; font-size: 13px;">
+                        <strong>💡 What You'll See:</strong>
+                        <ul style="margin: 5px 0 0 20px; padding: 0;">
+                            <li><strong>Field Coverage:</strong> % of tickets with custom_attributes, tags, "Reason for contact"</li>
+                            <li><strong>Tag Analysis:</strong> What custom tags exist and how often they're used</li>
+                            <li><strong>Attribute Breakdown:</strong> All custom_attributes keys and sample values</li>
+                            <li><strong>5 Full Examples:</strong> Raw schema of 5 conversations with all fields</li>
+                            <li><strong>Topic Detection Test:</strong> Which keywords match which conversations</li>
+                        </ul>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                        ⚡ <strong>Speed:</strong> ~30 seconds | <strong>Output:</strong> Terminal + JSON file
+                    </div>
+                </div>
                 
                 <!-- Sample Mode specific options (hidden by default) -->
                 <div id="sampleModeOptions" style="display:none; background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 15px;">

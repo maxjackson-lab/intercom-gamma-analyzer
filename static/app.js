@@ -290,6 +290,12 @@ async function runAnalysis() {
             args.push('--count', sampleCount);
             args.push('--time-period', sampleTimePeriod);
             
+        } else if (analysisType === 'schema-dump') {
+            args.push('sample-mode');
+            args.push('--count', '50');  // Fixed 50 for schema analysis
+            args.push('--time-period', 'week');
+            args.push('--save-to-file');  // Save the raw JSON too
+            
         } else if (analysisType === 'voice-of-customer-hilary') {
             args.push('voice-of-customer');
             args.push('--analysis-type', 'topic-based');
@@ -856,6 +862,12 @@ function updateAnalysisOptions() {
     const sampleModeOptions = document.getElementById('sampleModeOptions');
     if (sampleModeOptions) {
         sampleModeOptions.style.display = (analysisType === 'sample-mode') ? 'block' : 'none';
+    }
+    
+    // Show/hide schema dump info
+    const schemaDumpInfo = document.getElementById('schemaDumpInfo');
+    if (schemaDumpInfo) {
+        schemaDumpInfo.style.display = (analysisType === 'schema-dump') ? 'block' : 'none';
     }
     
     // Show/hide individual breakdown info
