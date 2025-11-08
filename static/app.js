@@ -909,20 +909,75 @@ function updateAnalysisOptions() {
         if (timePeriodSelect) timePeriodSelect.style.display = 'block';
     }
     
-    // Restrict Data Source control to VoC only (Comment 2)
-    const dataSourceLabel = document.querySelector('label[for="dataSource"]');
-    const dataSourceSelect = document.getElementById('dataSource');
+    // Hide irrelevant controls for diagnostic modes (sample-mode, schema-dump)
+    const isDiagnostic = analysisType === 'sample-mode' || analysisType === 'schema-dump';
     const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
     
+    // Hide/show Data Source (only for VoC)
+    const dataSourceLabel = document.querySelector('label[for="dataSource"]');
+    const dataSourceSelect = document.getElementById('dataSource');
     if (dataSourceLabel) {
         dataSourceLabel.style.display = isVoC ? 'block' : 'none';
     }
     if (dataSourceSelect) {
         dataSourceSelect.style.display = isVoC ? 'block' : 'none';
-        // Reset to default if not VoC
         if (!isVoC) {
             dataSourceSelect.value = 'intercom';
         }
+    }
+    
+    // Hide Time Period for schema-dump (it handles internally)
+    const timePeriodLabel = document.getElementById('timePeriodLabel');
+    const timePeriodSelect = document.getElementById('timePeriod');
+    if (analysisType === 'schema-dump') {
+        if (timePeriodLabel) timePeriodLabel.style.display = 'none';
+        if (timePeriodSelect) timePeriodSelect.style.display = 'none';
+    } else {
+        if (timePeriodLabel) timePeriodLabel.style.display = 'block';
+        if (timePeriodSelect) timePeriodSelect.style.display = 'block';
+    }
+    
+    // Hide Taxonomy Filter for diagnostic modes
+    const taxonomyLabel = document.querySelector('label[for="taxonomyFilter"]');
+    const taxonomySelect = document.getElementById('taxonomyFilter');
+    if (taxonomyLabel) {
+        taxonomyLabel.style.display = isDiagnostic ? 'none' : 'block';
+    }
+    if (taxonomySelect) {
+        taxonomySelect.style.display = isDiagnostic ? 'none' : 'block';
+    }
+    
+    // Hide Output Format for diagnostic modes
+    const outputFormatLabel = document.querySelector('label[for="outputFormat"]');
+    const outputFormatSelect = document.getElementById('outputFormat');
+    if (outputFormatLabel) {
+        outputFormatLabel.style.display = isDiagnostic ? 'none' : 'block';
+    }
+    if (outputFormatSelect) {
+        outputFormatSelect.style.display = isDiagnostic ? 'none' : 'block';
+    }
+    
+    // Show AI Model for schema-dump (needed for LLM test), hide for sample-mode
+    const aiModelLabel = document.querySelector('label[for="aiModel"]');
+    const aiModelSelect = document.getElementById('aiModel');
+    const showAIModel = analysisType === 'schema-dump' || !isDiagnostic;
+    if (aiModelLabel) {
+        aiModelLabel.style.display = showAIModel ? 'block' : 'none';
+    }
+    if (aiModelSelect) {
+        aiModelSelect.style.display = showAIModel ? 'block' : 'none';
+    }
+    
+    // Hide Test Mode checkbox for diagnostic modes (they're already diagnostic)
+    const testModeContainer = document.querySelector('div:has(> #testMode)');
+    if (testModeContainer) {
+        testModeContainer.style.display = isDiagnostic ? 'none' : 'block';
+    }
+    
+    // Hide Audit Trail for diagnostic modes
+    const auditModeContainer = document.querySelector('div:has(> #auditMode)');
+    if (auditModeContainer) {
+        auditModeContainer.style.display = isDiagnostic ? 'none' : 'block';
     }
     
     // Show/hide test mode options when checkbox changes
