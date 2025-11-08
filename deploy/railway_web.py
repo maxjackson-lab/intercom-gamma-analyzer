@@ -338,6 +338,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': 'quick',
                 'description': 'Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)'
             },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model for LLM sentiment test (if --test-llm enabled)'
+            },
             '--verbose': {
                 'type': 'boolean',
                 'default': False,

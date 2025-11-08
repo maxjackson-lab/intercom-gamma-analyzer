@@ -365,8 +365,8 @@ async function runAnalysis() {
             }
         }
         
-        // Add AI model (skip for sample-mode and schema-dump)
-        if (aiModel && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add AI model (include for schema-dump since it runs LLM sentiment test)
+        if (aiModel && analysisType !== 'sample-mode') {
             args.push('--ai-model', aiModel);
         }
         
