@@ -1271,11 +1271,53 @@ function parseOutputForTabs(outputText) {
         // Files will be loaded via loadOutputFiles() after completion
     }
     
+    // Detect metrics for summary tab
+    const convCountMatch = outputText.match(/(?:Found|Fetched|total.*:)\s*(\d+,?\d*)\s*conversations/i);
+    if (convCountMatch) {
+        const count = convCountMatch[1].replace(',', '');
+        updateSummaryMetric('conversations', count);
+    }
+    
+    const topicsMatch = outputText.match(/(\d+)\s*topics?\s*(?:detected|identified|found)/i);
+    if (topicsMatch) {
+        updateSummaryMetric('topics', topicsMatch[1]);
+    }
+    
     // Detect summary sections (e.g., lines starting with ## or **Summary**)
     if (outputText.match(/^##\s+/m) || outputText.match(/\*\*Summary\*\*/i)) {
         // Summary content detected - could be parsed further if needed
         console.log('Detected summary content');
     }
+}
+
+/**
+ * Update summary tab with metrics
+ */
+function updateSummaryMetric(metric, value) {
+    const summaryCards = document.querySelector('.summary-cards');
+    if (!summaryCards) return;
+    
+    // Check if card already exists
+    let card = summaryCards.querySelector(`[data-metric="${metric}"]`);
+    
+    if (!card) {
+        card = document.createElement('div');
+        card.setAttribute('data-metric', metric);
+        card.style.cssText = 'padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); margin: 10px 0;';
+        summaryCards.appendChild(card);
+    }
+    
+    const labels = {
+        'conversations': '💬 Conversations',
+        'topics': '🎯 Topics Detected',
+        'agents': '🤖 Agents Used',
+        'duration': '⏱️ Duration'
+    };
+    
+    card.innerHTML = `
+        <div style="font-size: 12px; color: #9ca3af; margin-bottom: 5px;">${labels[metric] || metric}</div>
+        <div style="font-size: 24px; font-weight: 600; color: #3b82f6;">${value}</div>
+    `;
 }
 
 /**
