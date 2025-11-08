@@ -4209,8 +4209,10 @@ def canny_analysis(
 @click.option('--time-period', type=click.Choice(['day', 'week', 'month']), default='week',
               help='Time period shortcut (overrides start/end dates)')
 @click.option('--save-to-file/--no-save', default=True, help='Save raw JSON to outputs/')
+@click.option('--test-llm', is_flag=True, default=False, 
+              help='🧪 Run actual LLM sentiment analysis on top 2 topics to see what agents produce')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
-                time_period: str, save_to_file: bool):
+                time_period: str, save_to_file: bool, test_llm: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4248,7 +4250,8 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         count=count,
         start_date=start,
         end_date=end,
-        save_to_file=save_to_file
+        save_to_file=save_to_file,
+        test_llm=test_llm
     ))
     
     console.print("\n[bold green]✅ Sample mode complete![/bold green]")

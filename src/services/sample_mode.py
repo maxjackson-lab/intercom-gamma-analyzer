@@ -841,13 +841,125 @@ class SampleMode:
             )
         
         console.print(table)
+    
+    async def test_llm_analysis(self, conversations: List[Dict]):
+        """
+        Run actual LLM sentiment analysis on top topics to show what agents produce.
+        
+        This helps debug:
+        - Is the LLM prompt working?
+        - What sentiment is the LLM actually detecting?
+        - Is enrichment corrupting the data?
+        """
+        console.print("\n" + "="*80)
+        console.print("[bold]🤖 LLM SENTIMENT ANALYSIS TEST[/bold]")
+        console.print("[dim]Running actual TopicSentimentAgent on top topics[/dim]")
+        console.print("="*80 + "\n")
+        
+        # Import agents
+        from src.agents.topic_detection_agent import TopicDetectionAgent
+        from src.agents.topic_sentiment_agent import TopicSentimentAgent
+        from src.agents.base_agent import AgentContext
+        
+        # Detect topics first
+        topic_agent = TopicDetectionAgent()
+        sentiment_agent = TopicSentimentAgent()
+        
+        context = AgentContext(
+            analysis_id="sample_llm_test",
+            conversations=conversations,
+            start_date=datetime.now(),
+            end_date=datetime.now()
+        )
+        
+        console.print("[yellow]🔍 Step 1: Detecting topics...[/yellow]")
+        topic_result = await topic_agent.execute(context)
+        
+        if not topic_result.success:
+            console.print(f"[red]❌ Topic detection failed: {topic_result.error_message}[/red]")
+            return
+        
+        topic_dist = topic_result.data.get('topic_distribution', {})
+        topics_by_conv = topic_result.data.get('topics_by_conversation', {})
+        
+        # Get top 2 topics by volume
+        top_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:2]
+        
+        console.print(f"[green]✅ Found {len(topic_dist)} topics[/green]\n")
+        console.print(f"[bold]Testing LLM sentiment on top 2 topics:[/bold]")
+        for topic_name, stats in top_topics:
+            console.print(f"  - {topic_name}: {stats['volume']} conversations")
+        
+        # Test LLM on each top topic
+        for topic_name, stats in top_topics:
+            console.print(f"\n{'─'*80}")
+            console.print(f"[bold cyan]TESTING: {topic_name} ({stats['volume']} conversations)[/bold cyan]")
+            console.print(f"{'─'*80}\n")
+            
+            # Get conversations for this topic
+            topic_convs = []
+            for conv in conversations:
+                conv_id = conv.get('id')
+                if conv_id in topics_by_conv:
+                    conv_topics = topics_by_conv[conv_id]
+                    if any(t['topic'] == topic_name for t in conv_topics):
+                        topic_convs.append(conv)
+            
+            if not topic_convs:
+                console.print("[yellow]⚠️  No conversations found for this topic[/yellow]")
+                continue
+            
+            console.print(f"[dim]Sample size: {len(topic_convs)} conversations[/dim]\n")
+            
+            # Show 2 example conversation texts
+            console.print("[bold]Sample Conversations:[/bold]")
+            for i, conv in enumerate(topic_convs[:2], 1):
+                from src.utils.conversation_utils import extract_conversation_text
+                text = extract_conversation_text(conv, clean_html=True)
+                preview = text[:200] + "..." if len(text) > 200 else text
+                console.print(f"{i}. {preview}\n")
+            
+            # Run actual sentiment analysis
+            console.print("[yellow]🤖 Running TopicSentimentAgent...[/yellow]")
+            
+            topic_context = context.model_copy()
+            topic_context.metadata = {
+                'current_topic': topic_name,
+                'topic_conversations': topic_convs
+            }
+            
+            sentiment_result = await sentiment_agent.execute(topic_context)
+            
+            if sentiment_result.success:
+                insight = sentiment_result.data.get('sentiment_insight', '')
+                method = sentiment_result.data.get('method', 'unknown')
+                
+                console.print(f"\n[bold green]✅ LLM Sentiment Result:[/bold green]")
+                console.print(f"[cyan]Method: {method}[/cyan]")
+                console.print(f"[white]{insight}[/white]\n")
+                
+                # Show if it matches the quotes
+                console.print("[bold]Does this match the actual customer feedback above?[/bold]")
+                console.print("[dim](You decide if sentiment is accurate)[/dim]\n")
+            else:
+                console.print(f"[red]❌ Sentiment analysis failed: {sentiment_result.error_message}[/red]\n")
+        
+        console.print(f"\n{'='*80}")
+        console.print("[bold green]✅ LLM TEST COMPLETE[/bold green]")
+        console.print("="*80)
+        console.print("\n[bold]This shows you:[/bold]")
+        console.print("  1. What the LLM is actually generating")
+        console.print("  2. Whether sentiment matches the actual quotes")
+        console.print("  3. If enrichment is corrupting the data")
+        console.print("  4. What method was used (llm vs cx_score - should always be 'llm' now)\n")
 
 
 async def run_sample_mode(
     count: int = 50,
     start_date: datetime = None,
     end_date: datetime = None,
-    save_to_file: bool = True
+    save_to_file: bool = True,
+    test_llm: bool = False
 ) -> Dict[str, Any]:
     """
     Convenience function to run sample mode.
@@ -857,6 +969,7 @@ async def run_sample_mode(
         start_date: Start date (defaults to 7 days ago)
         end_date: End date (defaults to now)
         save_to_file: Save to outputs/
+        test_llm: Run actual LLM sentiment analysis on top topics (shows what agents produce)
         
     Returns:
         Sample analysis results
@@ -869,10 +982,16 @@ async def run_sample_mode(
         start_date = end_date - timedelta(days=7)
     
     sample_mode = SampleMode()
-    return await sample_mode.pull_sample(
+    result = await sample_mode.pull_sample(
         count=count,
         start_date=start_date,
         end_date=end_date,
         save_to_file=save_to_file
     )
+    
+    # Run LLM test if requested
+    if test_llm:
+        await sample_mode.test_llm_analysis(result['conversations'])
+    
+    return result
 
