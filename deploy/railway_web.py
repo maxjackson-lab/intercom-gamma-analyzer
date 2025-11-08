@@ -330,7 +330,13 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--test-llm': {
                 'type': 'boolean',
                 'default': False,
-                'description': 'Run actual LLM sentiment test on top 2 topics'
+                'description': 'Run actual LLM sentiment test on diverse topics'
+            },
+            '--schema-mode': {
+                'type': 'enum',
+                'values': ['quick', 'standard', 'deep', 'comprehensive'],
+                'default': 'quick',
+                'description': 'Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)'
             },
             '--verbose': {
                 'type': 'boolean',
@@ -338,7 +344,7 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'description': 'Enable verbose logging'
             }
         },
-        'estimated_duration': '10-30 seconds'
+        'estimated_duration': '30sec-10min (depends on --schema-mode)'
     },
     'voice_of_customer': {
         'command': 'python',
@@ -1380,9 +1386,17 @@ if HAS_FASTAPI:
                     <div style="margin-bottom: 10px; color: #0ea5e9; font-weight: bold;">
                         📋 Schema Dump: What's Actually There?
                     </div>
+                    
+                    <label style="color: #e5e7eb; font-size: 14px;">Analysis Depth:</label>
+                    <select id="schemaMode" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                        <option value="quick" selected>⚡ Quick - 50 tickets, 5 samples, 2 LLM tests (~30 sec)</option>
+                        <option value="standard">📊 Standard - 200 tickets, 10 samples, 3 LLM tests (~2 min)</option>
+                        <option value="deep">🔍 Deep - 500 tickets, 15 samples, 5 LLM tests (~5 min)</option>
+                        <option value="comprehensive">🎯 Comprehensive - 1000 tickets, 20 samples, 7 LLM tests (~10 min)</option>
+                    </select>
+                    
                     <p style="margin: 10px 0; font-size: 14px; color: #d1d5db;">
-                        Pulls <strong>50 real tickets</strong> and shows you exactly what fields Intercom populates.
-                        Perfect for understanding your data structure and tag coverage.
+                        Shows you exactly what fields Intercom populates and debugs topic detection issues.
                     </p>
                     <div style="margin-top: 10px; padding: 10px; background: rgba(14, 165, 233, 0.15); border-left: 4px solid #0ea5e9; font-size: 13px; color: #e5e7eb;">
                         <strong style="color: #0ea5e9;">💡 What You'll See:</strong>

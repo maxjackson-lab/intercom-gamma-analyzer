@@ -4203,16 +4203,18 @@ def canny_analysis(
 
 
 @cli.command(name='sample-mode')
-@click.option('--count', type=int, default=50, help='Number of real conversations to pull (50-100 recommended)')
+@click.option('--count', type=int, default=50, help='Number of real conversations to pull (overridden by --schema-mode)')
 @click.option('--start-date', help='Start date (YYYY-MM-DD)')
 @click.option('--end-date', help='End date (YYYY-MM-DD)')
 @click.option('--time-period', type=click.Choice(['day', 'week', 'month']), default='week',
               help='Time period shortcut (overrides start/end dates)')
 @click.option('--save-to-file/--no-save', default=True, help='Save raw JSON to outputs/')
 @click.option('--test-llm', is_flag=True, default=False, 
-              help='🧪 Run actual LLM sentiment analysis on top 2 topics to see what agents produce')
+              help='🧪 Run actual LLM sentiment analysis to see what agents produce')
+@click.option('--schema-mode', type=click.Choice(['quick', 'standard', 'deep', 'comprehensive']), default='quick',
+              help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
-                time_period: str, save_to_file: bool, test_llm: bool):
+                time_period: str, save_to_file: bool, test_llm: bool, schema_mode: str):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4245,13 +4247,23 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         start = datetime.strptime(start_date, '%Y-%m-%d') if start_date else datetime.now() - timedelta(days=7)
         end = datetime.strptime(end_date, '%Y-%m-%d') if end_date else datetime.now()
     
+    # Show mode description
+    mode_descriptions = {
+        'quick': '50 tickets, 5 samples, 2 LLM topics (~30 sec)',
+        'standard': '200 tickets, 10 samples, 3 LLM topics (~2 min)',
+        'deep': '500 tickets, 15 samples, 5 LLM topics (~5 min)',
+        'comprehensive': '1000 tickets, 20 samples, 7 LLM topics (~10 min)'
+    }
+    console.print(f"\n[cyan]Schema Mode: {schema_mode} - {mode_descriptions[schema_mode]}[/cyan]\n")
+    
     # Run sample mode
     result = asyncio.run(run_sample_mode(
         count=count,
         start_date=start,
         end_date=end,
         save_to_file=save_to_file,
-        test_llm=test_llm
+        test_llm=test_llm,
+        schema_mode=schema_mode
     ))
     
     console.print("\n[bold green]✅ Sample mode complete![/bold green]")

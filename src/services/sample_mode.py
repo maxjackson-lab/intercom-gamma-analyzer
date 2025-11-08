@@ -64,20 +64,41 @@ class SampleMode:
         count: int = 50,
         start_date: datetime = None,
         end_date: datetime = None,
-        save_to_file: bool = True
+        save_to_file: bool = True,
+        schema_mode: str = 'standard'
     ) -> Dict[str, Any]:
         """
         Pull a random sample of real conversations with ultra-rich logging.
         
         Args:
-            count: Number of conversations (50-100 recommended)
+            count: Number of conversations (depends on mode)
             start_date: Start date for sampling
             end_date: End date for sampling
             save_to_file: Save raw JSON to outputs/
+            schema_mode: Analysis depth level
+                - 'quick': 50 tickets, basic coverage (30 sec)
+                - 'standard': 200 tickets, full analysis (2 min)
+                - 'deep': 500 tickets, detailed breakdowns (5 min)
+                - 'comprehensive': 1000 tickets, everything (10 min)
             
         Returns:
             Dict with conversations and analysis
         """
+        # Override count based on mode if not explicitly set
+        mode_configs = {
+            'quick': {'count': 50, 'detail_samples': 5, 'llm_topics': 2},
+            'standard': {'count': 200, 'detail_samples': 10, 'llm_topics': 3},
+            'deep': {'count': 500, 'detail_samples': 15, 'llm_topics': 5},
+            'comprehensive': {'count': 1000, 'detail_samples': 20, 'llm_topics': 7}
+        }
+        
+        config = mode_configs.get(schema_mode, mode_configs['standard'])
+        actual_count = config['count']
+        detail_samples = config['detail_samples']
+        llm_topic_count = config['llm_topics']
+        
+        console.print(f"\n[bold cyan]Schema Mode: {schema_mode.upper()}[/bold cyan]")
+        console.print(f"[dim]Count: {actual_count} | Detail samples: {detail_samples} | LLM topics: {llm_topic_count}[/dim]\n")
         # Calculate time range description
         days_diff = (end_date - start_date).days
         if days_diff <= 1:
@@ -89,31 +110,33 @@ class SampleMode:
         
         console.print(Panel.fit(
             "[bold cyan]🔬 SAMPLE MODE: Real Data Extraction[/bold cyan]\n\n"
-            f"Pulling {count} conversations from {time_desc}\n"
+            f"Mode: {schema_mode.upper()}\n"
+            f"Pulling {actual_count} conversations from {time_desc}\n"
             f"Date range: {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}\n"
-            f"Strategy: Fast fetch, stops at {count}",
+            f"Detail samples: {detail_samples} | LLM topics: {llm_topic_count}",
             border_style="cyan"
         ))
         
         console.print(f"\n[bold]How this works:[/bold]")
-        console.print(f"  1. Fetches {count} conversations from {time_desc}")
-        console.print(f"  2. Stops IMMEDIATELY after reaching {count}")
+        console.print(f"  1. Fetches {actual_count} conversations from {time_desc}")
+        console.print(f"  2. Stops IMMEDIATELY after reaching {actual_count}")
         console.print(f"  3. Shows ultra-detailed analysis with ALL raw data")
-        console.print(f"  4. Fast: ~30-60 seconds for schema validation\n")
+        console.print(f"  4. Shows {detail_samples} full conversation dumps for debugging")
+        console.print(f"  5. Tests LLM sentiment on {llm_topic_count} diverse topics\n")
         
         # Fetch exactly what was requested - NO MORE
-        console.print(f"📥 [yellow]Fetching {count} conversations from Intercom...[/yellow]")
+        console.print(f"📥 [yellow]Fetching {actual_count} conversations from Intercom...[/yellow]")
         
         conversations = await self.sdk.fetch_conversations_by_date_range(
             start_date=start_date,
             end_date=end_date,
-            max_conversations=count  # STOP at exactly the requested count
+            max_conversations=actual_count  # STOP at exactly the requested count
         )
         
-        actual_count = len(conversations)
-        console.print(f"[green]✅ Fetched {actual_count} conversations[/green]")
-        if actual_count < count:
-            console.print(f"[yellow]⚠️  Only {actual_count} conversations found in {time_desc}[/yellow]")
+        fetched_count = len(conversations)
+        console.print(f"[green]✅ Fetched {fetched_count} conversations[/green]")
+        if fetched_count < actual_count:
+            console.print(f"[yellow]⚠️  Only {fetched_count} conversations found in {time_desc}[/yellow]")
         
         if not conversations:
             console.print("[red]❌ No conversations found![/red]")
@@ -122,7 +145,7 @@ class SampleMode:
         console.print(f"[green]✅ Fetched {len(conversations)} conversations[/green]\n")
         
         # Analyze conversations with rich logging
-        analysis = await self._analyze_sample(conversations)
+        analysis = await self._analyze_sample(conversations, detail_samples=detail_samples, llm_topic_count=llm_topic_count)
         
         # Save to file if requested
         if save_to_file:
@@ -153,8 +176,15 @@ class SampleMode:
             'analysis': analysis
         }
     
-    async def _analyze_sample(self, conversations: List[Dict]) -> Dict[str, Any]:
-        """Analyze sample with ultra-rich logging."""
+    async def _analyze_sample(self, conversations: List[Dict], detail_samples: int = 10, llm_topic_count: int = 3) -> Dict[str, Any]:
+        """
+        Analyze sample with ultra-rich logging.
+        
+        Args:
+            conversations: List of conversations to analyze
+            detail_samples: Number of full conversation dumps to show
+            llm_topic_count: Number of topics to test LLM sentiment on
+        """
         
         # ===== FIELD COVERAGE ANALYSIS =====
         console.print("\n" + "="*80)
@@ -204,13 +234,22 @@ class SampleMode:
         
         self._display_all_conversations_table(conversations)
         
+        # ===== TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG =====
+        console.print("\n" + "="*80)
+        console.print("[bold]🔍 TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG[/bold]")
+        console.print("[dim]Detecting if conversations are being assigned to multiple topics[/dim]")
+        console.print("="*80 + "\n")
+        
+        hierarchy_debug = await self._debug_topic_hierarchy(conversations)
+        self._display_hierarchy_debug(hierarchy_debug)
+        
         # ===== CONVERSATION SAMPLES =====
         console.print("\n" + "="*80)
-        console.print("[bold]📝 ULTRA-DETAILED CONVERSATION SAMPLES (First 5)[/bold]")
+        console.print(f"[bold]📝 ULTRA-DETAILED CONVERSATION SAMPLES (First {detail_samples})[/bold]")
         console.print("[dim]Showing ALL raw Intercom data for debugging[/dim]")
         console.print("="*80 + "\n")
         
-        for i, conv in enumerate(conversations[:5], 1):  # Show 5 detailed samples
+        for i, conv in enumerate(conversations[:detail_samples], 1):  # Show configurable samples
             self._display_conversation_detail(conv, i)
         
         # ===== SUMMARY =====
@@ -226,6 +265,7 @@ class SampleMode:
             'conversation_statistics': conv_stats,
             'agent_attribution': agent_analysis,
             'topic_summary': topic_summary,
+            'hierarchy_debug': hierarchy_debug,
             'total_conversations': len(conversations)
         }
     
@@ -842,7 +882,134 @@ class SampleMode:
         
         console.print(table)
     
-    async def test_llm_analysis(self, conversations: List[Dict]):
+    async def _debug_topic_hierarchy(self, conversations: List[Dict]) -> Dict[str, Any]:
+        """
+        Debug topic detection to find double-counting and hierarchy issues.
+        
+        Returns detailed breakdown of:
+        - Which conversations match multiple topics
+        - What the topic hierarchy looks like from custom_attributes
+        - Detection method distribution
+        """
+        from src.agents.topic_detection_agent import TopicDetectionAgent
+        from src.agents.base_agent import AgentContext
+        
+        # Run actual topic detection
+        topic_agent = TopicDetectionAgent()
+        context = AgentContext(
+            analysis_id="schema_debug",
+            conversations=conversations,
+            start_date=datetime.now(),
+            end_date=datetime.now()
+        )
+        
+        topic_result = await topic_agent.execute(context)
+        
+        if not topic_result.success:
+            return {'error': topic_result.error_message}
+        
+        topics_by_conversation = topic_result.data.get('topics_by_conversation', {})
+        topic_distribution = topic_result.data.get('topic_distribution', {})
+        
+        # Analyze multi-topic assignments (DOUBLE-COUNTING DETECTION)
+        multi_topic_convs = []
+        single_topic_count = 0
+        no_topic_count = 0
+        
+        for conv in conversations:
+            conv_id = conv.get('id')
+            detected = topics_by_conversation.get(conv_id, [])
+            
+            if len(detected) == 0:
+                no_topic_count += 1
+            elif len(detected) == 1:
+                single_topic_count += 1
+            else:
+                # Multiple topics detected!
+                from src.utils.conversation_utils import extract_conversation_text
+                text_preview = extract_conversation_text(conv, clean_html=True)[:150]
+                multi_topic_convs.append({
+                    'conv_id': str(conv_id)[-12:],
+                    'topic_count': len(detected),
+                    'topics': [t['topic'] for t in detected],
+                    'methods': [t['method'] for t in detected],
+                    'text_preview': text_preview
+                })
+        
+        # Analyze hierarchy from custom_attributes
+        hierarchy_examples = []
+        for conv in conversations[:20]:  # Check first 20
+            attrs = conv.get('custom_attributes', {})
+            if not attrs or not isinstance(attrs, dict):
+                continue
+            
+            # Look for hierarchical patterns (Billing > Refund > Given)
+            hierarchical_keys = [k for k in attrs.keys() if k in ['Reason for contact', 'Billing', 'Refund', 'Bug', 'Account']]
+            if len(hierarchical_keys) > 1:
+                hierarchy_examples.append({
+                    'conv_id': str(conv.get('id', ''))[-12:],
+                    'hierarchy': {k: attrs[k] for k in hierarchical_keys},
+                    'all_keys': list(attrs.keys())[:10]
+                })
+        
+        return {
+            'total': len(conversations),
+            'single_topic': single_topic_count,
+            'multi_topic': len(multi_topic_convs),
+            'no_topic': no_topic_count,
+            'multi_topic_examples': multi_topic_convs[:10],  # Show first 10
+            'hierarchy_examples': hierarchy_examples[:5],  # Show first 5
+            'topic_distribution': topic_distribution
+        }
+    
+    def _display_hierarchy_debug(self, debug_data: Dict[str, Any]):
+        """Display hierarchy debugging information."""
+        if 'error' in debug_data:
+            console.print(f"[red]Topic detection error: {debug_data['error']}[/red]")
+            return
+        
+        # Multi-topic assignment stats
+        console.print("[bold]Double-Counting Detection:[/bold]")
+        total = debug_data['total']
+        console.print(f"  Single topic: {debug_data['single_topic']} ({debug_data['single_topic']/total*100:.1f}%) [green]✅ No double-counting[/green]")
+        console.print(f"  Multi-topic: {debug_data['multi_topic']} ({debug_data['multi_topic']/total*100:.1f}%) [yellow]⚠️  Double-counted![/yellow]")
+        console.print(f"  No topic: {debug_data['no_topic']} ({debug_data['no_topic']/total*100:.1f}%) [red]❌ Unclassified[/red]")
+        
+        # Show examples of double-counted conversations
+        if debug_data['multi_topic_examples']:
+            console.print(f"\n[bold yellow]⚠️  {len(debug_data['multi_topic_examples'])} Conversations Assigned to Multiple Topics:[/bold yellow]")
+            console.print("[dim]These conversations are counted multiple times in topic distribution[/dim]\n")
+            
+            for example in debug_data['multi_topic_examples'][:5]:
+                console.print(f"[cyan]ID: ...{example['conv_id']}[/cyan]")
+                console.print(f"  Topics: {', '.join(example['topics'])} ({example['topic_count']} topics)")
+                console.print(f"  Methods: {', '.join(example['methods'])}")
+                console.print(f"  Text: {example['text_preview']}...")
+                console.print()
+        
+        # Show hierarchy examples
+        if debug_data['hierarchy_examples']:
+            console.print(f"\n[bold]Hierarchical Structure in custom_attributes:[/bold]")
+            console.print("[dim]Shows Billing > Refund > Given type nested attributes[/dim]\n")
+            
+            for example in debug_data['hierarchy_examples']:
+                console.print(f"[cyan]ID: ...{example['conv_id']}[/cyan]")
+                for key, value in example['hierarchy'].items():
+                    console.print(f"  {key}: {value}")
+                console.print(f"  [dim](All keys: {', '.join(example['all_keys'][:5])}...)[/dim]")
+                console.print()
+        
+        # Topic distribution summary
+        console.print("\n[bold]Current Topic Distribution:[/bold]")
+        sorted_topics = sorted(debug_data['topic_distribution'].items(), key=lambda x: x[1]['volume'], reverse=True)[:10]
+        for topic, stats in sorted_topics:
+            vol = stats['volume']
+            pct = stats['percentage']
+            method = stats.get('detection_method', 'unknown')
+            console.print(f"  {topic}: {vol} ({pct}%) - {method}")
+        console.print()
+    
+    async def test_llm_analysis(self, conversations: List[Dict], llm_topic_count: int = 3):
         """
         Run actual LLM sentiment analysis on top topics to show what agents produce.
         
@@ -882,16 +1049,26 @@ class SampleMode:
         topic_dist = topic_result.data.get('topic_distribution', {})
         topics_by_conv = topic_result.data.get('topics_by_conversation', {})
         
-        # Get top 2 topics by volume
-        top_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:2]
+        # Select diverse topics: high-volume + low-volume for comprehensive testing
+        all_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
         
-        console.print(f"[green]✅ Found {len(topic_dist)} topics[/green]\n")
-        console.print(f"[bold]Testing LLM sentiment on top 2 topics:[/bold]")
-        for topic_name, stats in top_topics:
+        # Strategy: 60% high-volume, 40% low-volume (mix of common + edge cases)
+        high_volume_count = max(1, int(llm_topic_count * 0.6))
+        low_volume_count = llm_topic_count - high_volume_count
+        
+        high_volume_topics = all_topics[:high_volume_count]
+        low_volume_topics = all_topics[-(low_volume_count):] if low_volume_count > 0 else []
+        
+        selected_topics = high_volume_topics + low_volume_topics
+        
+        console.print(f"[green]✅ Found {len(topic_dist)} topics total[/green]\n")
+        console.print(f"[bold]Testing LLM sentiment on {len(selected_topics)} diverse topics:[/bold]")
+        console.print(f"[dim]Strategy: {high_volume_count} high-volume + {low_volume_count} low-volume topics[/dim]")
+        for topic_name, stats in selected_topics:
             console.print(f"  - {topic_name}: {stats['volume']} conversations")
         
-        # Test LLM on each top topic
-        for topic_name, stats in top_topics:
+        # Test LLM on each selected topic
+        for topic_name, stats in selected_topics:
             console.print(f"\n{'─'*80}")
             console.print(f"[bold cyan]TESTING: {topic_name} ({stats['volume']} conversations)[/bold cyan]")
             console.print(f"{'─'*80}\n")
@@ -959,7 +1136,8 @@ async def run_sample_mode(
     start_date: datetime = None,
     end_date: datetime = None,
     save_to_file: bool = True,
-    test_llm: bool = False
+    test_llm: bool = False,
+    schema_mode: str = 'standard'
 ) -> Dict[str, Any]:
     """
     Convenience function to run sample mode.
@@ -986,12 +1164,21 @@ async def run_sample_mode(
         count=count,
         start_date=start_date,
         end_date=end_date,
-        save_to_file=save_to_file
+        save_to_file=save_to_file,
+        schema_mode=schema_mode
     )
     
     # Run LLM test if requested
     if test_llm:
-        await sample_mode.test_llm_analysis(result['conversations'])
+        # Get llm_topic_count from mode config
+        mode_configs = {
+            'quick': 2,
+            'standard': 3,
+            'deep': 5,
+            'comprehensive': 7
+        }
+        llm_count = mode_configs.get(schema_mode, 3)
+        await sample_mode.test_llm_analysis(result['conversations'], llm_topic_count=llm_count)
     
     return result
 

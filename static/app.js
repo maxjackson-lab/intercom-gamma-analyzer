@@ -291,11 +291,12 @@ async function runAnalysis() {
             args.push('--time-period', sampleTimePeriod);
             
         } else if (analysisType === 'schema-dump') {
+            const schemaMode = document.getElementById('schemaMode')?.value || 'quick';
             args.push('sample-mode');
-            args.push('--count', '50');  // Fixed 50 for schema analysis
             args.push('--time-period', 'week');
             args.push('--save-to-file');  // Save the raw JSON too
-            args.push('--test-llm');  // Run actual LLM sentiment on top 2 topics
+            args.push('--test-llm');  // Run actual LLM sentiment on diverse topics
+            args.push('--schema-mode', schemaMode);  // User-selected depth
             
         } else if (analysisType === 'voice-of-customer-hilary') {
             args.push('voice-of-customer');
