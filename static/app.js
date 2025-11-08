@@ -898,20 +898,20 @@ function updateAnalysisOptions() {
         teamInfo.style.display = showTeam ? 'block' : 'none';
     }
     
-    // Show/hide time period selector for sample mode
-    const timePeriodLabel = document.getElementById('timePeriodLabel');
-    const timePeriodSelect = document.getElementById('timePeriod');
-    if (analysisType === 'sample-mode') {
-        if (timePeriodLabel) timePeriodLabel.style.display = 'none';
-        if (timePeriodSelect) timePeriodSelect.style.display = 'none';
-    } else {
-        if (timePeriodLabel) timePeriodLabel.style.display = 'block';
-        if (timePeriodSelect) timePeriodSelect.style.display = 'block';
-    }
-    
-    // Hide irrelevant controls for diagnostic modes (sample-mode, schema-dump)
+    // Determine if this is a diagnostic mode
     const isDiagnostic = analysisType === 'sample-mode' || analysisType === 'schema-dump';
     const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
+    
+    // Hide/show Time Period (hide for schema-dump only)
+    const timePeriodLabel = document.getElementById('timePeriodLabel');
+    const timePeriodSelect = document.getElementById('timePeriod');
+    const showTimePeriod = analysisType !== 'schema-dump';  // Schema-dump handles internally
+    if (timePeriodLabel) {
+        timePeriodLabel.style.display = showTimePeriod ? 'block' : 'none';
+    }
+    if (timePeriodSelect) {
+        timePeriodSelect.style.display = showTimePeriod ? 'block' : 'none';
+    }
     
     // Hide/show Data Source (only for VoC)
     const dataSourceLabel = document.querySelector('label[for="dataSource"]');
@@ -924,17 +924,6 @@ function updateAnalysisOptions() {
         if (!isVoC) {
             dataSourceSelect.value = 'intercom';
         }
-    }
-    
-    // Hide Time Period for schema-dump (it handles internally)
-    const timePeriodLabel = document.getElementById('timePeriodLabel');
-    const timePeriodSelect = document.getElementById('timePeriod');
-    if (analysisType === 'schema-dump') {
-        if (timePeriodLabel) timePeriodLabel.style.display = 'none';
-        if (timePeriodSelect) timePeriodSelect.style.display = 'none';
-    } else {
-        if (timePeriodLabel) timePeriodLabel.style.display = 'block';
-        if (timePeriodSelect) timePeriodSelect.style.display = 'block';
     }
     
     // Hide Taxonomy Filter for diagnostic modes
