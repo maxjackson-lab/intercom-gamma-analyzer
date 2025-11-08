@@ -355,8 +355,8 @@ async function runAnalysis() {
             return;
         }
         
-        // Add time period (unless it's sample-mode)
-        if (analysisType !== 'sample-mode') {
+        // Add time period (unless it's sample-mode or schema-dump - they handle it internally)
+        if (analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
             if (timePeriod === 'custom' && startDate && endDate) {
                 args.push('--start-date', startDate);
                 args.push('--end-date', endDate);
@@ -365,29 +365,30 @@ async function runAnalysis() {
             }
         }
         
-        // Add AI model
-        if (aiModel && analysisType !== 'sample-mode') {
+        // Add AI model (skip for sample-mode and schema-dump)
+        if (aiModel && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
             args.push('--ai-model', aiModel);
         }
         
-        // Add output format / generate gamma
-        // Note: voice-of-customer commands don't support --output-format, only --generate-gamma
-        if (outputFormat === 'gamma') {
-            args.push('--generate-gamma');
-        } else if (outputFormat && analysisType !== 'sample-mode' && !analysisType.startsWith('voice-of-customer')) {
-            args.push('--output-format', outputFormat);
+        // Add output format / generate gamma (skip for sample-mode and schema-dump)
+        if (analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+            if (outputFormat === 'gamma') {
+                args.push('--generate-gamma');
+            } else if (outputFormat && !analysisType.startsWith('voice-of-customer')) {
+                args.push('--output-format', outputFormat);
+            }
         }
         
-        // Add test mode flags
-        if (testMode) {
+        // Add test mode flags (skip for sample-mode and schema-dump)
+        if (testMode && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
             args.push('--test-mode');
             if (testDataCount) {
                 args.push('--test-data-count', testDataCount);
             }
         }
         
-        // Add verbose flag
-        if (verboseLogging || (testMode && verboseLogging)) {
+        // Add verbose flag (skip for sample-mode and schema-dump - they have their own verbosity)
+        if (verboseLogging && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
             args.push('--verbose');
         }
         
