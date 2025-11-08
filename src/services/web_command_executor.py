@@ -60,7 +60,7 @@ class WebCommandExecutor:
                 # Date/time options - with strict validation
                 "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
                 # Sample mode options
-                "--count", "--save-to-file", "--no-save",
+                "--count", "--save-to-file", "--no-save", "--test-llm", "--schema-mode",
                 # Analysis options
                 "--multi-agent", "--analysis-type",
                 "--focus-areas", "--focus-categories",
