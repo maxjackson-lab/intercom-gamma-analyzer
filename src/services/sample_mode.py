@@ -206,7 +206,13 @@ class SampleMode:
             'analysis': analysis
         }
     
-    async def _analyze_sample(self, conversations: List[Dict], detail_samples: int = 10, llm_topic_count: int = 3) -> Dict[str, Any]:
+    async def _analyze_sample(
+        self,
+        conversations: List[Dict],
+        detail_samples: int = 10,
+        llm_topic_count: int = 3,
+        include_hierarchy: bool = True
+    ) -> Dict[str, Any]:
         """
         Analyze sample with ultra-rich logging.
         
@@ -214,6 +220,7 @@ class SampleMode:
             conversations: List of conversations to analyze
             detail_samples: Number of full conversation dumps to show
             llm_topic_count: Number of topics to test LLM sentiment on
+            include_hierarchy: Whether to display the topic hierarchy debug section
         """
         
         # ===== FIELD COVERAGE ANALYSIS =====
