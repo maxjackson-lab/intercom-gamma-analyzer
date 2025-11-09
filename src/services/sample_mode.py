@@ -26,7 +26,7 @@ from src.services.intercom_sdk_service import IntercomSDKService
 from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 
 logger = logging.getLogger(__name__)
-console = Console()
+console = Console()  # Main console for terminal output
 
 
 class SampleMode:
@@ -65,7 +65,8 @@ class SampleMode:
         start_date: datetime = None,
         end_date: datetime = None,
         save_to_file: bool = True,
-        schema_mode: str = 'standard'
+        schema_mode: str = 'standard',
+        include_hierarchy: bool = True
     ) -> Dict[str, Any]:
         """
         Pull a random sample of real conversations with ultra-rich logging.
@@ -80,6 +81,7 @@ class SampleMode:
                 - 'standard': 200 tickets, full analysis (2 min)
                 - 'deep': 500 tickets, detailed breakdowns (5 min)
                 - 'comprehensive': 1000 tickets, everything (10 min)
+            include_hierarchy: Show/hide topic hierarchy debugging section
             
         Returns:
             Dict with conversations and analysis
@@ -144,8 +146,15 @@ class SampleMode:
         
         console.print(f"[green]✅ Fetched {len(conversations)} conversations[/green]\n")
         
+        # Start recording console output for log file
+        console.record = True
+        
         # Analyze conversations with rich logging
-        analysis = await self._analyze_sample(conversations, detail_samples=detail_samples, llm_topic_count=llm_topic_count)
+        analysis = await self._analyze_sample(conversations, detail_samples=detail_samples, llm_topic_count=llm_topic_count, include_hierarchy=include_hierarchy)
+        
+        # Capture all console output as plain text
+        log_output = console.export_text(clear=True)
+        console.record = False
         
         # Save to file if requested
         if save_to_file:
@@ -168,6 +177,13 @@ class SampleMode:
             
             console.print(f"\n💾 [green]Raw JSON saved to:[/green] {output_file}")
             console.print(f"   (All detailed analysis is shown above in console)")
+            
+            # Also save complete log file for download
+            log_file = output_file.with_suffix('.log')
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write(log_output)
+            console.print(f"📋 [green]Complete log saved to:[/green] {log_file}")
+            console.print(f"   (Download from Files tab - has EVERYTHING even if terminal disconnects)")
         else:
             console.print(f"\n[dim]ℹ️  JSON file not saved (use --save-to-file to enable)[/dim]")
         
@@ -235,13 +251,18 @@ class SampleMode:
         self._display_all_conversations_table(conversations)
         
         # ===== TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG =====
-        console.print("\n" + "="*80)
-        console.print("[bold]🔍 TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG[/bold]")
-        console.print("[dim]Detecting if conversations are being assigned to multiple topics[/dim]")
-        console.print("="*80 + "\n")
-        
-        hierarchy_debug = await self._debug_topic_hierarchy(conversations)
-        self._display_hierarchy_debug(hierarchy_debug)
+        # Only show if include_hierarchy is True (defaults to True)
+        if include_hierarchy:
+            console.print("\n" + "="*80)
+            console.print("[bold]🔍 TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG[/bold]")
+            console.print("[dim]Detecting if conversations are being assigned to multiple topics[/dim]")
+            console.print("="*80 + "\n")
+            
+            hierarchy_debug = await self._debug_topic_hierarchy(conversations)
+            self._display_hierarchy_debug(hierarchy_debug)
+        else:
+            # Still compute for JSON export, but don't display
+            hierarchy_debug = await self._debug_topic_hierarchy(conversations)
         
         # ===== CONVERSATION SAMPLES =====
         console.print("\n" + "="*80)
@@ -1137,7 +1158,8 @@ async def run_sample_mode(
     end_date: datetime = None,
     save_to_file: bool = True,
     test_llm: bool = False,
-    schema_mode: str = 'standard'
+    schema_mode: str = 'standard',
+    include_hierarchy: bool = True
 ) -> Dict[str, Any]:
     """
     Convenience function to run sample mode.
@@ -1148,6 +1170,7 @@ async def run_sample_mode(
         end_date: End date (defaults to now)
         save_to_file: Save to outputs/
         test_llm: Run actual LLM sentiment analysis on top topics (shows what agents produce)
+        include_hierarchy: Show/hide topic hierarchy debugging section
         
     Returns:
         Sample analysis results
@@ -1165,7 +1188,8 @@ async def run_sample_mode(
         start_date=start_date,
         end_date=end_date,
         save_to_file=save_to_file,
-        schema_mode=schema_mode
+        schema_mode=schema_mode,
+        include_hierarchy=include_hierarchy
     )
     
     # Run LLM test if requested

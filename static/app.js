@@ -292,11 +292,18 @@ async function runAnalysis() {
             
         } else if (analysisType === 'schema-dump') {
             const schemaMode = document.getElementById('schemaMode')?.value || 'quick';
+            const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
+            
             args.push('sample-mode');
             args.push('--time-period', 'week');
             args.push('--save-to-file');  // Save the raw JSON too
             args.push('--test-llm');  // Run actual LLM sentiment on diverse topics
             args.push('--schema-mode', schemaMode);  // User-selected depth
+            
+            // Add hierarchy flag (only send --no-hierarchy if unchecked, since default is true)
+            if (!includeHierarchy) {
+                args.push('--no-hierarchy');
+            }
             
         } else if (analysisType === 'voice-of-customer-hilary') {
             args.push('voice-of-customer');

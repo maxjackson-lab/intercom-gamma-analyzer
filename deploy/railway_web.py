@@ -344,6 +344,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': 'openai',
                 'description': 'AI model for LLM sentiment test (if --test-llm enabled)'
             },
+            '--include-hierarchy': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Show/hide topic hierarchy debugging section'
+            },
             '--verbose': {
                 'type': 'boolean',
                 'default': False,
@@ -1400,6 +1405,16 @@ if HAS_FASTAPI:
                         <option value="deep">🔍 Deep - 500 tickets, 15 samples, 5 LLM tests (~5 min)</option>
                         <option value="comprehensive">🎯 Comprehensive - 1000 tickets, 20 samples, 7 LLM tests (~10 min)</option>
                     </select>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb; font-size: 14px;">
+                            <input type="checkbox" id="includeHierarchy" checked style="margin-right: 8px; cursor: pointer;">
+                            <span>Show Topic Hierarchy Debug Section</span>
+                        </label>
+                        <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
+                            Displays topic detection and hierarchy structure debugging information
+                        </p>
+                    </div>
                     
                     <p style="margin: 10px 0; font-size: 14px; color: #d1d5db;">
                         Shows you exactly what fields Intercom populates and debugs topic detection issues.

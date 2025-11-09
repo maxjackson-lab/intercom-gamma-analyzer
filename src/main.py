@@ -4215,11 +4215,13 @@ def canny_analysis(
               help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai',
               help='AI model for LLM sentiment test (only used if --test-llm enabled)')
+@click.option('--include-hierarchy/--no-hierarchy', default=True,
+              help='Show/hide topic hierarchy debugging section (default: show)')
 @click.option('--verbose', is_flag=True, default=False,
               help='Enable verbose DEBUG logging')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
                 time_period: str, save_to_file: bool, test_llm: bool, schema_mode: str,
-                ai_model: str, verbose: bool):
+                ai_model: str, include_hierarchy: bool, verbose: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4281,7 +4283,8 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         end_date=end,
         save_to_file=save_to_file,
         test_llm=test_llm,
-        schema_mode=schema_mode
+        schema_mode=schema_mode,
+        include_hierarchy=include_hierarchy
     ))
     
     console.print("\n[bold green]✅ Sample mode complete![/bold green]")
