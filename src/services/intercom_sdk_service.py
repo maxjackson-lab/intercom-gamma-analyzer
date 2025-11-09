@@ -177,23 +177,23 @@ class IntercomSDKService:
         )
         
         try:
+            # Provide sane defaults for SDK request options (timeouts + retries)
+            if request_options is None:
+                request_options = {
+                    "max_retries": int(self.max_retries) if self.max_retries is not None else 3,
+                    "timeout": float(self.timeout) if self.timeout is not None else 60.0,
+                }
             # EMERGENCY BRAKE: Absolute maximum to prevent infinite loops
             EMERGENCY_MAX_CONVERSATIONS = 20000
             
             # Use SDK's search method with pagination and built-in retry
             # SDK automatically retries 429 (rate limit) errors with exponential backoff
             # Pass through request_options if provided for custom retry/timeout behavior
-            if request_options:
-                pager: AsyncPager = await self.client.conversations.search(
-                    query=search_query,
-                    pagination=pagination,
-                    request_options=request_options
-                )
-            else:
-                pager: AsyncPager = await self.client.conversations.search(
-                    query=search_query,
-                    pagination=pagination
-                )
+            pager: AsyncPager = await self.client.conversations.search(
+                query=search_query,
+                pagination=pagination,
+                request_options=request_options
+            )
             
             # Track duplicate prevention
             seen_ids: set[str] = set()

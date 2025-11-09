@@ -494,12 +494,15 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     const isAgentPerformance = args.includes('agent-performance') || args.includes('agent-coaching-report');
     const isSampleMode = args.includes('sample-mode');
     const schemaMode = args.includes('--schema-mode') ? args[args.indexOf('--schema-mode') + 1] : null;
+    // Heuristic: schema-dump path uses sample-mode + save-to-file + test-llm + schema-mode
+    const isSchemaDumpPath = isSampleMode && args.includes('--schema-mode') && args.includes('--save-to-file') && args.includes('--test-llm');
     
     // Use background execution if:
     // 1. Multi-agent analysis (always long-running)
     // 2. Week or longer with Gamma generation
     // 3. Agent performance/coaching (database-heavy)
-    // 4. Schema dump in deep/comprehensive mode (enrichment takes long)
+    // 4. Schema dump (always run in background to avoid SSE fragility)
+    // 5. Schema dump in deep/comprehensive mode (enrichment takes long)
     if (hasMultiAgent) {
         console.log('→ Background mode: multi-agent analysis detected');
         return true;
@@ -512,6 +515,11 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     
     if (isAgentPerformance && isLongPeriod) {
         console.log('→ Background mode: agent performance on long period');
+        return true;
+    }
+    
+    if (isSchemaDumpPath) {
+        console.log('→ Background mode: schema dump detected (always background)');
         return true;
     }
     

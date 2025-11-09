@@ -1718,8 +1718,8 @@ if HAS_FASTAPI:
         for faster execution or increase MAX_EXECUTION_DURATION.
         
         **Client Disconnect:**
-        If client disconnects, background task is automatically cancelled
-        and resources are cleaned up.
+        If client disconnects, the job continues running in the background.
+        You can resume via /execute/status/{execution_id} or the web UI banner.
         
         Security: This endpoint requires bearer token authentication and rate limiting.
         Set EXECUTION_API_TOKEN environment variable to enable authentication.
@@ -1966,38 +1966,18 @@ if HAS_FASTAPI:
                     
                     # Check for client disconnect
                     if await request.is_disconnected():
-                        logger.info(f"Client disconnected for execution {execution_id}")
-                        # Comment 2: Check return of cancel_execution, attempt force kill if False
-                        cancelled = await command_executor.cancel_execution(execution_id)
-                        if not cancelled:
-                            logger.warning(f"cancel_execution returned False for {execution_id}, attempting force kill")
-                            # Wait briefly before force kill
-                            await asyncio.sleep(2)
-                            # Force kill via process group if available
-                            if execution_id in command_executor.active_processes:
-                                process = command_executor.active_processes[execution_id]
-                                try:
-                                    if sys.platform != "win32" and hasattr(os, 'killpg'):
-                                        pgid = os.getpgid(process.pid)
-                                        os.killpg(pgid, signal.SIGKILL)
-                                    else:
-                                        process.kill()
-                                    logger.info(f"Force killed process group for {execution_id}")
-                                except Exception as e:
-                                    logger.error(f"Force kill failed for {execution_id}: {e}")
-                        
-                        # Comment 2: Update state with definitive final status and timestamp
+                        logger.info(f"[SSE] Client disconnected for execution {execution_id} - continuing in background")
+                        # Do NOT cancel the running job; leave it running and just end SSE stream.
+                        # Update state to running (no change) and emit a final advisory message.
                         await state_manager.update_execution_status(
-                            execution_id, ExecutionStatus.CANCELLED,
-                            error_message='Client disconnected',
-                            end_time=datetime.now()
+                            execution_id, ExecutionStatus.RUNNING
                         )
                         yield {
                             "event": "message",
                             "data": json.dumps({
-                                'type': 'cancelled',
-                                'status': 'cancelled',
-                                'message': 'Client disconnected',
+                                'type': 'status',
+                                'status': 'running',
+                                'message': 'Client disconnected. Job continues running in background. Resume from Files tab or status endpoint.',
                                 'execution_id': execution_id,
                                 'timestamp': datetime.now().isoformat()
                             })
@@ -2088,20 +2068,21 @@ if HAS_FASTAPI:
                     last_output_time = time.time()
                 
             except asyncio.CancelledError:
-                # Client disconnected or cancelled
+                # Client disconnected or server shut down the connection
                 elapsed_total = time.time() - start_time
                 logger.warning(
-                    f"[SSE] Execution {execution_id} cancelled via CancelledError | "
+                    f"[SSE] Stream for {execution_id} ended via CancelledError | "
                     f"Elapsed: {elapsed_total:.2f}s | "
                     f"Output chunks: {output_count} | "
                     f"Keepalives: {keepalive_count} | "
                     f"First output received: {first_output_received}"
                 )
+                # Do NOT cancel the job. Leave it running in background.
                 await state_manager.update_execution_status(
-                    execution_id, ExecutionStatus.CANCELLED
+                    execution_id, ExecutionStatus.RUNNING
                 )
-                await command_executor.cancel_execution(execution_id)
-                raise
+                # Silently end the SSE stream
+                return
             except json.JSONDecodeError as e:
                 # JSON encoding error
                 await state_manager.update_execution_status(

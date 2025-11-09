@@ -129,11 +129,25 @@ class SampleMode:
         # Fetch exactly what was requested - NO MORE
         console.print(f"📥 [yellow]Fetching {actual_count} conversations from Intercom...[/yellow]")
         
-        conversations = await self.sdk.fetch_conversations_by_date_range(
-            start_date=start_date,
-            end_date=end_date,
-            max_conversations=actual_count  # STOP at exactly the requested count
-        )
+        # For 3+ day ranges, use ChunkedFetcher to improve progress and resiliency
+        from src.services.chunked_fetcher import ChunkedFetcher
+        days_diff = (end_date.date() - start_date.date()).days + 1
+        if days_diff > 3:
+            fetcher = ChunkedFetcher(intercom_service=self.sdk, enable_preprocessing=False)
+            def progress_cb(fetched, processed_days, total_days):
+                console.print(f"[dim]Progress: fetched ~{fetched} conversations | {processed_days}/{total_days} days[/dim]")
+            conversations = await fetcher.fetch_conversations_chunked(
+                start_date=start_date,
+                end_date=end_date,
+                max_conversations=actual_count,
+                progress_callback=progress_cb
+            )
+        else:
+            conversations = await self.sdk.fetch_conversations_by_date_range(
+                start_date=start_date,
+                end_date=end_date,
+                max_conversations=actual_count  # STOP at exactly the requested count
+            )
         
         fetched_count = len(conversations)
         console.print(f"[green]✅ Fetched {fetched_count} conversations[/green]")
