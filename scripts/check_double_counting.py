@@ -73,27 +73,36 @@ class DoubleCountingChecker:
                                 })
                                 break
             
-            # Pattern 2: Topics not sorted by confidence
-            if 'def detect_topics' in content or 'def _detect_topics' in content:
-                # Find the return statement
-                return_matches = re.finditer(r'return\s+(\w+)', content)
-                for match in return_matches:
-                    var_name = match.group(1)
+            # Pattern 2: Topics not sorted by confidence in detect_topics_for_conversation
+            # Only check the main detection method
+            if 'def _detect_topics_for_conversation' in content:
+                # Find the method
+                method_start = content.find('def _detect_topics_for_conversation')
+                method_end = content.find('\n    def ', method_start + 1)
+                if method_end == -1:
+                    method_end = len(content)
+                
+                method_body = content[method_start:method_end]
+                
+                # Find return detected statement
+                return_match = re.search(r'return\s+(detected|topics)\s*$', method_body, re.MULTILINE)
+                if return_match:
+                    var_name = return_match.group(1)
                     
-                    # Check if there's a sorted() call before return
-                    before_return = content[:match.start()]
-                    
-                    # Look for sorted(var_name, key=..., reverse=True)
-                    if f'sorted({var_name}' not in before_return and f'{var_name}.sort(' not in before_return:
-                        # Not sorted!
-                        line_num = content[:match.start()].count('\n') + 1
+                    # Check if sorted() is applied to the return
+                    if 'return sorted(' + var_name in method_body:
+                        # ✅ Correctly sorted!
+                        pass
+                    else:
+                        # ❌ Not sorted - this is the critical one!
+                        line_num = content[:method_start + return_match.start()].count('\n') + 1
                         self.errors.append({
                             'file': str(file_path),
                             'line': line_num,
-                            'error': 'Detected topics not sorted by confidence',
+                            'error': 'Detected topics not sorted by confidence in _detect_topics_for_conversation()',
                             'risk': 'Primary topic may not be highest confidence → double-counting downstream',
                             'fix': f'return sorted({var_name}, key=lambda x: x.get("confidence", 0), reverse=True)',
-                            'severity': 'warning'
+                            'severity': 'critical'
                         })
     
     def _check_output_data(self):
