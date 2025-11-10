@@ -157,10 +157,10 @@ class AgentFeedbackSeparator:
                             if 'email' in author:
                                 text_parts.append(author['email'])
         
-        # Extract from source
-        if 'source' in conversation and isinstance(conversation['source'], dict):
-            if 'body' in conversation['source']:
-                text_parts.append(conversation['source']['body'])
+        # Extract from source (safe access)
+        source_body = conversation.get('source', {}).get('body')
+        if source_body:
+            text_parts.append(source_body)
         
         # Extract from custom attributes
         if 'custom_attributes' in conversation:

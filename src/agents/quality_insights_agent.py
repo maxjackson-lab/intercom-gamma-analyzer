@@ -358,13 +358,15 @@ Focus on patterns that help teams improve their support quality and identify edg
 
     def _get_touch_count(self, conv: Dict) -> int:
         """Get touch count from conversation"""
-        # Try statistics field first
-        if conv.get('statistics', {}).get('count_conversation_parts'):
-            return conv['statistics']['count_conversation_parts']
+        # Try statistics field first (safe access)
+        count = conv.get('statistics', {}).get('count_conversation_parts')
+        if count:
+            return count
         
-        # Fallback to conversation_parts length
-        if conv.get('conversation_parts', {}).get('conversation_parts'):
-            return len(conv['conversation_parts']['conversation_parts'])
+        # Fallback to conversation_parts length (safe access)
+        parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+        if parts and isinstance(parts, list):
+            return len(parts)
         
         return 1
 

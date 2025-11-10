@@ -338,12 +338,14 @@ Format your analysis as insights that help teams understand their support patter
             
             # Calculate average message counts
             def get_message_count(conv):
-                # Try statistics field first
-                if conv.get('statistics', {}).get('count_conversation_parts'):
-                    return conv['statistics']['count_conversation_parts']
-                # Fallback to conversation_parts length
-                if conv.get('conversation_parts', {}).get('conversation_parts'):
-                    return len(conv['conversation_parts']['conversation_parts'])
+                # Try statistics field first (safe access)
+                count = conv.get('statistics', {}).get('count_conversation_parts')
+                if count:
+                    return count
+                # Fallback to conversation_parts length (safe access)
+                parts = conv.get('conversation_parts', {}).get('conversation_parts', [])
+                if parts and isinstance(parts, list):
+                    return len(parts)
                 return 1
             
             escalated_messages = [get_message_count(c) for c in escalated]

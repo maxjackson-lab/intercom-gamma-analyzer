@@ -212,9 +212,10 @@ class VoiceOfCustomerAnalyzer:
                         texts.append(part['body'])
             
             # Extract from source
-            if 'source' in conv and isinstance(conv['source'], dict):
-                if 'body' in conv['source']:
-                    texts.append(conv['source']['body'])
+            # Safe nested access
+            body = conv.get('source', {}).get('body')
+            if body:
+                texts.append(body)
         
         return ' '.join(texts[:10])  # Limit to first 10 conversations to avoid token limits
     
@@ -302,9 +303,8 @@ class VoiceOfCustomerAnalyzer:
         # Extract text snippets from sampled conversations
         conversation_texts = []
         for i, conv in enumerate(sample):
-            text = ""
-            if 'source' in conv and 'body' in conv['source']:
-                text = conv['source']['body'][:200]  # First 200 chars
+            # Safe nested access
+            text = conv.get('source', {}).get('body', '')[:200]  # First 200 chars
             conversation_texts.append(f"{i+1}. {text}")
         
         combined_text = "\n".join(conversation_texts)
@@ -438,9 +438,9 @@ Return ONLY valid JSON in this exact format:
         """Score conversation quality for selection."""
         score = 0.5  # Base score
         
-        # Check if conversation has clear content
-        if 'source' in conversation and 'body' in conversation['source']:
-            body = conversation['source']['body']
+        # Check if conversation has clear content (safe access)
+        body = conversation.get('source', {}).get('body')
+        if body:
             
             # Length (not too short, not too long)
             if 50 < len(body) < 500:
@@ -466,8 +466,8 @@ Return ONLY valid JSON in this exact format:
     
     def _extract_quote(self, conversation: Dict) -> str:
         """Extract a representative quote from conversation."""
-        if 'source' in conversation and 'body' in conversation['source']:
-            body = conversation['source']['body']
+        body = conversation.get('source', {}).get('body')
+        if body:
             # Limit to first 200 characters
             if len(body) > 200:
                 return body[:197] + "..."
@@ -483,9 +483,9 @@ Return ONLY valid JSON in this exact format:
             if sentiment in ['positive', 'negative', 'neutral']:
                 return sentiment
         
-        # Simple keyword-based fallback
-        if 'source' in conversation and 'body' in conversation['source']:
-            body = conversation['source']['body'].lower()
+        # Simple keyword-based fallback (safe access)
+        body = conversation.get('source', {}).get('body', '').lower()
+        if body:
             
             positive_words = ['great', 'thank', 'excellent', 'amazing', 'perfect', 'love']
             negative_words = ['frustrat', 'terrible', 'awful', 'disappointed', 'hate', 'broken', 'bug']

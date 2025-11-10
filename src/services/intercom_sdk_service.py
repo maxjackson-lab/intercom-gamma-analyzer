@@ -389,8 +389,12 @@ class IntercomSDKService:
                                             f"Unexpected error fetching segments for contact {contact_id}: {e}"
                                         )
 
-                                    # Replace the contact data in the conversation
-                                    conv['contacts']['contacts'][0] = full_contact_data
+                                    # Replace the contact data in the conversation (safe access)
+                                    contacts_dict = conv.get('contacts', {})
+                                    if isinstance(contacts_dict, dict):
+                                        contacts_list = contacts_dict.get('contacts', [])
+                                        if isinstance(contacts_list, list) and len(contacts_list) > 0:
+                                            contacts_list[0] = full_contact_data
                                     metrics['successful'] += 1
                                     self.logger.debug(
                                         f"Enriched conversation {conv.get('id')} with full contact details"

@@ -4288,11 +4288,16 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
     ))
     
     console.print("\n[bold green]✅ Sample mode complete![/bold green]")
-    console.print(f"Analyzed {result['analysis']['total_conversations']} conversations")
+    console.print(f"Analyzed {result.get('analysis', {}).get('total_conversations', 0)} conversations")
     console.print("\n[bold]Key Findings:[/bold]")
-    console.print(f"  Sal conversations: {result['analysis']['agent_attribution']['sal_count']} ({result['analysis']['agent_attribution']['sal_percentage']}%)")
-    console.print(f"  Human admin: {result['analysis']['agent_attribution']['human_admin_count']} ({result['analysis']['agent_attribution']['human_admin_percentage']}%)")
-    console.print(f"  With custom_attributes: {result['analysis']['custom_attributes']['has_custom_attributes']} ({result['analysis']['custom_attributes']['percentage_with_attributes']}%)")
+    
+    # Safe nested access to avoid KeyError
+    agent_attr = result.get('analysis', {}).get('agent_attribution', {})
+    custom_attrs = result.get('analysis', {}).get('custom_attributes', {})
+    
+    console.print(f"  Sal conversations: {agent_attr.get('sal_count', 0)} ({agent_attr.get('sal_percentage', 0)}%)")
+    console.print(f"  Human admin: {agent_attr.get('human_admin_count', 0)} ({agent_attr.get('human_admin_percentage', 0)}%)")
+    console.print(f"  With custom_attributes: {custom_attrs.get('has_custom_attributes', 0)} ({custom_attrs.get('percentage_with_attributes', 0)}%)")
 
 
 @cli.command(name='test-mode')
