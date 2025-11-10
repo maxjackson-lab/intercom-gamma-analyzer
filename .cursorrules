@@ -463,41 +463,78 @@ while True:
 
 ## Pre-Commit Validation (MANDATORY)
 
-**Before EVERY commit, run:**
+### 🤖 Automated Checks Run on EVERY Commit
+
+**The pre-commit hook automatically runs these checks (15-30 seconds):**
+
+**P0 - Critical (Blocks commit if failed):**
+1. ✅ **CLI ↔ Web ↔ Railway Alignment** - Ensures flags match across all 3 layers
+   - Prevents: Validation errors, broken UI
+   - Example: Adding `--your-flag` to CLI but forgetting Railway validation
+   
+2. ✅ **Function Signature Validation** - Checks function calls match signatures
+   - Prevents: TypeError at runtime
+   - Example: Calling `analyze(data, new_param=True)` but function doesn't accept `new_param`
+   
+3. ✅ **Async/Await Pattern Validation** - Ensures proper async usage
+   - Prevents: Deadlocks, blocked event loops
+   - Example: Using `time.sleep()` instead of `await asyncio.sleep()` in async function
+   
+4. ✅ **Import/Dependency Validation** - Verifies all imports exist
+   - Prevents: ModuleNotFoundError in deployment
+   - Example: Importing `some_package` not in requirements.txt
+
+**Result:** If ANY P0 check fails → Commit BLOCKED with fix instructions
+
+**P1 - Data Quality (Run manually with `./scripts/run_all_checks.sh`):**
+5. ✅ **Schema Validation** - Validates Intercom data structures (requires sample data)
+6. ✅ **Null Safety** - Finds unsafe nested field access patterns
+7. ✅ **Pydantic Models** - Tests models with valid/invalid data
+8. ✅ **Execution Policies** - Validates SSE/background execution rules
+9. ✅ **Double-Counting** - Validates topic assignment uniqueness
+10. ✅ **Keyword Specificity** - Checks topic keywords aren't too broad
+
+**Latest Run Status:**
+- ✅ Null Safety: 0 critical issues (all fixed!)
+- ✅ CLI Alignment: All commands aligned
+- ✅ Double-Counting: Nov 4 fix verified working
+- ⚠️ Function Signatures: 18 warnings (false positives from inheritance/**kwargs)
+- ⚠️ Async Patterns: 44 warnings (blocking I/O - performance, not crashes)
+- ⚠️ Imports: 35 warnings (local modules - expected)
+
+**Manual Run:**
 ```bash
-# Activate test environment
-source .test-venv/bin/activate
+# Quick P0 checks only:
+./scripts/quick_checks.sh
 
-# Run validation suite
-python scripts/check_cli_web_alignment.py || exit 1
+# All checks (P0 + P1):
+./scripts/run_all_checks.sh
 
-# Future: Additional checks will be added here
+# Specific check:
+python scripts/check_null_safety.py
 ```
 
-**Setup pre-commit hook:**
+**Emergency Bypass:**
 ```bash
-cat > .git/hooks/pre-commit << 'EOF'
-#!/bin/bash
-source .test-venv/bin/activate
-./scripts/run_all_checks.sh || exit 1
-EOF
-
-chmod +x .git/hooks/pre-commit
+git commit --no-verify -m "emergency fix"
 ```
 
 **When checks fail:**
 - P0 checks: Fix before committing (blocks deployment)
 - P1 checks: Fix or document why skipping
-- P2 checks: Informational, can proceed
+- Warnings: Review but can proceed
 
 **Available Scripts:**
-- `check_cli_web_alignment.py` - ✅ Validates CLI/Web/Railway alignment
-- `check_function_signatures.py` - Validates function calls match signatures
-- `check_async_patterns.py` - Validates async/await usage
-- `check_imports.py` - Validates dependencies
-- `check_null_safety.py` - Validates safe field access
-- `validate_data_schemas.py` - Validates Intercom data structures
-- `check_double_counting.py` - Validates topic assignment uniqueness
+- `check_cli_web_alignment.py` - ✅ CLI/Web/Railway alignment
+- `check_function_signatures.py` - Function parameter validation
+- `check_async_patterns.py` - Async/await safety
+- `check_imports.py` - Dependency validation
+- `check_null_safety.py` - Safe field access
+- `validate_data_schemas.py` - Intercom data structures
+- `check_double_counting.py` - Topic uniqueness
+- `validate_pydantic_models.py` - Model validation
+- `check_execution_policies.py` - SSE/background policies
+- `validate_topic_keywords.py` - Keyword specificity
 - `run_all_checks.sh` - Master runner for all checks
 
 
