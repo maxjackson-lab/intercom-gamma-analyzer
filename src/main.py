@@ -1163,7 +1163,7 @@ async def run_data_export(start_date, end_date, export_format: str, max_pages: O
             end_dt = datetime.combine(end_date, datetime.max.time())
             
             conversations = await intercom_service.fetch_conversations_by_date_range(
-                start_dt, end_dt, max_pages=max_pages
+                start_dt, end_dt, max_conversations=max_pages
             )
             
             progress.update(task, description=f"✅ Fetched {len(conversations)} conversations")

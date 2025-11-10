@@ -387,17 +387,6 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': True,
                 'description': 'Use multi-agent workflow'
             },
-            '--output-format': {
-                'type': 'enum',
-                'values': ['markdown', 'json', 'excel', 'gamma'],
-                'default': 'markdown',
-                'description': 'Output format for results'
-            },
-            '--gamma-export': {
-                'type': 'enum',
-                'values': ['pdf', 'pptx'],
-                'description': 'Gamma export format (when output-format=gamma)'
-            },
             '--output-dir': {
                 'type': 'string',
                 'default': 'outputs',
@@ -429,10 +418,6 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': 'openai',
                 'description': 'AI model to use (ChatGPT or Claude)'
             },
-            '--filter-category': {
-                'type': 'string',
-                'description': 'Filter by taxonomy category (e.g., Billing, Bug, API)'
-            },
             '--start-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
@@ -447,6 +432,30 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Include Canny feedback data'
+            },
+            '--canny-board-id': {
+                'type': 'string',
+                'description': 'Specific Canny board ID for combined analysis'
+            },
+            '--enable-fallback': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Enable fallback to other AI model if primary fails'
+            },
+            '--include-trends': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Include historical trend analysis'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation from results'
+            },
+            '--separate-agent-feedback': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Separate feedback by agent type (Finn, Boldr, Horatio, etc.)'
             }
         },
         'estimated_duration': '10-30 minutes'
@@ -564,6 +573,17 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'min': 1,
                 'max': 12,
                 'description': 'Number of periods to analyze'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Filter by taxonomy category (e.g., Billing, Bug, API)'
+            },
+            '--top-n': {
+                'type': 'integer',
+                'default': 5,
+                'min': 1,
+                'max': 20,
+                'description': 'Number of top issues to highlight'
             },
             '--output-format': {
                 'type': 'enum',
@@ -1079,19 +1099,78 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--start-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
-                'required': True,
                 'description': 'Start date for analysis'
             },
             '--end-date': {
                 'type': 'date',
                 'format': 'YYYY-MM-DD',
-                'required': True,
                 'description': 'End date for analysis'
+            },
+            '--time-period': {
+                'type': 'enum',
+                'values': ['week', 'month', 'quarter'],
+                'description': 'Time period shortcut (overrides start/end)'
+            },
+            '--board-id': {
+                'type': 'string',
+                'description': 'Specific Canny board ID'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'AI model to use'
+            },
+            '--enable-fallback': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Enable fallback to other AI model'
+            },
+            '--include-comments': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Include post comments in analysis'
+            },
+            '--include-votes': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Include voting patterns'
             },
             '--generate-gamma': {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Generate Gamma presentation'
+            },
+            '--output-format': {
+                'type': 'enum',
+                'values': ['gamma', 'markdown', 'json', 'excel'],
+                'default': 'markdown',
+                'description': 'Output format'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data count or preset'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable verbose logging'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable audit trail'
+            },
+            '--output-dir': {
+                'type': 'string',
+                'default': 'outputs',
+                'description': 'Output directory'
             }
         },
         'estimated_duration': '5-15 minutes'
