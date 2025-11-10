@@ -1382,8 +1382,7 @@ if HAS_FASTAPI:
                 <label>Analysis Type:</label>
                 <select id="analysisType" onchange="updateAnalysisOptions()">
                     <!-- Quick Diagnostic Tools - Always at Top -->
-                    <option value="sample-mode">🔬 Sample Mode (Quick Debug: 25-100 Tickets)</option>
-                    <option value="schema-dump">📋 Schema Dump (See What Fields Are Actually Populated)</option>
+                    <option value="sample-mode">🔬 Sample Mode / Schema Validation (Quick Debug + Data Structure Analysis)</option>
                     <option disabled>──────────────────────────</option>
                     
                     <optgroup label="Voice of Customer">
@@ -1471,18 +1470,29 @@ if HAS_FASTAPI:
                     <option value="custom">Custom Date Range...</option>
                 </select>
                 
-                <!-- Schema Dump Info (hidden by default) -->
-                <div id="schemaDumpInfo" style="display:none; background: rgba(14, 165, 233, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(14, 165, 233, 0.3);">
-                    <div style="margin-bottom: 10px; color: #0ea5e9; font-weight: bold;">
-                        📋 Schema Dump: What's Actually There?
+                <!-- Sample Mode specific options (hidden by default) -->
+                <div id="sampleModeOptions" style="display:none; background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="margin-bottom: 10px; color: #10b981; font-weight: bold;">
+                        🔬 Sample Mode: Schema Validation & Quick Debug
                     </div>
+                    <p style="margin: 10px 0; font-size: 14px; color: #d1d5db;">
+                        Pulls <strong>real conversations</strong> with ultra-rich logging. Shows exactly what fields 
+                        Intercom populates and debugs topic detection issues.
+                    </p>
                     
-                    <label style="color: #e5e7eb; font-size: 14px;">Analysis Depth:</label>
+                    <label style="color: #e5e7eb; font-size: 14px; margin-top: 10px; display: block;">Analysis Depth:</label>
                     <select id="schemaMode" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
-                        <option value="quick" selected>⚡ Quick - 50 tickets, 5 samples, 2 LLM tests (~30 sec)</option>
-                        <option value="standard">📊 Standard - 200 tickets, 10 samples, 3 LLM tests (~2 min)</option>
+                        <option value="quick">⚡ Quick - 50 tickets, 5 samples, 2 LLM tests (~30 sec)</option>
+                        <option value="standard" selected>📊 Standard - 200 tickets, 10 samples, 3 LLM tests (~2 min)</option>
                         <option value="deep">🔍 Deep - 500 tickets, 15 samples, 5 LLM tests (~5 min)</option>
                         <option value="comprehensive">🎯 Comprehensive - 1000 tickets, 20 samples, 7 LLM tests (~10 min)</option>
+                    </select>
+                    
+                    <label style="color: #e5e7eb; font-size: 14px; display: block;">Time Period:</label>
+                    <select id="sampleTimePeriod" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                        <option value="day">Last 24 Hours</option>
+                        <option value="week" selected>Last Week ⭐</option>
+                        <option value="month">Last Month</option>
                     </select>
                     
                     <div style="margin-bottom: 15px;">
@@ -1495,63 +1505,19 @@ if HAS_FASTAPI:
                         </p>
                     </div>
                     
-                    <p style="margin: 10px 0; font-size: 14px; color: #d1d5db;">
-                        Shows you exactly what fields Intercom populates and debugs topic detection issues.
-                    </p>
-                    <div style="margin-top: 10px; padding: 10px; background: rgba(14, 165, 233, 0.15); border-left: 4px solid #0ea5e9; font-size: 13px; color: #e5e7eb;">
-                        <strong style="color: #0ea5e9;">💡 What You'll See:</strong>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(16, 185, 129, 0.15); border-left: 4px solid #10b981; font-size: 13px; color: #e5e7eb;">
+                        <strong style="color: #10b981;">💡 What You'll See:</strong>
                         <ul style="margin: 5px 0 0 20px; padding: 0; color: #d1d5db;">
                             <li><strong>Field Coverage:</strong> % of tickets with custom_attributes, tags, "Reason for contact"</li>
                             <li><strong>Tag Analysis:</strong> What custom tags exist and how often they're used</li>
                             <li><strong>Attribute Breakdown:</strong> All custom_attributes keys and sample values</li>
-                            <li><strong>5 Full Examples:</strong> Raw schema of 5 conversations with all fields</li>
-                            <li><strong>Topic Detection Test:</strong> Which keywords match which conversations</li>
-                            <li><strong>LLM Sentiment Test:</strong> Actual sentiment generated by agents on real data</li>
+                            <li><strong>Topic Hierarchy:</strong> How conversations are assigned to categories (toggleable)</li>
+                            <li><strong>Full Samples:</strong> Raw schema of real conversations with all fields</li>
+                            <li><strong>LLM Sentiment Test:</strong> Actual sentiment generated by agents</li>
                         </ul>
                     </div>
                     <div style="margin-top: 10px; font-size: 12px; color: #9ca3af;">
-                        ⚡ <strong>Speed:</strong> ~30 seconds | <strong>Output:</strong> Terminal + JSON file
-                    </div>
-                </div>
-                
-                <!-- Sample Mode specific options (hidden by default) -->
-                <div id="sampleModeOptions" style="display:none; background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(16, 185, 129, 0.3);">
-                    <div style="margin-bottom: 10px; color: #10b981; font-weight: bold;">
-                        🔬 Sample Mode: Quick Data Check
-                    </div>
-                    <p style="margin: 10px 0; font-size: 14px; color: #d1d5db;">
-                        Pulls <strong>real conversations</strong> with ultra-rich logging to help debug issues. 
-                        Perfect for validating fixes without waiting for full analysis.
-                    </p>
-                    
-                    <label>Sample Size:</label>
-                    <select id="sampleCount">
-                        <option value="25">25 conversations (30 seconds)</option>
-                        <option value="50" selected>50 conversations (1 minute) ⭐ Recommended</option>
-                        <option value="75">75 conversations (1.5 minutes)</option>
-                        <option value="100">100 conversations (2 minutes)</option>
-                    </select>
-                    
-                    <label>Time Range:</label>
-                    <select id="sampleTimePeriod">
-                        <option value="day">Last 24 hours (recent conversations)</option>
-                        <option value="week" selected>Last 7 days (recommended) ⭐</option>
-                        <option value="month">Last 30 days (wider sample)</option>
-                    </select>
-                    
-                    <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
-                        💡 <strong>How it works:</strong> Fetches conversations from the time range, 
-                        then randomly samples your chosen count for diverse data validation.
-                    </p>
-                    
-                    <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 13px;">
-                        <strong>💡 What You'll See:</strong>
-                        <ul style="margin: 5px 0 0 20px; padding: 0;">
-                            <li>Field coverage analysis (which fields exist)</li>
-                            <li>Custom attributes breakdown (what's actually there)</li>
-                            <li>Sal vs Human attribution (~75% should be Sal)</li>
-                            <li>5 detailed conversation samples with keyword tests</li>
-                        </ul>
+                        <strong>Output:</strong> Terminal + JSON + Complete .log file (download from Files tab)
                     </div>
                 </div>
                 

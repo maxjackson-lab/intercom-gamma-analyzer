@@ -286,19 +286,16 @@ async function runAnalysis() {
         
         // Map web UI analysis types to CLI commands
         if (analysisType === 'sample-mode') {
-            args.push('sample-mode');
-            args.push('--count', sampleCount);
-            args.push('--time-period', sampleTimePeriod);
-            
-        } else if (analysisType === 'schema-dump') {
-            const schemaMode = document.getElementById('schemaMode')?.value || 'quick';
+            const schemaMode = document.getElementById('schemaMode')?.value || 'standard';
+            const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             
             args.push('sample-mode');
-            args.push('--time-period', 'week');
-            args.push('--save-to-file');  // Save the raw JSON too
-            args.push('--test-llm');  // Run actual LLM sentiment on diverse topics
+            args.push('--time-period', sampleTimePeriod);
+            args.push('--save-to-file');  // Always save JSON and .log file
+            args.push('--test-llm');  // Always run LLM sentiment test
             args.push('--schema-mode', schemaMode);  // User-selected depth
+            args.push('--ai-model', aiModel || 'openai');  // AI model for LLM test
             
             // Add hierarchy flag (only send --no-hierarchy if unchecked, since default is true)
             if (!includeHierarchy) {
@@ -362,8 +359,8 @@ async function runAnalysis() {
             return;
         }
         
-        // Add time period (unless it's sample-mode or schema-dump - they handle it internally)
-        if (analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add time period (unless it's sample-mode - it handles it internally)
+        if (analysisType !== 'sample-mode') {
             if (timePeriod === 'custom' && startDate && endDate) {
                 args.push('--start-date', startDate);
                 args.push('--end-date', endDate);
@@ -372,13 +369,13 @@ async function runAnalysis() {
             }
         }
         
-        // Add AI model (include for schema-dump since it runs LLM sentiment test)
+        // Add AI model (skip for sample-mode - it handles it internally)
         if (aiModel && analysisType !== 'sample-mode') {
             args.push('--ai-model', aiModel);
         }
         
-        // Add output format / generate gamma (skip for sample-mode and schema-dump)
-        if (analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add output format / generate gamma (skip for sample-mode)
+        if (analysisType !== 'sample-mode') {
             if (outputFormat === 'gamma') {
                 args.push('--generate-gamma');
             } else if (outputFormat && !analysisType.startsWith('voice-of-customer')) {
@@ -386,21 +383,21 @@ async function runAnalysis() {
             }
         }
         
-        // Add test mode flags (skip for sample-mode and schema-dump)
-        if (testMode && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add test mode flags (skip for sample-mode)
+        if (testMode && analysisType !== 'sample-mode') {
             args.push('--test-mode');
             if (testDataCount) {
                 args.push('--test-data-count', testDataCount);
             }
         }
         
-        // Add verbose flag (skip for sample-mode and schema-dump - they have their own verbosity)
-        if (verboseLogging && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add verbose flag (skip for sample-mode - it has its own verbosity)
+        if (verboseLogging && analysisType !== 'sample-mode') {
             args.push('--verbose');
         }
         
-        // Add audit trail (skip for sample-mode and schema-dump - diagnostic tools only)
-        if (auditMode && analysisType !== 'sample-mode' && analysisType !== 'schema-dump') {
+        // Add audit trail (skip for sample-mode - diagnostic tool only)
+        if (auditMode && analysisType !== 'sample-mode') {
             args.push('--audit-trail');
         }
         
@@ -494,15 +491,13 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     const isAgentPerformance = args.includes('agent-performance') || args.includes('agent-coaching-report');
     const isSampleMode = args.includes('sample-mode');
     const schemaMode = args.includes('--schema-mode') ? args[args.indexOf('--schema-mode') + 1] : null;
-    // Heuristic: schema-dump path uses sample-mode + save-to-file + test-llm + schema-mode
     const isSchemaDumpPath = isSampleMode && args.includes('--schema-mode') && args.includes('--save-to-file') && args.includes('--test-llm');
     
     // Use background execution if:
     // 1. Multi-agent analysis (always long-running)
     // 2. Week or longer with Gamma generation
     // 3. Agent performance/coaching (database-heavy)
-    // 4. Schema dump (always run in background to avoid SSE fragility)
-    // 5. Schema dump in deep/comprehensive mode (enrichment takes long)
+    // 4. Sample-mode in deep/comprehensive mode (enrichment takes long)
     if (hasMultiAgent) {
         console.log('→ Background mode: multi-agent analysis detected');
         return true;
@@ -524,7 +519,7 @@ function shouldUseBackgroundExecution(args, timePeriod) {
     }
     
     if (isSampleMode && schemaMode && ['deep', 'comprehensive'].includes(schemaMode)) {
-        console.log(`→ Background mode: schema dump in ${schemaMode} mode (long enrichment)`);
+        console.log(`→ Background mode: sample-mode in ${schemaMode} mode (long enrichment)`);
         return true;
     }
     
@@ -894,12 +889,6 @@ function updateAnalysisOptions() {
         sampleModeOptions.style.display = (analysisType === 'sample-mode') ? 'block' : 'none';
     }
     
-    // Show/hide schema dump info
-    const schemaDumpInfo = document.getElementById('schemaDumpInfo');
-    if (schemaDumpInfo) {
-        schemaDumpInfo.style.display = (analysisType === 'schema-dump') ? 'block' : 'none';
-    }
-    
     // Show/hide individual breakdown info
     const individualInfo = document.getElementById('individualBreakdownInfo');
     if (individualInfo) {
@@ -922,13 +911,13 @@ function updateAnalysisOptions() {
     }
     
     // Determine if this is a diagnostic mode
-    const isDiagnostic = analysisType === 'sample-mode' || analysisType === 'schema-dump';
+    const isDiagnostic = analysisType === 'sample-mode';
     const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
     
-    // Hide/show Time Period (hide for schema-dump only)
+    // Hide/show Time Period (hide for sample-mode - it has its own)
     const timePeriodLabel = document.getElementById('timePeriodLabel');
     const timePeriodSelect = document.getElementById('timePeriod');
-    const showTimePeriod = analysisType !== 'schema-dump';  // Schema-dump handles internally
+    const showTimePeriod = analysisType !== 'sample-mode';  // Sample-mode handles internally
     if (timePeriodLabel) {
         timePeriodLabel.style.display = showTimePeriod ? 'block' : 'none';
     }
@@ -969,10 +958,10 @@ function updateAnalysisOptions() {
         outputFormatSelect.style.display = isDiagnostic ? 'none' : 'block';
     }
     
-    // Show AI Model for schema-dump (needed for LLM test), hide for sample-mode
+    // Hide AI Model for sample-mode (it has its own in the options panel)
     const aiModelLabel = document.querySelector('label[for="aiModel"]');
     const aiModelSelect = document.getElementById('aiModel');
-    const showAIModel = analysisType === 'schema-dump' || !isDiagnostic;
+    const showAIModel = !isDiagnostic;
     if (aiModelLabel) {
         aiModelLabel.style.display = showAIModel ? 'block' : 'none';
     }
