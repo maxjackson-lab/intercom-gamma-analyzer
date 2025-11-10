@@ -888,7 +888,7 @@ class SampleMode:
     
     def _display_all_conversations_table(self, conversations: List[Dict]):
         """Display a table showing all conversations with key info."""
-        table = Table(show_header=True, max_width=120)
+        table = Table(show_header=True)
         table.add_column("#", style="dim", width=3)
         table.add_column("ID", style="cyan", width=16)
         table.add_column("State", style="yellow", width=8)
