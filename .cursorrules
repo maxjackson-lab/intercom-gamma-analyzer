@@ -29,11 +29,186 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Use `asyncio.wait_for()` with timeouts for agent execution
 - Never block the event loop - use `await` for all I/O operations
 
+#### Async/Await Safety Rules (CRITICAL)
+
+**Rule 1: ALWAYS await async function calls**
+```python
+# ❌ WRONG - Returns coroutine, not result
+async def process():
+    result = fetch_data()  # Forgot await!
+
+# ✅ CORRECT
+async def process():
+    result = await fetch_data()
+```
+
+**Rule 2: NEVER use blocking I/O in async functions**
+```python
+# ❌ WRONG - Blocks entire event loop
+async def process():
+    time.sleep(5)  # Freezes all async tasks!
+    data = requests.get(url)  # Blocks!
+
+# ✅ CORRECT - Non-blocking alternatives
+async def process():
+    await asyncio.sleep(5)
+    async with httpx.AsyncClient() as client:
+        data = await client.get(url)
+```
+
+**Rule 3: Wrap sync DB operations in executors**
+```python
+# ❌ WRONG - DuckDB is sync, blocks event loop
+async def save():
+    storage.save_snapshot(data)
+
+# ✅ CORRECT
+async def save():
+    await storage.save_snapshot_async(data)
+    # Or: await loop.run_in_executor(None, storage.save_snapshot, data)
+```
+
+**Rule 4: Add timeouts to prevent hangs**
+```python
+# ❌ RISKY
+async def enrich():
+    results = await asyncio.gather(*tasks)
+
+# ✅ SAFE
+async def enrich():
+    results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=60)
+```
+
+**Rule 5: Use semaphores for concurrency control**
+```python
+# ✅ Limit concurrent API calls
+semaphore = asyncio.Semaphore(5)
+async with semaphore:
+    return await api_call()
+```
+
 ### Data Validation
 - Use Pydantic models for all data structures
 - Validate conversation data before processing
 - Check for required fields before accessing nested data
 - Use `extract_conversation_text()` utility for text extraction
+
+#### Safe Nested Field Access (CRITICAL)
+
+**NEVER assume Intercom fields exist - they're inconsistent!**
+
+**Known unreliable fields** (ALWAYS use defensive access):
+- `custom_attributes`, `conversation_parts`, `source.author`
+- `contacts.contacts[0]`, `sla_applied`, `conversation_rating`
+- `ai_agent`, `statistics.*`
+
+**Defensive Access Pattern:**
+```python
+# ❌ DANGEROUS - Will crash if ANY field missing
+email = conv['source']['author']['email']
+category = conv['custom_attributes']['Category']
+
+# ✅ SAFE - Graceful degradation
+email = conv.get('source', {}).get('author', {}).get('email')
+category = conv.get('custom_attributes', {}).get('Category')
+sla_data = conv.get('sla_applied') or {}
+sla_name = sla_data.get('sla_name') if isinstance(sla_data, dict) else None
+```
+
+**Normalization at Boundary:**
+```python
+# In intercom_sdk_service.py - normalize IMMEDIATELY after SDK fetch
+def _normalize_conversation(self, conv: Dict) -> Dict:
+    # conversation_parts: list → dict wrapper
+    if 'conversation_parts' in conv:
+        parts = conv['conversation_parts']
+        if isinstance(parts, list):
+            conv['conversation_parts'] = {'conversation_parts': parts}
+    
+    # Ensure consistent types for ALL risky fields
+    return conv
+```
+
+**Principle:** _"Normalize at the boundary, assume safety downstream"_
+
+### Function Parameter Safety (CRITICAL)
+
+**When adding/modifying function parameters, update BOTH signature AND all callers.**
+
+**Verification Steps (MANDATORY):**
+
+1. **Search for ALL callers before committing:**
+```bash
+# Find every place the function is called
+grep -rn "function_name(" src/ tests/
+```
+
+2. **Update function signature with default value:**
+```python
+# ✅ GOOD - Backward compatible
+async def analyze(data: Dict, new_param: bool = True):
+    ...
+
+# ❌ BAD - Breaks existing callers
+async def analyze(data: Dict, new_param: bool):
+    ...
+```
+
+3. **Update ALL callers to pass new parameter:**
+```python
+# Before:
+await analyze(data)  # ❌ Missing new_param
+
+# After:
+await analyze(data, new_param=include_it)  # ✅
+```
+
+4. **Verify parameter is USED in function body:**
+```python
+def my_func(..., new_param: bool = True):
+    # ✅ Actually use it!
+    if new_param:
+        do_something()
+```
+
+**Common Errors:**
+- Parameter in signature but not in callers → TypeError
+- Parameter accepted but not used → Dead code
+- Variable name mismatch → NameError
+
+**Recent Examples:**
+- Nov 10, 2025: `_analyze_sample()` called with `include_hierarchy` but didn't accept it
+- Nov 4, 2025: Variable name mismatch in Fin analysis
+
+### Output File Resilience (CRITICAL)
+
+**ALWAYS save complete console output to downloadable file**
+
+**Why:** SSE connections disconnect frequently. Users lose all terminal output.
+
+**Pattern:**
+```python
+# In service classes:
+async def run_analysis(...):
+    # Enable Rich console recording
+    console.record = True
+    
+    # Run analysis (all console.print() captured)
+    result = await self._do_analysis(...)
+    
+    # Export complete output
+    log_output = console.export_text(clear=True)
+    console.record = False
+    
+    # Save to file
+    if save_to_file:
+        log_file = output_file.with_suffix('.log')
+        with open(log_file, 'w', encoding='utf-8') as f:
+            f.write(log_output)
+        console.print(f"📋 Complete log saved to: {log_file}")
+```
+
+**Apply to:** sample-mode ✅, voice-of-customer, agent-performance, agent-coaching-report
 
 ### Hallucination Prevention
 - Always use "According to the analysis" or "Based on the data" for claims
@@ -77,10 +252,40 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Handle polling with exponential backoff
 
 ## Testing Patterns
-- Test agents with `AgentContext` fixtures
-- Mock external APIs (Intercom, Gamma)
-- Test error recovery and retry logic
-- Test confidence scoring and reflection
+
+### 3-Tier Testing Approach (MANDATORY):
+
+**Tier 1: Unit Tests** (Fast, Isolated)
+- Mock external dependencies
+- Test single functions in isolation
+- Run on every commit
+
+**Tier 2: Integration Tests** (Moderate, Realistic)
+- Use test data from `test_data.py`
+- Test multiple components together
+- Run before merge
+
+**Tier 3: Real Data Validation** (Slow, Ground Truth) - **REQUIRED**
+```bash
+# ALWAYS run before marking feature "complete"
+python src/main.py sample-mode --count 50 --save-to-file
+
+# Then validate with real data:
+python scripts/validate_data_schemas.py
+```
+
+**Why Real Data Testing Matters:**
+- Test data is clean and consistent
+- Real data has missing fields, type variations, edge cases
+- Type inconsistencies only show up with real SDK responses
+- Edge cases appear in production, not mocks
+
+**Before marking ANY feature complete:**
+- [ ] Ran with real Intercom data (not just test mode)
+- [ ] Checked output files for completeness
+- [ ] Verified no crashes on missing/malformed fields
+- [ ] Confirmed metrics look sensible
+- [ ] Tested edge cases (empty results, single result, max results)
 
 ## Common Mistakes to Avoid
 
@@ -91,6 +296,12 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Access nested dict keys without checking existence
 - Use hardcoded timeouts (use configurable timeouts)
 - Skip input validation
+- Add parameters to functions without updating ALL callers
+- Use `time.sleep()` instead of `asyncio.sleep()` in async functions
+- Use blocking I/O (requests, open()) in async functions
+- Assume SDK data structure is consistent (normalize at boundary!)
+- Cancel background jobs when SSE disconnects
+- Only test with mock data (always validate with real data)
 
 ### ✅ DO:
 - Return AgentResult for all agent outputs
@@ -99,6 +310,12 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Use safe dict access: `conv.get('field', default)`
 - Use configurable timeouts from settings
 - Validate inputs before processing
+- Update function signature AND all callers when adding parameters
+- Use `asyncio.wait_for()` with timeouts for long operations
+- Normalize Intercom data at SDK boundary (intercom_sdk_service.py)
+- Let background jobs continue running on SSE disconnect
+- Test with real data using sample-mode before marking complete
+- Save complete console output to .log files for resilience
 
 ## Prompting Guidelines for Cursor
 
@@ -197,5 +414,90 @@ Before committing changes to commands/flags:
 ### Reference
 See `CLI_WEB_ALIGNMENT_CHECKLIST.md` for detailed guide
 
+## SSE and Background Execution (CRITICAL)
+
+### Task Classification Rules
+
+**ALWAYS use background execution for:**
+1. Multi-agent analysis (ANY --multi-agent flag)
+2. Week+ data with Gamma generation
+3. Agent performance on long periods
+4. Schema dump in deep/comprehensive mode
+5. ANY task expected to run >2 minutes
+
+**CAN use SSE streaming for:**
+- Quick sample-mode (50 conversations, <1 minute)
+- Single-command diagnostic tools
+- Canny analysis (external API, fast)
+
+### Background Job Resilience
+
+**NEVER cancel jobs when SSE disconnects:**
+```python
+# ❌ WRONG - Kills job when browser disconnects
+if await request.is_disconnected():
+    await command_executor.cancel_execution(execution_id)
+
+# ✅ CORRECT - Let job continue
+if await request.is_disconnected():
+    logger.info(f"Client disconnected, job continues")
+    await state_manager.update_execution_status(execution_id, ExecutionStatus.RUNNING)
+    break  # Exit SSE but don't cancel job
+```
+
+### Keepalive Strategy
+
+Send keepalives BEFORE and AFTER output:
+```python
+while True:
+    try:
+        output = await asyncio.wait_for(
+            output_iter.__anext__(),
+            timeout=15  # Keepalive interval
+        )
+        yield output
+    except asyncio.TimeoutError:
+        yield {"event": "comment", "data": "keepalive"}
+        continue
+```
+
+## Pre-Commit Validation (MANDATORY)
+
+**Before EVERY commit, run:**
+```bash
+# Activate test environment
+source .test-venv/bin/activate
+
+# Run validation suite
+python scripts/check_cli_web_alignment.py || exit 1
+
+# Future: Additional checks will be added here
+```
+
+**Setup pre-commit hook:**
+```bash
+cat > .git/hooks/pre-commit << 'EOF'
+#!/bin/bash
+source .test-venv/bin/activate
+./scripts/run_all_checks.sh || exit 1
+EOF
+
+chmod +x .git/hooks/pre-commit
+```
+
+**When checks fail:**
+- P0 checks: Fix before committing (blocks deployment)
+- P1 checks: Fix or document why skipping
+- P2 checks: Informational, can proceed
+
+**Available Scripts:**
+- `check_cli_web_alignment.py` - ✅ Validates CLI/Web/Railway alignment
+- `check_function_signatures.py` - Validates function calls match signatures
+- `check_async_patterns.py` - Validates async/await usage
+- `check_imports.py` - Validates dependencies
+- `check_null_safety.py` - Validates safe field access
+- `validate_data_schemas.py` - Validates Intercom data structures
+- `check_double_counting.py` - Validates topic assignment uniqueness
+- `run_all_checks.sh` - Master runner for all checks
 
 
