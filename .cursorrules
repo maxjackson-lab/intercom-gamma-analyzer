@@ -451,6 +451,37 @@ def _analyze_topic_detection(self, conversations):
 
 ## CLI ↔ Web UI ↔ Railway Alignment (CRITICAL)
 
+### MANDATORY RULE: Every Feature Needs UI
+
+**EVERY user-facing CLI flag MUST have a UI element.**
+
+❌ **NEVER add a flag without UI:**
+```python
+# Added to CLI but forgot UI checkbox
+@click.option('--new-feature', is_flag=True)
+```
+
+✅ **ALWAYS add UI when adding CLI flag:**
+1. Add flag to CLI (`src/main.py`)
+2. Add to Railway validation (`deploy/railway_web.py`)
+3. Add checkbox/dropdown to UI (`deploy/railway_web.py` HTML)
+4. Wire up in JavaScript (`static/app.js`)
+
+**Verification:**
+```bash
+python scripts/check_cli_web_alignment.py
+```
+
+**Why This Matters:**
+- Users can't use features they can't see
+- CLI-only features create hidden functionality
+- Leads to drift between CLI and web experience
+
+**Example (Nov 11, 2025):**
+- Added `--show-agent-thinking` flag
+- Immediately added UI checkbox
+- Both CLI and UI users can access feature
+
 ### The 3-Layer Contract
 Every CLI command has 3 implementations that MUST stay aligned:
 1. **CLI** (`src/main.py`) - Source of truth, actual implementation

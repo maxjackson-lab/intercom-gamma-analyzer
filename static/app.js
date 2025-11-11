@@ -290,6 +290,7 @@ async function runAnalysis() {
             const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
+            const showAgentThinking = document.getElementById('showAgentThinking')?.checked ?? false;
             
             args.push('sample-mode');
             args.push('--time-period', sampleTimePeriod);
@@ -306,6 +307,11 @@ async function runAnalysis() {
             // Add test-all-agents flag if checked
             if (testAllAgents) {
                 args.push('--test-all-agents');
+            }
+            
+            // Add show-agent-thinking flag if checked
+            if (showAgentThinking) {
+                args.push('--show-agent-thinking');
             }
             
         } else if (analysisType === 'voice-of-customer-hilary') {

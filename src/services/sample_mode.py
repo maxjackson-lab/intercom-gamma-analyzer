@@ -1346,6 +1346,7 @@ async def run_sample_mode(
     save_to_file: bool = True,
     test_llm: bool = False,
     test_all_agents: bool = False,
+    show_agent_thinking: bool = False,
     schema_mode: str = 'standard',
     include_hierarchy: bool = True
 ) -> Dict[str, Any]:
@@ -1359,6 +1360,7 @@ async def run_sample_mode(
         save_to_file: Save to outputs/
         test_llm: Run actual LLM sentiment analysis on top topics (shows what agents produce)
         test_all_agents: Run ALL production agents to verify they work with real data
+        show_agent_thinking: Show LLM prompts, responses, and agent reasoning
         include_hierarchy: Show/hide topic hierarchy debugging section
         
     Returns:

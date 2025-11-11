@@ -4215,6 +4215,8 @@ def canny_analysis(
               help='🧪 Run actual LLM sentiment analysis to see what agents produce')
 @click.option('--test-all-agents', is_flag=True, default=False,
               help='🧪 Test ALL production agents (SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence)')
+@click.option('--show-agent-thinking', is_flag=True, default=False,
+              help='🧠 Show agent LLM prompts, responses, and reasoning (for prompt tuning)')
 @click.option('--schema-mode', type=click.Choice(['quick', 'standard', 'deep', 'comprehensive']), default='quick',
               help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai',
@@ -4225,7 +4227,8 @@ def canny_analysis(
               help='Enable verbose DEBUG logging')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
                 time_period: str, save_to_file: bool, test_llm: bool, test_all_agents: bool,
-                schema_mode: str, ai_model: str, include_hierarchy: bool, verbose: bool):
+                show_agent_thinking: bool, schema_mode: str, ai_model: str, 
+                include_hierarchy: bool, verbose: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4280,6 +4283,19 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
             logging.getLogger(module).setLevel(logging.DEBUG)
         console.print(f"[yellow]🔍 Verbose Logging: ENABLED[/yellow]\n")
     
+    # Enable agent thinking logger if requested
+    if show_agent_thinking:
+        from src.utils.agent_thinking_logger import AgentThinkingLogger
+        from pathlib import Path
+        
+        # Create thinking log file
+        output_dir = Path("outputs")
+        output_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        thinking_log = output_dir / f"agent_thinking_{timestamp}.log"
+        
+        AgentThinkingLogger.enable(thinking_log)
+    
     # Run sample mode
     result = asyncio.run(run_sample_mode(
         count=count,
@@ -4288,6 +4304,7 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         save_to_file=save_to_file,
         test_llm=test_llm,
         test_all_agents=test_all_agents,
+        show_agent_thinking=show_agent_thinking,
         schema_mode=schema_mode,
         include_hierarchy=include_hierarchy
     ))

@@ -337,6 +337,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Test ALL production agents (SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence)'
             },
+            '--show-agent-thinking': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Show agent LLM prompts, responses, and reasoning (for prompt tuning)'
+            },
             '--schema-mode': {
                 'type': 'enum',
                 'values': ['quick', 'standard', 'deep', 'comprehensive'],
@@ -1517,6 +1522,16 @@ if HAS_FASTAPI:
                         </label>
                         <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
                             Tests 7 agents: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence (+30s runtime)
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb; font-size: 14px;">
+                            <input type="checkbox" id="showAgentThinking" style="margin-right: 8px; cursor: pointer;">
+                            <span>🧠 Show Agent Thinking</span>
+                        </label>
+                        <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
+                            Shows LLM prompts, responses, and agent reasoning - perfect for prompt tuning (+1 min runtime)
                         </p>
                     </div>
                     
