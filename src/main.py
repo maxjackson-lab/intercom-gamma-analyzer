@@ -4213,6 +4213,8 @@ def canny_analysis(
 @click.option('--save-to-file/--no-save', default=True, help='Save raw JSON to outputs/')
 @click.option('--test-llm', is_flag=True, default=False, 
               help='🧪 Run actual LLM sentiment analysis to see what agents produce')
+@click.option('--test-all-agents', is_flag=True, default=False,
+              help='🧪 Test ALL production agents (SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence)')
 @click.option('--schema-mode', type=click.Choice(['quick', 'standard', 'deep', 'comprehensive']), default='quick',
               help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai',
@@ -4222,8 +4224,8 @@ def canny_analysis(
 @click.option('--verbose', is_flag=True, default=False,
               help='Enable verbose DEBUG logging')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
-                time_period: str, save_to_file: bool, test_llm: bool, schema_mode: str,
-                ai_model: str, include_hierarchy: bool, verbose: bool):
+                time_period: str, save_to_file: bool, test_llm: bool, test_all_agents: bool,
+                schema_mode: str, ai_model: str, include_hierarchy: bool, verbose: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4285,6 +4287,7 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         end_date=end,
         save_to_file=save_to_file,
         test_llm=test_llm,
+        test_all_agents=test_all_agents,
         schema_mode=schema_mode,
         include_hierarchy=include_hierarchy
     ))

@@ -1188,6 +1188,155 @@ class SampleMode:
         console.print("  2. Whether sentiment matches the actual quotes")
         console.print("  3. If enrichment is corrupting the data")
         console.print("  4. What method was used (llm vs cx_score - should always be 'llm' now)\n")
+    
+    async def test_all_agents(self, conversations: List[Dict]):
+        """
+        Test ALL production agents with real data to verify they work.
+        
+        This comprehensive test runs:
+        1. SubTopicDetectionAgent - 3-tier hierarchy
+        2. ExampleExtractionAgent - Best conversation selection
+        3. FinPerformanceAgent - Fin AI metrics
+        4. CorrelationAgent - Statistical patterns
+        5. QualityInsightsAgent - Resolution quality anomalies
+        6. ChurnRiskAgent - Churn signal detection
+        7. ConfidenceMetaAgent - Meta-analysis
+        
+        Shows: Does it crash? What output? How long? Confidence score?
+        """
+        console.print("\n" + "="*80)
+        console.print("[bold]🧪 COMPREHENSIVE AGENT TESTING[/bold]")
+        console.print("[dim]Testing ALL production agents with real data[/dim]")
+        console.print("="*80 + "\n")
+        
+        from src.agents.base_agent import AgentContext
+        from src.agents.topic_detection_agent import TopicDetectionAgent
+        from src.agents.subtopic_detection_agent import SubTopicDetectionAgent
+        from src.agents.example_extraction_agent import ExampleExtractionAgent
+        from src.agents.fin_performance_agent import FinPerformanceAgent
+        from src.agents.correlation_agent import CorrelationAgent
+        from src.agents.quality_insights_agent import QualityInsightsAgent
+        from src.agents.churn_risk_agent import ChurnRiskAgent
+        from src.agents.confidence_meta_agent import ConfidenceMetaAgent
+        import time
+        
+        # Create base context
+        context = AgentContext(
+            analysis_id="agent_test",
+            analysis_type="sample_mode",
+            conversations=conversations,
+            start_date=datetime.now(),
+            end_date=datetime.now()
+        )
+        
+        # First, detect topics (needed by other agents)
+        console.print("[yellow]📊 Step 1: Topic Detection (prerequisite for other agents)[/yellow]")
+        topic_agent = TopicDetectionAgent()
+        topic_result = await topic_agent.execute(context)
+        
+        if not topic_result.success:
+            console.print(f"[red]❌ TopicDetectionAgent failed - cannot continue: {topic_result.error_message}[/red]")
+            return
+        
+        topic_dist = topic_result.data.get('topic_distribution', {})
+        console.print(f"[green]✅ Topics detected: {list(topic_dist.keys())[:5]}...[/green]\n")
+        
+        # Update context with topic detection results
+        context.previous_results = {'TopicDetectionAgent': topic_result.dict()}
+        
+        # Test each agent
+        agents_to_test = [
+            ("SubTopicDetectionAgent", SubTopicDetectionAgent()),
+            ("ExampleExtractionAgent", ExampleExtractionAgent()),
+            ("FinPerformanceAgent", FinPerformanceAgent()),
+            ("CorrelationAgent", CorrelationAgent()),
+            ("QualityInsightsAgent", QualityInsightsAgent()),
+            ("ChurnRiskAgent", ChurnRiskAgent()),
+            ("ConfidenceMetaAgent", ConfidenceMetaAgent())
+        ]
+        
+        results = {}
+        
+        for agent_name, agent in agents_to_test:
+            console.print(f"{'─'*80}")
+            console.print(f"[bold cyan]Testing: {agent_name}[/bold cyan]")
+            console.print(f"{'─'*80}\n")
+            
+            try:
+                start_time = time.time()
+                result = await agent.execute(context)
+                elapsed = time.time() - start_time
+                
+                if result.success:
+                    console.print(f"[green]✅ {agent_name} succeeded in {elapsed:.1f}s[/green]")
+                    console.print(f"   Confidence: {result.confidence_level.value if hasattr(result, 'confidence_level') else result.confidence}")
+                    
+                    # Show key output
+                    if agent_name == "SubTopicDetectionAgent":
+                        subtopics = result.data.get('subtopics_by_topic', {})
+                        console.print(f"   Found {len(subtopics)} topics with subtopics")
+                        console.print(f"   Example: {list(subtopics.keys())[:2]}")
+                    
+                    elif agent_name == "ExampleExtractionAgent":
+                        examples = result.data.get('examples_by_topic', {})
+                        total_examples = sum(len(v) for v in examples.values())
+                        console.print(f"   Extracted {total_examples} example conversations")
+                        console.print(f"   Topics covered: {list(examples.keys())[:3]}")
+                    
+                    elif agent_name == "FinPerformanceAgent":
+                        metrics = result.data
+                        console.print(f"   Fin handled: {metrics.get('total_fin_conversations', 0)} conversations")
+                        console.print(f"   Handoff rate: {metrics.get('handoff_rate', 0):.1%}")
+                    
+                    elif agent_name == "CorrelationAgent":
+                        correlations = result.data.get('correlations', [])
+                        console.print(f"   Found {len(correlations)} correlations")
+                        if correlations:
+                            top = correlations[0]
+                            console.print(f"   Top: {top.get('variables', 'N/A')} (r={top.get('correlation', 0):.2f})")
+                    
+                    elif agent_name == "QualityInsightsAgent":
+                        anomalies = result.data.get('anomalies', [])
+                        console.print(f"   Detected {len(anomalies)} quality anomalies")
+                    
+                    elif agent_name == "ChurnRiskAgent":
+                        churn = result.data.get('churn_signals', {})
+                        console.print(f"   Churn risk conversations: {churn.get('total_churn_signals', 0)}")
+                    
+                    elif agent_name == "ConfidenceMetaAgent":
+                        overall = result.data.get('overall_confidence', 0)
+                        console.print(f"   Overall analysis confidence: {overall:.2f}")
+                    
+                    results[agent_name] = {'status': 'success', 'elapsed': elapsed, 'confidence': result.confidence}
+                else:
+                    console.print(f"[red]❌ {agent_name} failed: {result.error_message}[/red]")
+                    results[agent_name] = {'status': 'failed', 'error': result.error_message}
+                
+                console.print()
+                
+            except Exception as e:
+                console.print(f"[red]💥 {agent_name} crashed: {str(e)}[/red]\n")
+                results[agent_name] = {'status': 'crashed', 'error': str(e)}
+        
+        # Summary
+        console.print(f"{'='*80}")
+        console.print("[bold green]✅ AGENT TESTING COMPLETE[/bold green]")
+        console.print(f"{'='*80}\n")
+        
+        success_count = sum(1 for r in results.values() if r['status'] == 'success')
+        console.print(f"[bold]Results: {success_count}/{len(agents_to_test)} agents passed[/bold]")
+        
+        for agent_name, result in results.items():
+            status = result['status']
+            if status == 'success':
+                console.print(f"   ✅ {agent_name}")
+            elif status == 'failed':
+                console.print(f"   ⚠️  {agent_name}: {result.get('error', 'Unknown error')}")
+            else:
+                console.print(f"   💥 {agent_name}: {result.get('error', 'Crashed')}")
+        
+        console.print()
+        return results
 
 
 async def run_sample_mode(
@@ -1196,6 +1345,7 @@ async def run_sample_mode(
     end_date: datetime = None,
     save_to_file: bool = True,
     test_llm: bool = False,
+    test_all_agents: bool = False,
     schema_mode: str = 'standard',
     include_hierarchy: bool = True
 ) -> Dict[str, Any]:
@@ -1208,6 +1358,7 @@ async def run_sample_mode(
         end_date: End date (defaults to now)
         save_to_file: Save to outputs/
         test_llm: Run actual LLM sentiment analysis on top topics (shows what agents produce)
+        test_all_agents: Run ALL production agents to verify they work with real data
         include_hierarchy: Show/hide topic hierarchy debugging section
         
     Returns:
@@ -1241,6 +1392,10 @@ async def run_sample_mode(
         }
         llm_count = mode_configs.get(schema_mode, 3)
         await sample_mode.test_llm_analysis(result['conversations'], llm_topic_count=llm_count)
+    
+    # Run comprehensive agent testing if requested
+    if test_all_agents:
+        await sample_mode.test_all_agents(result['conversations'])
     
     return result
 

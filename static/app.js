@@ -289,6 +289,7 @@ async function runAnalysis() {
             const schemaMode = document.getElementById('schemaMode')?.value || 'standard';
             const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
+            const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
             
             args.push('sample-mode');
             args.push('--time-period', sampleTimePeriod);
@@ -300,6 +301,11 @@ async function runAnalysis() {
             // Add hierarchy flag (only send --no-hierarchy if unchecked, since default is true)
             if (!includeHierarchy) {
                 args.push('--no-hierarchy');
+            }
+            
+            // Add test-all-agents flag if checked
+            if (testAllAgents) {
+                args.push('--test-all-agents');
             }
             
         } else if (analysisType === 'voice-of-customer-hilary') {

@@ -332,6 +332,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Run actual LLM sentiment test on diverse topics'
             },
+            '--test-all-agents': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Test ALL production agents (SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence)'
+            },
             '--schema-mode': {
                 'type': 'enum',
                 'values': ['quick', 'standard', 'deep', 'comprehensive'],
@@ -1502,6 +1507,16 @@ if HAS_FASTAPI:
                         </label>
                         <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
                             Displays topic detection and hierarchy structure debugging information
+                        </p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb; font-size: 14px;">
+                            <input type="checkbox" id="testAllAgents" style="margin-right: 8px; cursor: pointer;">
+                            <span>🧪 Test ALL Production Agents</span>
+                        </label>
+                        <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
+                            Tests 7 agents: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence (+30s runtime)
                         </p>
                     </div>
                     
