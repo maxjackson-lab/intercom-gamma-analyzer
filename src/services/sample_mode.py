@@ -432,16 +432,24 @@ class SampleMode:
                 author_name = author.get('name', '').lower()
                 author_email = author.get('email', '').lower()
                 
+                # Check for Fin/Sal in BOTH admin and bot types
+                is_fin = ('sal' in author_name or 
+                         'support sal' in author_name or 
+                         'sal' in author_email or 
+                         'finn' in author_name or
+                         'fin' in author_name)
+                
                 if author_type == 'admin':
-                    # Check if this is Sal or human
-                    is_sal = ('sal' in author_name or 'sal' in author_email or 'finn' in author_name)
-                    
-                    if is_sal:
+                    if is_fin:
                         has_sal = True
                     else:
                         has_human_admin = True
                 elif author_type == 'bot':
-                    has_bot = True
+                    # ✅ FIX: Check if bot is actually Fin before categorizing
+                    if is_fin:
+                        has_sal = True
+                    else:
+                        has_bot = True
             
             if has_sal:
                 sal_conversations.append(conv)
@@ -817,50 +825,57 @@ class SampleMode:
                 console.print(f"  {state}: {count}")
     
     def _analyze_topic_detection(self, conversations: List[Dict]) -> Dict[str, Any]:
-        """Analyze topic detection across all conversations using keyword matching."""
-        test_keywords = {
-            'Billing': ['billing', 'invoice', 'refund', 'payment', 'subscription', 'charge', 'receipt'],
-            'Account': ['account', 'login', 'password', 'email', 'sign in', 'authentication'],
-            'Bug': ['bug', 'error', 'broken', 'not working', 'issue', 'problem', 'crash'],
-            'Product Question': ['how do', 'how to', 'can i', 'question', 'help', 'support'],
-            'Agent/Buddy': ['gamma ai', 'ai assistant', 'chatbot', 'fin ai', 'buddy'],
-            'Workspace': ['workspace', 'team', 'member', 'invite', 'collaboration'],
-            'Credits': ['credits', 'ai credits', 'credit balance'],
-            'Export': ['export', 'download', 'pdf', 'pptx'],
-            'Privacy': ['privacy', 'gdpr', 'data', 'security', 'delete account']
-        }
+        """
+        Analyze topic detection using PRODUCTION TopicDetectionAgent.
         
-        topic_matches = {topic: 0 for topic in test_keywords}
-        keyword_hit_counts = {topic: {} for topic in test_keywords}
+        Returns debug-friendly data showing ALL topics each conversation matches
+        (not just primary topic) to help identify over-broad keywords.
+        """
+        from src.agents.topic_detection_agent import TopicDetectionAgent
+        
+        # Use REAL production agent
+        agent = TopicDetectionAgent()
+        
+        # Track how many conversations match each topic (can exceed 100% - that's the point!)
+        topic_matches = {}
+        keyword_hit_counts = {}
         no_match_count = 0
         
         for conv in conversations:
-            text = extract_conversation_text(conv, clean_html=True).lower()
-            matched_any = False
+            # Use agent's real detection method
+            detected_topics = agent._detect_topics_for_conversation(conv)
             
-            for topic, keywords in test_keywords.items():
-                for kw in keywords:
-                    pattern = r'\b' + re.escape(kw) + r'\b'
-                    if re.search(pattern, text):
-                        topic_matches[topic] += 1
-                        keyword_hit_counts[topic][kw] = keyword_hit_counts[topic].get(kw, 0) + 1
-                        matched_any = True
-                        break  # Count once per topic per conversation
-            
-            if not matched_any:
+            if not detected_topics:
                 no_match_count += 1
+                continue
+            
+            # For debug output, show ALL topics detected (not just primary)
+            for detection in detected_topics:
+                topic = detection['topic']
+                method = detection.get('detection_method', 'unknown')
+                keywords = detection.get('matched_keywords', [])
+                
+                # Count topic
+                if topic not in topic_matches:
+                    topic_matches[topic] = 0
+                    keyword_hit_counts[topic] = {}
+                topic_matches[topic] += 1
+                
+                # Track which keywords matched
+                for kw in keywords:
+                    keyword_hit_counts[topic][kw] = keyword_hit_counts[topic].get(kw, 0) + 1
         
         return {
             'total': len(conversations),
             'topic_matches': topic_matches,
             'keyword_hit_counts': keyword_hit_counts,
             'no_match_count': no_match_count,
-            'no_match_percentage': no_match_count / len(conversations) * 100
+            'no_match_percentage': no_match_count / len(conversations) * 100 if conversations else 0
         }
     
     def _display_topic_summary(self, summary: Dict[str, Any]):
         """Display topic detection summary."""
-        table = Table(title="Topic Detection (Keyword Matching)", show_header=True)
+        table = Table(title="Topic Detection (Production Agent - Shows ALL Matches)", show_header=True)
         table.add_column("Topic", style="cyan")
         table.add_column("Matched", style="green")
         table.add_column("%", style="yellow")

@@ -174,6 +174,41 @@ class TopicDetectionAgent(BaseAgent):
         
         return topics
     
+    def _get_topic_priority_order(self) -> List[str]:
+        """
+        Return topics in priority order: specific → generic.
+        
+        This ensures specific topics are checked first to prevent misclassification.
+        For example, "how do I refund" should match "Billing" before "Product Question".
+        
+        Returns:
+            List of topic names in priority order (highest priority first)
+        """
+        return [
+            # Priority 1: Most specific topics (should always be checked first)
+            'Chargeback',      # Very specific - charge disputes
+            'Abuse',           # Specific - policy violations
+            'Partnerships',    # Specific - business inquiries
+            'Promotions',      # Specific - discount codes
+            
+            # Priority 2: Domain-specific topics
+            'Billing',         # Money-related issues
+            'Bug',             # Technical problems
+            'Account',         # User account issues
+            'Workspace',       # Team/collaboration
+            'Privacy',         # Data/security concerns
+            'Agent/Buddy',     # AI assistant questions
+            'Credits',         # Credit balance/usage
+            'Export',          # File export questions
+            
+            # Priority 3: Generic topics (check last)
+            'Feedback',        # Feature requests
+            'Product Question', # General "how do I..." questions
+            
+            # Priority 4: Catch-all
+            'Unknown'          # No matches
+        ]
+    
     def get_agent_specific_instructions(self) -> str:
         """Topic detection agent specific instructions"""
         return """
