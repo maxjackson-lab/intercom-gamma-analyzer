@@ -291,6 +291,7 @@ async function runAnalysis() {
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
             const showAgentThinking = document.getElementById('showAgentThinking')?.checked ?? false;
+            const llmTopicDetection = document.getElementById('llmTopicDetection')?.checked ?? false;
             
             args.push('sample-mode');
             args.push('--time-period', sampleTimePeriod);
@@ -312,6 +313,11 @@ async function runAnalysis() {
             // Add show-agent-thinking flag if checked
             if (showAgentThinking) {
                 args.push('--show-agent-thinking');
+            }
+            
+            // Add llm-topic-detection flag if checked
+            if (llmTopicDetection) {
+                args.push('--llm-topic-detection');
             }
             
         } else if (analysisType === 'voice-of-customer-hilary') {

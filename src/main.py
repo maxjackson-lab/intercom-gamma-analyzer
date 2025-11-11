@@ -4217,6 +4217,8 @@ def canny_analysis(
               help='🧪 Test ALL production agents (SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence)')
 @click.option('--show-agent-thinking', is_flag=True, default=False,
               help='🧠 Show agent LLM prompts, responses, and reasoning (for prompt tuning)')
+@click.option('--llm-topic-detection', is_flag=True, default=False,
+              help='🤖 Use LLM-first for topic detection (more accurate, costs ~$1 per 200 convs)')
 @click.option('--schema-mode', type=click.Choice(['quick', 'standard', 'deep', 'comprehensive']), default='quick',
               help='Analysis depth: quick(50/30s), standard(200/2m), deep(500/5m), comprehensive(1000/10m)')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default='openai',
@@ -4227,8 +4229,8 @@ def canny_analysis(
               help='Enable verbose DEBUG logging')
 def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str], 
                 time_period: str, save_to_file: bool, test_llm: bool, test_all_agents: bool,
-                show_agent_thinking: bool, schema_mode: str, ai_model: str, 
-                include_hierarchy: bool, verbose: bool):
+                show_agent_thinking: bool, llm_topic_detection: bool, schema_mode: str, 
+                ai_model: str, include_hierarchy: bool, verbose: bool):
     """
     SAMPLE MODE: Pull 50-100 REAL conversations with ultra-rich logging
     
@@ -4295,6 +4297,12 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         thinking_log = output_dir / f"agent_thinking_{timestamp}.log"
         
         AgentThinkingLogger.enable(thinking_log)
+    
+    # Enable LLM-first topic detection if requested
+    if llm_topic_detection:
+        os.environ['LLM_TOPIC_DETECTION'] = 'true'
+        console.print("[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
+        console.print("[dim]Uses GPT-4o-mini to classify every conversation (~$1 per 200 convs)[/dim]\n")
     
     # Run sample mode
     result = asyncio.run(run_sample_mode(

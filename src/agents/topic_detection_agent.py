@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class TopicDetectionAgent(BaseAgent):
     """Agent specialized in hybrid topic detection with LLM enhancement"""
     
-    def __init__(self):
+    def __init__(self, llm_first: bool = None):
         super().__init__(
             name="TopicDetectionAgent",
             model="gpt-4o-mini",
@@ -38,6 +38,22 @@ class TopicDetectionAgent(BaseAgent):
         # Build topic definitions from TaxonomyManager
         # This gives us the full taxonomy instead of the simple list
         self.topics = self._build_topics_from_taxonomy()
+        
+        # LLM-First Mode: Use LLM for every conversation (more accurate but more expensive)
+        # Can be controlled via:
+        # 1. Constructor parameter: TopicDetectionAgent(llm_first=True)
+        # 2. Environment variable: LLM_TOPIC_DETECTION=true
+        # 3. Default: False (keyword-first with LLM fallback)
+        import os
+        if llm_first is not None:
+            self.llm_first = llm_first
+        else:
+            self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'false').lower() == 'true'
+        
+        if self.llm_first:
+            self.logger.info("🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)")
+        else:
+            self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
         
         # LEGACY: Keep old simple topics as fallback documentation
         # (not used, but preserved for reference)
@@ -525,6 +541,33 @@ For each conversation:
             self.logger.debug(f"   SDK Tags: {tags}")
             self.logger.debug(f"   Text Length: {len(text)} chars")
         
+        # ===== LLM-FIRST MODE =====
+        # If enabled, use LLM as primary classification method with SDK/keywords as hints
+        if self.llm_first:
+            # Get SDK hint
+            sdk_hint = attributes.get('Reason for contact') if isinstance(attributes, dict) else None
+            
+            # Do quick keyword scan for hints (don't wait for full detection)
+            quick_keywords = []
+            for topic_name in self._get_topic_priority_order()[:5]:  # Just check top 5 topics
+                if topic_name in self.topics:
+                    config = self.topics[topic_name]
+                    for kw in config['keywords'][:3]:  # Just first 3 keywords per topic
+                        pattern = r'\b' + re.escape(kw) + r'\b'
+                        if re.search(pattern, text):
+                            quick_keywords.append(kw)
+                            break
+            
+            # Classify with LLM using hints
+            llm_result = await self._classify_with_llm_smart(text, sdk_hint=sdk_hint, keywords_hint=quick_keywords if quick_keywords else None)
+            
+            if llm_result:
+                # LLM successfully classified
+                return [llm_result]
+            else:
+                # LLM failed - fall back to keyword detection
+                self.logger.warning(f"LLM classification failed for {conv_id}, falling back to keywords")
+        
         # Track topics by detection method for hybrid scoring
         keyword_detections = {}
         sdk_detections = {}
@@ -798,6 +841,129 @@ Additional topics:"""
         
         return {}, token_count
     
+    async def _classify_with_llm_smart(self, text: str, sdk_hint: Optional[str] = None, keywords_hint: Optional[List[str]] = None) -> Optional[Dict]:
+        """
+        LLM-FIRST classification with SDK and keyword hints.
+        
+        This is the primary classification method when LLM-first mode is enabled.
+        Uses SDK attributes and keywords as HINTS, not truth.
+        
+        Args:
+            text: Conversation text
+            sdk_hint: SDK "Reason for contact" value (may be wrong!)
+            keywords_hint: Keywords that matched (for validation)
+            
+        Returns:
+            Topic dict with high confidence or None
+        """
+        try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking = AgentThinkingLogger.get_logger()
+            
+            topic_list = ', '.join(self._get_topic_priority_order()[:10])
+            
+            # Build context-aware prompt
+            hint_section = ""
+            if sdk_hint:
+                hint_section += f"\n⚠️ HINT (may be incorrect): Intercom tagged this as '{sdk_hint}'\n"
+            if keywords_hint:
+                hint_section += f"⚠️ HINT: Keywords matched: {', '.join(keywords_hint[:5])}\n"
+            
+            prompt = f"""You are analyzing a customer support conversation to determine its PRIMARY topic.
+
+AVAILABLE TOPICS: {topic_list}
+{hint_section}
+CONVERSATION TEXT:
+{text[:1500]}
+
+TASK: 
+1. Read the conversation carefully
+2. Identify the customer's MAIN issue/question
+3. Choose ONE topic from the available list that best matches
+4. Ignore the hints if they don't match the actual conversation content
+5. If conversation is unclear/unresponsive, choose "Unknown/unresponsive"
+
+Respond with ONLY the topic name, nothing else."""
+
+            # Log prompt
+            thinking.log_prompt(
+                "TopicDetectionAgent",
+                prompt,
+                {
+                    "method": "llm_smart",
+                    "sdk_hint": sdk_hint,
+                    "keywords_matched": keywords_hint,
+                    "text_length": len(text)
+                }
+            )
+
+            response = await self.ai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            topic_name = response.choices[0].message.content.strip()
+            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            
+            # Log response
+            thinking.log_response(
+                "TopicDetectionAgent",
+                topic_name,
+                tokens_used=tokens_used,
+                model="gpt-4o-mini"
+            )
+            
+            # Validate it's a real topic
+            if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
+                # Check if LLM agreed with hints
+                agreed_with_sdk = (topic_name == sdk_hint) if sdk_hint else None
+                confidence = 0.90 if agreed_with_sdk else 0.80  # Higher if validates hint
+                
+                thinking.log_reasoning(
+                    "TopicDetectionAgent",
+                    f"Classified as '{topic_name}'",
+                    f"LLM analyzed text context. SDK hint: {sdk_hint or 'none'}. " +
+                    f"{'Agreed with SDK' if agreed_with_sdk else 'Corrected SDK' if sdk_hint else 'No SDK hint'}",
+                    {
+                        "llm_result": topic_name,
+                        "sdk_hint": sdk_hint,
+                        "agreed_with_sdk": agreed_with_sdk,
+                        "keywords_hint": keywords_hint,
+                        "confidence": confidence
+                    }
+                )
+                
+                thinking.log_validation(
+                    "TopicDetectionAgent",
+                    "SDK Hint Validation",
+                    agreed_with_sdk if sdk_hint else True,
+                    f"LLM {'confirmed' if agreed_with_sdk else 'corrected'} SDK hint" if sdk_hint else "No SDK hint to validate"
+                )
+                
+                return {
+                    'topic': topic_name,
+                    'method': 'llm_smart',
+                    'confidence': confidence,
+                    'sdk_validated': agreed_with_sdk if sdk_hint else False,
+                    'sdk_hint': sdk_hint,
+                    'llm_correction': sdk_hint if (sdk_hint and not agreed_with_sdk) else None
+                }
+            else:
+                self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
+                thinking.log_validation(
+                    "TopicDetectionAgent",
+                    "Topic Validation",
+                    False,
+                    f"LLM returned '{topic_name}' which is not in topic list"
+                )
+                return None
+                
+        except Exception as e:
+            self.logger.warning(f"LLM smart classification failed: {e}")
+            return None
+    
     async def _validate_topic_with_llm(self, text: str, candidate_topics: List[Dict]) -> Optional[Dict]:
         """
         Use LLM to validate/correct low-confidence topic matches.
@@ -810,6 +976,9 @@ Additional topics:"""
             Validated topic dict or None
         """
         try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking = AgentThinkingLogger.get_logger()
+            
             # Build list of candidate topic names
             candidate_names = [t['topic'] for t in candidate_topics]
             topic_list = ', '.join(self._get_topic_priority_order()[:10])  # Top 10 topics only
@@ -828,6 +997,17 @@ If none fit well, respond with "Unknown/unresponsive".
 
 Respond with ONLY the topic name, nothing else."""
 
+            # Log prompt if thinking mode enabled
+            thinking.log_prompt(
+                "TopicDetectionAgent",
+                prompt,
+                {
+                    "method": "llm_validation",
+                    "candidates": candidate_names,
+                    "text_length": len(text)
+                }
+            )
+
             response = await self.ai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
@@ -836,19 +1016,50 @@ Respond with ONLY the topic name, nothing else."""
             )
             
             topic_name = response.choices[0].message.content.strip()
+            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            
+            # Log response
+            thinking.log_response(
+                "TopicDetectionAgent",
+                topic_name,
+                tokens_used=tokens_used,
+                model="gpt-4o-mini"
+            )
             
             # Validate it's a real topic
             if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
                 self.logger.info(f"   ✅ LLM validated topic: {topic_name}")
+                
+                # Was it a correction?
+                was_corrected = topic_name != candidate_names[0] if candidate_names else False
+                
+                thinking.log_reasoning(
+                    "TopicDetectionAgent",
+                    f"Validated as '{topic_name}'",
+                    f"LLM {'corrected' if was_corrected else 'confirmed'} keyword detection",
+                    {
+                        "original_candidate": candidate_names[0] if candidate_names else None,
+                        "llm_result": topic_name,
+                        "was_corrected": was_corrected,
+                        "confidence": 0.85
+                    }
+                )
+                
                 return {
                     'topic': topic_name,
                     'method': 'llm_validated',
                     'confidence': 0.85,
                     'sdk_validated': False,
-                    'llm_correction': candidate_names[0] if candidate_names else None
+                    'llm_correction': candidate_names[0] if candidate_names and was_corrected else None
                 }
             else:
                 self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
+                thinking.log_validation(
+                    "TopicDetectionAgent",
+                    "Topic Validation",
+                    False,
+                    f"LLM returned '{topic_name}' which is not in topic list"
+                )
                 return None
                 
         except Exception as e:
@@ -866,6 +1077,9 @@ Respond with ONLY the topic name, nothing else."""
             Topic dict or None
         """
         try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking = AgentThinkingLogger.get_logger()
+            
             topic_list = ', '.join(self._get_topic_priority_order()[:10])
             
             prompt = f"""You are analyzing a customer support conversation to determine its topic.
@@ -880,6 +1094,13 @@ If the conversation is unclear or has no clear topic, respond with "Unknown/unre
 
 Respond with ONLY the topic name, nothing else."""
 
+            # Log prompt if thinking mode enabled
+            thinking.log_prompt(
+                "TopicDetectionAgent",
+                prompt,
+                {"method": "llm_only", "text_length": len(text)}
+            )
+
             response = await self.ai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
@@ -888,10 +1109,27 @@ Respond with ONLY the topic name, nothing else."""
             )
             
             topic_name = response.choices[0].message.content.strip()
+            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            
+            # Log response
+            thinking.log_response(
+                "TopicDetectionAgent",
+                topic_name,
+                tokens_used=tokens_used,
+                model="gpt-4o-mini"
+            )
             
             # Validate it's a real topic
             if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
                 self.logger.info(f"   ✅ LLM classified as: {topic_name}")
+                
+                thinking.log_reasoning(
+                    "TopicDetectionAgent",
+                    f"Classified as '{topic_name}'",
+                    "No keywords matched, LLM classified from text context",
+                    {"confidence": 0.75, "method": "llm_only"}
+                )
+                
                 return {
                     'topic': topic_name,
                     'method': 'llm_only',
@@ -900,6 +1138,12 @@ Respond with ONLY the topic name, nothing else."""
                 }
             else:
                 self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
+                thinking.log_validation(
+                    "TopicDetectionAgent",
+                    "Topic Validation",
+                    False,
+                    f"LLM returned '{topic_name}' which is not in topic list"
+                )
                 return None
                 
         except Exception as e:
