@@ -8,6 +8,74 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 - Intercom SDK for data fetching
 - Gamma API for presentation generation
 
+## Audit After Every Code Change (MANDATORY)
+
+**ALWAYS audit your changes immediately after making them. Never skip this.**
+
+### Audit Checklist (Run After EVERY Change):
+
+**Step 1: Read Back What You Just Changed**
+```bash
+# Verify the change was applied correctly
+read_file <file> --offset <line_range>
+```
+- ✅ Confirms change was written
+- ✅ Catches copy/paste errors
+- ✅ Verifies indentation is correct
+
+**Step 2: Check for Linting Errors**
+```bash
+read_lints ["<file_you_changed>"]
+```
+- ✅ Catches syntax errors immediately
+- ✅ Finds missing imports
+- ✅ Detects type errors
+
+**Step 3: Verify Imports Exist**
+```bash
+grep "^from.*YourNewImport|^import.*YourNewImport" <file>
+```
+- ✅ Confirms all imports are present
+- ✅ Catches missing dependencies
+- ✅ Prevents ModuleNotFoundError
+
+**Step 4: Check for Breaking Changes**
+- If you added a new method, search for where it's called
+- If you changed a signature, update ALL callers
+- If you added imports, verify they're in requirements.txt
+
+**Step 5: Verify Logic is Sound**
+- Read the surrounding context (20 lines before/after)
+- Check that new code integrates properly
+- Verify async/await patterns are correct
+
+### When to Audit:
+
+**Audit IMMEDIATELY after:**
+- ✅ Adding new methods
+- ✅ Changing function signatures
+- ✅ Adding async/await calls
+- ✅ Importing new dependencies
+- ✅ Refactoring logic
+- ✅ Fixing bugs
+
+**Before moving to next task:**
+- ✅ Run all audit steps above
+- ✅ Mentally trace through the code path
+- ✅ Ask: "Will this break anything?"
+
+### Why This Matters:
+
+**Example (Nov 11, 2025):**
+- Added LLM methods to TopicDetectionAgent
+- Forgot to import `Optional` type hint
+- Audit Step 2 (linting) caught it immediately
+- Fixed before moving on
+
+**Without auditing:** Bug goes to production → crashes → 30 min debugging
+
+**With auditing:** Bug caught in 10 seconds → fixed immediately
+
 ## Code Style & Patterns
 
 ### Agent Development

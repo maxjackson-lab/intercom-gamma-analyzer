@@ -10,7 +10,7 @@ Purpose:
 
 import logging
 import re
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
@@ -658,29 +658,49 @@ For each conversation:
                         f"Source={sdk_data['source']} (no keyword validation)"
                     )
         
-        # ===== STEP 4: FALLBACK TO UNKNOWN =====
+        # ===== STEP 4: LLM VALIDATION FOR LOW-CONFIDENCE MATCHES =====
+        # If we have matches but they're all low confidence (<0.7), use LLM to validate
+        if detected:
+            max_confidence = max(d.get('confidence', 0) for d in detected)
+            if max_confidence < 0.7:
+                self.logger.info(f"🤖 Low confidence ({max_confidence:.2f}) for {conv_id} - validating with LLM")
+                llm_topic = await self._validate_topic_with_llm(text, detected)
+                if llm_topic:
+                    # LLM validated/corrected the topic
+                    detected = [llm_topic]
+        
+        # ===== STEP 5: FALLBACK TO UNKNOWN =====
         if not detected:
             text_length = len(text)
             has_attrs = bool(attributes)
             has_tags = bool(tags)
             
-            # Log Unknown assignments for diagnostics
-            self.logger.warning(
-                f"⚠️ NO TOPICS DETECTED for {conv_id} - TRUE UNKNOWN:"
-            )
-            self.logger.warning(f"   Text: {text_length} chars")
-            self.logger.warning(f"   SDK Attributes: {attributes}")
-            self.logger.warning(f"   SDK Tags: {tags}")
-            if text_length > 0:
-                self.logger.warning(f"   Preview: {text[:150]}...")
-                self.logger.warning(f"   💡 Consider adding keywords for this pattern")
+            # For truly unknown conversations, try LLM as last resort
+            if text_length > 100:  # Only if there's actual content
+                self.logger.info(f"🤖 NO TOPICS DETECTED for {conv_id} - trying LLM")
+                llm_topic = await self._classify_with_llm(text)
+                if llm_topic and llm_topic['topic'] != 'Unknown/unresponsive':
+                    detected.append(llm_topic)
             
-            detected.append({
-                'topic': 'Unknown/unresponsive',
-                'method': 'fallback',
-                'confidence': 0.1,
-                'sdk_validated': False
-            })
+            # If still nothing, mark as Unknown
+            if not detected:
+                # Log Unknown assignments for diagnostics
+                self.logger.warning(
+                    f"⚠️ NO TOPICS DETECTED for {conv_id} - TRUE UNKNOWN:"
+                )
+                self.logger.warning(f"   Text: {text_length} chars")
+                self.logger.warning(f"   SDK Attributes: {attributes}")
+                self.logger.warning(f"   SDK Tags: {tags}")
+                if text_length > 0:
+                    self.logger.warning(f"   Preview: {text[:150]}...")
+                    self.logger.warning(f"   💡 Consider adding keywords for this pattern")
+                
+                detected.append({
+                    'topic': 'Unknown/unresponsive',
+                    'method': 'fallback',
+                    'confidence': 0.1,
+                    'sdk_validated': False
+                })
         
         # Sort by confidence (highest first) to ensure primary topic is first
         # This is critical for preventing double-counting in downstream agents
@@ -777,4 +797,112 @@ Additional topics:"""
             self.logger.warning(f"LLM topic enhancement failed: {e}")
         
         return {}, token_count
+    
+    async def _validate_topic_with_llm(self, text: str, candidate_topics: List[Dict]) -> Optional[Dict]:
+        """
+        Use LLM to validate/correct low-confidence topic matches.
+        
+        Args:
+            text: Conversation text
+            candidate_topics: List of topics detected with low confidence
+            
+        Returns:
+            Validated topic dict or None
+        """
+        try:
+            # Build list of candidate topic names
+            candidate_names = [t['topic'] for t in candidate_topics]
+            topic_list = ', '.join(self._get_topic_priority_order()[:10])  # Top 10 topics only
+            
+            prompt = f"""You are analyzing a customer support conversation to validate its topic classification.
+
+CANDIDATE TOPICS (from keyword matching): {', '.join(candidate_names)}
+
+AVAILABLE TOPICS: {topic_list}
+
+CONVERSATION TEXT:
+{text[:1000]}
+
+TASK: Which topic best describes this conversation? Choose ONE topic from the available list.
+If none fit well, respond with "Unknown/unresponsive".
+
+Respond with ONLY the topic name, nothing else."""
+
+            response = await self.ai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            topic_name = response.choices[0].message.content.strip()
+            
+            # Validate it's a real topic
+            if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
+                self.logger.info(f"   ✅ LLM validated topic: {topic_name}")
+                return {
+                    'topic': topic_name,
+                    'method': 'llm_validated',
+                    'confidence': 0.85,
+                    'sdk_validated': False,
+                    'llm_correction': candidate_names[0] if candidate_names else None
+                }
+            else:
+                self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
+                return None
+                
+        except Exception as e:
+            self.logger.warning(f"LLM validation failed: {e}")
+            return None
+    
+    async def _classify_with_llm(self, text: str) -> Optional[Dict]:
+        """
+        Use LLM to classify conversation when no keywords match.
+        
+        Args:
+            text: Conversation text
+            
+        Returns:
+            Topic dict or None
+        """
+        try:
+            topic_list = ', '.join(self._get_topic_priority_order()[:10])
+            
+            prompt = f"""You are analyzing a customer support conversation to determine its topic.
+
+AVAILABLE TOPICS: {topic_list}
+
+CONVERSATION TEXT:
+{text[:1000]}
+
+TASK: What is the PRIMARY topic of this conversation? Choose ONE topic from the list.
+If the conversation is unclear or has no clear topic, respond with "Unknown/unresponsive".
+
+Respond with ONLY the topic name, nothing else."""
+
+            response = await self.ai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=50
+            )
+            
+            topic_name = response.choices[0].message.content.strip()
+            
+            # Validate it's a real topic
+            if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
+                self.logger.info(f"   ✅ LLM classified as: {topic_name}")
+                return {
+                    'topic': topic_name,
+                    'method': 'llm_only',
+                    'confidence': 0.75,
+                    'sdk_validated': False
+                }
+            else:
+                self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
+                return None
+                
+        except Exception as e:
+            self.logger.warning(f"LLM classification failed: {e}")
+            return None
 
