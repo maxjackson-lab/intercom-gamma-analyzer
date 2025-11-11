@@ -42,7 +42,7 @@ CUSTOM_ATTRIBUTE_SKIP_PATTERNS = {
 class SubTopicDetectionAgent(BaseAgent):
     """Agent specialized in creating 3-tier sub-topic hierarchy"""
     
-    def __init__(self):
+    def __init__(self, llm_validate_tier2: bool = None):
         super().__init__(
             name="SubTopicDetectionAgent",
             model="gpt-4o",
@@ -56,6 +56,20 @@ class SubTopicDetectionAgent(BaseAgent):
         # Initialize SubcategoryMapper for clean taxonomy mapping
         taxonomy_manager = TaxonomyManager()
         self.subcategory_mapper = SubcategoryMapper(taxonomy_manager)
+        
+        # LLM Tier 2 Validation: Validate SDK subcategories with LLM
+        # Can be controlled via:
+        # 1. Constructor parameter: SubTopicDetectionAgent(llm_validate_tier2=True)
+        # 2. Environment variable: LLM_VALIDATE_TIER2=true
+        # 3. Default: False (trust SDK subcategories)
+        import os
+        if llm_validate_tier2 is not None:
+            self.llm_validate_tier2 = llm_validate_tier2
+        else:
+            self.llm_validate_tier2 = os.getenv('LLM_VALIDATE_TIER2', 'false').lower() == 'true'
+        
+        if self.llm_validate_tier2:
+            logger.info("🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED")
         
         logger.info("SubTopicDetectionAgent initialized with SubcategoryMapper")
     
@@ -147,6 +161,10 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
                 
                 # Detect Tier 2 sub-topics
                 tier2_subtopics = self._detect_tier2_subtopics(convs, tier1_topic)
+                
+                # Optionally validate Tier 2 with LLM
+                if self.llm_validate_tier2 and tier2_subtopics:
+                    tier2_subtopics = await self._validate_tier2_with_llm(tier1_topic, tier2_subtopics, convs)
                 
                 # Discover Tier 3 themes
                 tier3_themes, token_count = await self._discover_tier3_themes(convs, tier1_topic, tier2_subtopics)
@@ -294,6 +312,118 @@ SUBTOPIC DETECTION AGENT SPECIFIC RULES:
         )
         
         return subtopic_dict
+    
+    async def _validate_tier2_with_llm(self, tier1_topic: str, tier2_subtopics: Dict, conversations: List[Dict]) -> Dict[str, Dict[str, Any]]:
+        """
+        Use LLM to validate/correct Tier 2 subcategories extracted from SDK.
+        
+        Problem: SDK subcategories may be mis-tagged by agents
+        Solution: LLM validates each subcategory by reading actual conversations
+        
+        Args:
+            tier1_topic: Tier 1 topic name (e.g., "Billing")
+            tier2_subtopics: Subcategories extracted from SDK
+            conversations: All conversations for this topic
+            
+        Returns:
+            Validated/corrected subcategory dict
+        """
+        from src.utils.agent_thinking_logger import AgentThinkingLogger
+        thinking = AgentThinkingLogger.get_logger()
+        
+        validated_subtopics = {}
+        
+        for subcat_name, subcat_data in tier2_subtopics.items():
+            # Sample conversations tagged with this subcategory (max 5)
+            sample_convs = conversations[:5]
+            
+            # Extract text from samples
+            samples_text = []
+            for conv in sample_convs:
+                text = extract_conversation_text(conv, clean_html=True)
+                samples_text.append(text[:200])
+            
+            if not samples_text:
+                # No conversations to validate, keep as-is
+                validated_subtopics[subcat_name] = subcat_data
+                continue
+            
+            # Ask LLM to validate
+            prompt = f"""You are validating customer support subcategory classifications.
+
+TIER 1 TOPIC: {tier1_topic}
+TIER 2 SUBCATEGORY: {subcat_name}
+
+SAMPLE CONVERSATIONS:
+{chr(10).join(f"{i+1}. {text}" for i, text in enumerate(samples_text))}
+
+TASK: Are these conversations truly about "{subcat_name}"?
+- Answer YES if subcategory matches the conversations
+- Answer NO if subcategory seems wrong
+- If NO, suggest a better subcategory name from the {tier1_topic} taxonomy
+
+Respond with: YES or NO: [reason]"""
+
+            thinking.log_prompt(
+                "SubTopicDetectionAgent",
+                prompt,
+                {
+                    "tier1": tier1_topic,
+                    "tier2": subcat_name,
+                    "sample_count": len(samples_text)
+                }
+            )
+            
+            try:
+                response = await self.ai_client.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=100
+                )
+                
+                response_text = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+                
+                thinking.log_response(
+                    "SubTopicDetectionAgent",
+                    response_text,
+                    tokens_used=tokens_used,
+                    model="gpt-4o-mini"
+                )
+                
+                # Parse response
+                is_valid = response_text.upper().startswith('YES')
+                
+                if is_valid:
+                    # LLM validated - keep subcategory
+                    validated_subtopics[subcat_name] = subcat_data
+                    thinking.log_validation(
+                        "SubTopicDetectionAgent",
+                        f"Tier 2: {subcat_name}",
+                        True,
+                        "LLM confirmed subcategory matches conversations"
+                    )
+                else:
+                    # LLM rejected - log but keep (SDK might be right, LLM might be wrong)
+                    self.logger.warning(f"   ⚠️ LLM validation failed for {subcat_name}: {response_text}")
+                    validated_subtopics[subcat_name] = {
+                        **subcat_data,
+                        'llm_warning': response_text
+                    }
+                    thinking.log_validation(
+                        "SubTopicDetectionAgent",
+                        f"Tier 2: {subcat_name}",
+                        False,
+                        f"LLM flagged as potentially incorrect: {response_text}"
+                    )
+                    
+            except Exception as e:
+                # LLM validation failed - keep original
+                self.logger.warning(f"LLM validation error for {subcat_name}: {e}")
+                validated_subtopics[subcat_name] = subcat_data
+        
+        return validated_subtopics
     
     def _detect_tier2_subtopics_OLD_SCATTER_SHOT(self, conversations: List[Dict], tier1_topic: str) -> Dict[str, Dict[str, Any]]:
         """
