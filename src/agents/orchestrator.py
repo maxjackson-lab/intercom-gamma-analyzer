@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 import json
 
-from src.agents.base_agent import BaseAgent, AgentContext, AgentResult
+from src.agents.base_agent import BaseAgent, AgentContext, AgentResult, ConfidenceLevel
 from src.agents.data_agent import DataAgent
 from src.agents.category_agent import CategoryAgent
 from src.agents.sentiment_agent import SentimentAgent
@@ -256,10 +256,12 @@ class MultiAgentOrchestrator:
                 )
                 # Return partial result with timeout status
                 return AgentResult(
-                    status="timeout",
-                    data={"error": f"Agent timed out after {timeout}s"},
-                    metadata={"agent": agent.name, "timeout": timeout},
-                    confidence=0.0
+                    agent_name=agent.name,
+                    success=False,
+                    data={"error": f"Agent timed out after {timeout}s", "status": "timeout"},
+                    confidence=0.0,
+                    confidence_level=ConfidenceLevel.LOW,
+                    error_message=f"Agent timed out after {timeout}s"
                 )
 
         except Exception as e:

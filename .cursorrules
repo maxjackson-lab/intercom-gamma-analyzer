@@ -484,15 +484,20 @@ while True:
    - Prevents: ModuleNotFoundError in deployment
    - Example: Importing `some_package` not in requirements.txt
 
+5. ✅ **Pydantic Model Instantiation** - Validates required fields are provided
+   - Prevents: Pydantic ValidationError at runtime
+   - Example: Creating `AgentContext(...)` without required `analysis_type` field
+   - **NEW** (Nov 11, 2025): Added to catch missing Pydantic required fields
+
 **Result:** If ANY P0 check fails → Commit BLOCKED with fix instructions
 
 **P1 - Data Quality (Run manually with `./scripts/run_all_checks.sh`):**
-5. ✅ **Schema Validation** - Validates Intercom data structures (requires sample data)
-6. ✅ **Null Safety** - Finds unsafe nested field access patterns
-7. ✅ **Pydantic Models** - Tests models with valid/invalid data
-8. ✅ **Execution Policies** - Validates SSE/background execution rules
-9. ✅ **Double-Counting** - Validates topic assignment uniqueness
-10. ✅ **Keyword Specificity** - Checks topic keywords aren't too broad
+6. ✅ **Schema Validation** - Validates Intercom data structures (requires sample data)
+7. ✅ **Null Safety** - Finds unsafe nested field access patterns
+8. ✅ **Pydantic Models** - Tests models with valid/invalid data
+9. ✅ **Execution Policies** - Validates SSE/background execution rules
+10. ✅ **Double-Counting** - Validates topic assignment uniqueness
+11. ✅ **Keyword Specificity** - Checks topic keywords aren't too broad
 
 **Latest Run Status:**
 - ✅ Null Safety: 0 critical issues (all fixed!)

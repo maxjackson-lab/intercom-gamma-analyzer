@@ -32,6 +32,15 @@ echo ""
 echo "Check level: $CHECK_LEVEL"
 echo ""
 
+# Show Python environment info
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo "🐍 Using Python from venv: $VIRTUAL_ENV"
+else
+    echo "🐍 Using system Python: $(which python3)"
+fi
+echo "   Python version: $(python3 --version 2>&1)"
+echo ""
+
 # Track results
 P0_FAILED=0
 P1_FAILED=0
@@ -99,6 +108,10 @@ run_check "P0" "Async/Await Pattern Validation" \
 run_check "P0" "Import/Dependency Validation" \
     "scripts/check_imports.py" \
     "Validates all imports exist in requirements"
+
+run_check "P0" "Pydantic Model Instantiation" \
+    "scripts/check_pydantic_instantiations.py" \
+    "Validates Pydantic models are created with required fields"
 
 # P1 Checks (High Impact - Run unless --p0)
 if [ "$CHECK_LEVEL" != "p0" ]; then
@@ -169,4 +182,7 @@ else
     echo ""
     exit 0
 fi
+
+
+
 

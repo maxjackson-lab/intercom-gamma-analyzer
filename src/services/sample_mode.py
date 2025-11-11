@@ -940,6 +940,7 @@ class SampleMode:
         topic_agent = TopicDetectionAgent()
         context = AgentContext(
             analysis_id="schema_debug",
+            analysis_type="sample_mode",
             conversations=conversations,
             start_date=datetime.now(),
             end_date=datetime.now()
@@ -1076,6 +1077,7 @@ class SampleMode:
         
         context = AgentContext(
             analysis_id="sample_llm_test",
+            analysis_type="sample_mode",
             conversations=conversations,
             start_date=datetime.now(),
             end_date=datetime.now()

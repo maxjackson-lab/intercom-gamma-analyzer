@@ -535,6 +535,8 @@ async def run_agent_performance_analysis(
         
         # Create agent context
         context = AgentContext(
+            analysis_id=f"agent_performance_{datetime.now().strftime('%Y%m%d')}",
+            analysis_type="agent_performance",
             conversations=agent_conversations,
             start_date=start_date,
             end_date=end_date,
