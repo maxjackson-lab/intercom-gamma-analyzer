@@ -302,6 +302,36 @@ python scripts/validate_data_schemas.py
 - Assume SDK data structure is consistent (normalize at boundary!)
 - Cancel background jobs when SSE disconnects
 - Only test with mock data (always validate with real data)
+- Create duplicate/simplified logic in sample-mode or test utilities (use production code!)
+
+### 🚨 CRITICAL: Sample-Mode Must Use Production Code
+
+**Problem (Nov 11, 2025):**
+- Sample-mode had duplicate implementations (`_analyze_topic_detection`, `_analyze_agent_attribution`)
+- Over time, production evolved but sample-mode's duplicate logic stayed frozen
+- Result: Sample-mode showed bugs that didn't exist in production
+- Debugging became impossible - couldn't trust sample-mode results
+
+**Rules:**
+1. ❌ NEVER copy production logic into sample-mode with "simplified" versions
+2. ✅ ALWAYS import and use production agents/services directly
+3. ✅ Sample-mode should ONLY add display/formatting logic, not reimpl ement detection
+4. ✅ If you need debug output, enhance production agent to provide it
+
+**Example:**
+```python
+# ❌ WRONG - Duplicate logic
+def _analyze_topic_detection(self, conversations):
+    # Simplified keyword matching that differs from production
+    test_keywords = {'Billing': ['billing', 'refund'], ...}
+    # ... 50 lines of duplicate logic
+
+# ✅ CORRECT - Use production agent
+def _analyze_topic_detection(self, conversations):
+    from src.agents.topic_detection_agent import TopicDetectionAgent
+    agent = TopicDetectionAgent()
+    return agent._detect_topics_for_conversation(conv)
+```
 
 ### ✅ DO:
 - Return AgentResult for all agent outputs
