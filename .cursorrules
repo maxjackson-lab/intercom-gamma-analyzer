@@ -27,11 +27,26 @@ read_file <file> --offset <line_range>
 ```bash
 read_lints ["<file_you_changed>"]
 ```
-- ✅ Catches syntax errors immediately
 - ✅ Finds missing imports
 - ✅ Detects type errors
+- ⚠️ **Does NOT catch async/await SyntaxErrors** (see Step 3)
 
-**Step 3: Verify Imports Exist**
+**Step 3: Run Syntax Check (CRITICAL for async code)**
+```bash
+python3 -m py_compile <file_you_changed>
+```
+- ✅ **Catches 'await outside async function' immediately**
+- ✅ Catches ALL Python SyntaxErrors before push
+- ✅ Takes 2 seconds, prevents production crashes
+- 🚨 **MANDATORY for ANY changes involving async/await**
+
+**Example (Nov 12, 2025 - Learned the Hard Way):**
+- Added `await` call inside non-async function
+- Linting passed (doesn't catch this!)
+- Pushed to production → SyntaxError crash
+- **If I had run `py_compile`, would have caught it in 2 seconds**
+
+**Step 4: Verify Imports Exist**
 ```bash
 grep "^from.*YourNewImport|^import.*YourNewImport" <file>
 ```
@@ -39,12 +54,12 @@ grep "^from.*YourNewImport|^import.*YourNewImport" <file>
 - ✅ Catches missing dependencies
 - ✅ Prevents ModuleNotFoundError
 
-**Step 4: Check for Breaking Changes**
+**Step 5: Check for Breaking Changes**
 - If you added a new method, search for where it's called
 - If you changed a signature, update ALL callers
 - If you added imports, verify they're in requirements.txt
 
-**Step 5: Verify Logic is Sound**
+**Step 6: Verify Logic is Sound**
 - Read the surrounding context (20 lines before/after)
 - Check that new code integrates properly
 - Verify async/await patterns are correct
@@ -66,15 +81,23 @@ grep "^from.*YourNewImport|^import.*YourNewImport" <file>
 
 ### Why This Matters:
 
-**Example (Nov 11, 2025):**
+**Example 1 (Nov 11, 2025 - Linting):**
 - Added LLM methods to TopicDetectionAgent
 - Forgot to import `Optional` type hint
 - Audit Step 2 (linting) caught it immediately
 - Fixed before moving on
 
+**Example 2 (Nov 12, 2025 - Syntax Check):**
+- Added `await` call in non-async function
+- Linting passed ✅ (doesn't catch async SyntaxErrors!)
+- **Skipped Step 3 (syntax check)** ❌
+- Pushed to production → SyntaxError crash
+- 30 minutes debugging + emergency fix
+- **If I had run `python3 -m py_compile`, caught in 2 seconds**
+
 **Without auditing:** Bug goes to production → crashes → 30 min debugging
 
-**With auditing:** Bug caught in 10 seconds → fixed immediately
+**With auditing:** Bug caught in 2-10 seconds → fixed immediately
 
 ## Code Style & Patterns
 
