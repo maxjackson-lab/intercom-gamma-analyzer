@@ -12,6 +12,19 @@ This is a multi-agent ETL system that analyzes Intercom conversations using spec
 
 **ALWAYS audit your changes immediately after making them. Never skip this.**
 
+**🚨 CRITICAL: The correct order is:**
+```
+1. Make code changes
+2. Run Steps 1-6 below (audit checklist)
+3. Run ./scripts/run_all_checks.sh (full validation)
+4. ONLY THEN commit
+5. ONLY THEN push
+```
+
+**DO NOT commit before running validation. DO NOT push before validation passes.**
+
+---
+
 ### Audit Checklist (Run After EVERY Change):
 
 **Step 1: Read Back What You Just Changed**
@@ -74,10 +87,110 @@ grep "^from.*YourNewImport|^import.*YourNewImport" <file>
 - ✅ Refactoring logic
 - ✅ Fixing bugs
 
-**Before moving to next task:**
-- ✅ Run all audit steps above
-- ✅ Mentally trace through the code path
-- ✅ Ask: "Will this break anything?"
+**🚨 BEFORE COMMITTING (MANDATORY ORDER):**
+
+**DO NOT SKIP THIS. DO NOT COMMIT UNTIL ALL STEPS PASS.**
+
+```bash
+# Step 1-6: Run audit checklist above
+# ↓
+# Step 7: Run FULL validation suite
+./scripts/run_all_checks.sh
+
+# Step 8: ONLY commit if ALL checks pass
+git add <files>
+git commit -m "message"
+
+# Step 9: ONLY push if commit succeeded
+git push origin <branch>
+```
+
+**❌ NEVER do this:**
+- Commit before running validation
+- Push before validation passes
+- Skip checks because "it looks right"
+- Run validation after pushing (too late!)
+
+**✅ ALWAYS do this:**
+1. Make code changes
+2. Run Steps 1-6 (audit checklist)
+3. Run `./scripts/run_all_checks.sh`
+4. **WAIT for results**
+5. If passing → commit
+6. If failing → fix, repeat from step 2
+7. After commit succeeds → push
+
+**The pre-commit hook runs P0 checks automatically, but YOU must run ALL checks manually for significant changes.**
+
+---
+
+### **📋 COMPLETE WORKFLOW (Follow This EXACTLY):**
+
+```
+┌─────────────────────────────────────────────────┐
+│ 1. MAKE CODE CHANGES                            │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 2. AUDIT STEP 1: Read back changes              │
+│    read_file <file> --offset <range>            │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 3. AUDIT STEP 2: Check linting                  │
+│    read_lints ["<file>"]                        │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 4. AUDIT STEP 3: Run syntax check (async!)      │
+│    python3 -m py_compile <file>                 │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 5. AUDIT STEP 4: Verify imports exist           │
+│    grep "^from.*Import" <file>                  │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 6. AUDIT STEP 5: Check breaking changes         │
+│    grep for callers if needed                   │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 7. AUDIT STEP 6: Verify logic is sound          │
+│    Read surrounding context (20 lines ±)        │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────────────┐
+│ 8. RUN FULL VALIDATION SUITE                    │
+│    ./scripts/run_all_checks.sh                  │
+│    ⏱️  Takes 15-30 seconds                       │
+└─────────────────┬───────────────────────────────┘
+                  ↓
+         ┌────────┴────────┐
+         │  ALL PASS?      │
+         └────┬──────┬─────┘
+              │      │
+         YES  │      │ NO
+              │      │
+              ↓      ↓
+    ┌─────────────────────────┐
+    │ 9. COMMIT               │  FIX ISSUES
+    │    git commit           │  GO BACK TO
+    └──────────┬──────────────┘  STEP 2
+               ↓
+    ┌─────────────────────────┐
+    │ 10. PUSH                │
+    │     git push            │
+    └─────────────────────────┘
+```
+
+**⏱️ TIME COMMITMENT:**
+- Steps 1-6: 30 seconds - 2 minutes
+- Step 7 (full validation): 15-30 seconds
+- **TOTAL: 1-3 minutes to prevent 30+ minute production bugs**
+
+---
 
 ### Why This Matters:
 
@@ -95,9 +208,18 @@ grep "^from.*YourNewImport|^import.*YourNewImport" <file>
 - 30 minutes debugging + emergency fix
 - **If I had run `python3 -m py_compile`, caught in 2 seconds**
 
-**Without auditing:** Bug goes to production → crashes → 30 min debugging
+**Example 3 (Nov 12, 2025 - Commit Order):**
+- Fixed OpenAI client bug (`.chat` → `.client.chat`)
+- Ran syntax check ✅
+- Ran linting ✅
+- **Committed immediately** ❌ (too early!)
+- **Pushed to production** ❌ (too early!)
+- THEN ran full validation suite ✅ (should have been BEFORE commit!)
+- Luckily all checks passed, but if they hadn't → messy git history
 
-**With auditing:** Bug caught in 2-10 seconds → fixed immediately
+**Without proper order:** Dirty commits, potential rollbacks, wasted time
+
+**With proper order:** Clean commits, validation before push, professional git history
 
 ## Code Style & Patterns
 
