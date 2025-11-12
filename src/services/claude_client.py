@@ -15,14 +15,22 @@ logger = logging.getLogger(__name__)
 class ClaudeClient:
     """Client for Anthropic Claude API interactions."""
     
-    def __init__(self):
+    def __init__(self, use_processor_model: bool = False):
+        """
+        Initialize Claude client.
+        
+        Args:
+            use_processor_model: If True, use Haiku 4.5 (fast). If False, use Sonnet 4.5 (intensive).
+        """
         self.api_key = settings.anthropic_api_key
-        self.model = settings.anthropic_model
+        self.model = settings.anthropic_processor_model if use_processor_model else settings.anthropic_model
         self.max_tokens = settings.anthropic_max_tokens
+        self.temperature = settings.anthropic_temperature
         self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
         
-        self.logger.info(f"ClaudeClient initialized with model: {self.model}")
+        model_type = "Haiku 4.5 (processor)" if use_processor_model else "Sonnet 4.5 (intensive)"
+        self.logger.info(f"ClaudeClient initialized with {model_type}: {self.model}")
     
     async def test_connection(self) -> bool:
         """Test connection to Claude API."""

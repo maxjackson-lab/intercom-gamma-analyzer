@@ -1609,9 +1609,13 @@ if HAS_FASTAPI:
                 
                 <label>AI Model:</label>
                 <select id="aiModel">
-                    <option value="openai" selected>ChatGPT (GPT-4o) - Faster, Good Quality</option>
-                    <option value="claude">Claude (Sonnet 3.5) - Slower, Higher Quality</option>
+                    <option value="openai" selected>🤖 OpenAI (GPT-4o + GPT-4o-mini) - Fast & Reliable</option>
+                    <option value="claude">🧠 Claude (Sonnet 4.5 + Haiku 4.5) - Advanced Reasoning</option>
                 </select>
+                <div style="margin-top: 8px; font-size: 12px; color: #9ca3af; padding-left: 4px;">
+                    <strong>OpenAI:</strong> GPT-4o-mini for quick tasks, GPT-4o for complex analysis<br>
+                    <strong>Claude:</strong> Haiku 4.5 for quick tasks, Sonnet 4.5 for complex analysis
+                </div>
                 
                 <!-- Test Mode Options -->
                 <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">

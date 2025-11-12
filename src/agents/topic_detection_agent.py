@@ -32,6 +32,19 @@ class TopicDetectionAgent(BaseAgent):
         )
         self.ai_client = get_ai_client()
         
+        # Determine which models to use based on AI client type
+        from src.services.claude_client import ClaudeClient
+        if isinstance(self.ai_client, ClaudeClient):
+            # Claude: Use Haiku 4.5 for quick, Sonnet 4.5 for intensive
+            self.quick_model = "claude-haiku-4-5-20250514"
+            self.intensive_model = "claude-sonnet-4-5-20250514"
+            self.client_type = "claude"
+        else:
+            # OpenAI: Use GPT-4o-mini for quick, GPT-4o for intensive
+            self.quick_model = "gpt-4o-mini"
+            self.intensive_model = "gpt-4o"
+            self.client_type = "openai"
+        
         # NEW: Use full TaxonomyManager for rich categorization (13 categories + 100+ subcategories)
         self.taxonomy_manager = TaxonomyManager()
         
@@ -793,30 +806,48 @@ Instructions:
 Additional topics:"""
         
         try:
-            # Make the LLM call directly to get the full response object with usage stats
-            response = await self.ai_client.client.chat.completions.create(
-                model=self.ai_client.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=self.ai_client.max_tokens,
-                temperature=self.ai_client.temperature
-            )
+            # Use intensive model for complex analysis
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.intensive_model,
+                    max_tokens=self.ai_client.max_tokens,
+                    temperature=self.ai_client.temperature,
+                    system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+                token_count = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else 0
+                self.logger.info(f"LLM topic enhancement used {token_count} tokens (Claude {self.intensive_model})")
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.intensive_model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=self.ai_client.max_tokens,
+                    temperature=self.ai_client.temperature
+                )
+                # Extract token usage defensively
+                if hasattr(response, 'usage') and response.usage:
+                    token_count = getattr(response.usage, 'total_tokens', 0)
+                    self.logger.info(f"LLM topic enhancement used {token_count} tokens (OpenAI {self.intensive_model})")
             
-            # Extract token usage defensively
-            if hasattr(response, 'usage') and response.usage:
-                token_count = getattr(response.usage, 'total_tokens', 0)
-                self.logger.info(f"LLM topic enhancement used {token_count} tokens")
-            
-            # Extract the response content
-            response_text = response.choices[0].message.content
+            # Extract the response content based on client type
+            if self.client_type == "claude":
+                response_text = response.content[0].text
+            else:
+                response_text = response.choices[0].message.content
             
             # Parse JSON from response
             import json
@@ -893,26 +924,38 @@ Respond with ONLY the topic name, nothing else."""
                     "method": "llm_smart",
                     "sdk_hint": sdk_hint,
                     "keywords_matched": keywords_hint,
-                    "text_length": len(text)
+                    "text_length": len(text),
+                    "client_type": self.client_type,
+                    "model": self.quick_model
                 }
             )
 
-            response = await self.ai_client.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=50
-            )
-            
-            topic_name = response.choices[0].message.content.strip()
-            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Use appropriate API based on client type
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.quick_model,
+                    max_tokens=50,
+                    temperature=0.1,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                topic_name = response.content[0].text.strip()
+                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.quick_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                topic_name = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
             
             # Log response
             thinking.log_response(
                 "TopicDetectionAgent",
                 topic_name,
                 tokens_used=tokens_used,
-                model="gpt-4o-mini"
+                model=self.quick_model
             )
             
             # Validate it's a real topic
@@ -1004,26 +1047,38 @@ Respond with ONLY the topic name, nothing else."""
                 {
                     "method": "llm_validation",
                     "candidates": candidate_names,
-                    "text_length": len(text)
+                    "text_length": len(text),
+                    "client_type": self.client_type,
+                    "model": self.quick_model
                 }
             )
 
-            response = await self.ai_client.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=50
-            )
-            
-            topic_name = response.choices[0].message.content.strip()
-            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Use appropriate API based on client type
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.quick_model,
+                    max_tokens=50,
+                    temperature=0.1,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                topic_name = response.content[0].text.strip()
+                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.quick_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                topic_name = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
             
             # Log response
             thinking.log_response(
                 "TopicDetectionAgent",
                 topic_name,
                 tokens_used=tokens_used,
-                model="gpt-4o-mini"
+                model=self.quick_model
             )
             
             # Validate it's a real topic
@@ -1098,25 +1153,40 @@ Respond with ONLY the topic name, nothing else."""
             thinking.log_prompt(
                 "TopicDetectionAgent",
                 prompt,
-                {"method": "llm_only", "text_length": len(text)}
+                {
+                    "method": "llm_only",
+                    "text_length": len(text),
+                    "client_type": self.client_type,
+                    "model": self.quick_model
+                }
             )
 
-            response = await self.ai_client.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=50
-            )
-            
-            topic_name = response.choices[0].message.content.strip()
-            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Use appropriate API based on client type
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.quick_model,
+                    max_tokens=50,
+                    temperature=0.1,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                topic_name = response.content[0].text.strip()
+                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.quick_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=50
+                )
+                topic_name = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
             
             # Log response
             thinking.log_response(
                 "TopicDetectionAgent",
                 topic_name,
                 tokens_used=tokens_used,
-                model="gpt-4o-mini"
+                model=self.quick_model
             )
             
             # Validate it's a real topic
