@@ -175,3 +175,6 @@ python src/main.py sample-mode --schema-mode deep --no-hierarchy
 - Data is still computed for JSON export regardless of display flag
 - This follows the pattern established by other optional flags like `--test-llm` and `--verbose`
 
+
+
+

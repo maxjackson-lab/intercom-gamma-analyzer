@@ -557,3 +557,6 @@ After a few PRs, check if bugs decreased:
 **Ready to copy-paste into `.cursorrules`!** Start with the sections marked (NEW) and (ENHANCED) for immediate impact.
 
 
+
+
+

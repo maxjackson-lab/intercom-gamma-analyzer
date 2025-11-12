@@ -425,3 +425,8 @@ The only minor optimization opportunity (field selection) is justified by our re
 **Audit Completed**: November 7, 2025  
 **Next Review**: When Intercom API changes or after major refactoring
 
+
+
+
+
+

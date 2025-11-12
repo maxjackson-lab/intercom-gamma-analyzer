@@ -84,10 +84,13 @@ class PydanticModelValidator:
             
             # Test AgentResult with valid data
             try:
+                from src.agents.base_agent import ConfidenceLevel
                 valid_result = AgentResult(
+                    agent_name='TestAgent',
                     success=True,
                     data={'test': 'data'},
                     confidence=0.8,
+                    confidence_level=ConfidenceLevel.HIGH,
                     sources=['test_source'],
                     limitations=[]
                 )
@@ -255,4 +258,7 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+
 

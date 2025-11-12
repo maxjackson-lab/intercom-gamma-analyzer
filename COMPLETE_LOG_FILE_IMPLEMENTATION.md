@@ -273,3 +273,6 @@ Console output → Rich export → .log file → outputs/ ✅
 - Backward compatible - existing behavior unchanged
 - Solves the "lost connection" problem completely
 
+
+
+

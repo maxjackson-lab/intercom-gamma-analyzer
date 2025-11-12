@@ -204,3 +204,8 @@ class CircuitBreakerOpenError(Exception):
     """Raised when circuit breaker is open and request is blocked"""
     pass
 
+
+
+
+
+

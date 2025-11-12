@@ -136,3 +136,6 @@ When `--no-hierarchy` is used or checkbox is unchecked:
 - ✅ JSON export format unchanged
 - ✅ No impact on other analysis types
 
+
+
+

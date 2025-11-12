@@ -61,6 +61,7 @@ class WebCommandExecutor:
                 "--start-date", "--end-date", "--time-period", "--days", "--periods-back",
                 # Sample mode options
                 "--count", "--save-to-file", "--no-save", "--test-llm", "--schema-mode",
+                "--test-all-agents", "--show-agent-thinking", "--llm-topic-detection", "--include-hierarchy",
                 # Analysis options
                 "--multi-agent", "--analysis-type",
                 "--focus-areas", "--focus-categories",
