@@ -897,7 +897,7 @@ Respond with ONLY the topic name, nothing else."""
                 }
             )
 
-            response = await self.ai_client.chat.completions.create(
+            response = await self.ai_client.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
@@ -1008,7 +1008,7 @@ Respond with ONLY the topic name, nothing else."""
                 }
             )
 
-            response = await self.ai_client.chat.completions.create(
+            response = await self.ai_client.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
@@ -1101,7 +1101,7 @@ Respond with ONLY the topic name, nothing else."""
                 {"method": "llm_only", "text_length": len(text)}
             )
 
-            response = await self.ai_client.chat.completions.create(
+            response = await self.ai_client.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
