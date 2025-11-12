@@ -261,7 +261,7 @@ class SampleMode:
         console.print("[dim]Keyword matching across all conversations[/dim]")
         console.print("="*80 + "\n")
         
-        topic_summary = self._analyze_topic_detection(conversations)
+        topic_summary = await self._analyze_topic_detection(conversations)
         self._display_topic_summary(topic_summary)
         
         # ===== CONVERSATION OVERVIEW TABLE =====
@@ -824,7 +824,7 @@ class SampleMode:
             for state, count in sorted(stats['ai_resolution_states'].items(), key=lambda x: x[1], reverse=True):
                 console.print(f"  {state}: {count}")
     
-    def _analyze_topic_detection(self, conversations: List[Dict]) -> Dict[str, Any]:
+    async def _analyze_topic_detection(self, conversations: List[Dict]) -> Dict[str, Any]:
         """
         Analyze topic detection using PRODUCTION TopicDetectionAgent.
         
@@ -843,7 +843,7 @@ class SampleMode:
         
         for conv in conversations:
             # Use agent's real detection method
-            detected_topics = agent._detect_topics_for_conversation(conv)
+            detected_topics = await agent._detect_topics_for_conversation(conv)
             
             if not detected_topics:
                 no_match_count += 1

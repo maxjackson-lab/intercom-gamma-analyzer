@@ -308,7 +308,7 @@ For each conversation:
             primary_topic_assignments = []  # For counting (one per conversation)
             
             for conv in conversations:
-                detected = self._detect_topics_for_conversation(conv)
+                detected = await self._detect_topics_for_conversation(conv)
                 conv_id = conv.get('id', 'unknown')
                 
                 # Store ALL detected topics for context
@@ -511,7 +511,7 @@ For each conversation:
                 execution_time=execution_time
             )
     
-    def _detect_topics_for_conversation(self, conv: Dict) -> List[Dict]:
+    async def _detect_topics_for_conversation(self, conv: Dict) -> List[Dict]:
         """
         HYBRID DETECTION: SDK Enrichment + Keyword Detection
         
