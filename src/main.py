@@ -4477,6 +4477,8 @@ async def run_test_topic_based(conversations):
               help='AI model to use (openai or claude). Defaults to config setting.')
 @click.option('--audit-trail', is_flag=True, default=False,
               help='Enable audit trail logging for debugging and compliance')
+@click.option('--llm-topic-detection', is_flag=True, default=False,
+              help='🤖 Use LLM-first for topic detection (more accurate, handles nuance, costs ~$1 per 200 convs)')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def voice_of_customer_analysis(
     time_period: Optional[str],
@@ -4487,6 +4489,7 @@ def voice_of_customer_analysis(
     enable_fallback: bool,
     include_trends: bool,
     include_canny: bool,
+    llm_topic_detection: bool,
     canny_board_id: Optional[str],
     generate_gamma: bool,
     test_mode: bool,
@@ -4597,6 +4600,13 @@ def voice_of_customer_analysis(
     if ai_model:
         os.environ['AI_MODEL'] = ai_model
         console.print(f"[cyan]🤖 AI Model: {ai_model}[/cyan]")
+    
+    # Enable LLM-first topic detection if requested
+    if llm_topic_detection:
+        os.environ['LLM_TOPIC_DETECTION'] = 'true'
+        console.print(f"[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
+        console.print(f"[dim]   Uses GPT-4o-mini to classify every conversation[/dim]")
+        console.print(f"[dim]   More accurate for edge cases (~$1 per 200 convs)[/dim]\n")
     
     # This branch is multi-agent only
     console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")

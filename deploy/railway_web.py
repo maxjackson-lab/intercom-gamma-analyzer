@@ -427,6 +427,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Enable verbose logging'
             },
+            '--llm-topic-detection': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use LLM-first for topic detection (more accurate, costs ~$1 per 200 convs)'
+            },
             '--ai-model': {
                 'type': 'enum',
                 'values': ['openai', 'claude'],
@@ -1655,6 +1660,23 @@ if HAS_FASTAPI:
                         • Generates detailed report for data engineer review<br>
                         • Builds confidence in analysis methodology<br>
                         • Perfect for validation and debugging
+                    </div>
+                </div>
+                
+                <!-- LLM-First Topic Detection (VOC only) -->
+                <div id="llmTopicDetectionVocContainer" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: none;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="llmTopicDetectionVoc" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #3b82f6;">🤖 LLM-First Topic Detection</span>
+                    </label>
+                    <div style="font-size: 11px; color: #60a5fa; margin-top: 10px; line-height: 1.5;">
+                        <strong>ℹ️ Why Use This:</strong><br>
+                        • More accurate than keyword matching<br>
+                        • Handles nuanced conversations ("credits on invoice" → Credits not Billing)<br>
+                        • Not fooled by mis-tagged SDK data<br>
+                        • Solves double-counting issues<br>
+                        • Cost: ~$1 per 200 conversations<br>
+                        • Uses GPT-4o-mini for classification
                     </div>
                 </div>
                 

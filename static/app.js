@@ -325,15 +325,33 @@ async function runAnalysis() {
             args.push('--analysis-type', 'topic-based');
             args.push('--multi-agent');
             
+            // LLM topic detection if checkbox enabled
+            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
+            if (llmTopicDetectionVoc) {
+                args.push('--llm-topic-detection');
+            }
+            
         } else if (analysisType === 'voice-of-customer-synthesis') {
             args.push('voice-of-customer');
             args.push('--analysis-type', 'synthesis');
             args.push('--multi-agent');
             
+            // LLM topic detection if checkbox enabled
+            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
+            if (llmTopicDetectionVoc) {
+                args.push('--llm-topic-detection');
+            }
+            
         } else if (analysisType === 'voice-of-customer-complete') {
             args.push('voice-of-customer');
             args.push('--analysis-type', 'complete');
             args.push('--multi-agent');
+            
+            // LLM topic detection if checkbox enabled
+            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
+            if (llmTopicDetectionVoc) {
+                args.push('--llm-topic-detection');
+            }
             
         } else if (analysisType.startsWith('agent-performance-')) {
             args.push('agent-performance');
@@ -931,6 +949,12 @@ function updateAnalysisOptions() {
     // Determine if this is a diagnostic mode
     const isDiagnostic = analysisType === 'sample-mode';
     const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
+    
+    // Show/hide LLM topic detection for VOC
+    const llmTopicDetectionVocContainer = document.getElementById('llmTopicDetectionVocContainer');
+    if (llmTopicDetectionVocContainer) {
+        llmTopicDetectionVocContainer.style.display = isVoC ? 'block' : 'none';
+    }
     
     // Hide/show Time Period (hide for sample-mode - it has its own)
     const timePeriodLabel = document.getElementById('timePeriodLabel');
