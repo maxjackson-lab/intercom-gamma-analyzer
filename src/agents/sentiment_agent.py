@@ -29,6 +29,19 @@ class SentimentAgent(BaseAgent):
             temperature=0.4  # Moderate temperature for nuanced analysis
         )
         self.ai_client = get_ai_client()
+        
+        # Determine which models to use based on AI client type (NUANCED SENTIMENT → use Sonnet!)
+        from src.services.claude_client import ClaudeClient
+        if isinstance(self.ai_client, ClaudeClient):
+            # Claude: Use Sonnet 4.5 for nuanced sentiment (sarcasm, frustration depth, etc.)
+            self.quick_model = "claude-haiku-4-5-20250514"
+            self.intensive_model = "claude-sonnet-4-5-20250514"
+            self.client_type = "claude"
+        else:
+            # OpenAI: Use GPT-4o for nuanced sentiment
+            self.quick_model = "gpt-4o-mini"
+            self.intensive_model = "gpt-4o"
+            self.client_type = "openai"
     
     def get_agent_specific_instructions(self) -> str:
         """Sentiment agent specific instructions"""

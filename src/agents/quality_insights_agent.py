@@ -31,7 +31,25 @@ class QualityInsightsAgent(BaseAgent):
             model="gpt-4o",
             temperature=0.3
         )
-        self.ai_client = ai_client
+        # Get AI client if not provided
+        if ai_client is None:
+            from src.utils.ai_client_helper import get_ai_client
+            self.ai_client = get_ai_client()
+        else:
+            self.ai_client = ai_client
+        
+        # Determine which models to use based on AI client type (STRATEGIC TRENDS → use Sonnet!)
+        from src.services.claude_client import ClaudeClient
+        if isinstance(self.ai_client, ClaudeClient):
+            # Claude: Use Sonnet 4.5 for strategic quality insights
+            self.quick_model = "claude-haiku-4-5-20250514"
+            self.intensive_model = "claude-sonnet-4-5-20250514"
+            self.client_type = "claude"
+        else:
+            # OpenAI: Use GPT-4o for quality insights
+            self.quick_model = "gpt-4o-mini"
+            self.intensive_model = "gpt-4o"
+            self.client_type = "openai"
 
     def get_agent_specific_instructions(self) -> str:
         """Return instructions for quality analysis"""
@@ -652,13 +670,25 @@ Keep insights concise, actionable, and focused on learning opportunities.
                 {"role": "user", "content": prompt}
             ]
             
-            response = await self.ai_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature
-            )
-            
-            return response.choices[0].message.content
+            # Use intensive model for strategic quality insights
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.intensive_model,
+                    max_tokens=4000,
+                    temperature=self.temperature,
+                    system=self.get_agent_specific_instructions(),
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                return response.content[0].text
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.intensive_model,
+                    messages=messages,
+                    temperature=self.temperature
+                )
+                return response.choices[0].message.content
             
         except Exception as e:
             logger.warning(f"LLM enrichment failed: {e}")

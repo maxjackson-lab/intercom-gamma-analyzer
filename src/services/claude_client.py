@@ -47,6 +47,38 @@ class ClaudeClient:
             self.logger.error(f"Claude API connection failed: {e}")
             raise
     
+    async def generate_analysis(self, prompt: str, **kwargs) -> str:
+        """
+        Generate analysis using Claude.
+        
+        Compatible with OpenAIClient.generate_analysis() interface.
+        Ignores kwargs like model/temperature since those are set in __init__.
+        """
+        try:
+            self.logger.info("Generating AI analysis with Claude")
+            
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            analysis = response.content[0].text
+            self.logger.info("Claude analysis generated successfully")
+            
+            return analysis
+            
+        except Exception as e:
+            self.logger.error(f"Failed to generate Claude analysis: {e}")
+            raise
+    
     async def analyze_sentiment_multilingual(
         self, 
         text: str, 
