@@ -1580,14 +1580,26 @@ async function refreshExecutionHistory() {
             const option = document.createElement('option');
             option.value = exec.execution_id;
             
-            // Format: "✅ sample-mode (2 min ago, 45s)"
-            const timeAgo = getTimeAgo(startTime);
+            // Status icon
             const statusIcon = exec.status === 'completed' ? '✅' :
                              exec.status === 'failed' ? '❌' : 
                              exec.status === 'running' ? '⏳' : '⏸️';
             
-            const commandShort = exec.command.replace('src/main.py', '').trim().split(' ')[0] || exec.command;
-            option.textContent = `${statusIcon} ${commandShort} (${timeAgo}, ${duration}s)`;
+            // Try to extract human-readable directory name from output_files
+            let displayName = '';
+            if (exec.output_files && exec.output_files.length > 0) {
+                // First entry is the human-readable directory name
+                displayName = exec.output_files[0];
+                // Make it even prettier: replace underscores with spaces in the middle part
+                displayName = displayName.replace(/_/g, ' ');
+            } else {
+                // Fallback to command + time ago
+                const commandShort = exec.command.replace('src/main.py', '').trim().split(' ')[0] || exec.command;
+                const timeAgo = getTimeAgo(startTime);
+                displayName = `${commandShort} (${timeAgo}, ${duration}s)`;
+            }
+            
+            option.textContent = `${statusIcon} ${displayName}`;
             
             select.appendChild(option);
         });

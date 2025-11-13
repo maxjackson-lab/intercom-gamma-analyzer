@@ -1118,7 +1118,7 @@ def save_json_output(results, filename: str):
     import json
     from pathlib import Path
     
-    output_path = Path(settings.output_directory) / f"{filename}.json"
+    output_path = Path(settings.effective_output_directory) / f"{filename}.json"
     
     with open(output_path, 'w') as f:
         json.dump(results.dict(), f, indent=2, default=str)
@@ -1130,7 +1130,7 @@ def save_markdown_output(results, filename: str):
     """Save results as Markdown."""
     from pathlib import Path
     
-    output_path = Path(settings.output_directory) / f"{filename}.md"
+    output_path = Path(settings.effective_output_directory) / f"{filename}.md"
     
     # Generate markdown content based on results type
     if hasattr(results, 'analysis_content'):
@@ -1914,8 +1914,8 @@ async def run_agent_performance_analysis(
                 console.print()
         
         # Save results
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         results_file = output_dir / f"agent_performance_{agent}_{timestamp}.json"
@@ -2158,8 +2158,8 @@ async def run_agent_coaching_report(
         _display_individual_breakdown(result.data, vendor_name)
         
         # Save detailed JSON
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = output_dir / f"coaching_report_{vendor}_{timestamp}.json"
@@ -2385,8 +2385,8 @@ async def run_category_analysis(category: str, start_date: datetime, end_date: d
         
         # Export results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         if output_format == "csv":
             csv_path = output_dir / f"{category}_analysis_{timestamp}.csv"
@@ -2750,7 +2750,8 @@ async def run_billing_analysis(start_date: datetime, end_date: datetime, generat
         
         # Export results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.output_directory)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         # Save analysis results
         results_file = output_dir / f"billing_analysis_{timestamp}.json"
@@ -2861,7 +2862,8 @@ async def run_product_analysis(start_date: datetime, end_date: datetime, generat
         
         # Export results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.output_directory)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         # Save analysis results
         results_file = output_dir / f"product_analysis_{timestamp}.json"
@@ -2972,7 +2974,8 @@ async def run_sites_analysis(start_date: datetime, end_date: datetime, generate_
         
         # Export results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.output_directory)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         # Save analysis results
         results_file = output_dir / f"sites_analysis_{timestamp}.json"
@@ -3083,7 +3086,8 @@ async def run_api_analysis(start_date: datetime, end_date: datetime, generate_ga
         
         # Export results
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.output_directory)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         # Save analysis results
         results_file = output_dir / f"api_analysis_{timestamp}.json"
@@ -3189,7 +3193,8 @@ async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetim
         # Run analyses
         analysis_results = {}
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.output_directory)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         if parallel:
             # Run analyses in parallel
@@ -4291,8 +4296,8 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         from pathlib import Path
         
         # Create thinking log file
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         thinking_log = output_dir / f"agent_thinking_{timestamp}.log"
         
@@ -4959,8 +4964,8 @@ async def run_topic_based_analysis_custom(
         )
         
         # Save output
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_file = output_dir / f"topic_based_{week_id}_{timestamp}.md"
         
@@ -5180,8 +5185,8 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
             console.print(formatted_report[:500] + "..." if len(formatted_report) > 500 else formatted_report)
         
         # Export results
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
@@ -5314,8 +5319,8 @@ async def run_synthesis_analysis(month: int, year: int, tier1_countries: List[st
         # Display and save results
         console.print("\n🎉 Synthesis analysis complete")
         
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        output_dir = Path(settings.effective_output_directory)
+        output_dir.mkdir(exist_ok=True, parents=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         results_file = output_dir / f"synthesis_voc_{month}_{year}_{timestamp}.json"

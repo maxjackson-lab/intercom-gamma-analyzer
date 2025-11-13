@@ -413,7 +413,8 @@ class WebCommandExecutor:
         command: str, 
         args: List[str], 
         execution_id: Optional[str] = None,
-        timeout: int = 1800  # 30 minutes default
+        timeout: int = 1800,  # 30 minutes default
+        env_vars: Optional[Dict[str, str]] = None
     ) -> AsyncIterator[Dict[str, Any]]:
         """
         Execute a command and stream output in real-time.
@@ -506,11 +507,18 @@ class WebCommandExecutor:
             # Create subprocess with new session for process group management
             # IMPORTANT: Using create_subprocess_exec (not shell=True) to prevent shell injection
             # Inherit current environment variables
+            env = os.environ.copy()
+            
+            # Merge in custom environment variables (e.g., EXECUTION_OUTPUT_DIR)
+            if env_vars:
+                env.update(env_vars)
+                self.logger.info(f"[EXEC] Added custom env vars: {list(env_vars.keys())}")
+            
             process_kwargs = {
                 "stdout": asyncio.subprocess.PIPE,
                 "stderr": asyncio.subprocess.PIPE,
                 "cwd": cwd,
-                "env": os.environ.copy()
+                "env": env
             }
             
             # Start new session on Unix for process group management

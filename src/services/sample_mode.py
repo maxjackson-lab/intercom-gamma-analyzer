@@ -172,8 +172,8 @@ class SampleMode:
         
         # Save to file if requested
         if save_to_file:
-            output_file = Path("outputs") / f"sample_mode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            output_file.parent.mkdir(exist_ok=True)
+            from src.utils.output_manager import get_output_file_path
+            output_file = get_output_file_path(f"sample_mode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
             
             with open(output_file, 'w') as f:
                 json.dump({

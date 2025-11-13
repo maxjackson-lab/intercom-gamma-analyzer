@@ -78,6 +78,18 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", env="LOG_LEVEL")
     log_file: str = Field("intercom_analysis.log", env="LOG_FILE")
     
+    @property
+    def effective_output_directory(self) -> str:
+        """
+        Get the effective output directory.
+        
+        For web executions, uses EXECUTION_OUTPUT_DIR if set.
+        For CLI executions, uses output_directory setting.
+        """
+        import os
+        execution_dir = os.getenv('EXECUTION_OUTPUT_DIR')
+        return execution_dir if execution_dir else self.output_directory
+    
     # Gamma Settings
     gamma_base_url: str = Field("https://gamma.app/api", env="GAMMA_BASE_URL")
     gamma_default_template: str = Field("presentation", env="GAMMA_DEFAULT_TEMPLATE")

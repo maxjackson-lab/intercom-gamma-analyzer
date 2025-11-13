@@ -2312,13 +2312,19 @@ if HAS_FASTAPI:
             media_type='text/event-stream; charset=utf-8'
         )
     
-    async def run_command_background(execution_id: str, command: str, args: list):
+    async def run_command_background(execution_id: str, command: str, args: list, execution_dir: str = None):
         """Run command in background and update state."""
         try:
             await state_manager.start_execution(execution_id)
             await state_manager.update_execution_status(execution_id, ExecutionStatus.RUNNING)
             
-            async for output in command_executor.execute_command(command, args, execution_id=execution_id):
+            # Pass execution directory as environment variable
+            env_vars = {}
+            if execution_dir:
+                env_vars['EXECUTION_OUTPUT_DIR'] = execution_dir
+                logger.info(f"📁 Execution {execution_id} will output to: {execution_dir}")
+            
+            async for output in command_executor.execute_command(command, args, execution_id=execution_id, env_vars=env_vars):
                 # Update state manager with output
                 await state_manager.add_output(execution_id, output)
                 
@@ -2337,6 +2343,138 @@ if HAS_FASTAPI:
             await state_manager.update_execution_status(
                 execution_id, ExecutionStatus.ERROR, error_message=str(e)
             )
+    
+    # ============================================================================
+    # EXECUTION DIRECTORY HELPERS
+    # ============================================================================
+    
+    def _generate_execution_directory_name(args_list: list[str], execution_id: str) -> str:
+        """
+        Generate human-readable directory name for execution.
+        
+        Format: {mode}_{date-description}_{time}
+        Examples:
+            sample-mode_Last-Week_Nov-13-5-27pm
+            voice-of-customer_Nov-6-to-Nov-13_Nov-13-6-00pm
+            agent-performance_November-2025_Nov-10-2-30pm
+        """
+        from datetime import datetime
+        import re
+        
+        # Parse mode from args
+        mode = "unknown"
+        if len(args_list) > 1:
+            mode = args_list[1].replace('.py', '').replace('src/main.py', '').strip()
+            if not mode:
+                mode = args_list[0] if args_list else "unknown"
+        
+        # Parse date description from args
+        date_desc = "unknown-date"
+        
+        # Look for --time-period flag
+        if '--time-period' in args_list:
+            idx = args_list.index('--time-period')
+            if idx + 1 < len(args_list):
+                period = args_list[idx + 1]
+                # Convert to readable format
+                period_map = {
+                    'yesterday': 'Yesterday',
+                    'week': 'Last-Week',
+                    'month': 'Last-Month',
+                    'quarter': 'Last-Quarter',
+                    'year': 'Last-Year',
+                    '6-weeks': 'Last-6-Weeks'
+                }
+                date_desc = period_map.get(period, period)
+        
+        # Look for --start-date and --end-date
+        elif '--start-date' in args_list and '--end-date' in args_list:
+            start_idx = args_list.index('--start-date')
+            end_idx = args_list.index('--end-date')
+            if start_idx + 1 < len(args_list) and end_idx + 1 < len(args_list):
+                start_date = args_list[start_idx + 1]
+                end_date = args_list[end_idx + 1]
+                
+                # Convert YYYY-MM-DD to Nov-6
+                try:
+                    start_obj = datetime.fromisoformat(start_date)
+                    end_obj = datetime.fromisoformat(end_date)
+                    start_str = start_obj.strftime('%b-%d')
+                    end_str = end_obj.strftime('%b-%d')
+                    date_desc = f"{start_str}-to-{end_str}"
+                except:
+                    date_desc = f"{start_date}-to-{end_date}"
+        
+        # Look for --days flag
+        elif '--days' in args_list:
+            idx = args_list.index('--days')
+            if idx + 1 < len(args_list):
+                days = args_list[idx + 1]
+                date_desc = f"Last-{days}-Days"
+        
+        # Current timestamp in human-readable format
+        now = datetime.now()
+        time_str = now.strftime('%b-%d-%I-%M%p').replace('-0', '-').lower()  # Nov-13-5-27pm
+        
+        # Combine: mode_date-description_time
+        dir_name = f"{mode}_{date_desc}_{time_str}"
+        
+        # Sanitize for filesystem (remove special chars, limit length)
+        dir_name = re.sub(r'[^\w\-]', '-', dir_name)  # Replace special chars with -
+        dir_name = re.sub(r'-+', '-', dir_name)  # Collapse multiple dashes
+        dir_name = dir_name[:200]  # Limit length
+        
+        return dir_name
+    
+    async def _discover_execution_files(execution) -> list[dict]:
+        """
+        Discover all output files for an execution.
+        
+        Returns list of {name, size, path, created_at}
+        """
+        files = []
+        
+        # Strategy 1: If execution has stored directory name, scan that specific directory
+        if hasattr(execution, 'output_files') and execution.output_files and len(execution.output_files) > 0:
+            dir_name = execution.output_files[0]  # First entry is directory name
+            exec_dir = Path("/app/outputs/executions") / dir_name
+            
+            if exec_dir.exists() and exec_dir.is_dir():
+                logger.info(f"📂 Scanning execution directory: {dir_name}")
+                for file_path in exec_dir.rglob('*'):
+                    if file_path.is_file():
+                        # Get relative path from outputs/ for download links
+                        rel_path = file_path.relative_to(Path("/app/outputs"))
+                        files.append({
+                            'name': file_path.name,
+                            'path': str(rel_path),
+                            'size': file_path.stat().st_size,
+                            'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
+                        })
+                return files  # Found files in dedicated directory
+        
+        # Strategy 2: Fallback - scan flat outputs/ directory by timestamp proximity (for old executions)
+        outputs_dir = Path("/app/outputs")
+        if outputs_dir.exists():
+            # Get all files modified within 10 minutes of execution start
+            exec_start = execution.start_time.timestamp()
+            
+            for file_path in outputs_dir.glob('*'):
+                if file_path.is_file():
+                    file_mtime = file_path.stat().st_mtime
+                    time_diff = abs(file_mtime - exec_start)
+                    
+                    # If file was created within 10 minutes of execution start
+                    if time_diff < 600:  # 10 minutes window
+                        rel_path = file_path.relative_to(outputs_dir.parent)
+                        files.append({
+                            'name': file_path.name,
+                            'path': str(rel_path),
+                            'size': file_path.stat().st_size,
+                            'created_at': datetime.fromtimestamp(file_mtime).isoformat()
+                        })
+        
+        return files
     
     @app.post("/execute/start")
     async def start_execution(command: str, args: str, request: Request, token: str = Depends(verify_token)):
@@ -2386,13 +2524,25 @@ if HAS_FASTAPI:
             # Generate execution ID
             execution_id = command_executor.generate_execution_id()
             
-            # Create execution state
+            # Generate human-readable execution directory name
+            exec_dir_name = _generate_execution_directory_name(args_list, execution_id)
+            exec_dir_path = Path("/app/outputs/executions") / exec_dir_name
+            exec_dir_path.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"📁 Created execution directory: {exec_dir_name}")
+            
+            # Create execution state (store directory name for later retrieval)
             execution = await state_manager.create_execution(
                 execution_id, command, args_list
             )
             
-            # Start background task
-            asyncio.create_task(run_command_background(execution_id, command, args_list))
+            # Store the execution directory name in execution state
+            # (We'll need this later for file discovery)
+            if hasattr(execution, 'output_files'):
+                execution.output_files = [exec_dir_name]  # Store dir name as first entry
+            
+            # Start background task (pass execution directory)
+            asyncio.create_task(run_command_background(execution_id, command, args_list, str(exec_dir_path)))
             
             return {
                 "execution_id": execution_id,
@@ -2453,6 +2603,9 @@ if HAS_FASTAPI:
             output_buffer = []
             output_list = []
         
+        # Discover output files for this execution
+        files = await _discover_execution_files(execution)
+        
         return {
             "execution_id": execution.execution_id,
             "command": execution.command,
@@ -2464,7 +2617,9 @@ if HAS_FASTAPI:
             "error_message": execution.error_message,
             "return_code": execution.return_code,
             "output": output_buffer,
-            "output_length": len(output_list)
+            "output_length": len(output_list),
+            "files": files,
+            "gamma_metadata": execution.gamma_metadata
         }
 
     @app.get("/execute/list")
@@ -2500,7 +2655,8 @@ if HAS_FASTAPI:
                     "start_time": exec.start_time.isoformat(),
                     "end_time": exec.end_time.isoformat() if exec.end_time else None,
                     "error_message": exec.error_message,
-                    "return_code": exec.return_code
+                    "return_code": exec.return_code,
+                    "output_files": exec.output_files if hasattr(exec, 'output_files') else []
                 }
                 for exec in executions
             ],
