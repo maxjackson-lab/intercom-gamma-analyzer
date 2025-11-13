@@ -10,6 +10,7 @@ Responsibilities:
 
 import logging
 import json
+import asyncio
 from typing import Dict, Any, List
 from datetime import datetime
 
@@ -42,6 +43,12 @@ class SentimentAgent(BaseAgent):
             self.quick_model = "gpt-4o-mini"
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
+        
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Tier 1: 50 RPM → 10 concurrent = safe buffer
+        # Source: https://docs.anthropic.com/en/api/rate-limits
+        self.llm_semaphore = asyncio.Semaphore(10)
+        self.llm_timeout = 60  # 60s for complex sentiment analysis
     
     def get_agent_specific_instructions(self) -> str:
         """Sentiment agent specific instructions"""

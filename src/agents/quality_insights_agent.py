@@ -7,6 +7,7 @@ in a single comprehensive quality assessment. Uses LLM for rich contextual insig
 """
 
 import logging
+import asyncio
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 from collections import defaultdict
@@ -50,6 +51,12 @@ class QualityInsightsAgent(BaseAgent):
             self.quick_model = "gpt-4o-mini"
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
+        
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Tier 1: 50 RPM → 10 concurrent = safe buffer
+        # Source: https://docs.anthropic.com/en/api/rate-limits
+        self.llm_semaphore = asyncio.Semaphore(10)
+        self.llm_timeout = 60  # 60s for complex quality analysis
 
     def get_agent_specific_instructions(self) -> str:
         """Return instructions for quality analysis"""

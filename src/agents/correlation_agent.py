@@ -7,6 +7,7 @@ insights and interpretations of statistical patterns.
 """
 
 import logging
+import asyncio
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 import numpy as np
@@ -48,6 +49,12 @@ class CorrelationAgent(BaseAgent):
             self.quick_model = "gpt-4o-mini"
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
+        
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Tier 1: 50 RPM → 10 concurrent = safe buffer  
+        # Source: https://docs.anthropic.com/en/api/rate-limits
+        self.llm_semaphore = asyncio.Semaphore(10)
+        self.llm_timeout = 60  # 60s for complex correlation analysis
 
     def get_agent_specific_instructions(self) -> str:
         """Return instructions for observational correlation analysis"""

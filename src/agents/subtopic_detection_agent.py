@@ -10,6 +10,7 @@ Purpose:
 import logging
 import json
 import os
+import asyncio
 from typing import Dict, Any, List, Tuple, Set
 from datetime import datetime
 from collections import defaultdict
@@ -67,6 +68,13 @@ class SubTopicDetectionAgent(BaseAgent):
         taxonomy_manager = TaxonomyManager()
         self.subcategory_mapper = SubcategoryMapper(taxonomy_manager)
         
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Tier 1: 50 RPM limit → 10 concurrent = safe buffer
+        # Source: https://docs.anthropic.com/en/api/rate-limits
+        import asyncio
+        self.llm_semaphore = asyncio.Semaphore(10)  # Limit concurrent LLM calls
+        self.llm_timeout = 30  # 30 second timeout per LLM call
+        
         # LLM Tier 2 Validation: Validate SDK subcategories with LLM
         # Can be controlled via:
         # 1. Constructor parameter: SubTopicDetectionAgent(llm_validate_tier2=True)
@@ -82,6 +90,54 @@ class SubTopicDetectionAgent(BaseAgent):
             logger.info("🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED")
         
         logger.info("SubTopicDetectionAgent initialized with SubcategoryMapper")
+    
+    async def _call_llm_with_retry(self, prompt: str, max_tokens: int = 300, use_intensive: bool = False) -> tuple:
+        """
+        Call LLM with exponential backoff retry.
+        
+        Per OpenAI docs: https://platform.openai.com/docs/guides/rate-limits
+        Uses tenacity library with exponential backoff.
+        
+        Args:
+            prompt: The prompt to send
+            max_tokens: Maximum tokens in response
+            use_intensive: Use intensive model (Sonnet/GPT-4o) for complex tasks
+            
+        Returns: (response_text, tokens_used) or raises Exception after 6 retries
+        """
+        from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+        
+        model = self.intensive_model if use_intensive else self.quick_model
+        
+        @retry(
+            wait=wait_random_exponential(min=1, max=60),
+            stop=stop_after_attempt(6),
+            retry=retry_if_exception_type((Exception,)),
+            reraise=True
+        )
+        async def _retry_wrapper():
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=0.3,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                text = response.content[0].text.strip()
+                tokens = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+                return (text, tokens)
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=max_tokens
+                )
+                text = response.choices[0].message.content.strip()
+                tokens = response.usage.total_tokens if hasattr(response, 'usage') else None
+                return (text, tokens)
+        
+        return await _retry_wrapper()
     
     def get_agent_specific_instructions(self) -> str:
         """Sub-topic detection agent specific instructions"""
@@ -385,25 +441,8 @@ Respond with: YES or NO: [reason]"""
             )
             
             try:
-                # Use appropriate API based on client type
-                if self.client_type == "claude":
-                    response = await self.ai_client.client.messages.create(
-                        model=self.quick_model,
-                        max_tokens=100,
-                        temperature=0.1,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    response_text = response.content[0].text.strip()
-                    tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
-                else:
-                    response = await self.ai_client.client.chat.completions.create(
-                        model=self.quick_model,
-                        messages=[{"role": "user", "content": prompt}],
-                        temperature=0.1,
-                        max_tokens=100
-                    )
-                    response_text = response.choices[0].message.content.strip()
-                    tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+                # Call LLM with retry + rate limiting (uses quick model for Tier 2 validation)
+                response_text, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=100, use_intensive=False)
                 
                 thinking.log_response(
                     "SubTopicDetectionAgent",
@@ -559,42 +598,49 @@ Instructions:
 Emerging themes:"""
         
         try:
-            # Use intensive model for complex theme discovery
-            if self.client_type == "claude":
-                response = await self.ai_client.client.messages.create(
-                    model=self.intensive_model,
-                    max_tokens=self.ai_client.max_tokens,
-                    temperature=self.ai_client.temperature,
-                    system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+            # RATE LIMITED + TIMEOUT (per OpenAI/Anthropic docs)
+            # Wrap in semaphore + timeout for production reliability
+            async with self.llm_semaphore:
+                # Use intensive model for complex theme discovery  
+                from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+                
+                @retry(
+                    wait=wait_random_exponential(min=1, max=60),
+                    stop=stop_after_attempt(6),
+                    retry=retry_if_exception_type((Exception,)),
+                    reraise=True
                 )
-                token_count = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else 0
-                response_text = response.content[0].text
-            else:
-                response = await self.ai_client.client.chat.completions.create(
-                    model=self.intensive_model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    max_tokens=self.ai_client.max_tokens,
-                    temperature=self.ai_client.temperature
+                async def _call_tier3_with_retry():
+                    if self.client_type == "claude":
+                        response = await self.ai_client.client.messages.create(
+                            model=self.intensive_model,
+                            max_tokens=self.ai_client.max_tokens,
+                            temperature=self.ai_client.temperature,
+                            system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
+                            messages=[{"role": "user", "content": prompt}]
+                        )
+                        tokens = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else 0
+                        text = response.content[0].text
+                        return (text, tokens)
+                    else:
+                        response = await self.ai_client.client.chat.completions.create(
+                            model=self.intensive_model,
+                            messages=[
+                                {"role": "system", "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            max_tokens=self.ai_client.max_tokens,
+                            temperature=self.ai_client.temperature
+                        )
+                        tokens = response.usage.total_tokens if hasattr(response, 'usage') and response.usage else 0
+                        text = response.choices[0].message.content
+                        return (text, tokens)
+                
+                # Execute with retry + timeout
+                response_text, token_count = await asyncio.wait_for(
+                    _call_tier3_with_retry(),
+                    timeout=self.llm_timeout
                 )
-                # Extract token usage
-                if hasattr(response, 'usage') and response.usage:
-                    token_count = getattr(response.usage, 'total_tokens', 0)
-                response_text = response.choices[0].message.content
             if '{' in response_text and '}' in response_text:
                 start = response_text.index('{')
                 end = response_text.rindex('}') + 1
