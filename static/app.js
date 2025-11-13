@@ -1542,4 +1542,158 @@ window.cancelExecution = cancelExecution;
 window.appendToTerminal = appendToTerminal;
 window.resumeFromBanner = resumeFromBanner;
 
+// ============================================================================
+// EXECUTION HISTORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Refresh the execution history dropdown
+ */
+async function refreshExecutionHistory() {
+    console.log('🔄 Refreshing execution history...');
+    
+    try {
+        const response = await fetch('/execute/list?limit=50');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const executions = data.executions || [];
+        
+        console.log(`📂 Found ${executions.length} past executions`);
+        
+        // Populate dropdown
+        const select = document.getElementById('executionHistorySelect');
+        if (!select) return;
+        
+        // Keep "Current Execution" option
+        select.innerHTML = '<option value="">-- Current Execution --</option>';
+        
+        // Add past executions (newest first)
+        executions.forEach(exec => {
+            const startTime = new Date(exec.start_time);
+            const duration = exec.end_time ? 
+                Math.round((new Date(exec.end_time) - startTime) / 1000) : 
+                'running';
+            
+            const option = document.createElement('option');
+            option.value = exec.execution_id;
+            
+            // Format: "✅ sample-mode (2 min ago, 45s)"
+            const timeAgo = getTimeAgo(startTime);
+            const statusIcon = exec.status === 'completed' ? '✅' :
+                             exec.status === 'failed' ? '❌' : 
+                             exec.status === 'running' ? '⏳' : '⏸️';
+            
+            const commandShort = exec.command.replace('src/main.py', '').trim().split(' ')[0] || exec.command;
+            option.textContent = `${statusIcon} ${commandShort} (${timeAgo}, ${duration}s)`;
+            
+            select.appendChild(option);
+        });
+        
+        showToast(`Loaded ${executions.length} past executions`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Failed to load execution history:', error);
+        showToast('Failed to load execution history', 'error');
+    }
+}
+
+/**
+ * Load a historical execution's files
+ */
+async function loadHistoricalExecution() {
+    const select = document.getElementById('executionHistorySelect');
+    if (!select) return;
+    
+    const executionId = select.value;
+    
+    // If "Current Execution" selected, do nothing
+    if (!executionId) {
+        console.log('📍 Switched back to current execution');
+        return;
+    }
+    
+    console.log(`📂 Loading historical execution: ${executionId}`);
+    
+    try {
+        // Fetch execution details
+        const response = await fetch(`/execute/status/${executionId}?since=0`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Update Files tab with historical files
+        const filesContent = document.getElementById('filesContent');
+        if (filesContent && data.files && data.files.length > 0) {
+            let filesHTML = '<h3>📁 Output Files</h3><ul class="file-list">';
+            
+            data.files.forEach(file => {
+                filesHTML += `
+                    <li>
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">(${formatFileSize(file.size)})</span>
+                        <button onclick="downloadFile('${file.name}')" class="btn-download">📥 Download</button>
+                    </li>
+                `;
+            });
+            
+            filesHTML += '</ul>';
+            filesContent.innerHTML = filesHTML;
+            
+            // Switch to Files tab
+            switchTab('files');
+            
+            showToast(`Loaded ${data.files.length} files from past execution`, 'success');
+        } else {
+            filesContent.innerHTML = '<p>No files found for this execution</p>';
+            showToast('No files found for this execution', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('❌ Failed to load historical execution:', error);
+        showToast('Failed to load execution files', 'error');
+    }
+}
+
+/**
+ * Format time ago (e.g., "2 min ago")
+ */
+function getTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+/**
+ * Format file size (bytes to human readable)
+ */
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+// Auto-load execution history when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Show history panel after 1 second (after any active execution loads)
+    setTimeout(() => {
+        const panel = document.getElementById('executionHistoryPanel');
+        if (panel) {
+            panel.style.display = 'block';
+            refreshExecutionHistory();
+        }
+    }, 1000);
+});
+
+// Export functions to global scope
+window.refreshExecutionHistory = refreshExecutionHistory;
+window.loadHistoricalExecution = loadHistoricalExecution;
+
 console.log('✅ Analysis form functions loaded');

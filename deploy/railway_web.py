@@ -1713,6 +1713,22 @@ if HAS_FASTAPI:
                     </div>
                 </div>
                 
+                <!-- Execution History Selector -->
+                <div id="executionHistoryPanel" style="display: none; margin-bottom: 15px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <label style="font-weight: 600; color: #3b82f6; min-width: 140px;">📂 View Past Run:</label>
+                        <select id="executionHistorySelect" onchange="loadHistoricalExecution()" style="flex: 1; padding: 8px; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.5); background: rgba(17, 24, 39, 0.8); color: #e5e7eb; cursor: pointer;">
+                            <option value="">-- Current Execution --</option>
+                        </select>
+                        <button onclick="refreshExecutionHistory()" style="padding: 8px 16px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 4px; color: #60a5fa; cursor: pointer; white-space: nowrap;">
+                            🔄 Refresh List
+                        </button>
+                    </div>
+                    <div style="font-size: 11px; color: #9ca3af;">
+                        💡 Access output files from completed analysis runs
+                    </div>
+                </div>
+                
                 <!-- Tab Navigation -->
                 <div class="tab-navigation" id="tabNavigation" style="display: none;">
                     <button class="tab-button active" onclick="switchTab('terminal')" id="terminalTab">Terminal</button>
