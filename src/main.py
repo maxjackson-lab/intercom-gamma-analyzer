@@ -4482,8 +4482,8 @@ async def run_test_topic_based(conversations):
               help='AI model to use (openai or claude). Defaults to config setting.')
 @click.option('--audit-trail', is_flag=True, default=False,
               help='Enable audit trail logging for debugging and compliance')
-@click.option('--llm-topic-detection', is_flag=True, default=False,
-              help='🤖 Use LLM-first for topic detection (more accurate, handles nuance, costs ~$1 per 200 convs)')
+@click.option('--llm-topic-detection', is_flag=True, default=True,
+              help='🤖 LLM-first topic detection (DEFAULT: ON for accuracy - use --no-llm-topic-detection to disable)')
 @click.option('--output-dir', default='outputs', help='Output directory')
 def voice_of_customer_analysis(
     time_period: Optional[str],

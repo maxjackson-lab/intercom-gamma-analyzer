@@ -75,19 +75,20 @@ class SubTopicDetectionAgent(BaseAgent):
         self.llm_semaphore = asyncio.Semaphore(10)  # Limit concurrent LLM calls
         self.llm_timeout = 30  # 30 second timeout per LLM call
         
-        # LLM Tier 2 Validation: Validate SDK subcategories with LLM
-        # Can be controlled via:
-        # 1. Constructor parameter: SubTopicDetectionAgent(llm_validate_tier2=True)
-        # 2. Environment variable: LLM_VALIDATE_TIER2=true
-        # 3. Default: False (trust SDK subcategories)
+        # LLM Tier 2 Validation: DEFAULT TRUE - Accuracy over cost
+        # LLM validates EVERY Tier 2 subcategory for maximum accuracy
+        # Can be disabled via: SubTopicDetectionAgent(llm_validate_tier2=False) or env var LLM_VALIDATE_TIER2=false
         import os
         if llm_validate_tier2 is not None:
             self.llm_validate_tier2 = llm_validate_tier2
         else:
-            self.llm_validate_tier2 = os.getenv('LLM_VALIDATE_TIER2', 'false').lower() == 'true'
+            # DEFAULT: TRUE (LLM validation for production accuracy)
+            self.llm_validate_tier2 = os.getenv('LLM_VALIDATE_TIER2', 'true').lower() == 'true'
         
         if self.llm_validate_tier2:
-            logger.info("🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED")
+            logger.info("🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED (default for accuracy)")
+        else:
+            logger.info("⚡ SubTopicDetectionAgent: Tier 2 LLM validation DISABLED (faster but less accurate)")
         
         logger.info("SubTopicDetectionAgent initialized with SubcategoryMapper")
     

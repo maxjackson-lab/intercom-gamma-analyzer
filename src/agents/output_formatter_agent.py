@@ -11,16 +11,22 @@ Purpose:
 """
 
 import logging
+import asyncio
 from typing import Dict, Any, List, Set
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
 
 
 class OutputFormatterAgent(BaseAgent):
-    """Agent specialized in formatting output to match Hilary's format"""
+    """
+    Agent specialized in formatting output with LLM-powered intelligence.
+    
+    Uses intensive model (Sonnet 4.5 / GPT-4o) to create strategic executive presentations.
+    """
     
     # Define expected agent outputs with required/optional flags
     EXPECTED_AGENTS = {
@@ -37,9 +43,28 @@ class OutputFormatterAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="OutputFormatterAgent",
-            model="gpt-4o-mini",
-            temperature=0.1
+            model="gpt-4o",  # Use intensive model for executive presentations
+            temperature=0.3  # Moderate temp for creative structuring
         )
+        
+        # Get AI client for LLM-powered formatting
+        self.ai_client = get_ai_client()
+        
+        # Determine which model to use (ALWAYS intensive for final output!)
+        from src.services.claude_client import ClaudeClient
+        if isinstance(self.ai_client, ClaudeClient):
+            self.model = "claude-sonnet-4-5-20250929"  # Sonnet 4.5 for executive writing
+            self.client_type = "claude"
+            logger.info("🧠 OutputFormatterAgent: Using Claude Sonnet 4.5 (best for executive presentations)")
+        else:
+            self.model = "gpt-4o"  # GPT-4o for structured output
+            self.client_type = "openai"
+            logger.info("🧠 OutputFormatterAgent: Using GPT-4o (best for structured presentations)")
+        
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Only 1 LLM call per analysis, but still add protection
+        self.llm_semaphore = asyncio.Semaphore(5)  # Lower limit (strategic calls only)
+        self.llm_timeout = 120  # 2 minute timeout (complex reasoning)
     
     def get_agent_specific_instructions(self) -> str:
         """Output formatter instructions"""
@@ -72,6 +97,138 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
     def get_task_description(self, context: AgentContext) -> str:
         """Describe formatting task"""
         return "Format all agent results into Hilary's card structure for Gamma presentation"
+    
+    async def _generate_strategic_presentation_guidance(self, context: AgentContext, agent_results: Dict) -> Dict[str, Any]:
+        """
+        Use LLM to analyze all data and generate strategic guidance for presentation structure.
+        
+        Uses intensive model (Sonnet 4.5 / GPT-4o) for executive-level strategic thinking.
+        
+        Returns:
+            Dict with: top_insights, card_order, executive_summary, emphasis_areas
+        """
+        from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+        
+        # Extract key data for LLM analysis
+        topics = agent_results.get('TopicDetectionAgent', {}).get('data', {})
+        topic_dist = topics.get('topic_distribution', {})
+        
+        subtopics = agent_results.get('SubTopicDetectionAgent', {}).get('data', {})
+        
+        correlations = agent_results.get('CorrelationAgent', {}).get('data', {})
+        quality = agent_results.get('QualityInsightsAgent', {}).get('data', {})
+        
+        # Build summary for LLM
+        topic_summary = "\n".join([
+            f"- {name}: {info['volume']} conversations ({info['percentage']}%)"
+            for name, info in sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:10]
+        ])
+        
+        # Extract Tier 3 themes for LLM to consider
+        tier3_themes = []
+        if subtopics:
+            for tier1, data in subtopics.get('subtopics_by_tier1_topic', {}).items():
+                tier3 = data.get('tier3', {})
+                for theme_name, theme_data in tier3.items():
+                    tier3_themes.append(f"{tier1} → {theme_name} ({theme_data.get('volume', 0)} convs)")
+        
+        tier3_summary = "\n".join(tier3_themes[:15]) if tier3_themes else "None discovered"
+        
+        prompt = f"""You are preparing an executive presentation for a VP/Director. Analyze this customer support data and provide strategic guidance for the presentation structure.
+
+DATA SUMMARY:
+
+Top Topics:
+{topic_summary}
+
+Emerging Themes (Tier 3 - AI Discovered):
+{tier3_summary}
+
+Statistical Insights Available:
+- Correlation analysis: {len(correlations.get('correlations', [])) if correlations else 0} patterns found
+- Quality insights: {len(quality.get('quality_insights', [])) if quality else 0} issues identified
+
+YOUR TASK:
+As an executive presentation strategist, provide guidance in JSON format:
+
+1. **top_insights** (array of 3-5 strings): What are the most important takeaways for executives?
+2. **card_priority_order** (array of topic names): Which topics should appear first? (Order by strategic importance, not just volume)
+3. **emphasis_areas** (object): Which specific sub-topics/themes deserve extra attention? {{topic: [subtopic1, subtopic2]}}
+4. **executive_summary** (string): 2-3 sentence summary for the opening slide
+5. **narrative_arc** (string): What story does this data tell? (e.g., "Quality improving but billing remains pain point")
+
+Return ONLY valid JSON, no other text:
+{{
+  "top_insights": ["insight 1", "insight 2", "insight 3"],
+  "card_priority_order": ["topic1", "topic2", ...],
+  "emphasis_areas": {{"Topic Name": ["subtopic1", "subtopic2"]}},
+  "executive_summary": "summary here",
+  "narrative_arc": "story here"
+}}"""
+
+        try:
+            logger.info("🧠 Generating strategic presentation guidance with LLM (Sonnet 4.5 / GPT-4o)...")
+            
+            @retry(
+                wait=wait_random_exponential(min=1, max=60),
+                stop=stop_after_attempt(6),
+                retry=retry_if_exception_type((Exception,)),
+                reraise=True
+            )
+            async def _call_with_retry():
+                if self.client_type == "claude":
+                    response = await self.ai_client.client.messages.create(
+                        model=self.model,
+                        max_tokens=2000,
+                        temperature=0.3,
+                        system="You are a strategic executive presentation consultant. You analyze customer support data and provide guidance for creating high-impact presentations for VPs and Directors.",
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    return response.content[0].text.strip()
+                else:
+                    response = await self.ai_client.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "You are a strategic executive presentation consultant. You analyze customer support data and provide guidance for creating high-impact presentations for VPs and Directors."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.3,
+                        max_tokens=2000
+                    )
+                    return response.choices[0].message.content.strip()
+            
+            # Execute with timeout
+            async with self.llm_semaphore:
+                response_text = await asyncio.wait_for(_call_with_retry(), timeout=self.llm_timeout)
+            
+            # Parse JSON response
+            import json
+            
+            # Extract JSON from response (handle markdown code blocks)
+            if '```json' in response_text:
+                start = response_text.index('```json') + 7
+                end = response_text.index('```', start)
+                response_text = response_text[start:end].strip()
+            elif '```' in response_text:
+                start = response_text.index('```') + 3
+                end = response_text.rindex('```')
+                response_text = response_text[start:end].strip()
+            
+            guidance = json.loads(response_text)
+            logger.info(f"✅ Strategic guidance generated: {len(guidance.get('top_insights', []))} insights, narrative: {guidance.get('narrative_arc', 'N/A')[:50]}...")
+            
+            return guidance
+            
+        except Exception as e:
+            logger.warning(f"LLM strategic guidance failed: {e}, using default structure")
+            # Fallback: Simple priority by volume
+            return {
+                "top_insights": ["Data-driven analysis of customer support trends"],
+                "card_priority_order": list(topic_dist.keys()),
+                "emphasis_areas": {},
+                "executive_summary": "Analysis of customer support conversations and trends",
+                "narrative_arc": "Comprehensive overview of support operations"
+            }
     
     def format_context_data(self, context: AgentContext) -> str:
         """Format agent results for output generation"""
@@ -183,6 +340,23 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             else:
                 self.logger.info("No sub-topic data available (backward compatibility mode)")
             
+            # 🧠 STRATEGIC LLM GUIDANCE (NEW!)
+            # Use Sonnet 4.5 / GPT-4o to intelligently structure presentation
+            logger.info("🎯 Generating strategic presentation guidance with LLM...")
+            strategic_guidance = await self._generate_strategic_presentation_guidance(context, context.previous_results)
+            
+            # Extract guidance
+            top_insights = strategic_guidance.get('top_insights', [])
+            card_priority_order = strategic_guidance.get('card_priority_order', list(topic_dist.keys()))
+            emphasis_areas = strategic_guidance.get('emphasis_areas', {})
+            exec_summary = strategic_guidance.get('executive_summary', '')
+            narrative_arc = strategic_guidance.get('narrative_arc', '')
+            
+            logger.info(f"📊 LLM Strategic Guidance: {len(top_insights)} insights, reordered {len(card_priority_order)} cards")
+            
+            # Get analytical insights for later sections
+            analytical_insights = context.previous_results.get('AnalyticalInsights', {})
+            
             # Build output
             output_sections = []
             
@@ -244,40 +418,22 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
                 output_sections.append(f"**Primary Languages**: {lang_summary}")
                 output_sections.append("")
             
-            # Auto-generated narrative summary
-            analytical_insights = context.previous_results.get('AnalyticalInsights', {})
-            if analytical_insights:
-                narrative_parts = []
-                
-                # Base narrative
-                narrative_parts.append(f"This week's analysis reveals {len(topic_dist)} customer topics across {total_convs:,} conversations.")
-                
-                # Significant changes (if comparison data available)
-                comparison_data = context.metadata.get('comparison_data')
-                if comparison_data:
-                    significant_changes = comparison_data.get('significant_changes', [])
-                    if significant_changes:
-                        top_change = significant_changes[0]
-                        top_topic = top_change.get('topic', 'Unknown')
-                        pct = top_change.get('pct', 0)
-                        narrative_parts.append(f"Notable changes include {top_topic} ({pct:+.1%}).")
-                
-                # Churn signals
-                churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
-                high_risk_count = len(churn_data.get('high_risk_conversations', []))
-                if high_risk_count > 0:
-                    narrative_parts.append(f"{high_risk_count} conversation{'s' if high_risk_count != 1 else ''} flagged for churn risk review.")
-                
-                # Anomalies
-                quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
-                anomaly_count = len(quality_data.get('anomalies', []))
-                if anomaly_count > 0:
-                    narrative_parts.append(f"{anomaly_count} statistical anomal{'ies' if anomaly_count != 1 else 'y'} detected.")
-                
-                if len(narrative_parts) > 1:
-                    output_sections.append("")
-                    output_sections.append(" ".join(narrative_parts))
-                    output_sections.append("")
+            # 🧠 LLM-GENERATED EXECUTIVE NARRATIVE (NEW!)
+            if exec_summary:
+                output_sections.append("")
+                output_sections.append(f"**Executive Summary**: {exec_summary}")
+                output_sections.append("")
+            
+            if narrative_arc:
+                output_sections.append(f"**Key Narrative**: {narrative_arc}")
+                output_sections.append("")
+            
+            # Add top strategic insights from LLM
+            if top_insights:
+                output_sections.append("**Top Strategic Insights**:")
+                for i, insight in enumerate(top_insights, 1):
+                    output_sections.append(f"{i}. {insight}")
+                output_sections.append("")
             
             output_sections.append("---")
             output_sections.append("")
@@ -307,8 +463,27 @@ OUTPUT FORMATTER AGENT SPECIFIC RULES:
             output_sections.append("## Customer Topics (Paid Tier - Human Support)")
             output_sections.append("")
             
-            # Sort topics by volume
-            sorted_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
+            # 🧠 SMART ORDERING: Use LLM strategic priority (not just volume!)
+            # Reorder topics based on LLM's card_priority_order
+            if card_priority_order and len(card_priority_order) > 0:
+                # Create ordered list based on LLM guidance
+                sorted_topics = []
+                remaining_topics = dict(topic_dist)
+                
+                # First, add topics in LLM's priority order
+                for topic_name in card_priority_order:
+                    if topic_name in remaining_topics:
+                        sorted_topics.append((topic_name, remaining_topics[topic_name]))
+                        del remaining_topics[topic_name]
+                
+                # Then append any remaining topics by volume
+                sorted_topics.extend(sorted(remaining_topics.items(), key=lambda x: x[1]['volume'], reverse=True))
+                
+                logger.info(f"📊 Using LLM strategic card ordering (priority: {card_priority_order[:3]}...)")
+            else:
+                # Fallback: Sort by volume (old behavior)
+                sorted_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
+                logger.info("📊 Using volume-based ordering (LLM guidance unavailable)")
             
             # Get LLM trend insights from TrendAgent (outside loop for efficiency)
             trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})

@@ -1677,21 +1677,21 @@ if HAS_FASTAPI:
                 </div>
                 
                 <!-- LLM-First Topic Detection (VOC only) -->
-                <div id="llmTopicDetectionVocContainer" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: none;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="llmTopicDetectionVoc" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-weight: 600; color: #3b82f6;">🤖 LLM-First Topic Detection</span>
-                    </label>
-                    <div style="font-size: 11px; color: #60a5fa; margin-top: 10px; line-height: 1.5;">
-                        <strong>ℹ️ Why Use This:</strong><br>
-                        • More accurate than keyword matching<br>
-                        • Handles nuanced conversations ("credits on invoice" → Credits not Billing)<br>
-                        • Not fooled by mis-tagged SDK data<br>
-                        • Solves double-counting issues<br>
-                        • Cost: ~$1 per 200 conversations<br>
-                        • Uses GPT-4o-mini for classification
+                    <div id="llmTopicDetectionVocContainer" style="margin-top: 15px; padding: 15px; background: rgba(34, 197, 94, 0.1); border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.3); display: none;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="checkbox" id="llmTopicDetectionVoc" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 600; color: #22c55e;">🤖 LLM-First Topic Detection (ENABLED BY DEFAULT)</span>
+                        </label>
+                        <div style="font-size: 11px; color: #86efac; margin-top: 10px; line-height: 1.5;">
+                            <strong>✅ Now Default for Maximum Accuracy:</strong><br>
+                            • LLM classifies EVERY conversation (not just keywords)<br>
+                            • Understands nuance: "confused annual with monthly" → Billing/Refund<br>
+                            • Corrects mis-tagged SDK data automatically<br>
+                            • Solves double-counting issues completely<br>
+                            • Cost: ~$1 per 200 conversations (worth it for accuracy!)<br>
+                            • Uncheck to revert to keyword-only mode
+                        </div>
                     </div>
-                </div>
                 
                 <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>

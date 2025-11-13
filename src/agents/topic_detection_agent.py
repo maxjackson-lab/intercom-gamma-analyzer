@@ -60,12 +60,15 @@ class TopicDetectionAgent(BaseAgent):
         # Build topic definitions from TaxonomyManager
         self.topics = self._build_topics_from_taxonomy()
         
-        # LLM-First Mode: Use LLM for every conversation (more accurate but more expensive)
+        # LLM-First Mode: DEFAULT TRUE - Accuracy over cost
+        # LLM classifies EVERY conversation for maximum accuracy
+        # Can be disabled via: TopicDetectionAgent(llm_first=False) or env var LLM_TOPIC_DETECTION=false
         import os
         if llm_first is not None:
             self.llm_first = llm_first
         else:
-            self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'false').lower() == 'true'
+            # DEFAULT: TRUE (LLM-first for production accuracy)
+            self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
         if self.llm_first:
             self.logger.info("🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)")
