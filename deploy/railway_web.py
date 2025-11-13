@@ -1515,6 +1515,15 @@ if HAS_FASTAPI:
                         <option value="month">Last Month</option>
                     </select>
                     
+                    <label style="color: #e5e7eb; font-size: 14px; display: block;">AI Model:</label>
+                    <select id="sampleAiModel" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                        <option value="openai" selected>🤖 OpenAI (GPT-4o-mini) - Fast & Balanced ⭐</option>
+                        <option value="claude">🧠 Claude (Haiku 4.5) - More Accurate</option>
+                    </select>
+                    <p style="margin: -10px 0 15px 0; font-size: 12px; color: #9ca3af;">
+                        Choose the AI model for LLM-powered analysis (sentiment, topic detection, agent tests)
+                    </p>
+                    
                     <div style="margin-bottom: 15px;">
                         <label style="display: flex; align-items: center; cursor: pointer; color: #e5e7eb; font-size: 14px;">
                             <input type="checkbox" id="includeHierarchy" checked style="margin-right: 8px; cursor: pointer;">

@@ -288,6 +288,7 @@ async function runAnalysis() {
         if (analysisType === 'sample-mode') {
             const schemaMode = document.getElementById('schemaMode')?.value || 'standard';
             const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
+            const sampleAiModel = document.getElementById('sampleAiModel')?.value || 'openai';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
             const showAgentThinking = document.getElementById('showAgentThinking')?.checked ?? false;
@@ -298,7 +299,7 @@ async function runAnalysis() {
             args.push('--save-to-file');  // Always save JSON and .log file
             args.push('--test-llm');  // Always run LLM sentiment test
             args.push('--schema-mode', schemaMode);  // User-selected depth
-            args.push('--ai-model', aiModel || 'openai');  // AI model for LLM test
+            args.push('--ai-model', sampleAiModel);  // AI model for LLM test (from sample-mode panel)
             
             // Add hierarchy flag (only send --no-hierarchy if unchecked, since default is true)
             if (!includeHierarchy) {
