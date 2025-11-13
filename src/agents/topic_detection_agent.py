@@ -10,6 +10,7 @@ Purpose:
 
 import logging
 import re
+import asyncio
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 
@@ -45,18 +46,21 @@ class TopicDetectionAgent(BaseAgent):
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
         
+        # RATE LIMITING: Per Anthropic/OpenAI docs
+        # Tier 1: 50 RPM limit for both providers
+        # Using Semaphore(10) = max 10 concurrent requests = safe for 50 RPM
+        # Source: https://docs.anthropic.com/en/api/rate-limits
+        import asyncio
+        self.llm_semaphore = asyncio.Semaphore(10)  # Limit concurrent LLM calls
+        self.llm_timeout = 30  # 30 second timeout per LLM call (prevents hangs)
+        
         # NEW: Use full TaxonomyManager for rich categorization (13 categories + 100+ subcategories)
         self.taxonomy_manager = TaxonomyManager()
         
         # Build topic definitions from TaxonomyManager
-        # This gives us the full taxonomy instead of the simple list
         self.topics = self._build_topics_from_taxonomy()
         
         # LLM-First Mode: Use LLM for every conversation (more accurate but more expensive)
-        # Can be controlled via:
-        # 1. Constructor parameter: TopicDetectionAgent(llm_first=True)
-        # 2. Environment variable: LLM_TOPIC_DETECTION=true
-        # 3. Default: False (keyword-first with LLM fallback)
         import os
         if llm_first is not None:
             self.llm_first = llm_first
@@ -67,7 +71,50 @@ class TopicDetectionAgent(BaseAgent):
             self.logger.info("🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)")
         else:
             self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
+    
+    async def _call_llm_with_retry(self, prompt: str, max_tokens: int = 50) -> tuple:
+        """
+        Call LLM with exponential backoff retry.
         
+        Per OpenAI official docs: https://platform.openai.com/docs/guides/rate-limits
+        "Use tenacity library with wait_random_exponential(min=1, max=60)"
+        
+        Returns: (response_text, tokens_used) or raises Exception after 6 retries
+        """
+        from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+        
+        @retry(
+            wait=wait_random_exponential(min=1, max=60),  # Exponential backoff
+            stop=stop_after_attempt(6),  # OpenAI recommendation
+            retry=retry_if_exception_type((Exception,)),
+            reraise=True
+        )
+        async def _retry_wrapper():
+            if self.client_type == "claude":
+                response = await self.ai_client.client.messages.create(
+                    model=self.quick_model,
+                    max_tokens=max_tokens,
+                    temperature=0.1,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                text = response.content[0].text.strip()
+                tokens = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+                return (text, tokens)
+            else:
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.quick_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=max_tokens
+                )
+                text = response.choices[0].message.content.strip()
+                tokens = response.usage.total_tokens if hasattr(response, 'usage') else None
+                return (text, tokens)
+        
+        return await _retry_wrapper()
+    
+    def _build_topics_from_taxonomy(self) -> Dict:
+        """Build topic definitions from TaxonomyManager (full 13 categories + subcategories)"""
         # LEGACY: Keep old simple topics as fallback documentation
         # (not used, but preserved for reference)
         self.legacy_simple_topics = {
@@ -315,14 +362,50 @@ For each conversation:
             conversations = context.conversations
             self.logger.info(f"TopicDetectionAgent: Detecting topics for {len(conversations)} conversations")
             
-            # Detect topics for each conversation
+            # CONCURRENT PROCESSING WITH RATE LIMITING
+            # Per OpenAI/Anthropic docs: Use semaphore to limit concurrent requests
+            # Tier 1: 50 RPM limit → 10 concurrent = safe buffer
+            # Source: https://docs.anthropic.com/en/api/rate-limits
+            
+            async def process_conversation_with_limit(conv, idx):
+                """Process single conversation with rate limit + timeout"""
+                async with self.llm_semaphore:  # Limits to 10 concurrent
+                    try:
+                        # Add timeout per OpenAI best practices
+                        detected = await asyncio.wait_for(
+                            self._detect_topics_for_conversation(conv),
+                            timeout=self.llm_timeout
+                        )
+                        
+                        # Progress logging every 25 conversations
+                        if (idx + 1) % 25 == 0:
+                            self.logger.info(f"Progress: {idx + 1}/{len(conversations)} conversations processed")
+                        
+                        return (conv.get('id', 'unknown'), detected, None)
+                        
+                    except asyncio.TimeoutError:
+                        self.logger.warning(f"LLM timeout for conversation {conv.get('id')}, falling back to keywords")
+                        # Return empty to trigger fallback
+                        return (conv.get('id', 'unknown'), [], 'timeout')
+                    except Exception as e:
+                        self.logger.warning(f"LLM error for conversation {conv.get('id')}: {e}")
+                        return (conv.get('id', 'unknown'), [], str(e))
+            
+            # Process all conversations concurrently with rate limiting
+            tasks = [process_conversation_with_limit(conv, i) for i, conv in enumerate(conversations)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Unpack results
             topics_by_conversation = {}
             all_topic_assignments = []
-            primary_topic_assignments = []  # For counting (one per conversation)
+            primary_topic_assignments = []
             
-            for conv in conversations:
-                detected = await self._detect_topics_for_conversation(conv)
-                conv_id = conv.get('id', 'unknown')
+            for result in results:
+                if isinstance(result, Exception):
+                    self.logger.error(f"Unexpected error in topic detection: {result}")
+                    continue
+                    
+                conv_id, detected, error = result
                 
                 # Store ALL detected topics for context
                 topics_by_conversation[conv_id] = detected
@@ -930,25 +1013,12 @@ Respond with ONLY the topic name, nothing else."""
                 }
             )
 
-            # Use appropriate API based on client type
-            if self.client_type == "claude":
-                response = await self.ai_client.client.messages.create(
-                    model=self.quick_model,
-                    max_tokens=50,
-                    temperature=0.1,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                topic_name = response.content[0].text.strip()
-                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
-            else:
-                response = await self.ai_client.client.chat.completions.create(
-                    model=self.quick_model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=50
-                )
-                topic_name = response.choices[0].message.content.strip()
-                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Call LLM with retry + exponential backoff
+            try:
+                topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+            except Exception as e:
+                self.logger.warning(f"LLM smart classification failed after 6 retries: {e}")
+                return None
             
             # Log response
             thinking.log_response(
@@ -1053,25 +1123,8 @@ Respond with ONLY the topic name, nothing else."""
                 }
             )
 
-            # Use appropriate API based on client type
-            if self.client_type == "claude":
-                response = await self.ai_client.client.messages.create(
-                    model=self.quick_model,
-                    max_tokens=50,
-                    temperature=0.1,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                topic_name = response.content[0].text.strip()
-                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
-            else:
-                response = await self.ai_client.client.chat.completions.create(
-                    model=self.quick_model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=50
-                )
-                topic_name = response.choices[0].message.content.strip()
-                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Call LLM with retry + exponential backoff (reuses helper method)
+            topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
             
             # Log response
             thinking.log_response(
@@ -1161,25 +1214,8 @@ Respond with ONLY the topic name, nothing else."""
                 }
             )
 
-            # Use appropriate API based on client type
-            if self.client_type == "claude":
-                response = await self.ai_client.client.messages.create(
-                    model=self.quick_model,
-                    max_tokens=50,
-                    temperature=0.1,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                topic_name = response.content[0].text.strip()
-                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
-            else:
-                response = await self.ai_client.client.chat.completions.create(
-                    model=self.quick_model,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=50
-                )
-                topic_name = response.choices[0].message.content.strip()
-                tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+            # Call LLM with retry + exponential backoff (reuses helper method)
+            topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
             
             # Log response
             thinking.log_response(
