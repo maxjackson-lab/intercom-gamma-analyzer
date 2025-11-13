@@ -514,6 +514,9 @@ class WebCommandExecutor:
                 env.update(env_vars)
                 self.logger.info(f"[EXEC] Added custom env vars: {list(env_vars.keys())}")
             
+            # CRITICAL: Disable Python output buffering for real-time streaming
+            env['PYTHONUNBUFFERED'] = '1'
+            
             process_kwargs = {
                 "stdout": asyncio.subprocess.PIPE,
                 "stderr": asyncio.subprocess.PIPE,
