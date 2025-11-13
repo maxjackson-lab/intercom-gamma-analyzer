@@ -49,7 +49,10 @@ class ClaudeClient:
     
     async def generate_analysis(self, prompt: str, **kwargs) -> str:
         """
-        Generate analysis using Claude.
+        Generate analysis using Claude with retry + timeout.
+        
+        Per Anthropic docs: https://docs.anthropic.com/en/api/rate-limits
+        Implements exponential backoff retry for production reliability.
         
         Compatible with OpenAIClient.generate_analysis() interface.
         Ignores kwargs like model/temperature since those are set in __init__.
@@ -57,18 +60,32 @@ class ClaudeClient:
         try:
             self.logger.info("Generating AI analysis with Claude")
             
-            response = await self.client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
+            # RETRY WITH EXPONENTIAL BACKOFF (per Anthropic docs)
+            from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+            import asyncio
+            
+            @retry(
+                wait=wait_random_exponential(min=1, max=60),
+                stop=stop_after_attempt(6),
+                retry=retry_if_exception_type((Exception,)),
+                reraise=True
             )
+            async def _call_with_retry():
+                return await self.client.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ]
+                )
+            
+            # Execute with timeout (60s for complex analysis)
+            response = await asyncio.wait_for(_call_with_retry(), timeout=60)
             
             analysis = response.content[0].text
             self.logger.info("Claude analysis generated successfully")

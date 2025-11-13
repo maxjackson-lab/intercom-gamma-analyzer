@@ -44,25 +44,44 @@ class OpenAIClient:
             raise
     
     async def generate_analysis(self, prompt: str) -> str:
-        """Generate analysis using OpenAI."""
+        """
+        Generate analysis using OpenAI with retry + timeout.
+        
+        Per OpenAI docs: https://platform.openai.com/docs/guides/rate-limits
+        Implements exponential backoff retry for production reliability.
+        """
         try:
             self.logger.info("Generating AI analysis")
             
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature
+            # RETRY WITH EXPONENTIAL BACKOFF (per OpenAI docs)
+            from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+            import asyncio
+            
+            @retry(
+                wait=wait_random_exponential(min=1, max=60),
+                stop=stop_after_attempt(6),
+                retry=retry_if_exception_type((Exception,)),
+                reraise=True
             )
+            async def _call_with_retry():
+                return await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
+            
+            # Execute with timeout (60s for complex analysis)
+            response = await asyncio.wait_for(_call_with_retry(), timeout=60)
             
             analysis = response.choices[0].message.content
             self.logger.info("AI analysis generated successfully")
