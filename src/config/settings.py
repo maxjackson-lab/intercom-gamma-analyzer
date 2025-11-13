@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     openai_max_tokens: int = Field(4000, env="OPENAI_MAX_TOKENS")
     
     # Anthropic/Claude Settings
-    anthropic_model: str = Field("claude-sonnet-4-5-20250514", env="ANTHROPIC_MODEL")  # Sonnet 4.5 (intensive)
-    anthropic_processor_model: str = Field("claude-haiku-4-5-20250514", env="ANTHROPIC_PROCESSOR_MODEL")  # Haiku 4.5 (fast)
+    anthropic_model: str = Field("claude-sonnet-4-5-20250929", env="ANTHROPIC_MODEL")  # Sonnet 4.5 (intensive)
+    anthropic_processor_model: str = Field("claude-haiku-4-5-20251001", env="ANTHROPIC_PROCESSOR_MODEL")  # Haiku 4.5 (fast)
     anthropic_max_tokens: int = Field(4000, env="ANTHROPIC_MAX_TOKENS")
     anthropic_temperature: float = Field(0.1, env="ANTHROPIC_TEMPERATURE")
     

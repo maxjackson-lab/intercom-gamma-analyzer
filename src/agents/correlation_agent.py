@@ -40,8 +40,8 @@ class CorrelationAgent(BaseAgent):
         from src.services.claude_client import ClaudeClient
         if isinstance(self.ai_client, ClaudeClient):
             # Claude: Use Sonnet 4.5 for strategic correlation analysis
-            self.quick_model = "claude-haiku-4-5-20250514"
-            self.intensive_model = "claude-sonnet-4-5-20250514"
+            self.quick_model = "claude-haiku-4-5-20251001"
+            self.intensive_model = "claude-sonnet-4-5-20250929"
             self.client_type = "claude"
         else:
             # OpenAI: Use GPT-4o for correlation analysis
