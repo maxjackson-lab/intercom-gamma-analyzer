@@ -355,44 +355,37 @@ Calculate tier-specific metrics:
         if total == 0:
             return {}
 
-        # Resolution rate - Using standardized is_fin_resolved() helper
-        resolved_by_fin = []
-        escalated = []
+        # Resolution rate - Use DUAL METRICS for transparency
+        # 1. Intercom-Compatible: Liberal (matches Intercom dashboard)
+        # 2. Quality-Adjusted: Strict (true helpfulness)
+        from src.utils.fin_metrics_calculator import calculate_dual_metrics
         
-        for c in conversations:
-            conv_id = c.get('id')
-            
-            # Use standardized resolution detection
-            fin_resolved = is_fin_resolved(c)
-            
-            # DEBUG logging to trace Fin resolution logic
-            parts = c.get('conversation_parts', {}).get('conversation_parts', [])
-            admin_parts = [p for p in parts if p.get('author', {}).get('type') == 'admin']
-            user_parts = [p for p in parts if p.get('author', {}).get('type') == 'user']
-            
-            rating_data = c.get('conversation_rating')
-            if isinstance(rating_data, dict):
-                rating = rating_data.get('rating')
-            else:
-                rating = rating_data if isinstance(rating_data, (int, float)) else None
-            
-            self.logger.debug(
-                f"Fin resolution check for {conv_id}: "
-                f"admin_response={len(admin_parts) > 0}, "
-                f"user_responses={len(user_parts)}, "
-                f"closed={c.get('state') == 'closed'}, "
-                f"rating={rating}, "
-                f"detected_topics={c.get('detected_topics', [])}, "
-                f"→ {'RESOLVED' if fin_resolved else 'ESCALATED/FAILED'}"
-            )
-            
-            if fin_resolved:
-                resolved_by_fin.append(c)
-            else:
-                escalated.append(c)
+        dual_metrics = calculate_dual_metrics(conversations)
         
-        resolution_rate = len(resolved_by_fin) / total if total > 0 else 0
-        self.logger.info(f"{tier_name} tier: {len(resolved_by_fin)} resolved ({resolution_rate:.1%}), {len(escalated)} escalated/failed")
+        # Extract both metrics
+        intercom_metrics = dual_metrics.get('intercom_compatible', {})
+        quality_metrics = dual_metrics.get('quality_adjusted', {})
+        comparison = dual_metrics.get('comparison', {})
+        
+        # Use Intercom-compatible for primary display (more realistic)
+        deflected_count = intercom_metrics.get('deflected_count', 0)
+        deflection_rate = intercom_metrics.get('deflection_rate', 0) / 100  # Convert % to decimal
+        
+        # Quality-adjusted for secondary display
+        resolved_count = quality_metrics.get('resolved_count', 0)
+        resolution_rate_quality = quality_metrics.get('resolution_rate', 0) / 100  # Convert % to decimal
+        
+        # Primary resolution rate = Intercom-compatible (more realistic)
+        resolution_rate = deflection_rate
+        resolved_by_fin = [c for c in conversations if not c.get('admin_assignee_id')]  # Simple approximation
+        escalated = [c for c in conversations if c.get('admin_assignee_id')]
+        
+        self.logger.info(
+            f"{tier_name} tier: "
+            f"Intercom-Compatible Resolution: {deflection_rate:.1%} ({deflected_count}/{total}), "
+            f"Quality-Adjusted: {resolution_rate_quality:.1%} ({resolved_count}/{total}), "
+            f"Gap: {comparison.get('deflection_gap', 0):.1f}%"
+        )
 
         # Knowledge gaps - Using standardized has_knowledge_gap() helper
         knowledge_gaps = []
