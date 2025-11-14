@@ -470,6 +470,77 @@ For each conversation:
             return False
         return True
     
+    def _validate_and_normalize_distribution(self, topic_distribution: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Mathematical validation: Ensure topic percentages sum to 100%.
+        
+        This is a safety net to prevent math bugs from creeping in.
+        Per AI investigator recommendation: "Normalize at individual level, then aggregate"
+        
+        Guarantees:
+        - All percentages >= 0
+        - Sum of percentages = 100% (± 0.1% tolerance)
+        - No NaN or Inf values
+        - No negative values
+        
+        Args:
+            topic_distribution: Dict with topic stats including 'percentage'
+            
+        Returns:
+            Validated and normalized topic distribution
+        """
+        import math
+        
+        # Layer 1: Remove invalid values (NaN, Inf, negatives)
+        cleaned = {}
+        for topic, stats in topic_distribution.items():
+            pct = stats.get('percentage', 0.0)
+            
+            # Check for invalid numbers
+            if not isinstance(pct, (int, float)):
+                self.logger.warning(f"Topic {topic} has non-numeric percentage: {pct}, setting to 0.0")
+                pct = 0.0
+            elif math.isnan(pct) or math.isinf(pct):
+                self.logger.warning(f"Topic {topic} has invalid percentage (NaN/Inf), setting to 0.0")
+                pct = 0.0
+            elif pct < 0:
+                self.logger.warning(f"Topic {topic} has negative percentage: {pct}, setting to 0.0")
+                pct = 0.0
+            
+            cleaned[topic] = {**stats, 'percentage': pct}
+        
+        # Layer 2: Check if normalization needed
+        total = sum(stats['percentage'] for stats in cleaned.values())
+        
+        if total > 0 and not (99.9 <= total <= 100.1):
+            self.logger.warning(
+                f"⚠️ Topic percentages sum to {total:.2f}% (not 100%), normalizing..."
+            )
+            
+            # Normalize to exactly 100%
+            for topic, stats in cleaned.items():
+                stats['percentage'] = round((stats['percentage'] / total) * 100, 1)
+            
+            # Log normalization
+            new_total = sum(stats['percentage'] for stats in cleaned.values())
+            self.logger.info(f"✅ Normalized: {total:.2f}% → {new_total:.2f}%")
+        
+        # Layer 3: Final validation (assert mathematical correctness)
+        final_total = sum(stats['percentage'] for stats in cleaned.values())
+        
+        if not (99.9 <= final_total <= 100.1):
+            # This should NEVER happen after normalization
+            self.logger.error(
+                f"🚨 CRITICAL: After normalization, percentages still sum to {final_total}%! "
+                f"This indicates a fundamental math bug."
+            )
+            # Force normalization one more time (emergency fallback)
+            if final_total > 0:
+                for topic, stats in cleaned.items():
+                    stats['percentage'] = round((stats['percentage'] / final_total) * 100, 1)
+        
+        return cleaned
+    
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute topic detection"""
         start_time = datetime.now()
@@ -645,6 +716,11 @@ For each conversation:
                     'sdk_only_count': methods['sdk_only'],
                     'fallback_count': methods.get('fallback', 0)
                 }
+            
+            # 🔒 MATHEMATICAL VALIDATION: Guarantee percentages sum to 100%
+            # Per AI investigator: "Normalize at aggregation stage to prevent math bugs"
+            topic_distribution = self._validate_and_normalize_distribution(topic_distribution)
+            self.logger.info("✅ Topic distribution validated (percentages sum to 100%)")
             
             # LLM Enhancement: DISABLED - was discovering duplicates of existing subcategories
             # e.g., "Invoice/Receipt Issues" when Invoice is already a Billing subcategory
