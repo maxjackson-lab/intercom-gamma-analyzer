@@ -91,9 +91,12 @@ def _normalize_agent_result(result: Any) -> Dict[str, Any]:
 class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
-    def __init__(self, ai_factory: AIModelFactory = None, audit_trail=None):
+    def __init__(self, ai_factory: AIModelFactory = None, audit_trail=None, execution_monitor=None):
         #Audit trail for detailed narration
         self.audit = audit_trail
+        
+        # Execution monitor for real-time status (optional)
+        self.monitor = execution_monitor
         
         # Enable escalation tracking to track Fin → Vendor → Senior Staff escalations
         self.segmentation_agent = SegmentationAgent(track_escalations=True)
@@ -256,8 +259,20 @@ class TopicOrchestrator:
                     'method': 'Tier-first classification (Free/Paid/Unknown)'
                 })
             
+            # Report agent start
+            if self.monitor:
+                from src.services.execution_monitor import AgentStatus
+                await self.monitor.update_agent_status('SegmentationAgent', AgentStatus.RUNNING, 
+                                                      f"Classifying {len(conversations)} conversations into Free/Paid tiers")
+            
             segmentation_result = await self.segmentation_agent.execute(context)
             workflow_results['SegmentationAgent'] = _normalize_agent_result(segmentation_result)
+            
+            # Report agent completion
+            if self.monitor:
+                await self.monitor.update_agent_status('SegmentationAgent', AgentStatus.COMPLETED,
+                                                      f"Classified {segmentation_result.data.get('paid_count', 0)} paid, {segmentation_result.data.get('free_count', 0)} free",
+                                                      confidence=segmentation_result.confidence)
 
             # Record tool calls from agent if audit is enabled
             if self.audit:
@@ -327,8 +342,22 @@ class TopicOrchestrator:
                 })
             
             context.conversations = conversations  # Changed: detect topics for ALL conversations
+            
+            # Report agent start
+            if self.monitor:
+                await self.monitor.update_agent_status('TopicDetectionAgent', AgentStatus.RUNNING,
+                                                      f"Classifying {len(conversations)} conversations into topics")
+            
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
+            
+            # Report agent completion
+            if self.monitor:
+                topics_found = len(topic_detection_result.data.get('topic_distribution', {}))
+                await self.monitor.update_agent_status('TopicDetectionAgent', AgentStatus.COMPLETED,
+                                                      f"Detected {topics_found} topics",
+                                                      token_usage={'total': topic_detection_result.token_count},
+                                                      confidence=topic_detection_result.confidence)
 
             # Record tool calls from agent if audit is enabled
             if self.audit:
@@ -439,8 +468,20 @@ class TopicOrchestrator:
                 }
                 subtopic_context.conversations = paid_conversations
                 
+                # Report agent start
+                if self.monitor:
+                    await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.RUNNING,
+                                                          f"Analyzing {len(topic_dist)} topics for sub-categories")
+                
                 subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
                 workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
+                
+                # Report agent completion
+                if self.monitor:
+                    await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.COMPLETED,
+                                                          f"Found {len(subtopic_detection_result.data.get('subtopics_by_tier1_topic', {}))} topic hierarchies",
+                                                          token_usage={'total': subtopic_detection_result.token_count},
+                                                          confidence=subtopic_detection_result.confidence)
 
                 # Record tool calls from agent if audit is enabled
                 if self.audit:
@@ -680,8 +721,19 @@ class TopicOrchestrator:
                 'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
                 'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
             }
+            # Report agent start
+            if self.monitor:
+                await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.RUNNING,
+                                                      f"Analyzing Fin AI performance")
+            
             fin_result = await self.fin_performance_agent.execute(fin_context)
             workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
+            
+            # Report agent completion
+            if self.monitor:
+                await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.COMPLETED,
+                                                      "Fin performance analysis complete",
+                                                      confidence=fin_result.confidence)
             
             fin_execution_time = (datetime.now() - fin_start_time).total_seconds()
             
@@ -1018,8 +1070,19 @@ class TopicOrchestrator:
                 'comparison_data': comparison_data
             }
             
+            # Report agent start
+            if self.monitor:
+                await self.monitor.update_agent_status('OutputFormatterAgent', AgentStatus.RUNNING,
+                                                      "Formatting analysis for Gamma presentation")
+            
             formatter_result = await self.output_formatter_agent.execute(output_context)
             workflow_results['OutputFormatterAgent'] = _normalize_agent_result(formatter_result)
+            
+            # Report agent completion
+            if self.monitor:
+                await self.monitor.update_agent_status('OutputFormatterAgent', AgentStatus.COMPLETED,
+                                                      "Formatted output ready",
+                                                      confidence=formatter_result.confidence)
             
             output_execution_time = (datetime.now() - output_start_time).total_seconds()
             
