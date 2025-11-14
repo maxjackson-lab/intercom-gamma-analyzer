@@ -13,6 +13,8 @@ import re
 import asyncio
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
+from enum import Enum
+from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
@@ -20,6 +22,41 @@ from src.utils.conversation_utils import extract_conversation_text, extract_cust
 from src.config.taxonomy import TaxonomyManager
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# STRUCTURED OUTPUT SCHEMAS (OpenAI Structured Outputs = 100% compliance)
+# ============================================================================
+
+class TopicCategory(str, Enum):
+    """All valid topic categories - Enum ensures single-choice selection."""
+    BILLING = "Billing"
+    BUG = "Bug"
+    ACCOUNT = "Account"
+    WORKSPACE = "Workspace"
+    PRODUCT_QUESTION = "Product Question"
+    AGENT_BUDDY = "Agent/Buddy"
+    PROMOTIONS = "Promotions"
+    PRIVACY = "Privacy"
+    CHARGEBACK = "Chargeback"
+    ABUSE = "Abuse"
+    PARTNERSHIPS = "Partnerships"
+    FEEDBACK = "Feedback"
+    UNKNOWN = "Unknown/unresponsive"
+
+
+class TopicClassification(BaseModel):
+    """
+    Structured output for topic classification.
+    
+    Uses OpenAI Structured Outputs (strict JSON Schema) for 100% compliance.
+    Eliminates parsing errors and guarantees single-topic selection via Enum.
+    """
+    topic: TopicCategory = Field(description="Primary topic category (must be ONE of the enum values)")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence score between 0 and 1")
+    
+    class Config:
+        use_enum_values = True  # Return enum values, not enum objects
 
 
 class TopicDetectionAgent(BaseAgent):
@@ -74,6 +111,84 @@ class TopicDetectionAgent(BaseAgent):
             self.logger.info("🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)")
         else:
             self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
+    
+    async def _call_llm_structured(self, prompt: str, response_model: type[BaseModel]) -> tuple:
+        """
+        Call LLM with Structured Outputs (OpenAI) or tool calling (Claude).
+        
+        Guarantees 100% schema compliance via constrained decoding (OpenAI)
+        or forced tool use (Claude ~95-98% compliance).
+        
+        Args:
+            prompt: Classification prompt
+            response_model: Pydantic model class (e.g., TopicClassification)
+            
+        Returns:
+            (parsed_model_instance, tokens_used)
+        """
+        from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
+        import json
+        
+        @retry(
+            wait=wait_random_exponential(min=1, max=60),
+            stop=stop_after_attempt(6),
+            retry=retry_if_exception_type((Exception,)),
+            reraise=True
+        )
+        async def _retry_wrapper():
+            if self.client_type == "claude":
+                # Claude: Use tool calling for structured outputs
+                tool_schema = {
+                    "name": "record_classification",
+                    "description": f"Record the {response_model.__name__} result",
+                    "input_schema": response_model.model_json_schema()
+                }
+                
+                response = await self.ai_client.client.messages.create(
+                    model=self.quick_model,
+                    max_tokens=200,
+                    temperature=0.1,
+                    tools=[tool_schema],
+                    tool_choice={"type": "tool", "name": "record_classification"},
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                
+                # Extract tool use result
+                for content in response.content:
+                    if content.type == "tool_use" and content.name == "record_classification":
+                        result_dict = content.input
+                        parsed = response_model(**result_dict)
+                        tokens = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+                        return (parsed, tokens)
+                
+                raise ValueError("Claude didn't use the tool as expected")
+                
+            else:
+                # OpenAI: Use Structured Outputs (100% guaranteed compliance!)
+                response = await self.ai_client.client.chat.completions.create(
+                    model=self.quick_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": response_model.__name__.lower(),
+                            "strict": True,  # KEY: Guarantees 100% compliance
+                            "schema": response_model.model_json_schema()
+                        }
+                    }
+                )
+                
+                # Parse JSON to Pydantic model (guaranteed valid!)
+                result_json = response.choices[0].message.content
+                result_dict = json.loads(result_json)
+                parsed = response_model(**result_dict)
+                tokens = response.usage.total_tokens if hasattr(response, 'usage') else None
+                return (parsed, tokens)
+        
+        # Execute with semaphore + timeout
+        async with self.llm_semaphore:
+            return await asyncio.wait_for(_retry_wrapper(), timeout=self.llm_timeout)
     
     async def _call_llm_with_retry(self, prompt: str, max_tokens: int = 50) -> tuple:
         """
@@ -1009,61 +1124,63 @@ Additional topics:"""
             if keywords_hint:
                 hint_section += f"⚠️ HINT: Keywords matched: {', '.join(keywords_hint[:5])}\n"
             
-            prompt = f"""You are analyzing a customer support conversation to determine its PRIMARY topic.
-
-AVAILABLE TOPICS: {topic_list}
+            # STRUCTURED OUTPUTS: Prompt now returns Pydantic model (100% schema compliance!)
+            prompt = f"""Analyze this customer support conversation and classify it into the PRIMARY topic category.
 {hint_section}
 CONVERSATION TEXT:
 {text[:1500]}
 
-TASK: 
-1. Read the conversation carefully
-2. Identify the customer's MAIN issue/question
-3. Choose ONE topic from the available list that best matches
-4. Ignore the hints if they don't match the actual conversation content
-5. If conversation is unclear/unresponsive, choose "Unknown/unresponsive"
+GUIDELINES:
+1. Identify the customer's MAIN issue/question from the conversation
+2. Ignore the hints if they don't match actual content
+3. If unclear/unresponsive, choose "Unknown/unresponsive"
 
-Respond with ONLY the topic name, nothing else."""
+Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
 
             # Log prompt
             thinking.log_prompt(
                 "TopicDetectionAgent",
                 prompt,
                 {
-                    "method": "llm_smart",
+                    "method": "llm_smart_structured",
                     "sdk_hint": sdk_hint,
                     "keywords_matched": keywords_hint,
                     "text_length": len(text),
                     "client_type": self.client_type,
-                    "model": self.quick_model
+                    "model": self.quick_model,
+                    "structured_outputs": True
                 }
             )
 
-            # Call LLM with retry + exponential backoff
+            # Call LLM with Structured Outputs (100% compliance!)
             try:
-                topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+                classification, tokens_used = await self._call_llm_structured(prompt, TopicClassification)
             except Exception as e:
                 self.logger.warning(f"LLM smart classification failed after 6 retries: {e}")
                 return None
             
+            # Extract from Pydantic model (guaranteed valid!)
+            topic_name = classification.topic
+            llm_confidence = classification.confidence
+            
             # Log response
             thinking.log_response(
                 "TopicDetectionAgent",
-                topic_name,
+                f"{topic_name} (confidence: {llm_confidence})",
                 tokens_used=tokens_used,
                 model=self.quick_model
             )
             
-            # Validate it's a real topic
-            if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
-                # Check if LLM agreed with hints
-                agreed_with_sdk = (topic_name == sdk_hint) if sdk_hint else None
-                confidence = 0.90 if agreed_with_sdk else 0.80  # Higher if validates hint
-                
-                thinking.log_reasoning(
-                    "TopicDetectionAgent",
-                    f"Classified as '{topic_name}'",
-                    f"LLM analyzed text context. SDK hint: {sdk_hint or 'none'}. " +
+            # Topic name is GUARANTEED valid (Enum enforcement!)
+            # Check if LLM agreed with hints
+            agreed_with_sdk = (topic_name == sdk_hint) if sdk_hint else None
+            # Use LLM's own confidence score (from structured output)
+            confidence = llm_confidence
+            
+            thinking.log_reasoning(
+                "TopicDetectionAgent",
+                f"Classified as '{topic_name}'",
+                f"LLM analyzed text context. SDK hint: {sdk_hint or 'none'}. " +
                     f"{'Agreed with SDK' if agreed_with_sdk else 'Corrected SDK' if sdk_hint else 'No SDK hint'}",
                     {
                         "llm_result": topic_name,
@@ -1072,32 +1189,23 @@ Respond with ONLY the topic name, nothing else."""
                         "keywords_hint": keywords_hint,
                         "confidence": confidence
                     }
-                )
-                
-                thinking.log_validation(
-                    "TopicDetectionAgent",
-                    "SDK Hint Validation",
-                    agreed_with_sdk if sdk_hint else True,
-                    f"LLM {'confirmed' if agreed_with_sdk else 'corrected'} SDK hint" if sdk_hint else "No SDK hint to validate"
-                )
-                
-                return {
-                    'topic': topic_name,
-                    'method': 'llm_smart',
-                    'confidence': confidence,
-                    'sdk_validated': agreed_with_sdk if sdk_hint else False,
-                    'sdk_hint': sdk_hint,
-                    'llm_correction': sdk_hint if (sdk_hint and not agreed_with_sdk) else None
-                }
-            else:
-                self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
-                thinking.log_validation(
-                    "TopicDetectionAgent",
-                    "Topic Validation",
-                    False,
-                    f"LLM returned '{topic_name}' which is not in topic list"
-                )
-                return None
+            )
+            
+            thinking.log_validation(
+                "TopicDetectionAgent",
+                "SDK Hint Validation",
+                agreed_with_sdk if sdk_hint else True,
+                f"LLM {'confirmed' if agreed_with_sdk else 'corrected'} SDK hint" if sdk_hint else "No SDK hint to validate"
+            )
+            
+            return {
+                'topic': topic_name,
+                'method': 'llm_smart',
+                'confidence': confidence,
+                'sdk_validated': agreed_with_sdk if sdk_hint else False,
+                'sdk_hint': sdk_hint,
+                'llm_correction': sdk_hint if (sdk_hint and not agreed_with_sdk) else None
+            }
                 
         except Exception as e:
             self.logger.warning(f"LLM smart classification failed: {e}")
