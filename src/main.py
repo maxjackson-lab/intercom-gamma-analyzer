@@ -4951,7 +4951,19 @@ async def run_topic_based_analysis_custom(
                 {'period_type': period_type, 'period_label': period_label}
             )
         
-        orchestrator = TopicOrchestrator(audit_trail=audit)
+        # Initialize execution monitor for agent-level tracking
+        from src.services.execution_monitor import get_execution_monitor
+        monitor = get_execution_monitor()
+        
+        # Start execution tracking
+        await monitor.start_execution(
+            command='voice-of-customer',
+            args=[],
+            date_range={'start': start_date.isoformat(), 'end': end_date.isoformat()},
+            conversations_count=len(conversations)
+        )
+        
+        orchestrator = TopicOrchestrator(audit_trail=audit, execution_monitor=monitor)
         week_id = start_date.strftime('%Y-W%W')
         
         results = await orchestrator.execute_weekly_analysis(
