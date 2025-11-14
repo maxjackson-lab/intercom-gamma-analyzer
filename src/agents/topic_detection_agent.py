@@ -436,10 +436,12 @@ For each conversation:
                 
                 if topic not in detection_methods:
                     detection_methods[topic] = {
-                        'hybrid': 0,      # Keyword + SDK agree (best)
-                        'keyword': 0,     # Keyword only (good)
-                        'sdk_only': 0,    # SDK only (caution)
-                        'fallback': 0     # Unknown fallback
+                        'hybrid': 0,       # Keyword + SDK agree (best)
+                        'keyword': 0,      # Keyword only (good)
+                        'sdk_only': 0,     # SDK only (caution)
+                        'llm_smart': 0,    # LLM with hints (NEW!)
+                        'llm_only': 0,     # LLM without hints (NEW!)
+                        'fallback': 0      # Unknown fallback
                     }
                 
                 # Track method
@@ -447,25 +449,40 @@ For each conversation:
                 if method in detection_methods[topic]:
                     detection_methods[topic][method] += 1
                 else:
-                    # Unknown method - count as keyword
-                    detection_methods[topic]['keyword'] += 1
+                    # Unknown method - log warning and count as fallback
+                    self.logger.warning(f"Unknown detection method '{method}' for topic {topic} - counting as fallback")
+                    detection_methods[topic]['fallback'] += 1
             
-            # DEBUG: Log HYBRID detection method breakdown
-            self.logger.info("📊 HYBRID Topic Detection Breakdown:")
+            # DEBUG: Log HYBRID detection method breakdown (including LLM methods!)
+            self.logger.info("📊 HYBRID Topic Detection Breakdown (incl. LLM):")
             for topic, methods in sorted(detection_methods.items(), key=lambda x: topic_counts[x[0]], reverse=True)[:10]:
                 count = topic_counts[topic]
+                llm_smart_pct = round(methods.get('llm_smart', 0) / count * 100, 1) if count > 0 else 0
+                llm_only_pct = round(methods.get('llm_only', 0) / count * 100, 1) if count > 0 else 0
                 hybrid_pct = round(methods['hybrid'] / count * 100, 1) if count > 0 else 0
                 kw_pct = round(methods['keyword'] / count * 100, 1) if count > 0 else 0
                 sdk_pct = round(methods['sdk_only'] / count * 100, 1) if count > 0 else 0
                 fallback_pct = round(methods['fallback'] / count * 100, 1) if count > 0 else 0
                 
-                self.logger.info(
-                    f"   {topic}: {count} total | "
-                    f"Hybrid: {methods['hybrid']} ({hybrid_pct}%) | "
-                    f"Keyword: {methods['keyword']} ({kw_pct}%) | "
-                    f"SDK-only: {methods['sdk_only']} ({sdk_pct}%)"
-                    + (f" | Fallback: {methods['fallback']} ({fallback_pct}%)" if methods['fallback'] > 0 else "")
-                )
+                log_parts = [f"{topic}: {count} total"]
+                
+                # Show LLM methods first (highest priority)
+                if methods.get('llm_smart', 0) > 0:
+                    log_parts.append(f"LLM-Smart: {methods['llm_smart']} ({llm_smart_pct}%)")
+                if methods.get('llm_only', 0) > 0:
+                    log_parts.append(f"LLM-Only: {methods['llm_only']} ({llm_only_pct}%)")
+                
+                # Then traditional methods
+                if methods['hybrid'] > 0:
+                    log_parts.append(f"Hybrid: {methods['hybrid']} ({hybrid_pct}%)")
+                if methods['keyword'] > 0:
+                    log_parts.append(f"Keyword: {methods['keyword']} ({kw_pct}%)")
+                if methods['sdk_only'] > 0:
+                    log_parts.append(f"SDK-only: {methods['sdk_only']} ({sdk_pct}%)")
+                if methods['fallback'] > 0:
+                    log_parts.append(f"Fallback: {methods['fallback']} ({fallback_pct}%)")
+                
+                self.logger.info(f"   {' | '.join(log_parts)}")
             
             # Group conversations by PRIMARY topic only (prevents double-counting)
             conversations_by_topic = {}
@@ -488,8 +505,12 @@ For each conversation:
             for topic, count in topic_counts.items():
                 methods = detection_methods[topic]
                 
-                # Determine primary method
-                if methods['hybrid'] > 0:
+                # Determine primary method (priority order: llm > hybrid > keyword > sdk > fallback)
+                if methods.get('llm_smart', 0) > 0:
+                    primary_method = 'llm_smart'
+                elif methods.get('llm_only', 0) > 0:
+                    primary_method = 'llm_only'
+                elif methods['hybrid'] > 0:
                     primary_method = 'hybrid'
                 elif methods['keyword'] > 0:
                     primary_method = 'keyword'
@@ -502,6 +523,8 @@ For each conversation:
                     'volume': count,
                     'percentage': round(count / total_conversations * 100, 1),
                     'detection_method': primary_method,
+                    'llm_smart_count': methods.get('llm_smart', 0),  # NEW!
+                    'llm_only_count': methods.get('llm_only', 0),    # NEW!
                     'hybrid_count': methods['hybrid'],
                     'keyword_count': methods['keyword'],
                     'sdk_only_count': methods['sdk_only'],
