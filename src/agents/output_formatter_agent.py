@@ -40,12 +40,28 @@ class OutputFormatterAgent(BaseAgent):
         'AnalyticalInsights': {'required': False, 'key': 'analytical_insights'}
     }
     
-    def __init__(self):
+    def __init__(self, use_llm_formatting: bool = None):
         super().__init__(
             name="OutputFormatterAgent",
             model="gpt-4o",  # Use intensive model for executive presentations
             temperature=0.3  # Moderate temp for creative structuring
         )
+        
+        # LLM Strategic Formatting: Use LLM to reorder cards and generate narrative
+        # Can be controlled via:
+        # 1. Constructor parameter: OutputFormatterAgent(use_llm_formatting=False)
+        # 2. Environment variable: LLM_OUTPUT_FORMATTING=false
+        # 3. Default: FALSE (disabled until proven helpful - user feedback: "tone is weird")
+        import os
+        if use_llm_formatting is not None:
+            self.use_llm_formatting = use_llm_formatting
+        else:
+            self.use_llm_formatting = os.getenv('LLM_OUTPUT_FORMATTING', 'false').lower() == 'true'
+        
+        if self.use_llm_formatting:
+            self.logger.info("🧠 OutputFormatterAgent: LLM strategic formatting ENABLED (experimental)")
+        else:
+            self.logger.info("📄 OutputFormatterAgent: Standard formatting (LLM disabled)")
         
         # Get AI client for LLM-powered formatting
         self.ai_client = get_ai_client()
@@ -340,19 +356,28 @@ Return ONLY valid JSON, no other text:
             else:
                 self.logger.info("No sub-topic data available (backward compatibility mode)")
             
-            # 🧠 STRATEGIC LLM GUIDANCE (NEW!)
+            # 🧠 STRATEGIC LLM GUIDANCE (OPTIONAL - disabled by default per user feedback)
             # Use Sonnet 4.5 / GPT-4o to intelligently structure presentation
-            logger.info("🎯 Generating strategic presentation guidance with LLM...")
-            strategic_guidance = await self._generate_strategic_presentation_guidance(context, context.previous_results)
+            top_insights = []
+            card_priority_order = list(topic_dist.keys())  # Default: volume order
+            emphasis_areas = {}
+            exec_summary = ''
+            narrative_arc = ''
             
-            # Extract guidance
-            top_insights = strategic_guidance.get('top_insights', [])
-            card_priority_order = strategic_guidance.get('card_priority_order', list(topic_dist.keys()))
-            emphasis_areas = strategic_guidance.get('emphasis_areas', {})
-            exec_summary = strategic_guidance.get('executive_summary', '')
-            narrative_arc = strategic_guidance.get('narrative_arc', '')
-            
-            logger.info(f"📊 LLM Strategic Guidance: {len(top_insights)} insights, reordered {len(card_priority_order)} cards")
+            if self.use_llm_formatting:
+                logger.info("🎯 Generating strategic presentation guidance with LLM (experimental)...")
+                strategic_guidance = await self._generate_strategic_presentation_guidance(context, context.previous_results)
+                
+                # Extract guidance
+                top_insights = strategic_guidance.get('top_insights', [])
+                card_priority_order = strategic_guidance.get('card_priority_order', list(topic_dist.keys()))
+                emphasis_areas = strategic_guidance.get('emphasis_areas', {})
+                exec_summary = strategic_guidance.get('executive_summary', '')
+                narrative_arc = strategic_guidance.get('narrative_arc', '')
+                
+                logger.info(f"📊 LLM Strategic Guidance: {len(top_insights)} insights, reordered {len(card_priority_order)} cards")
+            else:
+                logger.info("📄 Using standard formatting (LLM strategic guidance disabled - enable with LLM_OUTPUT_FORMATTING=true)")
             
             # Get analytical insights for later sections
             analytical_insights = context.previous_results.get('AnalyticalInsights', {})
