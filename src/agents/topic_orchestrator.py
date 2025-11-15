@@ -1078,6 +1078,27 @@ class TopicOrchestrator:
             formatter_result = await self.output_formatter_agent.execute(output_context)
             workflow_results['OutputFormatterAgent'] = _normalize_agent_result(formatter_result)
             
+            # 📋 SAVE AGENT DEBUG REPORT (Human-Readable Summary of All Agent Outputs)
+            try:
+                from src.utils.agent_debug_reporter import create_agent_debug_report
+                from pathlib import Path
+                import os
+                
+                # Get output directory (respects persistent volume if available)
+                volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+                if volume_path:
+                    debug_report_path = Path(volume_path) / "outputs" / f"agent_debug_report_{week_id}.txt"
+                else:
+                    from src.config.settings import settings
+                    debug_report_path = Path(settings.effective_output_directory) / f"agent_debug_report_{week_id}.txt"
+                
+                # Create debug report showing ALL agent outputs
+                create_agent_debug_report(workflow_results, debug_report_path)
+                self.logger.info(f"📋 Agent debug report saved: {debug_report_path}")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to create agent debug report: {e}")
+            
             # Report agent completion
             if self.monitor:
                 await self.monitor.update_agent_status('OutputFormatterAgent', AgentStatus.COMPLETED,
