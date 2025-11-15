@@ -4017,6 +4017,19 @@ async def run_voc_analysis(
         console.print(f"[green]VoC analysis completed![/green]")
         console.print(f"Results saved to: {output_file}")
         
+        # 🎯 SAVE STRUCTURED DATA (all agent insights before Gamma flattening)
+        structured_data_file = output_file.with_name(output_file.stem + '_STRUCTURED_DATA.json')
+        formatter_data = analysis_results.get('OutputFormatterAgent', {}).get('data', {})
+        structured_data = formatter_data.get('structured_data', {})
+        
+        if structured_data:
+            with open(structured_data_file, 'w') as f:
+                json.dump(structured_data, f, indent=2)
+            console.print(f"[cyan]📊 Complete structured data saved to: {structured_data_file}[/cyan]")
+            console.print(f"[cyan]   This file contains ALL agent insights (topics, confidence, hierarchies, correlations)[/cyan]")
+        else:
+            console.print(f"[yellow]⚠️  No structured data available (using older OutputFormatter version)[/yellow]")
+        
         # Generate Gamma presentation if requested
         if generate_gamma:
             console.print(f"[yellow]Generating Gamma presentation...[/yellow]")

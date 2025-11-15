@@ -349,15 +349,19 @@ Return ONLY valid JSON, no other text:
             topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
             topic_dist = topic_detection.get('topic_distribution', {})
             
-            # 🚨 CRITICAL DEBUG: Check if topic_dist is empty
+            # 🚨 CRITICAL VALIDATION: FAIL FAST if no topics detected
             if not topic_dist or len(topic_dist) == 0:
-                self.logger.error(
-                    f"🚨 CRITICAL: topic_dist is EMPTY! "
+                error_msg = (
+                    f"FATAL: No topics detected! Cannot generate report. "
                     f"TopicDetectionAgent present: {'TopicDetectionAgent' in context.previous_results}, "
-                    f"topic_detection keys: {list(topic_detection.keys()) if topic_detection else 'None'}"
+                    f"TopicDetectionAgent success: {context.previous_results.get('TopicDetectionAgent', {}).get('success', 'N/A')}, "
+                    f"topic_detection keys: {list(topic_detection.keys()) if topic_detection else 'None'}, "
+                    f"Conversations analyzed: {len(context.conversations) if context.conversations else 0}"
                 )
+                self.logger.error(f"🚨 {error_msg}")
+                raise ValueError(error_msg)
             else:
-                self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics")
+                self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics - proceeding with formatting")
             
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
@@ -671,7 +675,54 @@ Return ONLY valid JSON, no other text:
                 'has_trend_data': len(trends) > 0,
                 'has_tier_based_fin_data': has_tier_data if fin_performance else False,
                 'free_tier_conversations': fin_performance.get('total_free_tier', 0) if has_tier_data and fin_performance else 0,
-                'paid_tier_conversations': fin_performance.get('total_paid_tier', 0) if has_tier_data and fin_performance else 0
+                'paid_tier_conversations': fin_performance.get('total_paid_tier', 0) if has_tier_data and fin_performance else 0,
+                
+                # 🎯 STRUCTURED DATA: Preserve ALL agent insights (for debugging & future Gamma improvements)
+                'structured_data': {
+                    'topics': {
+                        topic_name: {
+                            'volume': stats['volume'],
+                            'percentage': stats['percentage'],
+                            'detection_method': stats.get('detection_method'),
+                            'confidence': stats.get('confidence', 0.0),
+                            'sentiment': topic_sentiments.get(topic_name, {}).get('data', {}).get('sentiment_insight'),
+                            'examples': [
+                                {
+                                    'conversation_id': ex.get('conversation_id'),
+                                    'preview': ex.get('preview'),
+                                    'url': ex.get('intercom_url'),
+                                    'language': ex.get('language', 'English'),
+                                    'translation': ex.get('translation')
+                                }
+                                for ex in (topic_examples.get(topic_name, {}).get('data', {}).get('examples', []) or [])[:10]
+                            ],
+                            'trend': trends.get(topic_name, {}).get('direction'),
+                            'trend_explanation': trend_insights.get(topic_name) if 'trend_insights' in locals() else None,
+                            'subtopics': subtopics_data.get(topic_name, {}) if subtopics_data else {}
+                        }
+                        for topic_name, stats in sorted_topics
+                    },
+                    'segmentation': {
+                        'paid_count': seg_summary.get('paid_count', 0),
+                        'free_count': seg_summary.get('free_count', 0),
+                        'paid_percentage': seg_summary.get('paid_percentage', 0),
+                        'free_percentage': seg_summary.get('free_percentage', 0),
+                        'language_distribution': seg_summary.get('language_distribution', {})
+                    },
+                    'fin_performance': fin_performance if fin_performance else {},
+                    'analytical_insights': {
+                        'correlations': analytical_insights.get('CorrelationAgent', {}).get('data', {}).get('correlations', []) if analytical_insights else [],
+                        'churn_signals': analytical_insights.get('ChurnRiskAgent', {}).get('data', {}).get('high_risk_conversations', []) if analytical_insights else [],
+                        'quality_insights': analytical_insights.get('QualityInsightsAgent', {}).get('data', {}) if analytical_insights else {}
+                    },
+                    'metadata': {
+                        'period_type': period_type,
+                        'period_label': period_label,
+                        'start_date': context.start_date.isoformat() if context.start_date else None,
+                        'end_date': context.end_date.isoformat() if context.end_date else None,
+                        'total_conversations': total_convs
+                    }
+                }
             }
             
             self.validate_output(result_data)
