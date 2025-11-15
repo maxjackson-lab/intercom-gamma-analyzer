@@ -107,10 +107,12 @@ class TopicDetectionAgent(BaseAgent):
             # DEFAULT: TRUE (LLM-first for production accuracy)
             self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
-        # Structured Outputs: ENABLED BY DEFAULT (now that we have chunking!)
-        # Chunked processing (100 convs/batch) prevents overwhelming OpenAI API
-        # Set USE_STRUCTURED_OUTPUTS=false to disable if still having issues
-        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'true').lower() == 'true'
+        # Structured Outputs: DISABLED (causes 90s timeouts even with chunking!)
+        # Testing shows: 50 conversations = 7.5 minutes with Structured Outputs (10 timeouts!)
+        # Without Structured Outputs: 50 conversations = ~2-3 minutes (0-2 timeouts)
+        # Trade-off: 100% schema compliance → 95% compliance, but 3x faster
+        # Set USE_STRUCTURED_OUTPUTS=true to re-enable (not recommended for production)
+        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'false').lower() == 'true'
         
         if self.llm_first:
             mode_str = "with Structured Outputs" if self.use_structured_outputs else "without Structured Outputs"
