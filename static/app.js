@@ -1534,6 +1534,17 @@ async function sendCompletionNotifications(executionId, statusData, finalStatus)
     }
 }
 
+// Make tabs visible immediately on page load (so user can browse files without running analysis)
+document.addEventListener('DOMContentLoaded', () => {
+    const tabNav = document.getElementById('tabNavigation');
+    if (tabNav) {
+        tabNav.style.display = 'flex';  // Show tabs immediately
+        console.log('✅ Tabs made visible on page load');
+    }
+    // Switch to Files tab by default
+    switchTab('files');
+});
+
 // Export functions to window for onclick handlers
 window.runAnalysis = runAnalysis;
 window.updateAnalysisOptions = updateAnalysisOptions;
