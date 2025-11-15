@@ -7,6 +7,12 @@
 #   ./scripts/run_all_checks.sh --p0      # Only P0 checks (fast)
 #   ./scripts/run_all_checks.sh --p1      # P0 + P1 checks
 #   ./scripts/run_all_checks.sh --quick   # Same as --p0
+#
+# IMPORTANT: If you modified LLM code in src/agents/*_agent.py, you MUST also:
+#   1. Run: python src/main.py sample-mode --count 50 --save-to-file
+#   2. Check the .log file for LLM errors (400, 429, timeout, parsing)
+#   3. Only then commit your changes
+# See .cursorrules section "MANDATORY: Real-Data Sample-Mode Gate for LLM Changes"
 
 set -e  # Exit on first error
 

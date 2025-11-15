@@ -242,6 +242,27 @@ git push origin <branch>
 - Use `asyncio.wait_for()` with timeouts for agent execution
 - Never block the event loop - use `await` for all I/O operations
 
+#### LLM Operational Controls: One Mechanism at a Time (CRITICAL)
+
+**When tuning LLM performance (timeouts, concurrency, chunking, retries), change ONE mechanism at a time.**
+
+**Why:** Multiple interacting mechanisms (timeout + semaphore + chunk_size + retries) make failures 
+impossible to attribute. You won't know which change caused the 429 errors or timeouts.
+
+**Order of adjustment:**
+1. Timeout (`self.llm_timeout`) → validate via sample-mode
+2. Concurrency (`self.llm_semaphore`) → validate
+3. Chunk size (orchestration) → validate
+4. Retry/fallback logic → validate
+
+**After EACH change:**
+```bash
+python src/main.py sample-mode --count 50 --save-to-file
+# Check .log for errors, measure timing, commit if good, revert if bad
+```
+
+**See DEVELOPMENT_STANDARDS.md: "LLM Operational Controls" for detailed workflow.**
+
 #### Async/Await Safety Rules (CRITICAL)
 
 **Rule 1: ALWAYS await async function calls**
@@ -430,6 +451,33 @@ async def run_analysis(...):
 - Use confidence scores to qualify uncertain insights
 - Implement reflection pattern for low-confidence results (<0.7)
 
+### Error-Log-First Debugging (CRITICAL)
+
+**When a run fails, retrieve and analyze logs BEFORE adjusting code or configuration.**
+
+**Workflow:**
+1. Retrieve full `.log` file (not just console output)
+2. Identify primary error codes (400, 429, timeout, parsing errors)
+3. Map error to root cause using diagnostic table
+4. Make targeted fix (not random guessing)
+5. Validate fix via sample-mode
+6. Check new log to confirm resolution
+
+**Common mappings:**
+- 400 Bad Request → Invalid schema (check for incompatible fields like `allOf`)
+- 429 Rate Limit → Too many concurrent requests (reduce semaphore)
+- asyncio.TimeoutError → Increase timeout or reduce prompt size
+- JSONDecodeError → LLM returned non-JSON (fix prompt)
+- ValidationError → Response missing required fields (check Pydantic model)
+
+**Why logs first?**
+- Console output may be truncated on SSE disconnect
+- Log files (`outputs/*.log`) persist complete output via `output_manager.py`
+- Contains full error tracebacks and provider error codes
+- Prevents guesswork and random config changes
+
+**See DEVELOPMENT_STANDARDS.md: "Error-Log-First Debugging Workflow" for detailed workflow and diagnostic table.**
+
 ## File Organization
 
 ### Agent Files (`src/agents/`)
@@ -499,6 +547,46 @@ python scripts/validate_data_schemas.py
 - [ ] Verified no crashes on missing/malformed fields
 - [ ] Confirmed metrics look sensible
 - [ ] Tested edge cases (empty results, single result, max results)
+
+### 🚨 MANDATORY: Real-Data Sample-Mode Gate for LLM Changes
+
+**ANY changes to LLM patterns in agents MUST pass through sample-mode testing BEFORE commit.**
+
+This is a hard requirement, not optional. The Structured Outputs failure (causing 400 errors at scale) 
+could have been caught if sample-mode testing was mandatory.
+
+**Applies to changes in:**
+- `src/agents/topic_detection_agent.py` (any LLM calls)
+- `src/agents/*_agent.py` (if using LLM for classification/analysis)
+- Prompt engineering, response parsing, or model selection
+- Timeout configurations, retry logic, or error handling for LLMs
+
+**MANDATORY workflow for LLM changes:**
+
+1. **Make code changes to LLM patterns**
+2. **IMMEDIATELY run sample-mode with real data:**
+```bash
+python src/main.py sample-mode --count 50 --save-to-file
+```
+3. **Verify the output:**
+   - Check the `.log` file for LLM errors (400, 429, timeout, parsing errors)
+   - Confirm topic classifications look reasonable
+   - Verify no crashes or hangs during LLM calls
+4. **Only then proceed to commit**
+
+**Why this is mandatory:**
+- LLM providers reject invalid schemas at runtime (not caught by linting)
+- Rate limits and timeouts only appear under real load
+- Response parsing errors only show with actual LLM outputs
+- Test data doesn't exercise the full LLM code path
+
+**Pre-commit enforcement:**
+- The validation script `scripts/check_llm_features_ready.py` (if it exists) will check for recent sample-mode output
+- If you modify `src/agents/*_agent.py` with LLM calls, you MUST have a recent sample-mode run
+- Reference implementation: Check git diff for LLM-related changes and fail if no sample-mode output exists
+
+**Documentation:**
+See `SAMPLE_MODE_GUIDE.md` for detailed sample-mode usage and interpretation.
 
 ## Common Mistakes to Avoid
 

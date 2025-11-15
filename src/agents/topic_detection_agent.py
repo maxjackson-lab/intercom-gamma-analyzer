@@ -109,34 +109,45 @@ class TopicDetectionAgent(BaseAgent):
             # DEFAULT: TRUE (LLM-first for production accuracy)
             self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
-        # Structured Outputs: DISABLED (incompatible with Pydantic Enums)
+        # Structured Outputs: PERMANENTLY DISABLED (incompatible, causes 400 errors at scale)
         # OpenAI error: "allOf is not permitted" when using Pydantic Enum fields
         # Pydantic generates allOf for Enums → OpenAI rejects schema → 400 errors
         # Would need to rewrite entire schema without Enums (defeats the purpose!)
         # SOLUTION: Use proven simple text parsing (95% accuracy, reliable, fast)
-        # Set USE_STRUCTURED_OUTPUTS=true to re-enable (not recommended - will fail!)
-        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'false').lower() == 'true'
+        # DO NOT re-enable - known to be incompatible and fail in production!
+        # The flag and _call_llm_structured() method are kept only as historical reference.
         
         if self.llm_first:
-            mode_str = "with Structured Outputs" if self.use_structured_outputs else "without Structured Outputs"
-            self.logger.info(f"🤖 TopicDetectionAgent: LLM-FIRST mode enabled ({mode_str})")
+            self.logger.info(f"🤖 TopicDetectionAgent: LLM-FIRST mode enabled (using simple text parsing)")
         else:
             self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
     
     async def _call_llm_structured(self, prompt: str, response_model: type[BaseModel]) -> tuple:
         """
-        Call LLM with Structured Outputs (OpenAI) or tool calling (Claude).
+        DEPRECATED AND DISABLED: Structured Outputs are incompatible with our Pydantic Enums.
         
-        Guarantees 100% schema compliance via constrained decoding (OpenAI)
-        or forced tool use (Claude ~95-98% compliance).
+        This method is kept for historical reference but will always raise an error if called.
+        DO NOT use this method - it causes 400 errors at scale due to OpenAI's rejection
+        of "allOf" in JSON schemas (which Pydantic generates for Enums).
+        
+        Use _call_llm_with_retry() instead for reliable text-based classification.
         
         Args:
             prompt: Classification prompt
             response_model: Pydantic model class (e.g., TopicClassification)
             
         Returns:
-            (parsed_model_instance, tokens_used)
+            Never returns - always raises RuntimeError
+            
+        Raises:
+            RuntimeError: Always - this method is disabled
         """
+        raise RuntimeError(
+            "Structured Outputs are permanently disabled due to incompatibility with Pydantic Enums. "
+            "This causes 400 errors at scale. Use _call_llm_with_retry() instead for simple text parsing."
+        )
+        
+        # Historical implementation preserved below for reference (unreachable code):
         from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
         import json
         
@@ -480,6 +491,66 @@ For each conversation:
         if 'topic_distribution' not in result:
             return False
         return True
+    
+    def _normalize_topic_distribution(self, topic_percentages: Dict[str, float]) -> Dict[str, float]:
+        """
+        Simple mathematical normalization: ensure topic percentages sum to exactly 100.
+        
+        This is a lightweight, deterministic helper that applies pure mathematical normalization.
+        Per the original requirement: take raw percentages/weights and return a mapping that
+        sums to exactly 100, handling edge cases gracefully.
+        
+        Args:
+            topic_percentages: Mapping of topic names to raw percentages or weights
+            
+        Returns:
+            Normalized mapping where percentages sum to exactly 100.0
+            
+        Edge cases:
+        - Zero total: Returns all zeros (or empty dict if input empty)
+        - Single topic: Returns {topic: 100.0}
+        - Normal case: Proportionally scales to sum to 100.0
+        - Rounding: Uses round() to ensure deterministic behavior
+        
+        Example:
+            >>> _normalize_topic_distribution({'A': 30, 'B': 20})
+            {'A': 60.0, 'B': 40.0}  # Scaled to 100%
+            
+            >>> _normalize_topic_distribution({'A': 0, 'B': 0})
+            {'A': 0.0, 'B': 0.0}  # Zero-total case
+        """
+        if not topic_percentages:
+            return {}
+        
+        # Calculate current total
+        total = sum(topic_percentages.values())
+        
+        # Edge case: zero total (no topics detected, all zeros)
+        if total == 0:
+            # Return zeros - cannot normalize a zero distribution
+            return {topic: 0.0 for topic in topic_percentages}
+        
+        # Edge case: single topic
+        if len(topic_percentages) == 1:
+            topic_name = list(topic_percentages.keys())[0]
+            return {topic_name: 100.0}
+        
+        # Normal case: proportionally scale to 100%
+        # Use round() for deterministic, reproducible results
+        normalized = {}
+        for topic, value in topic_percentages.items():
+            normalized[topic] = round((value / total) * 100.0, 1)
+        
+        # Due to rounding, we might not sum to exactly 100.0
+        # Apply a correction to the largest topic to ensure exact 100.0 sum
+        normalized_total = sum(normalized.values())
+        if normalized_total != 100.0:
+            # Find largest topic and adjust it
+            largest_topic = max(normalized.items(), key=lambda x: x[1])[0]
+            correction = round(100.0 - normalized_total, 1)
+            normalized[largest_topic] = round(normalized[largest_topic] + correction, 1)
+        
+        return normalized
     
     def _validate_and_normalize_distribution(self, topic_distribution: Dict[str, Any]) -> Dict[str, Any]:
         """

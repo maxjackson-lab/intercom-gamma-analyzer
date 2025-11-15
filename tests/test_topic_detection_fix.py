@@ -205,6 +205,109 @@ class TestTopicDetectionFix:
         assert result[0]['method'] == 'fallback', "Should indicate fallback method"
 
 
+class TestTopicDistributionNormalization:
+    """Test suite for mathematical normalization of topic distributions"""
+    
+    @pytest.fixture
+    def agent(self):
+        """Create topic detection agent"""
+        return TopicDetectionAgent()
+    
+    def test_normal_distribution_normalization(self, agent):
+        """
+        Test normal case: percentages that don't sum to 100 are normalized proportionally.
+        
+        Example: If we have 30% and 20% (total 50%), they should become 60% and 40%.
+        """
+        input_dist = {'Billing': 30.0, 'Bug': 20.0}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        # Should scale proportionally to 100%
+        assert abs(result['Billing'] - 60.0) < 0.1, "Billing should be scaled to 60%"
+        assert abs(result['Bug'] - 40.0) < 0.1, "Bug should be scaled to 40%"
+        
+        # Total must be exactly 100%
+        total = sum(result.values())
+        assert abs(total - 100.0) < 0.1, f"Total should be 100%, got {total}%"
+    
+    def test_single_topic_normalization(self, agent):
+        """Test single-topic case: should always be 100%"""
+        input_dist = {'Billing': 42.0}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        assert result['Billing'] == 100.0, "Single topic should be normalized to 100%"
+    
+    def test_zero_total_normalization(self, agent):
+        """Test zero-total case: all zeros should remain zeros"""
+        input_dist = {'Billing': 0.0, 'Bug': 0.0, 'Account': 0.0}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        # All should remain 0 (cannot normalize a zero distribution)
+        assert all(v == 0.0 for v in result.values()), "Zero-total should return all zeros"
+    
+    def test_empty_distribution_normalization(self, agent):
+        """Test empty input: should return empty dict"""
+        input_dist = {}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        assert result == {}, "Empty input should return empty dict"
+    
+    def test_rounding_behavior(self, agent):
+        """Test that rounding is deterministic and sums to exactly 100"""
+        # Use values that will cause rounding issues (e.g., 33.333... each)
+        input_dist = {'A': 10, 'B': 10, 'C': 10}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        # All should be ~33.3%
+        for topic in ['A', 'B', 'C']:
+            assert abs(result[topic] - 33.3) < 0.5, f"{topic} should be ~33.3%"
+        
+        # Total must be EXACTLY 100.0 (with rounding correction applied)
+        total = sum(result.values())
+        assert abs(total - 100.0) < 0.1, f"Total must be exactly 100%, got {total}%"
+    
+    def test_large_distribution_normalization(self, agent):
+        """Test with many topics to ensure scaling works correctly"""
+        input_dist = {
+            'Billing': 15, 'Bug': 12, 'Account': 10,
+            'Feedback': 8, 'Product Question': 7,
+            'Unknown': 3
+        }
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        # Total input: 55, so everything should scale by 100/55 ≈ 1.818
+        total = sum(result.values())
+        assert abs(total - 100.0) < 0.1, f"Total should be 100%, got {total}%"
+        
+        # Check that proportions are maintained (largest stays largest)
+        assert result['Billing'] > result['Bug'], "Billing should remain largest"
+        assert result['Bug'] > result['Account'], "Bug should remain second"
+    
+    def test_already_normalized_distribution(self, agent):
+        """Test that already-normalized distribution (100%) passes through correctly"""
+        input_dist = {'Billing': 60.0, 'Bug': 40.0}
+        result = agent._normalize_topic_distribution(input_dist)
+        
+        # Should remain the same (already sums to 100)
+        assert abs(result['Billing'] - 60.0) < 0.1
+        assert abs(result['Bug'] - 40.0) < 0.1
+        
+        total = sum(result.values())
+        assert abs(total - 100.0) < 0.1
+    
+    def test_normalization_idempotent(self, agent):
+        """Test that normalizing twice gives same result (idempotent)"""
+        input_dist = {'Billing': 30.0, 'Bug': 20.0}
+        
+        result1 = agent._normalize_topic_distribution(input_dist)
+        result2 = agent._normalize_topic_distribution(result1)
+        
+        # Should be identical (normalizing a normalized distribution)
+        for topic in result1:
+            assert abs(result1[topic] - result2[topic]) < 0.01, \
+                f"Normalization should be idempotent for {topic}"
+
+
 class TestAttributeDetectionEdgeCases:
     """Test edge cases for attribute detection"""
     

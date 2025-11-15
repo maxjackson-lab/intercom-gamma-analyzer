@@ -1,5 +1,34 @@
 # Sample Mode Guide 🔬
 
+## 🚨 MANDATORY FOR LLM CHANGES
+
+**Sample-mode testing is NOT optional—it's a mandatory gate for any LLM-related changes.**
+
+If you modify any of the following, you **MUST** run sample-mode with real data **BEFORE** committing:
+- ✅ LLM calls in `src/agents/topic_detection_agent.py` or other agents
+- ✅ Prompt engineering, response parsing, or model selection
+- ✅ Timeout configurations, retry logic, or error handling for LLMs
+- ✅ Structured output schemas or validation logic
+
+**Why mandatory?**
+The Structured Outputs failure (causing 400 errors at scale) could have been caught immediately
+with sample-mode testing. LLM providers reject invalid schemas at runtime, not during linting.
+Rate limits, timeouts, and parsing errors only appear with real data.
+
+**Workflow:**
+```bash
+# 1. Make LLM changes
+# 2. IMMEDIATELY test with real data
+python src/main.py sample-mode --count 50 --save-to-file
+
+# 3. Check the .log file for LLM errors (400, 429, timeout, parsing)
+# 4. Only then commit your changes
+```
+
+See `.cursorrules` section "MANDATORY: Real-Data Sample-Mode Gate for LLM Changes" for full details.
+
+---
+
 ## What is Sample Mode?
 
 **Sample Mode** pulls 50-100 **REAL conversations** from Intercom with **ultra-rich logging** to help you:
