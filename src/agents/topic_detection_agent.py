@@ -57,6 +57,8 @@ class TopicClassification(BaseModel):
     
     class Config:
         use_enum_values = True  # Return enum values, not enum objects
+        # CRITICAL: OpenAI Structured Outputs requires this!
+        extra = 'forbid'  # This generates "additionalProperties": false in JSON Schema
 
 
 class TopicDetectionAgent(BaseAgent):
