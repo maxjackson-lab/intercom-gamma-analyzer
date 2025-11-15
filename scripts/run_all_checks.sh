@@ -17,6 +17,20 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# ALWAYS activate venv if not already active
+if [ -z "$VIRTUAL_ENV" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+    VENV_PATH="$PROJECT_ROOT/.test-venv"
+    
+    if [ -d "$VENV_PATH" ]; then
+        echo "✓ Activating .test-venv for reliable validation..."
+        source "$VENV_PATH/bin/activate"
+    else
+        echo "⚠️  WARNING: .test-venv not found. Using system Python (may have missing imports)"
+    fi
+fi
+
 # Determine check level
 CHECK_LEVEL="all"
 if [ "$1" = "--p0" ] || [ "$1" = "--quick" ]; then
