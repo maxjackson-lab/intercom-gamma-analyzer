@@ -107,8 +107,9 @@ class TopicDetectionAgent(BaseAgent):
             # DEFAULT: TRUE (LLM-first for production accuracy)
             self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
-        # Structured Outputs: Can disable if causing performance issues
-        # Set USE_STRUCTURED_OUTPUTS=false to revert to simple text parsing (faster)
+        # Structured Outputs: ENABLED BY DEFAULT (now that we have chunking!)
+        # Chunked processing (100 convs/batch) prevents overwhelming OpenAI API
+        # Set USE_STRUCTURED_OUTPUTS=false to disable if still having issues
         self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'true').lower() == 'true'
         
         if self.llm_first:
@@ -585,9 +586,29 @@ For each conversation:
                         self.logger.warning(f"LLM error for conversation {conv.get('id')}: {e}")
                         return (conv.get('id', 'unknown'), [], str(e))
             
-            # Process all conversations concurrently with rate limiting
-            tasks = [process_conversation_with_limit(conv, i) for i, conv in enumerate(conversations)]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # CHUNKED PROCESSING: Process in small batches to reduce overhead
+            # Chunk size: 50 conversations per batch (with 10 concurrent = ~5 batches = ~50s per chunk)
+            # Why chunking: Reduces memory, better progress tracking, less API pressure
+            # Why 50: Sweet spot between progress visibility and efficiency
+            chunk_size = 50
+            results = []
+            total_chunks = (len(conversations) + chunk_size - 1) // chunk_size
+            
+            for chunk_idx in range(0, len(conversations), chunk_size):
+                chunk_end = min(chunk_idx + chunk_size, len(conversations))
+                chunk = conversations[chunk_idx:chunk_end]
+                chunk_num = (chunk_idx // chunk_size) + 1
+                
+                self.logger.info(f"📦 Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} conversations)")
+                
+                # Process this chunk concurrently
+                tasks = [process_conversation_with_limit(conv, chunk_idx + i) for i, conv in enumerate(chunk)]
+                chunk_results = await asyncio.gather(*tasks, return_exceptions=True)
+                results.extend(chunk_results)
+                
+                self.logger.info(f"✅ Chunk {chunk_num}/{total_chunks} complete ({len(results)}/{len(conversations)} total)")
+            
+            self.logger.info(f"🎯 All {len(conversations)} conversations processed in {total_chunks} chunks")
             
             # Unpack results
             topics_by_conversation = {}
