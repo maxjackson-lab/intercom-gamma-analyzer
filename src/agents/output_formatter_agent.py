@@ -340,10 +340,25 @@ Return ONLY valid JSON, no other text:
             
             self.logger.info("OutputFormatterAgent: Formatting results into Hilary's structure")
             
+            # DEBUG: Log what agents we have
+            available_agents = list(context.previous_results.keys())
+            self.logger.info(f"📊 Available agent results: {available_agents}")
+            
             # Get results from previous agents
             segmentation = context.previous_results.get('SegmentationAgent', {}).get('data', {})
             topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
             topic_dist = topic_detection.get('topic_distribution', {})
+            
+            # 🚨 CRITICAL DEBUG: Check if topic_dist is empty
+            if not topic_dist or len(topic_dist) == 0:
+                self.logger.error(
+                    f"🚨 CRITICAL: topic_dist is EMPTY! "
+                    f"TopicDetectionAgent present: {'TopicDetectionAgent' in context.previous_results}, "
+                    f"topic_detection keys: {list(topic_detection.keys()) if topic_detection else 'None'}"
+                )
+            else:
+                self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics")
+            
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
             fin_performance = context.previous_results.get('FinPerformanceAgent', {}).get('data', {})
