@@ -1729,17 +1729,17 @@ if HAS_FASTAPI:
                     </div>
                 </div>
                 
-                <!-- Tab Navigation -->
-                <div class="tab-navigation" id="tabNavigation" style="display: none;">
-                    <button class="tab-button active" onclick="switchTab('terminal')" id="terminalTab">Terminal</button>
+                <!-- Tab Navigation (ALWAYS VISIBLE - user can browse files anytime) -->
+                <div class="tab-navigation" id="tabNavigation">
+                    <button class="tab-button" onclick="switchTab('terminal')" id="terminalTab">Terminal</button>
                     <button class="tab-button" onclick="switchTab('summary')" id="summaryTab">Summary</button>
-                    <button class="tab-button" onclick="switchTab('files')" id="filesTab">Files</button>
+                    <button class="tab-button active" onclick="switchTab('files')" id="filesTab">Files</button>
                     <button class="tab-button" onclick="switchTab('gamma')" id="gammaTab">Gamma</button>
                 </div>
                 
                 <!-- Tab Content -->
                 <div class="tab-content">
-                    <div class="tab-pane active" id="terminalTabContent">
+                    <div class="tab-pane" id="terminalTabContent">
                         <div class="terminal-output" id="terminalOutput"></div>
                     </div>
                     <div class="tab-pane" id="summaryTabContent">
@@ -1748,10 +1748,15 @@ if HAS_FASTAPI:
                             <div class="summary-cards"></div>
                         </div>
                     </div>
-                    <div class="tab-pane" id="filesTabContent">
+                    <div class="tab-pane active" id="filesTabContent">
                         <div id="filesList" class="files-container">
-                            <h3>📁 Generated Files</h3>
-                            <div class="files-list"></div>
+                            <h3>📁 Available Output Files</h3>
+                            <p style="color: #9ca3af; margin: 10px 0;">
+                                All files from current and past analysis runs. Downloads available immediately.
+                            </p>
+                            <div id="filesContent" class="files-list">
+                                <p style="color: #60a5fa;">Loading files...</p>
+                            </div>
                         </div>
                     </div>
                     <div class="tab-pane" id="gammaTabContent">
@@ -1783,6 +1788,7 @@ if HAS_FASTAPI:
         </div>
 
         <script src="/static/app.js?v={cache_bust}"></script>
+        <script src="/static/file_browser.js?v={cache_bust}"></script>
     </body>
     </html>
         """
@@ -2434,46 +2440,43 @@ if HAS_FASTAPI:
         """
         files = []
         
-        # Strategy 1: If execution has stored directory name, scan that specific directory
-        if hasattr(execution, 'output_files') and execution.output_files and len(execution.output_files) > 0:
-            dir_name = execution.output_files[0]  # First entry is directory name
-            exec_dir = Path("/app/outputs/executions") / dir_name
+        # Strategy 1: Scan ALL execution directories (find any files that exist)
+        executions_base = Path("/app/outputs/executions")
+        if executions_base.exists():
+            for exec_dir in executions_base.iterdir():
+                if exec_dir.is_dir():
+                    # Check if this directory matches the execution (by time proximity or name)
+                    for file_path in exec_dir.rglob('*'):
+                        if file_path.is_file():
+                            # Get relative path from outputs/ for download links
+                            rel_path = file_path.relative_to(Path("/app/outputs"))
+                            files.append({
+                                'name': file_path.name,
+                                'path': str(rel_path),
+                                'size': file_path.stat().st_size,
+                                'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                                'directory': exec_dir.name
+                            })
             
-            if exec_dir.exists() and exec_dir.is_dir():
-                logger.info(f"📂 Scanning execution directory: {dir_name}")
-                for file_path in exec_dir.rglob('*'):
-                    if file_path.is_file():
-                        # Get relative path from outputs/ for download links
-                        rel_path = file_path.relative_to(Path("/app/outputs"))
-                        files.append({
-                            'name': file_path.name,
-                            'path': str(rel_path),
-                            'size': file_path.stat().st_size,
-                            'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
-                        })
-                return files  # Found files in dedicated directory
+            if files:
+                logger.info(f"📂 Found {len(files)} files across {len(set(f['directory'] for f in files))} execution directories")
+                return files
         
-        # Strategy 2: Fallback - scan flat outputs/ directory by timestamp proximity (for old executions)
+        # Strategy 2: Scan flat outputs/ directory (legacy)
         outputs_dir = Path("/app/outputs")
         if outputs_dir.exists():
-            # Get all files modified within 10 minutes of execution start
-            exec_start = execution.start_time.timestamp()
-            
             for file_path in outputs_dir.glob('*'):
                 if file_path.is_file():
-                    file_mtime = file_path.stat().st_mtime
-                    time_diff = abs(file_mtime - exec_start)
-                    
-                    # If file was created within 10 minutes of execution start
-                    if time_diff < 600:  # 10 minutes window
-                        rel_path = file_path.relative_to(outputs_dir.parent)
-                        files.append({
-                            'name': file_path.name,
-                            'path': str(rel_path),
-                            'size': file_path.stat().st_size,
-                            'created_at': datetime.fromtimestamp(file_mtime).isoformat()
-                        })
+                    rel_path = file_path.relative_to(outputs_dir.parent)
+                    files.append({
+                        'name': file_path.name,
+                        'path': str(rel_path),
+                        'size': file_path.stat().st_size,
+                        'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                        'directory': 'root'
+                    })
         
+        logger.info(f"📂 Found {len(files)} total output files")
         return files
     
     @app.post("/execute/start")
@@ -2661,6 +2664,51 @@ if HAS_FASTAPI:
                 for exec in executions
             ],
             "debug": debug_info
+        }
+    
+    @app.get("/api/browse-files")
+    async def browse_all_files(request: Request = None):
+        """
+        Browse ALL available output files (no execution ID needed).
+        
+        Returns all files currently in /app/outputs/ organized by directory.
+        Use this to see what files exist from past runs.
+        """
+        if request:
+            await check_rate_limit(request)
+        
+        all_files = []
+        executions_base = Path("/app/outputs/executions")
+        
+        # Scan execution directories
+        if executions_base.exists():
+            for exec_dir in executions_base.iterdir():
+                if exec_dir.is_dir():
+                    for file_path in exec_dir.rglob('*'):
+                        if file_path.is_file():
+                            rel_path = file_path.relative_to(Path("/app/outputs"))
+                            all_files.append({
+                                'name': file_path.name,
+                                'path': str(rel_path),
+                                'size': file_path.stat().st_size,
+                                'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                                'directory': exec_dir.name,
+                                'type': file_path.suffix[1:] if file_path.suffix else 'unknown'
+                            })
+        
+        # Group by directory
+        by_directory = {}
+        for file_info in all_files:
+            dir_name = file_info['directory']
+            if dir_name not in by_directory:
+                by_directory[dir_name] = []
+            by_directory[dir_name].append(file_info)
+        
+        return {
+            'total_files': len(all_files),
+            'directories': len(by_directory),
+            'files_by_directory': by_directory,
+            'all_files': all_files
         }
     
     @app.get("/outputs/{file_path:path}")
