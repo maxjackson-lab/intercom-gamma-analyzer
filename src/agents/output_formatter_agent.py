@@ -639,15 +639,12 @@ Return ONLY valid JSON, no other text:
                 except Exception as e:
                     self.logger.warning(f"Error adding Confidence & Limitations section: {e}")
             
-            # What We Cannot Determine (Yet) Section
-            historical_context = context.metadata.get('historical_context', {'weeks_available': 0})
-            confidence_data_for_cannot_determine = analytical_insights.get('ConfidenceMetaAgent', {}).get('data', {}) if analytical_insights else {}
-            try:
-                cannot_determine_section = self._format_cannot_determine_section(historical_context, confidence_data_for_cannot_determine)
-                if cannot_determine_section:
-                    output_sections.append(cannot_determine_section)
-            except Exception as e:
-                self.logger.warning(f"Error adding Cannot Determine section: {e}")
+            # DISABLED: "What We Cannot Determine" section - user feedback: looks like AI hallucination
+            # if False:
+            #     historical_context = context.metadata.get('historical_context', {'weeks_available': 0})
+            #     confidence_data_for_cannot_determine = analytical_insights.get('ConfidenceMetaAgent', {}).get('data', {}) if analytical_insights else {}
+            #     cannot_determine_section = self._format_cannot_determine_section(historical_context, confidence_data_for_cannot_determine)
+            #     output_sections.append(cannot_determine_section)
             
             # Combine all sections
             formatted_output = '\n'.join(output_sections)
