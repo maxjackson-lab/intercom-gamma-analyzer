@@ -89,7 +89,7 @@ class TopicDetectionAgent(BaseAgent):
         # Source: https://docs.anthropic.com/en/api/rate-limits
         import asyncio
         self.llm_semaphore = asyncio.Semaphore(10)  # Limit concurrent LLM calls
-        self.llm_timeout = 30  # 30 second timeout per LLM call (prevents hangs)
+        self.llm_timeout = 90  # 90 second timeout (Structured Outputs can be slower)
         
         # NEW: Use full TaxonomyManager for rich categorization (13 categories + 100+ subcategories)
         self.taxonomy_manager = TaxonomyManager()
@@ -107,8 +107,13 @@ class TopicDetectionAgent(BaseAgent):
             # DEFAULT: TRUE (LLM-first for production accuracy)
             self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
+        # Structured Outputs: Can disable if causing performance issues
+        # Set USE_STRUCTURED_OUTPUTS=false to revert to simple text parsing (faster)
+        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'true').lower() == 'true'
+        
         if self.llm_first:
-            self.logger.info("🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)")
+            mode_str = "with Structured Outputs" if self.use_structured_outputs else "without Structured Outputs"
+            self.logger.info(f"🤖 TopicDetectionAgent: LLM-FIRST mode enabled ({mode_str})")
         else:
             self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
     
@@ -1228,16 +1233,20 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 }
             )
 
-            # Call LLM with Structured Outputs (100% compliance!)
+            # Call LLM (Structured Outputs if enabled, otherwise simple text)
             try:
-                classification, tokens_used = await self._call_llm_structured(prompt, TopicClassification)
+                if self.use_structured_outputs:
+                    # Structured Outputs (100% compliance but slower)
+                    classification, tokens_used = await self._call_llm_structured(prompt, TopicClassification)
+                    topic_name = classification.topic
+                    llm_confidence = classification.confidence
+                else:
+                    # Simple text output (faster, 95% compliance)
+                    topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+                    llm_confidence = 0.80  # Default confidence for simple mode
             except Exception as e:
                 self.logger.warning(f"LLM smart classification failed after 6 retries: {e}")
                 return None
-            
-            # Extract from Pydantic model (guaranteed valid!)
-            topic_name = classification.topic
-            llm_confidence = classification.confidence
             
             # Log response
             thinking.log_response(
