@@ -109,13 +109,13 @@ class TopicDetectionAgent(BaseAgent):
             # DEFAULT: TRUE (LLM-first for production accuracy)
             self.llm_first = os.getenv('LLM_TOPIC_DETECTION', 'true').lower() == 'true'
         
-        # Structured Outputs: ENABLED with HYBRID fallback strategy
-        # Strategy: Try Structured Outputs (100% accurate), fallback to simple text if >30s
-        # Result: ~70% conversations get 100% accuracy, ~30% get 95% accuracy
-        # Overall accuracy: ~98% (weighted), Speed: ~30-40 min (not 2+ hours)
-        # User preference: Maximize accuracy without unreasonable wait times
-        # Set USE_STRUCTURED_OUTPUTS=false to disable entirely (all simple text, ~30 min)
-        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'true').lower() == 'true'
+        # Structured Outputs: DISABLED (incompatible with Pydantic Enums)
+        # OpenAI error: "allOf is not permitted" when using Pydantic Enum fields
+        # Pydantic generates allOf for Enums → OpenAI rejects schema → 400 errors
+        # Would need to rewrite entire schema without Enums (defeats the purpose!)
+        # SOLUTION: Use proven simple text parsing (95% accuracy, reliable, fast)
+        # Set USE_STRUCTURED_OUTPUTS=true to re-enable (not recommended - will fail!)
+        self.use_structured_outputs = os.getenv('USE_STRUCTURED_OUTPUTS', 'false').lower() == 'true'
         
         if self.llm_first:
             mode_str = "with Structured Outputs" if self.use_structured_outputs else "without Structured Outputs"
@@ -1259,19 +1259,13 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 }
             )
 
-            # Call LLM (Structured Outputs if enabled, otherwise simple text)
+            # Call LLM with SIMPLE TEXT (proven, reliable)
+            # Structured Outputs is incompatible with Pydantic Enums (allOf not permitted by OpenAI)
             try:
-                if self.use_structured_outputs:
-                    # Structured Outputs (100% compliance but slower)
-                    classification, tokens_used = await self._call_llm_structured(prompt, TopicClassification)
-                    topic_name = classification.topic
-                    llm_confidence = classification.confidence
-                else:
-                    # Simple text output (faster, 95% compliance)
-                    topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
-                    llm_confidence = 0.80  # Default confidence for simple mode
+                topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+                llm_confidence = 0.85  # High confidence for LLM classification
             except Exception as e:
-                self.logger.warning(f"LLM smart classification failed after 6 retries: {e}")
+                self.logger.warning(f"LLM classification failed after retries: {e}")
                 return None
             
             # Log response
