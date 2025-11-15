@@ -1355,6 +1355,12 @@ def initialize_chat():
         return False
 
 if HAS_FASTAPI:
+    @app.get("/files", response_class=HTMLResponse)
+    async def files_page():
+        """Serve simple files browser page."""
+        with open(static_path / "files.html", 'r') as f:
+            return HTMLResponse(content=f.read())
+    
     @app.get("/", response_class=HTMLResponse)
     async def root():
         """Serve the chat interface HTML."""
@@ -2683,9 +2689,11 @@ if HAS_FASTAPI:
         volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
         if volume_path:
             executions_base = Path(volume_path) / "outputs" / "executions"
+            outputs_base = Path(volume_path) / "outputs"
             logger.info(f"Using Railway persistent volume: {executions_base}")
         else:
             executions_base = Path("/app/outputs/executions")
+            outputs_base = Path("/app/outputs")
         
         # Scan execution directories
         if executions_base.exists():
@@ -2693,7 +2701,13 @@ if HAS_FASTAPI:
                 if exec_dir.is_dir():
                     for file_path in exec_dir.rglob('*'):
                         if file_path.is_file():
-                            rel_path = file_path.relative_to(Path("/app/outputs"))
+                            # Get relative path from CORRECT base (volume or app)
+                            try:
+                                rel_path = file_path.relative_to(outputs_base)
+                            except ValueError:
+                                # Fallback if relative_to fails
+                                rel_path = file_path.relative_to(file_path.parent.parent)
+                            
                             all_files.append({
                                 'name': file_path.name,
                                 'path': str(rel_path),

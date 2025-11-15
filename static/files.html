@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analysis Files</title>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: #e5e7eb;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #60a5fa;
+            margin-bottom: 20px;
+        }
+        .file-group {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .file-group h2 {
+            color: #22c55e;
+            margin: 0 0 15px 0;
+            font-size: 16px;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .file-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .file-info {
+            flex: 1;
+        }
+        .file-name {
+            color: #e5e7eb;
+            font-weight: 500;
+        }
+        .file-meta {
+            color: #9ca3af;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        .download-btn {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .download-btn:hover {
+            background: #2563eb;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #60a5fa;
+        }
+        .error {
+            color: #f87171;
+            padding: 20px;
+            background: rgba(248, 113, 113, 0.1);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📁 Analysis Files</h1>
+    <div id="content">
+        <div class="loading">Loading files...</div>
+    </div>
+
+    <script>
+        async function loadFiles() {
+            try {
+                const response = await fetch('/api/browse-files');
+                const data = await response.json();
+                
+                const content = document.getElementById('content');
+                
+                if (data.total_files === 0) {
+                    content.innerHTML = '<div class="error">No files found. Run an analysis first.</div>';
+                    return;
+                }
+                
+                let html = '';
+                
+                // Group by directory
+                for (const [dirName, files] of Object.entries(data.files_by_directory)) {
+                    html += `
+                        <div class="file-group">
+                            <h2>📂 ${dirName.replace(/_/g, ' ')}</h2>
+                    `;
+                    
+                    // Sort: .log first, .json second
+                    files.sort((a, b) => {
+                        const order = {'log': 0, 'json': 1};
+                        return (order[a.type] || 2) - (order[b.type] || 2);
+                    });
+                    
+                    for (const file of files) {
+                        const icon = {'log': '📋', 'json': '📄', 'txt': '📃'}[file.type] || '📎';
+                        const size = formatSize(file.size);
+                        const date = new Date(file.created_at).toLocaleString();
+                        
+                        html += `
+                            <div class="file-item">
+                                <span class="file-icon">${icon}</span>
+                                <div class="file-info">
+                                    <div class="file-name">${file.name}</div>
+                                    <div class="file-meta">${size} • ${date}</div>
+                                </div>
+                                <button class="download-btn" onclick="download('${file.path}', '${file.name}')">
+                                    📥 Download
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                content.innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('content').innerHTML = 
+                    `<div class="error">Failed to load files: ${error.message}</div>`;
+            }
+        }
+        
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        
+        async function download(path, name) {
+            window.location.href = `/outputs/${path}`;
+        }
+        
+        // Load on page load
+        loadFiles();
+        
+        // Refresh every 30 seconds
+        setInterval(loadFiles, 30000);
+    </script>
+</body>
+</html>
+
