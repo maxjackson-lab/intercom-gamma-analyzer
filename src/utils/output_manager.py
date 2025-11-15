@@ -17,31 +17,54 @@ def get_output_directory() -> Path:
         Path to use for output files
         
     Behavior:
+        - If RAILWAY_VOLUME_MOUNT_PATH is set (Railway persistent storage):
+          Uses volume path (survives redeploys!)
         - If EXECUTION_OUTPUT_DIR env var is set (web execution):
-          Returns that directory (e.g., /app/outputs/executions/sample-mode_Last-Week_Nov-13-5-27pm/)
+          Returns that directory
         - Otherwise (CLI execution):
           Returns default outputs/ directory
     
     Examples:
-        # Web execution:
+        # Railway with persistent volume:
+        RAILWAY_VOLUME_MOUNT_PATH=/mnt/persistent
+        get_output_directory() -> Path("/mnt/persistent/outputs/executions/...")
+        
+        # Web execution (ephemeral):
         EXECUTION_OUTPUT_DIR=/app/outputs/executions/sample-mode_Last-Week_Nov-13-5-27pm/
         get_output_directory() -> Path("/app/outputs/executions/sample-mode_Last-Week_Nov-13-5-27pm")
         
         # CLI execution:
         get_output_directory() -> Path("outputs")
     """
-    execution_output_dir = os.getenv('EXECUTION_OUTPUT_DIR')
+    # Priority 1: Railway persistent volume (if available)
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+    if volume_path:
+        # Use volume for persistent storage
+        base_dir = Path(volume_path) / "outputs"
+        
+        # Check if we have an execution-specific directory
+        execution_output_dir = os.getenv('EXECUTION_OUTPUT_DIR')
+        if execution_output_dir:
+            # Extract just the directory name (not full path)
+            dir_name = Path(execution_output_dir).name
+            output_dir = base_dir / "executions" / dir_name
+        else:
+            output_dir = base_dir
+        
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
     
+    # Priority 2: Web execution (ephemeral)
+    execution_output_dir = os.getenv('EXECUTION_OUTPUT_DIR')
     if execution_output_dir:
-        # Web execution - use per-execution directory
         output_dir = Path(execution_output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         return output_dir
-    else:
-        # CLI execution - use default outputs/ directory
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
-        return output_dir
+    
+    # Priority 3: CLI execution (default)
+    output_dir = Path("outputs")
+    output_dir.mkdir(exist_ok=True)
+    return output_dir
 
 
 def get_output_file_path(filename: str) -> Path:

@@ -2678,7 +2678,14 @@ if HAS_FASTAPI:
             await check_rate_limit(request)
         
         all_files = []
-        executions_base = Path("/app/outputs/executions")
+        
+        # Check for Railway persistent volume first
+        volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+        if volume_path:
+            executions_base = Path(volume_path) / "outputs" / "executions"
+            logger.info(f"Using Railway persistent volume: {executions_base}")
+        else:
+            executions_base = Path("/app/outputs/executions")
         
         # Scan execution directories
         if executions_base.exists():
@@ -2725,13 +2732,19 @@ if HAS_FASTAPI:
         if ".." in file_path or file_path.startswith("/"):
             raise HTTPException(status_code=400, detail="Invalid file path")
         
-        # Build full path
-        full_path = Path("/app/outputs") / file_path
+        # Build full path (check volume first)
+        volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+        if volume_path and not file_path.startswith('/'):
+            base_path = Path(volume_path) / "outputs"
+        else:
+            base_path = Path("/app/outputs")
+        
+        full_path = base_path / file_path
         
         # Security: Ensure file is within outputs directory
         try:
             full_path = full_path.resolve()
-            outputs_dir = Path("/app/outputs").resolve()
+            outputs_dir = base_path.resolve()
             if not str(full_path).startswith(str(outputs_dir)):
                 raise HTTPException(status_code=400, detail="Access denied")
         except (OSError, ValueError, RuntimeError) as e:
