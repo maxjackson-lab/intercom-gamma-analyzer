@@ -11,6 +11,7 @@ Purpose:
 import logging
 import re
 import asyncio
+import json
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime
 from enum import Enum
@@ -1333,10 +1334,23 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
             # Call LLM with SIMPLE TEXT (proven, reliable)
             # Structured Outputs is incompatible with Pydantic Enums (allOf not permitted by OpenAI)
             try:
-                topic_name, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+                raw_response, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
                 llm_confidence = 0.85  # High confidence for LLM classification
             except Exception as e:
                 self.logger.warning(f"LLM classification failed after retries: {e}")
+                return None
+            
+            # Parse JSON response (LLM returns: ```json\n{"topic": "X", "confidence": Y}\n```)
+            try:
+                # Strip markdown code fences if present
+                json_text = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw_response.strip(), flags=re.MULTILINE)
+                parsed = json.loads(json_text)
+                topic_name = parsed.get('topic', '').strip()
+                # Use LLM's confidence if provided, otherwise default
+                if 'confidence' in parsed:
+                    llm_confidence = float(parsed['confidence'])
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                self.logger.warning(f"Failed to parse LLM JSON response: {e}\nRaw: {raw_response}")
                 return None
             
             # Log response
@@ -1347,10 +1361,13 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 model=self.quick_model
             )
             
-            # Topic name is GUARANTEED valid (Enum enforcement!)
+            # Validate topic name
+            if topic_name not in self.topics and topic_name != 'Unknown/unresponsive':
+                self.logger.warning(f"LLM returned invalid topic: {topic_name}")
+                return None
+            
             # Check if LLM agreed with hints
             agreed_with_sdk = (topic_name == sdk_hint) if sdk_hint else None
-            # Use LLM's own confidence score (from structured output)
             confidence = llm_confidence
             
             thinking.log_reasoning(
