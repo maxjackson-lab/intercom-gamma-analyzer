@@ -548,10 +548,10 @@ Keep insights concise and actionable. Focus on patterns that teams can investiga
             else:
                 response = await self.ai_client.client.chat.completions.create(
                     model=self.intensive_model,
-                    messages=messages,
-                    temperature=self.temperature
-                )
-                llm_insights = response.choices[0].message.content
+                messages=messages,
+                temperature=self.temperature
+            )
+            llm_insights = response.choices[0].message.content
             
             # Add LLM insights to correlations
             for corr in correlations:

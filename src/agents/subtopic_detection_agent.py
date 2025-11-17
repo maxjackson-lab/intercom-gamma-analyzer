@@ -646,10 +646,10 @@ Emerging themes:"""
                             messages=[
                                 {"role": "system", "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."},
                                 {"role": "user", "content": prompt}
-                            ],
-                            max_tokens=self.ai_client.max_tokens,
-                            temperature=self.ai_client.temperature
-                        )
+                ],
+                max_tokens=self.ai_client.max_tokens,
+                temperature=self.ai_client.temperature
+            )
                         tokens = response.usage.total_tokens if hasattr(response, 'usage') and response.usage else 0
                         text = response.choices[0].message.content
                         return (text, tokens)

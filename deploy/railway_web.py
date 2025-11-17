@@ -1385,9 +1385,9 @@ if HAS_FASTAPI:
                     <a href="/files" style="padding: 10px 20px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.3)';">
                         📁 Browse Files
                     </a>
-                    <a href="/history" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.3)';">
-                        📊 View Historical Analysis
-                    </a>
+                <a href="/history" style="padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 12px rgba(0,0,0,0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.3)';">
+                    📊 View Historical Analysis
+                </a>
                 </div>
             </div>
             
@@ -1701,8 +1701,8 @@ if HAS_FASTAPI:
                             • Solves double-counting issues completely<br>
                             • Cost: ~$1 per 200 conversations (worth it for accuracy!)<br>
                             • Uncheck to revert to keyword-only mode
-                        </div>
                     </div>
+                </div>
                 
                 <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
             </div>

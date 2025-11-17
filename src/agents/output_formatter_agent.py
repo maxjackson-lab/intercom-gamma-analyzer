@@ -471,13 +471,13 @@ Return ONLY valid JSON, no other text:
             if narrative_arc:
                 output_sections.append(f"**Key Narrative**: {narrative_arc}")
                 output_sections.append("")
-            
+                
             # Add top strategic insights from LLM
             if top_insights:
                 output_sections.append("**Top Strategic Insights**:")
                 for i, insight in enumerate(top_insights, 1):
                     output_sections.append(f"{i}. {insight}")
-                output_sections.append("")
+                    output_sections.append("")
             
             output_sections.append("---")
             output_sections.append("")

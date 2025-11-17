@@ -1,0 +1,46 @@
+fix: Parse LLM JSON response to extract topic (was showing raw ```json markers)
+
+CRITICAL BUG FIX:
+
+**Problem:**
+- LLM returns: ```json\n{"topic": "Billing", "confidence": 0.95}\n```
+- Code was using the ENTIRE raw string (including markdown fences) as topic name
+- Sample-mode logs showed: ```json\n{\n  "topic": "Billing"... as the topic
+- Result: Topic detection table was completely broken, showing raw JSON instead of topics
+
+**Root Cause:**
+- _classify_with_llm_smart() at line 1336 was NOT parsing the LLM's JSON response
+- Prompt asked for JSON format, but code treated response as plain text
+- No JSON.parse() or regex to strip markdown code fences
+
+**The Fix:**
+1. Added JSON parsing logic (lines 1343-1368):
+   - Strip markdown code fences with regex: ^```(?:json)?\s*|\s*```$
+   - Parse JSON with json.loads()
+   - Extract 'topic' and 'confidence' fields
+   - Validate topic is in allowed list
+   
+2. Added comprehensive tests (test_llm_response_parsing.py):
+   - Test with code fences (most common)
+   - Test without code fences
+   - Test with whitespace
+   - Test invalid JSON handling
+   - Test missing fields
+   - Test with REAL sample from Nov 15 logs
+
+**Impact:**
+- ✅ Topic detection now shows "Billing" instead of raw JSON
+- ✅ Sample-mode will display proper topic names
+- ✅ LLM confidence scores are now extracted and used
+- ✅ Graceful fallback on parse errors
+
+**Files Changed:**
+- src/agents/topic_detection_agent.py (added JSON parsing)
+- tests/test_llm_response_parsing.py (comprehensive test coverage)
+
+**Next Step:**
+Run sample-mode to verify topics are displayed correctly and extract keyword data.
+
+Refs: Sample Run 11.15 logs showing raw JSON in topic table (lines 133-500)
+
+

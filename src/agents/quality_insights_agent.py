@@ -692,10 +692,10 @@ Keep insights concise, actionable, and focused on learning opportunities.
             else:
                 response = await self.ai_client.client.chat.completions.create(
                     model=self.intensive_model,
-                    messages=messages,
-                    temperature=self.temperature
-                )
-                return response.choices[0].message.content
+                messages=messages,
+                temperature=self.temperature
+            )
+            return response.choices[0].message.content
             
         except Exception as e:
             logger.warning(f"LLM enrichment failed: {e}")

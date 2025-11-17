@@ -65,20 +65,20 @@ class OpenAIClient:
             )
             async def _call_with_retry():
                 return await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature
-                )
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=self.max_tokens,
+                temperature=self.temperature
+            )
             
             # Execute with timeout (60s for complex analysis)
             response = await asyncio.wait_for(_call_with_retry(), timeout=60)

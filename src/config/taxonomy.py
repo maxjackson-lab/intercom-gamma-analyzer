@@ -76,7 +76,45 @@ class TaxonomyManager:
             "Account": Category(
                 name="Account",
                 description="Account access, settings, credits, email changes",
-                keywords=["account", "login", "password", "email", "settings", "credits"],
+                keywords=[
+                    # English - Core terms
+                    "account", "login", "password", "email", "settings", "credits",
+                    
+                    # English - Email operations (from 1000 conversation analysis)
+                    "change email", "current email address", "add new email", 
+                    "email address", "change the email", "update email",
+                    
+                    # English - Password operations
+                    "reset password", "forgot password", "can't login", "unable to login",
+                    "can't access", "unable to get into", "access account",
+                    
+                    # English - Account management
+                    "delete account", "close account", "account deletion",
+                    "domain", "company name", "team name",
+                    
+                    # English - Access issues
+                    "locked out", "can't sign in", "unable to access",
+                    
+                    # Spanish (10.2% of conversations)
+                    "cambiar correo", "contraseña", "cuenta", "acceso", "dominio",
+                    "correo electrónico", "iniciar sesión", "no puedo acceder",
+                    
+                    # Portuguese (9.5% of conversations)
+                    "mudar email", "senha", "conta", "acesso", "domínio",
+                    "endereço de email", "não consigo acessar", "redefinir senha",
+                    
+                    # French (6.5% of conversations)
+                    "changer email", "mot de passe", "compte", "domaine",
+                    "adresse email", "réinitialiser mot de passe", "accès",
+                    
+                    # German (3.0% of conversations)
+                    "E-Mail ändern", "Passwort", "Konto", "Domäne",
+                    "E-Mail-Adresse", "Passwort zurücksetzen", "Zugriff",
+                    
+                    # Italian (3.5% of conversations)
+                    "cambiare email", "password", "account", "accesso",
+                    "indirizzo email", "reimpostare password", "dominio"
+                ],
                 subcategories=[
                     Subcategory("Login Issues", "Problems logging in", ["login", "sign in", "authentication", "password"]),
                     Subcategory("Email Change", "Request to change email address", ["email change", "update email", "new email"]),
@@ -96,7 +134,80 @@ class TaxonomyManager:
             "Billing": Category(
                 name="Billing",
                 description="Refunds, invoices, subscriptions, payment methods",
-                keywords=["billing", "payment", "invoice", "refund", "subscription", "credit card"],
+                keywords=[
+                    # English - Core terms (validated by 651 billing conversations)
+                    "billing", "payment", "invoice", "refund", "subscription", "credit card",
+                    
+                    # English - Refund operations (482 refund conversations analyzed)
+                    "cancel", "cancelled", "charged", "charge", "want refund",
+                    "charged twice", "unexpected charge", "return payment",
+                    "cancel subscription", "not interested",
+                    
+                    # English - Invoice/receipt terms (184 invoice conversations)
+                    "receipt", "invoice number", "receipt from", "billing statement",
+                    
+                    # English - Payment issues
+                    "payment failed", "declined", "payment error",
+                    
+                    # English - Credits/balance (132 credits conversations)
+                    "credits", "credit", "account balance", "balance",
+                    
+                    # English - Common phrases (from real data)
+                    "from gamma", "gamma support", "subscription plan",
+                    
+                    # Portuguese (9.5% of conversations - 95 Brazilian Portuguese speakers)
+                    "reembolso",        # refund
+                    "cancelar",         # cancel
+                    "cobrança",         # charge/billing
+                    "estorno",          # refund/chargeback
+                    "pagamento",        # payment
+                    "assinatura",       # subscription
+                    "fatura",           # invoice
+                    "cartão de crédito", # credit card
+                    "recibo",           # receipt
+                    "cobrança indevida", # unexpected charge
+                    
+                    # Spanish (10.2% of conversations - 102 Spanish speakers)
+                    "reembolso",        # refund
+                    "cancelar",         # cancel
+                    "factura",          # invoice
+                    "pago", "pagado",   # payment, paid
+                    "suscripción",      # subscription
+                    "cargo",            # charge
+                    "tarjeta de crédito", # credit card
+                    "recibo",           # receipt
+                    "cobro inesperado", # unexpected charge
+                    
+                    # French (6.5% of conversations - 65 French speakers)
+                    "remboursement",    # refund
+                    "annuler",          # cancel
+                    "paiement",         # payment
+                    "abonnement",       # subscription
+                    "facture",          # invoice
+                    "carte de crédit",  # credit card
+                    "reçu",             # receipt
+                    "frais inattendus", # unexpected charge
+                    
+                    # German (3.0% of conversations - 30 German speakers)
+                    "Rückerstattung",   # refund
+                    "Rechnung",         # invoice
+                    "Zahlung",          # payment
+                    "Abbuchung",        # debit/charge
+                    "Abonnement",       # subscription
+                    "Kreditkarte",      # credit card
+                    "Quittung",         # receipt
+                    "stornieren",       # cancel
+                    
+                    # Italian (3.5% of conversations - 35 Italian speakers)
+                    "rimborso",         # refund
+                    "cancellare",       # cancel
+                    "abbonamento",      # subscription
+                    "fattura",          # invoice
+                    "pagamento",        # payment
+                    "carta di credito", # credit card
+                    "ricevuta",         # receipt
+                    "addebito"          # charge
+                ],
                 subcategories=[
                     Subcategory("Refund", "Refund requests", ["refund", "money back", "cancel payment"]),
                     Subcategory("Subscription", "Subscription management", ["subscription", "plan", "upgrade", "downgrade"]),

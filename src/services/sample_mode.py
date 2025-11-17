@@ -438,7 +438,7 @@ class SampleMode:
                          'sal' in author_email or 
                          'finn' in author_name or
                          'fin' in author_name)
-                
+                    
                 if author_type == 'admin':
                     if is_fin:
                         has_sal = True
