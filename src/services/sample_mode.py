@@ -1373,6 +1373,14 @@ async def run_sample_mode(
     if start_date is None:
         start_date = end_date - timedelta(days=7)
     
+    # Enable agent thinking logger if requested
+    if show_agent_thinking:
+        from src.utils.agent_thinking_logger import AgentThinkingLogger
+        thinking = AgentThinkingLogger.get_logger()
+        thinking.enable()
+        console.print("[bold cyan]🧠 Agent Thinking Logging: ENABLED[/bold cyan]")
+        console.print("[dim]Will capture all LLM prompts, responses, and reasoning[/dim]\n")
+    
     sample_mode = SampleMode()
     result = await sample_mode.pull_sample(
         count=count,
@@ -1397,7 +1405,24 @@ async def run_sample_mode(
     
     # Run comprehensive agent testing if requested
     if test_all_agents:
+        console.print("\n[bold cyan]🧪 Running comprehensive agent testing...[/bold cyan]")
+        console.print("[dim]Testing: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence[/dim]\n")
         await sample_mode.test_all_agents(result['conversations'])
+        console.print("\n[bold green]✅ Agent testing complete![/bold green]")
+    
+    # Save agent thinking log if it was enabled
+    if show_agent_thinking:
+        from src.utils.agent_thinking_logger import AgentThinkingLogger
+        from src.utils.output_manager import get_output_directory
+        thinking = AgentThinkingLogger.get_logger()
+        
+        # Save to same directory as other output files
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_dir = get_output_directory()
+        thinking_file = output_dir / f"agent_thinking_{timestamp}.log"
+        
+        thinking.save_to_file(str(thinking_file))
+        console.print(f"\n[bold cyan]🧠 Agent thinking saved to: {thinking_file.name}[/bold cyan]")
     
     return result
 

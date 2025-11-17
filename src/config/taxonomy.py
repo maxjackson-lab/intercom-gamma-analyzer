@@ -244,7 +244,42 @@ class TaxonomyManager:
             "Bug": Category(
                 name="Bug",
                 description="Product bugs, errors, functionality issues",
-                keywords=["bug", "error", "broken", "not working", "issue", "problem"],
+                keywords=[
+                    # English - Core error terms
+                    "bug", "error", "broken", "not working", "issue", "problem",
+                    
+                    # English - Functionality issues (84 bug conversations analyzed)
+                    "doesn't work", "won't work", "can't", "cannot", "unable",
+                    "failed", "fails", "failing", "not loading", "won't load",
+                    
+                    # English - Specific issues (from real data)
+                    "error message", "crashed", "crash", "stuck", "frozen",
+                    "slow", "laggy", "glitch", "malfunction",
+                    
+                    # English - Action failures
+                    "can't save", "won't export", "not generating", "won't publish",
+                    "can't load", "won't open", "not responding",
+                    
+                    # Spanish (10.2% of conversations)
+                    "no funciona", "error", "roto", "problema", "fallo",
+                    "no se carga", "no puede", "no puedo",
+                    
+                    # Portuguese (9.5% of conversations)
+                    "não funciona", "erro", "quebrado", "problema", "falha",
+                    "não carrega", "não consigo", "não pode",
+                    
+                    # French (6.5% of conversations)
+                    "ne fonctionne pas", "erreur", "cassé", "problème",
+                    "ne charge pas", "ne peut pas",
+                    
+                    # German (3.0% of conversations)
+                    "funktioniert nicht", "Fehler", "kaputt", "Problem",
+                    "lädt nicht", "kann nicht",
+                    
+                    # Italian (3.5% of conversations)
+                    "non funziona", "errore", "rotto", "problema",
+                    "non carica", "non posso", "non può"
+                ],
                 subcategories=[
                     Subcategory("Export", "Export functionality bugs", ["export", "ppt", "pdf", "slides", "download"]),
                     Subcategory("Account", "Account-related bugs", ["account bug", "login bug", "profile bug"]),
@@ -335,7 +370,63 @@ class TaxonomyManager:
             "Product Question": Category(
                 name="Product Question",
                 description="How-to questions about features",
-                keywords=["how to", "question", "help", "tutorial", "guide"],
+                keywords=[
+                    # English - Core terms
+                    "how to", "question", "help", "tutorial", "guide",
+                    
+                    # English - Export/Download (311 product conversations analyzed)
+                    "export", "download", "ppt", "powerpoint", "pdf", "slides", "slide",
+                    "save as", "convert to", "export pdf", "export ppt", "download presentation",
+                    
+                    # English - Publishing/Sharing (144 publish conversations)
+                    "publish", "share", "share link", "gamma link", "website", 
+                    "publish site", "gamma site", "publishing", "site access",
+                    "viewer", "public link", "embed", "share with",
+                    
+                    # English - Design/Customization (logo: 34, font: 32, theme: 22)
+                    "logo", "font", "theme", "template", "color", "colours",
+                    "design", "style", "customize", "layout", "background",
+                    "corporate colors", "brand colors", "upload logo",
+                    
+                    # English - Translation/Language (32 translate conversations)
+                    "translate", "translation", "language", "change language",
+                    "translate presentation", "language support",
+                    
+                    # English - Notes/Comments (66 notes conversations)
+                    "notes", "presenter notes", "speaker notes", "comments",
+                    "hide notes", "viewer can't see notes",
+                    
+                    # English - Presentation Creation (42 new presentation conversations)
+                    "new presentation", "create presentation", "accessing presentation",
+                    "presentation access",
+                    
+                    # English - Common question patterns
+                    "can you", "could you", "is there a way", "how can i",
+                    
+                    # Spanish (10.2% of conversations)
+                    "exportar", "descargar", "diapositivas", "presentación",
+                    "publicar", "compartir", "traducir", "diseño", "tema",
+                    "plantilla", "notas", "crear presentación",
+                    
+                    # Portuguese (9.5% of conversations)
+                    "exportar", "baixar", "slides", "apresentação",
+                    "publicar", "compartilhar", "traduzir", "design", "tema",
+                    "modelo", "notas", "criar apresentação",
+                    "modalità",  # Common in Italian product questions
+                    
+                    # French (6.5% of conversations)
+                    "exporter", "télécharger", "diapositives", "présentation",
+                    "publier", "partager", "traduire", "thème", "modèle",
+                    
+                    # German (3.0% of conversations)
+                    "exportieren", "herunterladen", "folien", "präsentation",
+                    "veröffentlichen", "teilen", "übersetzen",
+                    
+                    # Italian (3.5% of conversations)
+                    "esportare", "scaricare", "diapositive", "presentazione",
+                    "pubblicare", "condividere", "tradurre", "tema", "modello",
+                    "nota", "note", "bloccato nella"
+                ],
                 subcategories=[
                     Subcategory("How to Use", "How-to questions", ["how to", "how do i", "tutorial", "guide"]),
                     Subcategory("Feature Explanation", "Feature explanations", ["what is", "explain", "feature"]),
@@ -368,7 +459,41 @@ class TaxonomyManager:
             "Workspace": Category(
                 name="Workspace",
                 description="Member management, permissions, sharing",
-                keywords=["workspace", "team", "member", "permission", "sharing"],
+                keywords=[
+                    # English - Core terms
+                    "workspace", "team", "member", "permission", "sharing",
+                    
+                    # English - Domain/Site management (80 workspace conversations analyzed)
+                    "domain", "custom domain", "gamma domain", "website", "site",
+                    "site settings", "website settings", "company name", "organization",
+                    
+                    # English - Team collaboration
+                    "team workspace", "company workspace", "workspace settings",
+                    "team settings", "collaborate", "collaboration",
+                    
+                    # English - Common phrases (from real data)
+                    "company details", "the company", "company name",
+                    
+                    # Spanish (10.2% of conversations)
+                    "espacio de trabajo", "equipo", "dominio", "sitio web",
+                    "configuración del equipo", "organización",
+                    
+                    # Portuguese (9.5% of conversations)
+                    "espaço de trabalho", "equipe", "domínio", "site",
+                    "configurações da equipe", "organização",
+                    
+                    # French (6.5% of conversations)
+                    "espace de travail", "équipe", "domaine", "site web",
+                    "paramètres de l'équipe", "organisation",
+                    
+                    # German (3.0% of conversations)
+                    "Arbeitsbereich", "Team", "Domäne", "Website",
+                    "Teameinstellungen", "Organisation",
+                    
+                    # Italian (3.5% of conversations)
+                    "spazio di lavoro", "squadra", "dominio", "sito web",
+                    "impostazioni del team", "organizzazione"
+                ],
                 subcategories=[
                     Subcategory("Member Management", "Member management", ["member", "team", "user management"]),
                     Subcategory("Permissions", "Permission management", ["permission", "access", "role", "admin"])

@@ -426,6 +426,134 @@ class TopicDetectionAgent(BaseAgent):
             'Unknown'          # No matches
         ]
     
+    def _normalize_llm_topic(self, llm_topic: str) -> Optional[str]:
+        """
+        Normalize LLM response to a valid topic name using fuzzy matching.
+        
+        PROBLEM (from production logs):
+        - LLM returns "billing" → Code rejects (expects "Billing")
+        - LLM returns "Refund Request" → Code rejects (expects "Billing")
+        - LLM returns "Account Management" → Code rejects (expects "Account")
+        - Result: 100% LLM responses rejected → falls back to keywords!
+        
+        SOLUTION: Give LLM authority to make decisions!
+        - Accept "billing" → normalize to "Billing" (case-insensitive)
+        - Accept "Refund Request" → map to "Billing" (semantic understanding)
+        - Accept "Account Management" → map to "Account" (fuzzy match)
+        
+        This makes LLM a DECISION MAKER, not just a keyword validator.
+        
+        Args:
+            llm_topic: Raw topic name from LLM response
+            
+        Returns:
+            Normalized topic name from self.topics, or None if no match
+            
+        Examples:
+            "billing" → "Billing" (case fix)
+            "Refund Request" → "Billing" (semantic map)
+            "Account Management" → "Account" (fuzzy match)
+            "Download Issues" → "Product Question" (semantic map)
+            "Login Method Change" → "Account" (semantic map)
+            "Technical Issue" → "Bug" (semantic map)
+        """
+        if not llm_topic:
+            return None
+        
+        # STEP 1: Exact match (case-sensitive)
+        if llm_topic in self.topics:
+            return llm_topic
+        
+        # STEP 2: Case-insensitive exact match
+        for valid_topic in self.topics:
+            if llm_topic.lower() == valid_topic.lower():
+                self.logger.debug(f"   🔄 Normalized '{llm_topic}' → '{valid_topic}' (case fix)")
+                return valid_topic
+        
+        # STEP 3: Fuzzy match - check if valid topic name is contained in LLM response
+        # e.g., "Billing Issues" contains "Billing" → maps to "Billing"
+        # e.g., "Account Management" contains "Account" → maps to "Account"
+        for valid_topic in self.topics:
+            if valid_topic.lower() in llm_topic.lower():
+                self.logger.info(f"   🔄 Normalized '{llm_topic}' → '{valid_topic}' (fuzzy match)")
+                return valid_topic
+        
+        # STEP 4: Semantic mapping - common LLM subcategory → parent category
+        # LLM is being SPECIFIC (good!) but we need to map to our taxonomy
+        # Priority order matters: check specific keywords before generic ones
+        semantic_map = [
+            # Billing subcategories → Billing (check first - most specific)
+            ('refund', 'Billing'),
+            ('payment', 'Billing'),
+            ('invoice', 'Billing'),
+            ('receipt', 'Billing'),
+            ('subscription', 'Billing'),
+            ('pricing', 'Billing'),
+            ('charge', 'Billing'),
+            ('credit card', 'Billing'),
+            ('cancel', 'Billing'),
+            
+            # Account subcategories → Account
+            ('login', 'Account'),
+            ('password', 'Account'),
+            ('email', 'Account'),
+            ('access', 'Account'),
+            ('authentication', 'Account'),
+            ('method', 'Account'),  # "Login Method Change"
+            
+            # Product subcategories → Product Question
+            ('template', 'Product Question'),
+            ('download', 'Product Question'),
+            ('upload', 'Product Question'),
+            ('export', 'Product Question'),
+            ('image', 'Product Question'),
+            ('editing', 'Product Question'),  # "Image Editing"
+            ('presentation', 'Product Question'),
+            ('slide', 'Product Question'),
+            ('publish', 'Product Question'),
+            ('share', 'Product Question'),
+            ('translate', 'Product Question'),
+            ('font', 'Product Question'),
+            ('text size', 'Product Question'),  # "Text Size Adjustment"
+            ('website', 'Product Question'),  # "Website Text Size"
+            ('logo', 'Product Question'),
+            ('theme', 'Product Question'),
+            ('customization', 'Product Question'),
+            ('note', 'Product Question'),
+            ('adding', 'Product Question'),  # "Adding images"
+            
+            # Workspace subcategories → Workspace
+            ('collaboration', 'Workspace'),
+            ('team', 'Workspace'),
+            ('workspace', 'Workspace'),
+            ('domain', 'Workspace'),
+            
+            # Bug subcategories → Bug
+            ('technical', 'Bug'),
+            ('error', 'Bug'),
+            ('broken', 'Bug'),
+            ('crash', 'Bug'),
+            ('not working', 'Bug'),
+            
+            # Promotions
+            ('discount', 'Promotions'),
+            ('coupon', 'Promotions'),
+            ('promo', 'Promotions'),
+            
+            # Generic "issues" → check context
+            ('issue', 'Product Question'),  # Default to Product for generic "issues"
+        ]
+        
+        llm_lower = llm_topic.lower()
+        for keyword, mapped_topic in semantic_map:
+            if keyword in llm_lower:
+                self.logger.info(f"   🔄 Normalized '{llm_topic}' → '{mapped_topic}' (semantic: {keyword})")
+                return mapped_topic
+        
+        # No match found - LLM returned something we can't map
+        self.logger.warning(f"   ❌ Could not normalize '{llm_topic}' to any valid topic")
+        return None
+    
     def get_agent_specific_instructions(self) -> str:
         """Topic detection agent specific instructions"""
         return """
@@ -1361,10 +1489,17 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 model=self.quick_model
             )
             
-            # Validate topic name
-            if topic_name not in self.topics and topic_name != 'Unknown/unresponsive':
-                self.logger.warning(f"LLM returned invalid topic: {topic_name}")
+            # Normalize/validate topic name using fuzzy matching
+            # LLM might return "billing" (lowercase) or "Refund Request" (specific subcategory)
+            # We normalize to our taxonomy: "billing" → "Billing", "Refund Request" → "Billing"
+            normalized_topic = self._normalize_llm_topic(topic_name)
+            
+            if normalized_topic is None:
+                self.logger.warning(f"LLM returned invalid topic: {topic_name} (could not normalize)")
                 return None
+            
+            # Use normalized topic name
+            topic_name = normalized_topic
             
             # Check if LLM agreed with hints
             agreed_with_sdk = (topic_name == sdk_hint) if sdk_hint else None
@@ -1461,41 +1596,45 @@ Respond with ONLY the topic name, nothing else."""
                 model=self.quick_model
             )
             
-            # Validate it's a real topic
-            if topic_name in self.topics or topic_name == 'Unknown/unresponsive':
-                self.logger.info(f"   ✅ LLM validated topic: {topic_name}")
-                
-                # Was it a correction?
-                was_corrected = topic_name != candidate_names[0] if candidate_names else False
-                
-                thinking.log_reasoning(
-                    "TopicDetectionAgent",
-                    f"Validated as '{topic_name}'",
-                    f"LLM {'corrected' if was_corrected else 'confirmed'} keyword detection",
-                    {
-                        "original_candidate": candidate_names[0] if candidate_names else None,
-                        "llm_result": topic_name,
-                        "was_corrected": was_corrected,
-                        "confidence": 0.85
-                    }
-                )
-                
-                return {
-                    'topic': topic_name,
-                    'method': 'llm_validated',
-                    'confidence': 0.85,
-                    'sdk_validated': False,
-                    'llm_correction': candidate_names[0] if candidate_names and was_corrected else None
-                }
-            else:
+            # Normalize/validate topic name using fuzzy matching
+            normalized_topic = self._normalize_llm_topic(topic_name)
+            
+            if normalized_topic is None:
                 self.logger.warning(f"   ⚠️ LLM returned invalid topic: {topic_name}")
                 thinking.log_validation(
                     "TopicDetectionAgent",
                     "Topic Validation",
                     False,
-                    f"LLM returned '{topic_name}' which is not in topic list"
+                    f"LLM returned '{topic_name}' which could not be normalized to valid topic"
                 )
                 return None
+            
+            # Use normalized topic
+            topic_name = normalized_topic
+            self.logger.info(f"   ✅ LLM validated topic: {topic_name}")
+            
+            # Was it a correction?
+            was_corrected = topic_name != candidate_names[0] if candidate_names else False
+            
+            thinking.log_reasoning(
+                "TopicDetectionAgent",
+                f"Validated as '{topic_name}'",
+                f"LLM {'corrected' if was_corrected else 'confirmed'} keyword detection",
+                {
+                    "original_candidate": candidate_names[0] if candidate_names else None,
+                    "llm_result": topic_name,
+                    "was_corrected": was_corrected,
+                    "confidence": 0.85
+                }
+            )
+            
+            return {
+                'topic': topic_name,
+                'method': 'llm_validated',
+                'confidence': 0.85,
+                'sdk_validated': False,
+                'llm_correction': candidate_names[0] if candidate_names and was_corrected else None
+            }
                 
         except Exception as e:
             self.logger.warning(f"LLM validation failed: {e}")
