@@ -155,7 +155,7 @@ class TaxonomyManager:
                     # English - Common phrases (from real data)
                     "from gamma", "gamma support", "subscription plan",
                     
-                    # Portuguese (9.5% of conversations - 95 Brazilian Portuguese speakers)
+                    # Portuguese (9.5% of conversations - 63 from Oct+Nov combined dataset)
                     "reembolso",        # refund
                     "cancelar",         # cancel
                     "cobrança",         # charge/billing
@@ -164,10 +164,15 @@ class TaxonomyManager:
                     "assinatura",       # subscription
                     "fatura",           # invoice
                     "cartão de crédito", # credit card
+                    "cartão",           # card (shortened - NEW from 2000 convs)
                     "recibo",           # receipt
                     "cobrança indevida", # unexpected charge
+                    "valor",            # value/amount (NEW from 2000 convs)
+                    "cancelamento",     # cancellation (NEW from 2000 convs)
+                    "plano",            # plan (NEW from 2000 convs)
+                    "quero"             # I want (NEW from 2000 convs)
                     
-                    # Spanish (10.2% of conversations - 102 Spanish speakers)
+                    # Spanish (10.2% of conversations - 63 from Oct+Nov combined dataset)
                     "reembolso",        # refund
                     "cancelar",         # cancel
                     "factura",          # invoice
@@ -177,6 +182,12 @@ class TaxonomyManager:
                     "tarjeta de crédito", # credit card
                     "recibo",           # receipt
                     "cobro inesperado", # unexpected charge
+                    "quiero",           # I want (NEW from 2000 convs)
+                    "anual",            # annual (NEW from 2000 convs)
+                    "cuenta",           # account (NEW from 2000 convs)
+                    "necesito",         # I need (NEW from 2000 convs)
+                    "plan",             # plan (NEW from 2000 convs)
+                    "datos"             # data (NEW from 2000 convs)
                     
                     # French (6.5% of conversations - 65 French speakers)
                     "remboursement",    # refund
@@ -188,7 +199,7 @@ class TaxonomyManager:
                     "reçu",             # receipt
                     "frais inattendus", # unexpected charge
                     
-                    # German (3.0% of conversations - 30 German speakers)
+                    # German (3.0% of conversations - 17 from Oct+Nov combined dataset)
                     "Rückerstattung",   # refund
                     "Rechnung",         # invoice
                     "Zahlung",          # payment
@@ -197,16 +208,27 @@ class TaxonomyManager:
                     "Kreditkarte",      # credit card
                     "Quittung",         # receipt
                     "stornieren",       # cancel
+                    "nicht",            # not (NEW from 2000 convs - in "nicht autorisiert")
+                    "habe",             # have (NEW from 2000 convs)
+                    "mein",             # my (NEW from 2000 convs)
+                    "lösen",            # solve (NEW from 2000 convs)
+                    "unterstützung",    # support (NEW from 2000 convs)
+                    "problem",          # problem (NEW from 2000 convs)
+                    "kann"              # can (NEW from 2000 convs)
                     
-                    # Italian (3.5% of conversations - 35 Italian speakers)
+                    # Italian (3.5% of conversations - 19 from Oct+Nov combined dataset)
                     "rimborso",         # refund
                     "cancellare",       # cancel
                     "abbonamento",      # subscription
                     "fattura",          # invoice
                     "pagamento",        # payment
+                    "annuale",          # annual (NEW from 2000 convs)
+                    "mensile",          # monthly (NEW from 2000 convs)
+                    "piano",            # plan (NEW from 2000 convs)
                     "carta di credito", # credit card
                     "ricevuta",         # receipt
-                    "addebito"          # charge
+                    "addebito",         # charge
+                    "salve"             # hello/greetings (NEW from 2000 convs)
                 ],
                 subcategories=[
                     Subcategory("Refund", "Refund requests", ["refund", "money back", "cancel payment"]),
@@ -403,24 +425,45 @@ class TaxonomyManager:
                     # English - Common question patterns
                     "can you", "could you", "is there a way", "how can i",
                     
-                    # Spanish (10.2% of conversations)
+                    # Spanish (10.2% of conversations - 35 from Oct+Nov combined dataset)
                     "exportar", "descargar", "diapositivas", "presentación",
                     "publicar", "compartir", "traducir", "diseño", "tema",
                     "plantilla", "notas", "crear presentación",
+                    "carga",            # upload (NEW from 2000 convs)
+                    "publicación",      # publication (NEW from 2000 convs)
+                    "página",           # page (NEW from 2000 convs)
+                    "sitio",            # site (NEW from 2000 convs)
+                    "subir",            # upload (NEW from 2000 convs)
+                    "ayuda",            # help (NEW from 2000 convs)
                     
-                    # Portuguese (9.5% of conversations)
+                    # Portuguese (9.5% of conversations - 51 from Oct+Nov combined dataset)
                     "exportar", "baixar", "slides", "apresentação",
                     "publicar", "compartilhar", "traduzir", "design", "tema",
                     "modelo", "notas", "criar apresentação",
-                    "modalità",  # Common in Italian product questions
+                    "consigo",          # I can/I'm able (NEW from 2000 convs)
+                    "gerar",            # generate (NEW from 2000 convs)
+                    "fazer",            # make/do (NEW from 2000 convs)
+                    "como",             # how (NEW from 2000 convs)
+                    "site",             # site (NEW from 2000 convs)
                     
-                    # French (6.5% of conversations)
+                    # French (6.5% of conversations - 34 from Oct+Nov combined dataset)
                     "exporter", "télécharger", "diapositives", "présentation",
                     "publier", "partager", "traduire", "thème", "modèle",
+                    "page",             # page (NEW from 2000 convs)
+                    "site",             # site (NEW from 2000 convs)
+                    "publication",      # publication (NEW from 2000 convs)
+                    "accès",            # access (NEW from 2000 convs)
+                    "erreur",           # error (NEW from 2000 convs)
                     
-                    # German (3.0% of conversations)
+                    # German (3.0% of conversations - 22 from Oct+Nov combined dataset)
                     "exportieren", "herunterladen", "folien", "präsentation",
                     "veröffentlichen", "teilen", "übersetzen",
+                    "seite",            # page/site (NEW from 2000 convs)
+                    "website",          # website (NEW from 2000 convs)
+                    "bild",             # image (NEW from 2000 convs)
+                    "kann",             # can (NEW from 2000 convs)
+                    "beim",             # at/during (NEW from 2000 convs)
+                    "diese", "dieser",  # this (NEW from 2000 convs)
                     
                     # Italian (3.5% of conversations)
                     "esportare", "scaricare", "diapositive", "presentazione",
