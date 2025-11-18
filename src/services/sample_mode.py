@@ -1347,6 +1347,7 @@ async def run_sample_mode(
     test_llm: bool = False,
     test_all_agents: bool = False,
     show_agent_thinking: bool = False,
+    llm_topic_detection: bool = False,  # ← MISSING PARAMETER!
     schema_mode: str = 'standard',
     include_hierarchy: bool = True
 ) -> Dict[str, Any]:
@@ -1380,6 +1381,13 @@ async def run_sample_mode(
         thinking.enable()
         console.print("[bold cyan]🧠 Agent Thinking Logging: ENABLED[/bold cyan]")
         console.print("[dim]Will capture all LLM prompts, responses, and reasoning[/dim]\n")
+    
+    # Enable LLM-first topic detection if requested
+    if llm_topic_detection:
+        import os
+        os.environ['LLM_TOPIC_DETECTION'] = 'true'
+        console.print("[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
+        console.print("[dim]Uses GPT-4o-mini to classify every conversation (~$1 per 200 convs)[/dim]\n")
     
     sample_mode = SampleMode()
     result = await sample_mode.pull_sample(

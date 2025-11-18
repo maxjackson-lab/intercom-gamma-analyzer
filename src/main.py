@@ -4316,13 +4316,8 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         
         AgentThinkingLogger.enable(thinking_log)
     
-    # Enable LLM-first topic detection if requested
-    if llm_topic_detection:
-        os.environ['LLM_TOPIC_DETECTION'] = 'true'
-        console.print("[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
-        console.print("[dim]Uses GPT-4o-mini to classify every conversation (~$1 per 200 convs)[/dim]\n")
-    
     # Run sample mode with error handling (ALWAYS save files even if it crashes!)
+    # Note: llm_topic_detection is now passed to run_sample_mode() which handles it
     try:
         result = asyncio.run(run_sample_mode(
             count=count,
@@ -4332,6 +4327,7 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
             test_llm=test_llm,
             test_all_agents=test_all_agents,
             show_agent_thinking=show_agent_thinking,
+            llm_topic_detection=llm_topic_detection,  # ← NOW PASSED!
             schema_mode=schema_mode,
             include_hierarchy=include_hierarchy
         ))
