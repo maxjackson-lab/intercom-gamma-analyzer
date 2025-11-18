@@ -84,7 +84,7 @@ function displayAllFiles(data) {
                         <div style="color: #e5e7eb; font-weight: 500;">${file.name}</div>
                         <div style="color: #9ca3af; font-size: 11px;">${sizeStr} • ${dateStr}</div>
                     </div>
-                    <button onclick="downloadFile('${file.name}')" 
+                    <button onclick="downloadFileFromBrowser('${file.path}')" 
                             style="padding: 6px 12px; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.5); border-radius: 4px; color: #60a5fa; cursor: pointer; font-size: 12px;">
                         📥 Download
                     </button>
@@ -115,6 +115,38 @@ function formatFileSize(bytes) {
     return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+async function downloadFileFromBrowser(filePath) {
+    if (!filePath) {
+        console.error('downloadFileFromBrowser called with no path');
+        return;
+    }
+    
+    console.log(`📥 Downloading file: ${filePath}`);
+    
+    try {
+        const response = await fetch(`/outputs/${filePath}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filePath.split('/').pop(); // Get just the filename
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log(`✅ Download started: ${filePath}`);
+    } catch (error) {
+        console.error(`❌ Download failed: ${error.message}`);
+        alert(`Failed to download file: ${error.message}`);
+    }
+}
+
 // Auto-load files when page loads
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Page loaded, loading available files...');
@@ -126,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Export to global scope
 window.loadAllAvailableFiles = loadAllAvailableFiles;
+window.downloadFileFromBrowser = downloadFileFromBrowser;
 
 console.log('✅ File browser loaded');
 

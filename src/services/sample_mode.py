@@ -1403,26 +1403,36 @@ async def run_sample_mode(
         llm_count = mode_configs.get(schema_mode, 3)
         await sample_mode.test_llm_analysis(result['conversations'], llm_topic_count=llm_count)
     
-    # Run comprehensive agent testing if requested
+    # Run comprehensive agent testing if requested (with error handling!)
     if test_all_agents:
-        console.print("\n[bold cyan]🧪 Running comprehensive agent testing...[/bold cyan]")
-        console.print("[dim]Testing: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence[/dim]\n")
-        await sample_mode.test_all_agents(result['conversations'])
-        console.print("\n[bold green]✅ Agent testing complete![/bold green]")
+        try:
+            console.print("\n[bold cyan]🧪 Running comprehensive agent testing...[/bold cyan]")
+            console.print("[dim]Testing: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence[/dim]\n")
+            await sample_mode.test_all_agents(result['conversations'])
+            console.print("\n[bold green]✅ Agent testing complete![/bold green]")
+        except Exception as e:
+            console.print(f"\n[bold red]❌ Agent testing failed: {e}[/bold red]")
+            console.print(f"[yellow]⚠️  Sample mode data still saved successfully[/yellow]")
+            # DON'T re-raise - agent testing is optional, don't fail the whole run!
     
-    # Save agent thinking log if it was enabled
+    # Save agent thinking log if it was enabled (with error handling!)
     if show_agent_thinking:
-        from src.utils.agent_thinking_logger import AgentThinkingLogger
-        from src.utils.output_manager import get_output_directory
-        thinking = AgentThinkingLogger.get_logger()
-        
-        # Save to same directory as other output files
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = get_output_directory()
-        thinking_file = output_dir / f"agent_thinking_{timestamp}.log"
-        
-        thinking.save_to_file(str(thinking_file))
-        console.print(f"\n[bold cyan]🧠 Agent thinking saved to: {thinking_file.name}[/bold cyan]")
+        try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            from src.utils.output_manager import get_output_directory
+            thinking = AgentThinkingLogger.get_logger()
+            
+            # Save to same directory as other output files
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = get_output_directory()
+            thinking_file = output_dir / f"agent_thinking_{timestamp}.log"
+            
+            thinking.save_to_file(str(thinking_file))
+            console.print(f"\n[bold cyan]🧠 Agent thinking saved to: {thinking_file.name}[/bold cyan]")
+        except Exception as e:
+            console.print(f"\n[bold yellow]⚠️  Could not save agent thinking log: {e}[/bold yellow]")
+            console.print(f"[dim]This doesn't affect the main analysis results[/dim]")
+            # DON'T re-raise - agent thinking is optional, don't fail the whole run!
     
     return result
 

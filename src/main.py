@@ -4322,21 +4322,27 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
         console.print("[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
         console.print("[dim]Uses GPT-4o-mini to classify every conversation (~$1 per 200 convs)[/dim]\n")
     
-    # Run sample mode
-    result = asyncio.run(run_sample_mode(
-        count=count,
-        start_date=start,
-        end_date=end,
-        save_to_file=save_to_file,
-        test_llm=test_llm,
-        test_all_agents=test_all_agents,
-        show_agent_thinking=show_agent_thinking,
-        schema_mode=schema_mode,
-        include_hierarchy=include_hierarchy
-    ))
-    
-    console.print("\n[bold green]✅ Sample mode complete![/bold green]")
-    console.print(f"Analyzed {result.get('analysis', {}).get('total_conversations', 0)} conversations")
+    # Run sample mode with error handling (ALWAYS save files even if it crashes!)
+    try:
+        result = asyncio.run(run_sample_mode(
+            count=count,
+            start_date=start,
+            end_date=end,
+            save_to_file=save_to_file,
+            test_llm=test_llm,
+            test_all_agents=test_all_agents,
+            show_agent_thinking=show_agent_thinking,
+            schema_mode=schema_mode,
+            include_hierarchy=include_hierarchy
+        ))
+        
+        console.print("\n[bold green]✅ Sample mode complete![/bold green]")
+        console.print(f"Analyzed {result.get('analysis', {}).get('total_conversations', 0)} conversations")
+    except Exception as e:
+        console.print(f"\n[bold red]❌ Sample mode failed: {e}[/bold red]")
+        console.print(f"[yellow]⚠️  Files should still be saved despite error[/yellow]")
+        # Re-raise so Railway sees the error, but files were already saved above!
+        raise
     console.print("\n[bold]Key Findings:[/bold]")
     
     # Safe nested access to avoid KeyError
