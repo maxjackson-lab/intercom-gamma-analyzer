@@ -173,7 +173,12 @@ class SampleMode:
         # Save to file if requested
         if save_to_file:
             from src.utils.output_manager import get_output_file_path
-            output_file = get_output_file_path(f"sample_mode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            from src.utils.timezone_utils import get_pacific_time
+            
+            # Use Pacific time for human-readable filenames
+            pacific_now = get_pacific_time()
+            readable_timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")  # "Nov-18-2025_08-45PM"
+            output_file = get_output_file_path(f"sample_mode_{readable_timestamp}.json")
             
             with open(output_file, 'w') as f:
                 json.dump({
@@ -1377,10 +1382,20 @@ async def run_sample_mode(
     # Enable agent thinking logger if requested
     if show_agent_thinking:
         from src.utils.agent_thinking_logger import AgentThinkingLogger
+        from src.utils.output_manager import get_output_directory
+        from src.utils.timezone_utils import get_pacific_time
+        
+        # Create human-readable filename with Pacific time
+        pacific_now = get_pacific_time()
+        readable_timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")  # "Nov-18-2025_08-45PM"
+        
         thinking = AgentThinkingLogger.get_logger()
-        thinking.enable()
-        console.print("[bold cyan]🧠 Agent Thinking Logging: ENABLED[/bold cyan]")
-        console.print("[dim]Will capture all LLM prompts, responses, and reasoning[/dim]\n")
+        output_dir = get_output_directory()
+        thinking_file = output_dir / f"agent_thinking_{readable_timestamp}.log"
+        
+        thinking.enable(thinking_file)  # ← PASS FILE PATH!
+        console.print(f"[bold cyan]🧠 Agent Thinking Logging: ENABLED[/bold cyan]")
+        console.print(f"[dim]Saving to: {thinking_file.name}[/dim]\n")
     
     # Enable LLM-first topic detection if requested
     if llm_topic_detection:
@@ -1423,24 +1438,11 @@ async def run_sample_mode(
             console.print(f"[yellow]⚠️  Sample mode data still saved successfully[/yellow]")
             # DON'T re-raise - agent testing is optional, don't fail the whole run!
     
-    # Save agent thinking log if it was enabled (with error handling!)
+    # Agent thinking log is auto-saved as it goes (via AgentThinkingLogger._log_file)
+    # Just print confirmation that it was enabled
     if show_agent_thinking:
-        try:
-            from src.utils.agent_thinking_logger import AgentThinkingLogger
-            from src.utils.output_manager import get_output_directory
-            thinking = AgentThinkingLogger.get_logger()
-            
-            # Save to same directory as other output files
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_dir = get_output_directory()
-            thinking_file = output_dir / f"agent_thinking_{timestamp}.log"
-            
-            thinking.save_to_file(str(thinking_file))
-            console.print(f"\n[bold cyan]🧠 Agent thinking saved to: {thinking_file.name}[/bold cyan]")
-        except Exception as e:
-            console.print(f"\n[bold yellow]⚠️  Could not save agent thinking log: {e}[/bold yellow]")
-            console.print(f"[dim]This doesn't affect the main analysis results[/dim]")
-            # DON'T re-raise - agent thinking is optional, don't fail the whole run!
+        console.print("\n[bold cyan]🧠 Agent thinking log was captured during analysis[/bold cyan]")
+        console.print("[dim]Check files for agent_thinking_*.log[/dim]")
     
     return result
 

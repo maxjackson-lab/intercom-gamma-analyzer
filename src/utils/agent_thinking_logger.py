@@ -67,12 +67,15 @@ class AgentThinkingLogger:
         cls._log_file = output_file
         
         if output_file:
-            # Create file and write header
+            # Create file and write header with PACIFIC TIME
+            from src.utils.timezone_utils import get_pacific_time
+            pacific_now = get_pacific_time()
+            
             output_file.parent.mkdir(parents=True, exist_ok=True)
             with open(output_file, 'w') as f:
                 f.write("="*80 + "\n")
                 f.write("AGENT THINKING LOG\n")
-                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Generated: {pacific_now.strftime('%b %d, %Y at %I:%M%p Pacific')}\n")
                 f.write("="*80 + "\n\n")
         
         cls._console.print("\n[bold green]🧠 Agent Thinking Logger: ENABLED[/bold green]")
@@ -98,7 +101,10 @@ class AgentThinkingLogger:
         if not self._enabled:
             return
         
-        timestamp = datetime.now().strftime('%H:%M:%S')
+        # Use Pacific time for all timestamps
+        from src.utils.timezone_utils import get_pacific_time
+        pacific_now = get_pacific_time()
+        timestamp = pacific_now.strftime('%I:%M:%S%p')  # "08:45:32PM"
         
         # Console output
         self._console.print(f"\n{'='*80}")
@@ -146,7 +152,10 @@ class AgentThinkingLogger:
         if not self._enabled:
             return
         
-        timestamp = datetime.now().strftime('%H:%M:%S')
+        # Use Pacific time for all timestamps
+        from src.utils.timezone_utils import get_pacific_time
+        pacific_now = get_pacific_time()
+        timestamp = pacific_now.strftime('%I:%M:%S%p')  # "08:45:32PM"
         
         # Console output
         self._console.print(f"\n{'─'*80}")
