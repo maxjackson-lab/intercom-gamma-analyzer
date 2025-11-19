@@ -2846,7 +2846,13 @@ if HAS_FASTAPI:
         import os
         from pathlib import Path
         
-        outputs_dir = Path("/app/outputs")
+        volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+        if volume_path:
+            outputs_dir = Path(volume_path) / "outputs"
+            logger.debug(f"Listing output files from Railway volume: {outputs_dir}")
+        else:
+            outputs_dir = Path("/app/outputs")
+            logger.debug(f"Listing output files from container path: {outputs_dir}")
         if not outputs_dir.exists():
             return {"files": [], "total": 0, "filtered_count": 0}
         
