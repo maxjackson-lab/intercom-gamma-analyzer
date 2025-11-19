@@ -145,14 +145,16 @@ def detect_period_type(start_dt: datetime, end_dt: datetime) -> Tuple[str, str]:
         
     Returns:
         Tuple of (period_type, period_label)
-        - period_type: 'daily', 'weekly', 'monthly', 'quarterly', or 'custom'
+        - period_type: 'weekly', 'monthly', 'quarterly', or 'custom' (no 'daily' - snapshot model doesn't support it)
         - period_label: Human-readable label like "Week of Nov 01, 2025"
     """
     days = get_days_difference(start_dt, end_dt)
     
     # Determine period type based on duration
+    # Note: Single-day periods are treated as 'custom' because SnapshotData model
+    # only accepts: weekly, monthly, quarterly, custom
     if days <= 1:
-        period_type = 'daily'
+        period_type = 'custom'  # Changed from 'daily' to 'custom' for snapshot compatibility
         period_label = f"Day of {start_dt.strftime('%b %d, %Y')}"
     elif 5 <= days <= 9:
         period_type = 'weekly'

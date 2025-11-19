@@ -7,11 +7,47 @@ import logging
 import asyncio
 import sys
 import os
+import time
 import warnings
 import httpx
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+# Suppress httpx cleanup errors when event loop is closed
+# These are harmless - connections are already closed
+def _suppress_httpx_cleanup_errors():
+    """Suppress harmless httpx cleanup errors when event loop is closed."""
+    import asyncio
+    import logging
+    
+    _logger = logging.getLogger(__name__)
+    
+    def exception_handler(loop, context):
+        """Custom exception handler to suppress harmless httpx cleanup errors."""
+        exception = context.get('exception')
+        if exception and isinstance(exception, RuntimeError):
+            if "Event loop is closed" in str(exception):
+                # Check if it's from httpx cleanup
+                message = str(context.get('message', ''))
+                if 'httpx' in message.lower() or 'aclose' in message.lower():
+                    # Suppress this harmless error
+                    _logger.debug(f"Suppressed harmless httpx cleanup error: {exception}")
+                    return
+        
+        # For all other exceptions, use default handler
+        loop.default_exception_handler(context)
+    
+    # Set custom exception handler if loop exists
+    try:
+        loop = asyncio.get_running_loop()
+        loop.set_exception_handler(exception_handler)
+    except RuntimeError:
+        # No running loop, handler will be set when loop is created
+        pass
+
+# Install exception handler on import (but logger isn't defined yet, so we'll call it later)
+# Actually, let's call it after logger is defined
 
 # Suppress Pydantic serializer warnings from Intercom SDK
 # The SDK has some type mismatches (int vs str) in its models that trigger warnings
@@ -46,6 +82,10 @@ from src.config.settings import settings
 from src.utils.retry import async_retry
 
 logger = logging.getLogger(__name__)
+
+# Install exception handler to suppress harmless httpx cleanup errors
+# This must be called after logger is defined
+_suppress_httpx_cleanup_errors()
 
 
 class IntercomSDKService:
@@ -85,12 +125,51 @@ class IntercomSDKService:
     async def close(self):
         """Close the AsyncIntercom client and release resources."""
         try:
-            # Close the underlying HTTP client if accessible
-            if hasattr(self.client, '_client') and hasattr(self.client._client, 'close'):
-                await self.client._client.close()
+            # Try to close the underlying httpx client from the SDK
+            # The SDK structure: AsyncIntercom -> _client_wrapper -> httpx_client -> httpx.AsyncClient
+            if hasattr(self.client, '_client_wrapper'):
+                wrapper = self.client._client_wrapper
+                if hasattr(wrapper, 'httpx_client'):
+                    # httpx_client is an AsyncHttpClient wrapper
+                    http_client = wrapper.httpx_client
+                    if hasattr(http_client, '_httpx_client'):
+                        httpx_client = http_client._httpx_client
+                        if httpx_client is not None:
+                            try:
+                                await httpx_client.aclose()
+                            except RuntimeError as e:
+                                # Event loop is closed - this is harmless, connections are already closed
+                                if "Event loop is closed" in str(e):
+                                    self.logger.debug("Event loop already closed, skipping httpx cleanup (harmless)")
+                                    return
+                                else:
+                                    raise
+            # Fallback: try direct access patterns
+            elif hasattr(self.client, '_client') and hasattr(self.client._client, 'close'):
+                try:
+                    await self.client._client.close()
+                except RuntimeError as e:
+                    if "Event loop is closed" in str(e):
+                        self.logger.debug("Event loop already closed, skipping client cleanup (harmless)")
+                        return
+                    else:
+                        raise
             elif hasattr(self.client, 'close'):
-                await self.client.close()
+                try:
+                    await self.client.close()
+                except RuntimeError as e:
+                    if "Event loop is closed" in str(e):
+                        self.logger.debug("Event loop already closed, skipping client cleanup (harmless)")
+                        return
+                    else:
+                        raise
             self.logger.debug("AsyncIntercom client closed successfully")
+        except RuntimeError as e:
+            # Event loop is closed - suppress this harmless error
+            if "Event loop is closed" in str(e):
+                self.logger.debug("Event loop already closed during cleanup (harmless)")
+            else:
+                self.logger.warning(f"RuntimeError closing AsyncIntercom client: {e}")
         except Exception as e:
             self.logger.warning(f"Error closing AsyncIntercom client: {e}")
     
@@ -429,12 +508,50 @@ class IntercomSDKService:
                     return conv, metrics
         
         # Process conversations with controlled concurrency
+        total_conversations = len(conversations)
         self.logger.info(
-            f"Enriching {len(conversations)} conversations "
+            f"Enriching {total_conversations} conversations "
             f"(concurrency={self.concurrency}, delay={self.request_delay*1000:.0f}ms)"
         )
+        
+        # Track progress for periodic logging
+        completed_count = 0
+        last_progress_log_time = time.time()
+        progress_interval_seconds = 30  # Log progress every 30 seconds
+        progress_interval_count = 100  # Or every 100 conversations
+        
+        async def enrich_with_progress(conv, index):
+            """Wrapper to track enrichment progress."""
+            nonlocal completed_count, last_progress_log_time
+            result = await enrich_single_conversation(conv)
+            completed_count += 1
+            
+            # Log progress periodically
+            current_time = time.time()
+            should_log = (
+                completed_count % progress_interval_count == 0 or
+                (current_time - last_progress_log_time) >= progress_interval_seconds
+            )
+            
+            if should_log:
+                elapsed = current_time - last_progress_log_time
+                rate = completed_count / elapsed if elapsed > 0 else 0
+                remaining = total_conversations - completed_count
+                eta_seconds = remaining / rate if rate > 0 else 0
+                eta_minutes = eta_seconds / 60
+                
+                self.logger.info(
+                    f"Enrichment progress: {completed_count}/{total_conversations} "
+                    f"({completed_count/total_conversations*100:.1f}%) | "
+                    f"Rate: {rate:.1f} conv/s | "
+                    f"ETA: {eta_minutes:.1f} min"
+                )
+                last_progress_log_time = current_time
+            
+            return result
+        
         results = await asyncio.gather(
-            *[enrich_single_conversation(conv) for conv in conversations],
+            *[enrich_with_progress(conv, i) for i, conv in enumerate(conversations)],
             return_exceptions=False
         )
         

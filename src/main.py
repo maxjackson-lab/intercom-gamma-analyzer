@@ -4945,7 +4945,8 @@ async def run_topic_based_analysis_custom(
         # Initialize audit trail if enabled
         audit = None
         if audit_trail:
-            audit = AuditTrail()
+            from src.utils.output_manager import get_output_directory
+            audit = AuditTrail(output_dir=str(get_output_directory()))
             audit.step("Initialization", "Started Voice of Customer Analysis", {
                 'start_date': start_date.strftime('%Y-%m-%d'),
                 'end_date': end_date.strftime('%Y-%m-%d'),
@@ -5029,10 +5030,9 @@ async def run_topic_based_analysis_custom(
         )
         
         # Save output
-        output_dir = Path(settings.effective_output_directory)
-        output_dir.mkdir(exist_ok=True, parents=True)
+        from src.utils.output_manager import get_output_file_path
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_file = output_dir / f"topic_based_{week_id}_{timestamp}.md"
+        report_file = get_output_file_path(f"topic_based_{week_id}_{timestamp}.md")
         
         with open(report_file, 'w') as f:
             f.write(results.get('formatted_report', ''))

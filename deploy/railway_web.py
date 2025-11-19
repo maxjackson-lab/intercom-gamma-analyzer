@@ -2331,6 +2331,7 @@ if HAS_FASTAPI:
     
     async def run_command_background(execution_id: str, command: str, args: list, execution_dir: str = None):
         """Run command in background and update state."""
+        log_file_path = None
         try:
             await state_manager.start_execution(execution_id)
             await state_manager.update_execution_status(execution_id, ExecutionStatus.RUNNING)
@@ -2340,6 +2341,10 @@ if HAS_FASTAPI:
             if execution_dir:
                 env_vars['EXECUTION_OUTPUT_DIR'] = execution_dir
                 logger.info(f"📁 Execution {execution_id} will output to: {execution_dir}")
+                
+                # Prepare log file path for failure case
+                log_filename = f"execution_{execution_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+                log_file_path = Path(execution_dir) / log_filename
             
             async for output in command_executor.execute_command(command, args, execution_id=execution_id, env_vars=env_vars):
                 # Update state manager with output
@@ -2360,6 +2365,33 @@ if HAS_FASTAPI:
             await state_manager.update_execution_status(
                 execution_id, ExecutionStatus.ERROR, error_message=str(e)
             )
+            logger.error(f"Background execution error for {execution_id}: {e}", exc_info=True)
+        finally:
+            # Save logs to file even on failure
+            if log_file_path and execution_dir:
+                try:
+                    execution = await state_manager.get_execution(execution_id)
+                    if execution and execution.output_buffer:
+                        # Get all output from buffer
+                        output_lines = []
+                        for entry in execution.output_buffer:
+                            entry_type = entry.get("type", "unknown")
+                            entry_data = entry.get("data", "")
+                            timestamp = entry.get("timestamp", "")
+                            
+                            # Format: [timestamp] [type] data
+                            prefix = f"[{timestamp}] " if timestamp else ""
+                            type_prefix = f"[{entry_type.upper()}] " if entry_type != "stdout" else ""
+                            output_lines.append(f"{prefix}{type_prefix}{entry_data}")
+                        
+                        # Write to log file
+                        log_file_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(log_file_path, 'w', encoding='utf-8') as f:
+                            f.write("\n".join(output_lines))
+                        
+                        logger.info(f"📋 Saved execution log to: {log_file_path} (even on failure)")
+                except Exception as save_error:
+                    logger.error(f"Failed to save execution log for {execution_id}: {save_error}", exc_info=True)
     
     # ============================================================================
     # EXECUTION DIRECTORY HELPERS
