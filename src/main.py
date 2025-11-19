@@ -4886,6 +4886,10 @@ async def run_topic_based_analysis_custom(
 ):
     """Run topic-based analysis with custom date range"""
     try:
+        # 🔧 ENABLE CONSOLE RECORDING (capture ALL output to .log file!)
+        # This ensures users have complete logs even if SSE disconnects
+        console.record = True
+        
         # Comment 3: Add timing logs for heavy imports
         verbose_imports = os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
         if verbose_imports:
@@ -5211,34 +5215,49 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
             console.print("\n📝 [bold]Report Preview:[/bold]")
             console.print(formatted_report[:500] + "..." if len(formatted_report) > 500 else formatted_report)
         
-        # Export results
-        output_dir = Path(settings.effective_output_directory)
-        output_dir.mkdir(exist_ok=True, parents=True)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Generate descriptive filenames
+        # 🔧 FIX: Use execution directory (same as sample-mode) so files are visible in browser!
+        # OLD: output_dir = Path(settings.effective_output_directory)  # outputs/ (root) - browser can't find!
+        # NEW: Use get_output_file_path() which saves to outputs/executions/<id>/
+        from src.utils.output_manager import get_output_file_path
+        from src.utils.timezone_utils import get_pacific_time
         from src.utils.time_utils import generate_descriptive_filename
         
-        report_filename = generate_descriptive_filename(
-            'VoC_Report', start_date, end_date, file_type='md', week_id=week_id
-        )
-        results_filename = generate_descriptive_filename(
-            'VoC_Analysis', start_date, end_date, file_type='json', week_id=week_id
-        )
+        # Create human-readable filename with Pacific time
+        pacific_now = get_pacific_time()
+        readable_timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")  # "Nov-18-2025_11-42PM"
+        
+        # Generate descriptive filenames (include date range for clarity)
+        date_range_label = f"{start_date.strftime('%b-%d')}-to-{end_date.strftime('%b-%d')}"
+        
+        report_filename = f"voice_of_customer_{date_range_label}_Last-Week_{readable_timestamp}.md"
+        results_filename = f"voice_of_customer_{date_range_label}_Last-Week_{readable_timestamp}.json"
+        
+        # Use get_output_file_path() to save in execution directory (makes files visible in browser!)
+        report_file = get_output_file_path(report_filename)
+        results_file = get_output_file_path(results_filename)
         
         # Save formatted report
-        report_file = output_dir / report_filename
         with open(report_file, 'w') as f:
             f.write(formatted_report)
         
         # Save full results JSON
-        results_file = output_dir / results_filename
         with open(results_file, 'w') as f:
             json.dump(results, f, indent=2, default=str)
         
-        console.print(f"\n📁 Report saved: {report_file}")
-        console.print(f"📁 Full results: {results_file}")
+        # 🔧 SAVE COMPLETE CONSOLE OUTPUT (.log file)
+        # Export all console output (captures entire analysis flow)
+        log_output = console.export_text(clear=True)
+        console.record = False  # Stop recording
+        
+        log_filename = f"voice_of_customer_{date_range_label}_Last-Week_{readable_timestamp}.log"
+        log_file = get_output_file_path(log_filename)
+        with open(log_file, 'w', encoding='utf-8') as f:
+            f.write(log_output)
+        
+        console.print(f"\n📁 Report saved: {report_file.name}")
+        console.print(f"📁 Full results: {results_file.name}")
+        console.print(f"📋 Complete log: {log_file.name}")
+        console.print(f"[dim]📂 All files saved to execution directory (visible in Files tab!)[/dim]")
         
         # Generate Gamma presentation if requested
         if generate_gamma and formatted_report:
@@ -5276,10 +5295,8 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
                     console.print(f"⏱️  Generation time: {gamma_result.get('generation_time_seconds', 0):.1f}s")
                     
                     # Save Gamma URL to separate file with descriptive name
-                    gamma_url_filename = generate_descriptive_filename(
-                        'Gamma_URL_VoC', start_date, end_date, file_type='txt', week_id=week_id
-                    )
-                    gamma_url_file = output_dir / gamma_url_filename
+                    gamma_url_filename = f"gamma_url_{date_range_label}_Last-Week_{readable_timestamp}.txt"
+                    gamma_url_file = get_output_file_path(gamma_url_filename)
                     with open(gamma_url_file, 'w') as f:
                         f.write(f"Gamma Presentation URL\n")
                         f.write(f"=====================\n\n")
