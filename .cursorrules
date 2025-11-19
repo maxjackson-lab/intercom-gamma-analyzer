@@ -833,20 +833,28 @@ while True:
 1. ✅ **CLI ↔ Web ↔ Railway Alignment** - Ensures flags match across all 3 layers
    - Prevents: Validation errors, broken UI
    - Example: Adding `--your-flag` to CLI but forgetting Railway validation
+   - **Note:** Only checks 6 web-accessible commands (sample-mode, voice-of-customer, etc.)
    
-2. ✅ **Function Signature Validation** - Checks function calls match signatures
+2. ✅ **Comprehensive CLI Validation** - Validates ALL commands, file paths, and flags
+   - Checks: All 35+ CLI commands for Railway mappings
+   - Checks: File output paths use output_manager (not hardcoded paths)
+   - Checks: Commands that save files use proper UTF-8 encoding
+   - Prevents: Files not visible in Railway Files tab, broken web commands
+   - **CRITICAL:** Must pass for ALL modes, not just the 6 web-accessible ones
+   
+3. ✅ **Function Signature Validation** - Checks function calls match signatures
    - Prevents: TypeError at runtime
    - Example: Calling `analyze(data, new_param=True)` but function doesn't accept `new_param`
    
-3. ✅ **Async/Await Pattern Validation** - Ensures proper async usage
+4. ✅ **Async/Await Pattern Validation** - Ensures proper async usage
    - Prevents: Deadlocks, blocked event loops
    - Example: Using `time.sleep()` instead of `await asyncio.sleep()` in async function
    
-4. ✅ **Import/Dependency Validation** - Verifies all imports exist
+5. ✅ **Import/Dependency Validation** - Verifies all imports exist
    - Prevents: ModuleNotFoundError in deployment
    - Example: Importing `some_package` not in requirements.txt
 
-5. ✅ **Pydantic Model Instantiation** - Validates required fields are provided
+6. ✅ **Pydantic Model Instantiation** - Validates required fields are provided
    - Prevents: Pydantic ValidationError at runtime
    - Example: Creating `AgentContext(...)` without required `analysis_type` field
    - **NEW** (Nov 11, 2025): Added to catch missing Pydantic required fields
@@ -892,7 +900,8 @@ git commit --no-verify -m "emergency fix"
 - Warnings: Review but can proceed
 
 **Available Scripts:**
-- `check_cli_web_alignment.py` - ✅ CLI/Web/Railway alignment
+- `check_cli_web_alignment.py` - ✅ CLI/Web/Railway alignment (6 commands)
+- `comprehensive_cli_validation.py` - ✅ **ALL commands, file paths, flags** (35+ commands)
 - `check_function_signatures.py` - Function parameter validation
 - `check_async_patterns.py` - Async/await safety
 - `check_imports.py` - Dependency validation

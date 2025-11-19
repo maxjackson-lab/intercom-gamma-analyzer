@@ -117,6 +117,10 @@ run_check "P0" "CLI ↔ Web ↔ Railway Alignment" \
     "scripts/check_cli_web_alignment.py" \
     "Validates CLI flags match Railway validation and frontend"
 
+run_check "P0" "Comprehensive CLI Validation" \
+    "scripts/comprehensive_cli_validation.py" \
+    "Validates ALL commands, file paths, and flags across all modes"
+
 run_check "P0" "Function Signature Validation" \
     "scripts/check_function_signatures.py" \
     "Validates function calls match signatures"

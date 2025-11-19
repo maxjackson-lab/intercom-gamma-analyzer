@@ -3222,7 +3222,9 @@ async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetim
         # Run analyses
         analysis_results = {}
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = Path(settings.effective_output_directory)
+        # Use output_manager for web context compatibility
+        from src.utils.output_manager import get_output_directory
+        output_dir = get_output_directory()
         output_dir.mkdir(exist_ok=True, parents=True)
         
         if parallel:
@@ -3267,9 +3269,9 @@ async def run_all_categories_analysis_v2(start_date: datetime, end_date: datetim
         # Save individual results
         for category_name, result in analysis_results.items():
             results_file = output_dir / f"{category_name.lower()}_analysis_{timestamp}.json"
-            with open(results_file, 'w') as f:
+            with open(results_file, 'w', encoding='utf-8') as f:
                 import json
-                json.dump(result, f, indent=2, default=str)
+                json.dump(result, f, indent=2, default=str, ensure_ascii=False)
         
         console.print(f"\n[bold green]All Categories Analysis Completed![/bold green]")
         for category_name, result in analysis_results.items():
