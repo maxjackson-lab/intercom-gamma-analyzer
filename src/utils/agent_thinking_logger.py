@@ -27,7 +27,8 @@ Usage:
 
 import logging
 import os
-from typing import Dict, Any, Optional
+import json
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
@@ -46,12 +47,15 @@ class AgentThinkingLogger:
     - Responses received
     - Agent reasoning/decisions
     - Validation checks
+    
+    Also exports structured JSON for observability/analysis.
     """
     
     _instance = None
     _enabled = False
     _console = Console()
     _log_file = None
+    _events = []  # Structured events for JSON export
     
     @classmethod
     def get_logger(cls):
@@ -65,6 +69,7 @@ class AgentThinkingLogger:
         """Enable agent thinking logging"""
         cls._enabled = True
         cls._log_file = output_file
+        cls._events = []  # Reset events list
         
         if output_file:
             # Create file and write header with PACIFIC TIME
@@ -140,6 +145,20 @@ class AgentThinkingLogger:
                     f.write("\n")
                 f.write(prompt)
                 f.write("\n\n")
+        
+        # Structured JSON event (for observability)
+        if self._enabled:
+            from src.utils.timezone_utils import get_pacific_time
+            pacific_now = get_pacific_time()
+            self._events.append({
+                'event_type': 'prompt',
+                'agent': agent_name,
+                'timestamp': pacific_now.isoformat(),
+                'timestamp_readable': timestamp,
+                'prompt_length': len(prompt),
+                'context': context or {},
+                'prompt_preview': prompt[:500]  # First 500 chars for analysis
+            })
     
     def log_response(
         self,
@@ -182,6 +201,22 @@ class AgentThinkingLogger:
                 f.write(f"{'─'*80}\n\n")
                 f.write(response_text)
                 f.write("\n\n")
+        
+        # Structured JSON event (for observability)
+        if self._enabled:
+            from src.utils.timezone_utils import get_pacific_time
+            pacific_now = get_pacific_time()
+            self._events.append({
+                'event_type': 'response',
+                'agent': agent_name,
+                'timestamp': pacific_now.isoformat(),
+                'timestamp_readable': timestamp,
+                'tokens_used': tokens_used,
+                'model': model,
+                'response_length': len(response_text),
+                'response_preview': response_text[:500],  # First 500 chars
+                'success': True  # Will be False if we detect errors
+            })
     
     def log_reasoning(
         self,
@@ -244,4 +279,94 @@ class AgentThinkingLogger:
                 if details:
                     f.write(f"  {details}\n")
                 f.write("\n")
+    
+    def log_error(
+        self,
+        agent_name: str,
+        error_type: str,
+        error_message: str,
+        context: Optional[Dict[str, Any]] = None
+    ):
+        """Log error/exception for observability"""
+        if not self._enabled:
+            return
+        
+        from src.utils.timezone_utils import get_pacific_time
+        pacific_now = get_pacific_time()
+        timestamp = pacific_now.strftime('%I:%M:%S%p')
+        
+        # Console output
+        self._console.print(f"\n[bold red]❌ {agent_name}: ERROR[/bold red]")
+        self._console.print(f"[red]Type: {error_type}[/red]")
+        self._console.print(f"[red]Message: {error_message}[/red]")
+        
+        # Structured JSON event
+        self._events.append({
+            'event_type': 'error',
+            'agent': agent_name,
+            'timestamp': pacific_now.isoformat(),
+            'timestamp_readable': timestamp,
+            'error_type': error_type,
+            'error_message': error_message,
+            'context': context or {},
+            'success': False
+        })
+    
+    def export_json(self, output_file: Optional[Path] = None) -> Path:
+        """
+        Export all events as structured JSON for analysis.
+        
+        Returns:
+            Path to exported JSON file
+        """
+        if not self._events:
+            logger.warning("No events to export")
+            return None
+        
+        if output_file is None:
+            # Auto-generate filename based on log file
+            if self._log_file:
+                output_file = self._log_file.with_suffix('.observability.json')
+            else:
+                from src.utils.output_manager import get_output_file_path
+                from src.utils.timezone_utils import get_pacific_time
+                pacific_now = get_pacific_time()
+                timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")
+                output_file = get_output_file_path(f"agent_observability_{timestamp}.json")
+        
+        # Export summary statistics
+        summary = {
+            'total_events': len(self._events),
+            'events_by_type': {},
+            'events_by_agent': {},
+            'total_tokens': sum(e.get('tokens_used', 0) for e in self._events if e.get('tokens_used')),
+            'errors': [e for e in self._events if e.get('event_type') == 'error'],
+            'error_count': len([e for e in self._events if e.get('event_type') == 'error']),
+            'success_rate': len([e for e in self._events if e.get('success', True)]) / len(self._events) if self._events else 0
+        }
+        
+        # Count by type
+        for event in self._events:
+            event_type = event.get('event_type', 'unknown')
+            summary['events_by_type'][event_type] = summary['events_by_type'].get(event_type, 0) + 1
+            
+            agent = event.get('agent', 'unknown')
+            summary['events_by_agent'][agent] = summary['events_by_agent'].get(agent, 0) + 1
+        
+        export_data = {
+            'metadata': {
+                'exported_at': datetime.now().isoformat(),
+                'total_events': len(self._events),
+                'log_file': str(self._log_file) if self._log_file else None
+            },
+            'summary': summary,
+            'events': self._events
+        }
+        
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_file, 'w') as f:
+            json.dump(export_data, f, indent=2, default=str)
+        
+        logger.info(f"Exported {len(self._events)} events to {output_file}")
+        return output_file
 

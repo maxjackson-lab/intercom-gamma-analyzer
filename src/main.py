@@ -5259,6 +5259,18 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
         console.print(f"📋 Complete log: {log_file.name}")
         console.print(f"[dim]📂 All files saved to execution directory (visible in Files tab!)[/dim]")
         
+        # 🔧 AUTO-EXPORT OBSERVABILITY JSON (if agent thinking was enabled)
+        try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking = AgentThinkingLogger.get_logger()
+            if thinking.is_enabled():
+                json_file = thinking.export_json()
+                if json_file:
+                    console.print(f"\n📊 [bold cyan]Observability data exported: {json_file.name}[/bold cyan]")
+                    console.print(f"[dim]Use scripts/analyze_observability.py to analyze LLM failures[/dim]")
+        except Exception as e:
+            logger.warning(f"Could not export observability JSON: {e}")
+        
         # Generate Gamma presentation if requested
         if generate_gamma and formatted_report:
             try:

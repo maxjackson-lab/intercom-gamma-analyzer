@@ -1439,10 +1439,22 @@ async def run_sample_mode(
             # DON'T re-raise - agent testing is optional, don't fail the whole run!
     
     # Agent thinking log is auto-saved as it goes (via AgentThinkingLogger._log_file)
-    # Just print confirmation that it was enabled
+    # Export structured JSON for observability analysis
     if show_agent_thinking:
+        try:
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking = AgentThinkingLogger.get_logger()
+            if thinking.is_enabled():
+                json_file = thinking.export_json()
+                if json_file:
+                    console.print(f"\n[bold cyan]📊 Observability data exported: {json_file.name}[/bold cyan]")
+                    console.print(f"[dim]Run: python scripts/analyze_observability.py {json_file.name}[/dim]")
+                    console.print(f"[dim]This shows LLM failures, patterns, and agent performance[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]⚠️  Could not export observability JSON: {e}[/yellow]")
+        
         console.print("\n[bold cyan]🧠 Agent thinking log was captured during analysis[/bold cyan]")
-        console.print("[dim]Check files for agent_thinking_*.log[/dim]")
+        console.print("[dim]Check files for agent_thinking_*.log and *.observability.json[/dim]")
     
     return result
 
