@@ -1550,10 +1550,18 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 self.logger.warning(f"LLM classification failed after retries: {e}")
                 return None
             
-            # Parse JSON response (LLM returns: ```json\n{"topic": "X", "confidence": Y}\n```)
+            # Parse JSON response (LLM may add markdown fences and extra text after JSON)
             try:
-                # Strip markdown code fences if present
-                json_text = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw_response.strip(), flags=re.MULTILINE)
+                # Extract JUST the JSON object (ignore markdown fences and extra text)
+                if '{' in raw_response and '}' in raw_response:
+                    start = raw_response.index('{')
+                    end = raw_response.rindex('}') + 1
+                    json_text = raw_response[start:end]
+                else:
+                    # No JSON braces found
+                    self.logger.warning(f"No JSON object found in LLM response\nRaw: {raw_response}")
+                    return None
+                
                 parsed = json.loads(json_text)
                 topic_name = parsed.get('topic', '').strip()
                 # Use LLM's confidence if provided, otherwise default
