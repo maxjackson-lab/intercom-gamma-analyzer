@@ -377,8 +377,26 @@ Calculate tier-specific metrics:
         
         # Primary resolution rate = Intercom-compatible (more realistic)
         resolution_rate = deflection_rate
-        resolved_by_fin = [c for c in conversations if not c.get('admin_assignee_id')]  # Simple approximation
-        escalated = [c for c in conversations if c.get('admin_assignee_id')]
+        
+        # CRITICAL FIX: Check conversation_parts for actual admin PARTICIPATION
+        # (admin_assignee_id represents ASSIGNMENT/routing, not participation)
+        def _admin_participated(conv):
+            conversation_parts = conv.get('conversation_parts', {})
+            if isinstance(conversation_parts, dict):
+                parts_list = conversation_parts.get('conversation_parts', [])
+            elif isinstance(conversation_parts, list):
+                parts_list = conversation_parts
+            else:
+                parts_list = []
+            
+            return any(
+                part.get('author', {}).get('type') == 'admin'
+                for part in parts_list
+                if isinstance(part, dict)
+            )
+        
+        resolved_by_fin = [c for c in conversations if not _admin_participated(c)]
+        escalated = [c for c in conversations if _admin_participated(c)]
         
         self.logger.info(
             f"{tier_name} tier: "

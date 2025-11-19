@@ -68,9 +68,23 @@ def _calculate_intercom_compatible(conversations: List[Dict]) -> Dict[str, Any]:
     deflected = []
     
     for conv in conversations:
-        # Check if customer escalated to human
-        # Intercom considers it "deflected" if no admin response
-        admin_assignee_id = conv.get('admin_assignee_id')
+        # CRITICAL FIX: Check if admin actually PARTICIPATED (not just assigned)
+        # admin_assignee_id represents ASSIGNMENT (routing), not PARTICIPATION
+        # We need to check conversation_parts for actual admin messages
+        conversation_parts = conv.get('conversation_parts', {})
+        if isinstance(conversation_parts, dict):
+            parts_list = conversation_parts.get('conversation_parts', [])
+        elif isinstance(conversation_parts, list):
+            parts_list = conversation_parts
+        else:
+            parts_list = []
+        
+        # Check if any admin actually sent a message (PARTICIPATION, not assignment)
+        admin_participated = any(
+            part.get('author', {}).get('type') == 'admin'
+            for part in parts_list
+            if isinstance(part, dict)
+        )
         
         # Also check if customer explicitly requested human in text
         from src.utils.conversation_utils import extract_conversation_text
@@ -82,15 +96,15 @@ def _calculate_intercom_compatible(conversations: List[Dict]) -> Dict[str, Any]:
         ]
         requested_human = any(phrase in text for phrase in escalation_phrases)
         
-        # Deflected = No admin AND customer didn't explicitly request human
-        if not admin_assignee_id and not requested_human:
+        # Deflected = No admin PARTICIPATED AND customer didn't request human
+        if not admin_participated and not requested_human:
             deflected.append(conv)
     
     return {
         'deflected_count': len(deflected),
         'deflection_rate': round(len(deflected) / total * 100, 1) if total > 0 else 0,
         'definition': 'Fin answered and customer did not escalate to human support',
-        'methodology': 'Intercom-compatible (liberal criteria)'
+        'methodology': 'Intercom-compatible (checks conversation_parts for actual admin participation)'
     }
 
 
