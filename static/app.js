@@ -1096,7 +1096,7 @@ async function cancelExecution() {
         console.log('Cancelling execution:', currentExecutionId);
         
         const token = localStorage.getItem('api_token') || '';
-        const response = await fetch(`/api/executions/${currentExecutionId}/cancel`, {
+        const response = await fetch(`/execute/cancel/${currentExecutionId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
