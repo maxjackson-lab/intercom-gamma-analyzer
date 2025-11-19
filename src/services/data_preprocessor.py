@@ -77,7 +77,8 @@ class DataPreprocessor:
         Returns:
             Tuple of (processed_conversations, preprocessing_stats)
         """
-        self.logger.info(f"Starting preprocessing of {len(conversations)} conversations")
+        input_count = len(conversations)
+        self.logger.info(f"Starting preprocessing of {input_count} conversations")
         
         options = options or {}
         stats = {
@@ -86,18 +87,47 @@ class DataPreprocessor:
             "deduplicated_count": 0,
             "inferred_data": {},
             "validation_errors": [],
-            "confidence_levels": {"high": 0, "medium": 0, "low": 0, "none": 0}
+            "confidence_levels": {"high": 0, "medium": 0, "low": 0, "none": 0},
+            "stage_metrics": []  # Track stage-level metrics
         }
         
         try:
             # Step 1: Validate and normalize
             validated_conversations = self._validate_conversations(conversations, stats)
-            self.logger.info(f"Validation completed: {len(validated_conversations)} valid conversations")
+            validation_output_count = len(validated_conversations)
+            validation_dropped_count = input_count - validation_output_count
+            validation_pct_kept = (validation_output_count / input_count * 100) if input_count > 0 else 0
+            
+            self.logger.info(
+                f"Preprocessing: {input_count} → {validation_output_count} valid "
+                f"({validation_pct_kept:.1f}% kept, {validation_dropped_count} dropped)"
+            )
+            
+            stats["stage_metrics"].append({
+                "stage_name": "preprocessing",
+                "input_count": input_count,
+                "output_count": validation_output_count,
+                "dropped_count": validation_dropped_count
+            })
             
             # Step 2: Deduplicate
             if options.get('deduplicate', True):
                 deduplicated_conversations = self._deduplicate_conversations(validated_conversations, stats)
-                self.logger.info(f"Deduplication completed: {len(deduplicated_conversations)} unique conversations")
+                dedup_output_count = len(deduplicated_conversations)
+                dedup_dropped_count = validation_output_count - dedup_output_count
+                dedup_pct_kept = (dedup_output_count / validation_output_count * 100) if validation_output_count > 0 else 0
+                
+                self.logger.info(
+                    f"Deduplication: {validation_output_count} → {dedup_output_count} unique "
+                    f"({dedup_pct_kept:.1f}% kept, {dedup_dropped_count} duplicates removed)"
+                )
+                
+                stats["stage_metrics"].append({
+                    "stage_name": "deduplication",
+                    "input_count": validation_output_count,
+                    "output_count": dedup_output_count,
+                    "dropped_count": dedup_dropped_count
+                })
             else:
                 deduplicated_conversations = validated_conversations
             

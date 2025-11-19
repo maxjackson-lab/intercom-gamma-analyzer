@@ -15,7 +15,8 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.utils.ai_client_helper import get_ai_client
+from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +45,12 @@ class SentimentAgent(BaseAgent):
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
         
-        # RATE LIMITING: Per Anthropic/OpenAI docs
-        # Tier 1: 50 RPM → 10 concurrent = safe buffer
+        # RATE LIMITING: Provider-specific concurrency limits
+        # OpenAI: Default 10 concurrent (configurable via OPENAI_CONCURRENCY)
+        # Anthropic: Default 2 concurrent (configurable via ANTHROPIC_CONCURRENCY, Tier 1: 50 RPM)
         # Source: https://docs.anthropic.com/en/api/rate-limits
-        self.llm_semaphore = asyncio.Semaphore(10)
-        self.llm_timeout = 60  # 60s for complex sentiment analysis
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific semaphore
+        self.llm_timeout = settings.sentiment_timeout  # Configurable timeout from settings
     
     def get_agent_specific_instructions(self) -> str:
         """Sentiment agent specific instructions"""

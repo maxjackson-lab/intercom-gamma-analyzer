@@ -18,9 +18,10 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.utils.ai_client_helper import get_ai_client
+from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
 from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
 from src.config.taxonomy import TaxonomyManager
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -86,13 +87,12 @@ class TopicDetectionAgent(BaseAgent):
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
         
-        # RATE LIMITING: Balanced approach for speed + accuracy
-        # Tier 1: 50 RPM limit for both providers
-        # Using Semaphore(10) = max 10 concurrent requests
+        # RATE LIMITING: Provider-specific concurrency limits
+        # OpenAI: Default 10 concurrent (configurable via OPENAI_CONCURRENCY)
+        # Anthropic: Default 2 concurrent (configurable via ANTHROPIC_CONCURRENCY, Tier 1: 50 RPM)
         # Source: https://docs.anthropic.com/en/api/rate-limits
-        import asyncio
-        self.llm_semaphore = asyncio.Semaphore(10)  # 10 concurrent for speed
-        self.llm_timeout = 30  # FAST timeout: 30s (try Structured Outputs, fallback if slow)
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific semaphore
+        self.llm_timeout = settings.topic_detection_timeout  # Configurable timeout from settings
         
         # NEW: Use full TaxonomyManager for rich categorization (13 categories + 100+ subcategories)
         self.taxonomy_manager = TaxonomyManager()
@@ -122,6 +122,15 @@ class TopicDetectionAgent(BaseAgent):
             self.logger.info(f"🤖 TopicDetectionAgent: LLM-FIRST mode enabled (using simple text parsing)")
         else:
             self.logger.info("⚡ TopicDetectionAgent: KEYWORD-FIRST mode (LLM fallback for low-confidence only)")
+        
+        # Fallback metrics tracking (for observability)
+        self.fallback_metrics = {
+            'total_conversations': 0,
+            'llm_success_count': 0,
+            'keyword_fallback_count': 0,
+            'timeout_count': 0,
+            'unknown_count': 0
+        }
     
     async def _call_llm_structured(self, prompt: str, response_model: type[BaseModel]) -> tuple:
         """
@@ -777,6 +786,10 @@ For each conversation:
                             timeout=self.llm_timeout
                         )
                         
+                        # Track LLM success (if LLM was used)
+                        if detected and any(d.get('method', '').startswith('llm') for d in detected):
+                            self.fallback_metrics['llm_success_count'] += 1
+                        
                         # Progress logging every 25 conversations
                         if (idx + 1) % 25 == 0:
                             self.logger.info(f"Progress: {idx + 1}/{len(conversations)} conversations processed")
@@ -785,11 +798,19 @@ For each conversation:
                         
                     except asyncio.TimeoutError:
                         self.logger.warning(f"LLM timeout for conversation {conv.get('id')}, falling back to keywords")
-                        # Return empty to trigger fallback
-                        return (conv.get('id', 'unknown'), [], 'timeout')
+                        self.fallback_metrics['timeout_count'] += 1
+                        # Fallback to keyword detection
+                        detected = await self._fallback_to_keywords(conv)
+                        if detected:
+                            self.fallback_metrics['keyword_fallback_count'] += 1
+                        return (conv.get('id', 'unknown'), detected, 'timeout')
                     except Exception as e:
                         self.logger.warning(f"LLM error for conversation {conv.get('id')}: {e}")
-                        return (conv.get('id', 'unknown'), [], str(e))
+                        # Fallback to keyword detection
+                        detected = await self._fallback_to_keywords(conv)
+                        if detected:
+                            self.fallback_metrics['keyword_fallback_count'] += 1
+                        return (conv.get('id', 'unknown'), detected, str(e))
             
             # CHUNKED PROCESSING: Process in small batches to reduce overhead
             # Chunk size: 50 conversations per batch (with 10 concurrent = ~5 batches = ~50s per chunk)
@@ -1003,6 +1024,14 @@ For each conversation:
                         
                         self.logger.info(f"   LLM topic '{topic_name}': matched {matched_count} conversations")
             
+            # Update fallback metrics with total count
+            self.fallback_metrics['total_conversations'] = total_conversations
+            
+            # Count unknown assignments
+            for assignment in primary_topic_assignments:
+                if assignment.get('topic') == 'Unknown/unresponsive':
+                    self.fallback_metrics['unknown_count'] += 1
+            
             # Prepare result
             result_data = {
                 'topics_by_conversation': topics_by_conversation,
@@ -1010,7 +1039,8 @@ For each conversation:
                 'conversations_by_topic': {k: len(v) for k, v in conversations_by_topic.items()},
                 'total_conversations': total_conversations,
                 'conversations_with_topics': sum(1 for v in topics_by_conversation.values() if v),
-                'conversations_without_topics': sum(1 for v in topics_by_conversation.values() if not v)
+                'conversations_without_topics': sum(1 for v in topics_by_conversation.values() if not v),
+                'fallback_metrics': self.fallback_metrics  # Include fallback metrics for observability
             }
             
             self.validate_output(result_data)
@@ -1291,6 +1321,58 @@ For each conversation:
         
         # Sort by confidence (highest first) to ensure primary topic is first
         # This is critical for preventing double-counting in downstream agents
+        return sorted(detected, key=lambda x: x.get('confidence', 0), reverse=True)
+    
+    async def _fallback_to_keywords(self, conv: Dict) -> List[Dict]:
+        """
+        Fallback to keyword detection when LLM fails or times out.
+        
+        This is a simplified version of _detect_topics_for_conversation that only uses keywords.
+        Used when LLM calls fail or timeout.
+        
+        Args:
+            conv: Conversation dictionary
+            
+        Returns:
+            List of detected topics (same format as _detect_topics_for_conversation)
+        """
+        detected = []
+        text = extract_conversation_text(conv, clean_html=True).lower()
+        
+        # Simple keyword matching (no LLM, no SDK)
+        topic_priority_order = self._get_topic_priority_order()
+        
+        for topic_name in topic_priority_order:
+            if topic_name not in self.topics:
+                continue
+            
+            config = self.topics[topic_name]
+            matched_keywords = []
+            
+            for kw in config['keywords']:
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, text):
+                    matched_keywords.append(kw)
+            
+            if matched_keywords:
+                detected.append({
+                    'topic': topic_name,
+                    'method': 'keyword',
+                    'confidence': min(0.9, 0.5 + (len(matched_keywords) * 0.15)),
+                    'sdk_validated': False,
+                    'keywords': matched_keywords[:3]
+                })
+                break  # Stop at first match (priority order)
+        
+        # If no keywords matched, return Unknown
+        if not detected:
+            detected.append({
+                'topic': 'Unknown/unresponsive',
+                'method': 'fallback',
+                'confidence': 0.1,
+                'sdk_validated': False
+            })
+        
         return sorted(detected, key=lambda x: x.get('confidence', 0), reverse=True)
     
     async def _enhance_with_llm(self, conversations: List[Dict], initial_topics: Dict) -> Tuple[Dict, int]:

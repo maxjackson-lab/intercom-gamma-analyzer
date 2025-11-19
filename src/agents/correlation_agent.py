@@ -16,6 +16,8 @@ from scipy import stats as scipy_stats
 from src.agents.base_agent import BaseAgent, AgentResult, ConfidenceLevel, AgentContext
 from src.utils.conversation_utils import extract_customer_messages
 from src.utils.time_utils import format_duration
+from src.utils.ai_client_helper import get_recommended_semaphore
+from src.config.settings import settings
 
 
 logger = logging.getLogger(__name__)
@@ -50,11 +52,12 @@ class CorrelationAgent(BaseAgent):
             self.intensive_model = "gpt-4o"
             self.client_type = "openai"
         
-        # RATE LIMITING: Per Anthropic/OpenAI docs
-        # Tier 1: 50 RPM → 10 concurrent = safe buffer  
+        # RATE LIMITING: Provider-specific concurrency limits
+        # OpenAI: Default 10 concurrent (configurable via OPENAI_CONCURRENCY)
+        # Anthropic: Default 2 concurrent (configurable via ANTHROPIC_CONCURRENCY, Tier 1: 50 RPM)
         # Source: https://docs.anthropic.com/en/api/rate-limits
-        self.llm_semaphore = asyncio.Semaphore(10)
-        self.llm_timeout = 60  # 60s for complex correlation analysis
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific semaphore
+        self.llm_timeout = settings.correlation_timeout  # Configurable timeout from settings
 
     def get_agent_specific_instructions(self) -> str:
         """Return instructions for observational correlation analysis"""

@@ -67,29 +67,51 @@ async def _retry_wrapper():
 
 ---
 
-### 2. Concurrency Control with Semaphore
+### 2. Concurrency Control with Semaphore (Provider-Specific)
 
 **Problem:** Anthropic docs state _"Short bursts of requests at a high volume can surpass the rate limit"_
 
-**Solution:** Limit concurrent requests using `asyncio.Semaphore`
+**Solution:** Limit concurrent requests using `asyncio.Semaphore` with provider-specific limits
 
-**Our Calculation:**
-- Tier 1 limit: **50 RPM**
-- Semaphore value: **10** concurrent requests
-- **Safety buffer:** 10 concurrent << 50 RPM (5x buffer)
+**Provider-Specific Limits:**
+- **OpenAI:** Default 10 concurrent (configurable via `OPENAI_CONCURRENCY` env var)
+- **Anthropic:** Default 2 concurrent (configurable via `ANTHROPIC_CONCURRENCY` env var)
+  - Tier 1 limit: 50 RPM → ~0.8 req/s → 2 concurrent max
+  - Conservative limit prevents 429 errors
+
+**Configuration:**
+```bash
+# Set provider-specific concurrency limits
+export OPENAI_CONCURRENCY=10      # Default: 10
+export ANTHROPIC_CONCURRENCY=2    # Default: 2 (Tier 1: 50 RPM)
+```
 
 **Implementation:**
 ```python
+from src.utils.ai_client_helper import get_recommended_semaphore
+
 # In __init__
-self.llm_semaphore = asyncio.Semaphore(10)
+self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific
 
 # In execute()
-async with self.llm_semaphore:  # Limits to 10 concurrent
+async with self.llm_semaphore:  # Limits based on provider
     result = await self._detect_topics_for_conversation(conv)
 ```
 
-**File:** `src/agents/topic_detection_agent.py`  
-**Lines:** 53, 333
+**When to Lower Concurrency:**
+- Seeing 429 errors in observability logs
+- Rate limit headers show low remaining requests
+- Multiple agents running concurrently (combined throughput matters)
+
+**When to Increase Concurrency:**
+- No 429 errors and throughput is bottleneck
+- Using higher-tier API keys with higher RPM limits
+- Single agent running (no combined throughput concerns)
+
+**Files:** 
+- `src/utils/ai_client_helper.py` - `get_recommended_semaphore()` function
+- `src/config/settings.py` - `openai_concurrency`, `anthropic_concurrency` settings
+- All LLM-using agents use `get_recommended_semaphore()` instead of hardcoded values
 
 ---
 

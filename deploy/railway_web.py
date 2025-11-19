@@ -2773,16 +2773,16 @@ if HAS_FASTAPI:
         if not full_path.exists() or not full_path.is_file():
             raise HTTPException(status_code=404, detail="File not found")
         
-        # Determine content type
+        # Determine content type with UTF-8 encoding
         content_type = "application/octet-stream"
         if file_path.endswith(".json"):
-            content_type = "application/json"
+            content_type = "application/json; charset=utf-8"
         elif file_path.endswith(".csv"):
-            content_type = "text/csv"
+            content_type = "text/csv; charset=utf-8"
         elif file_path.endswith(".md"):
-            content_type = "text/markdown"
-        elif file_path.endswith(".txt"):
-            content_type = "text/plain"
+            content_type = "text/markdown; charset=utf-8"
+        elif file_path.endswith(".txt") or file_path.endswith(".log"):
+            content_type = "text/plain; charset=utf-8"
         
         # Return file
         from fastapi.responses import FileResponse

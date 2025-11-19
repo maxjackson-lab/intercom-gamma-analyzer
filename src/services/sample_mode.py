@@ -180,7 +180,7 @@ class SampleMode:
             readable_timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")  # "Nov-18-2025_08-45PM"
             output_file = get_output_file_path(f"sample_mode_{readable_timestamp}.json")
             
-            with open(output_file, 'w') as f:
+            with open(output_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'metadata': {
                         'count': len(conversations),
@@ -1379,9 +1379,12 @@ async def run_sample_mode(
     if start_date is None:
         start_date = end_date - timedelta(days=7)
     
-    # Enable agent thinking logger if requested
+    # Always enable metrics-only observability (tracks errors/timeouts without full logging)
+    from src.utils.agent_thinking_logger import AgentThinkingLogger
+    AgentThinkingLogger.enable_metrics_only()
+    
+    # Enable full agent thinking logger if requested (opt-in)
     if show_agent_thinking:
-        from src.utils.agent_thinking_logger import AgentThinkingLogger
         from src.utils.output_manager import get_output_directory
         from src.utils.timezone_utils import get_pacific_time
         
@@ -1438,21 +1441,23 @@ async def run_sample_mode(
             console.print(f"[yellow]⚠️  Sample mode data still saved successfully[/yellow]")
             # DON'T re-raise - agent testing is optional, don't fail the whole run!
     
-    # Agent thinking log is auto-saved as it goes (via AgentThinkingLogger._log_file)
-    # Export structured JSON for observability analysis
+    # Always export observability JSON (metrics-only or full thinking)
+    try:
+        from src.utils.agent_thinking_logger import AgentThinkingLogger
+        thinking = AgentThinkingLogger.get_logger()
+        # Export JSON in both metrics-only and full thinking modes
+        if thinking.is_enabled() or thinking.is_metrics_mode():
+            json_file = thinking.export_json()
+            if json_file:
+                mode_label = "full thinking" if thinking.is_enabled() else "metrics-only"
+                console.print(f"\n[bold cyan]📊 Observability data exported ({mode_label}): {json_file.name}[/bold cyan]")
+                console.print(f"[dim]Run: python scripts/analyze_observability.py {json_file.name}[/dim]")
+                console.print(f"[dim]This shows LLM failures, patterns, and agent performance[/dim]")
+    except Exception as e:
+        console.print(f"[yellow]⚠️  Could not export observability JSON: {e}[/yellow]")
+    
+    # Show thinking log info only if full thinking was enabled
     if show_agent_thinking:
-        try:
-            from src.utils.agent_thinking_logger import AgentThinkingLogger
-            thinking = AgentThinkingLogger.get_logger()
-            if thinking.is_enabled():
-                json_file = thinking.export_json()
-                if json_file:
-                    console.print(f"\n[bold cyan]📊 Observability data exported: {json_file.name}[/bold cyan]")
-                    console.print(f"[dim]Run: python scripts/analyze_observability.py {json_file.name}[/dim]")
-                    console.print(f"[dim]This shows LLM failures, patterns, and agent performance[/dim]")
-        except Exception as e:
-            console.print(f"[yellow]⚠️  Could not export observability JSON: {e}[/yellow]")
-        
         console.print("\n[bold cyan]🧠 Agent thinking log was captured during analysis[/bold cyan]")
         console.print("[dim]Check files for agent_thinking_*.log and *.observability.json[/dim]")
     

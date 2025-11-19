@@ -270,37 +270,53 @@ class MultiAgentOrchestrator:
 
     def _get_agent_timeout(self, agent_name: str) -> float:
         """
-        Get timeout for specific agent from config or default.
-
+        Get timeout for specific agent, derived from agent-level LLM timeouts.
+        
+        Policy: Orchestrator timeout = 3x agent-level LLM timeout
+        This provides buffer for multiple LLM calls, retries, and processing overhead.
+        
         Agent names match their class names (DataAgent, CategoryAgent, etc.).
         """
-        # Default timeouts per agent type (in seconds)
-        # Keys must match agent.name which is typically the class name
+        from src.config.settings import settings
+        
+        # Map agent names to their LLM timeout settings
+        # Orchestrator timeout = 3x LLM timeout (allows for multiple calls + retries + processing)
+        agent_timeout_map = {
+            'TopicDetectionAgent': settings.topic_detection_timeout,
+            'SubTopicDetectionAgent': settings.subtopic_detection_timeout,
+            'QualityInsightsAgent': settings.quality_insights_timeout,
+            'SentimentAgent': settings.sentiment_timeout,
+            'OutputFormatterAgent': settings.output_formatter_timeout,
+            'CorrelationAgent': settings.correlation_timeout,
+            'CrossPlatformCorrelationAgent': settings.correlation_timeout,
+        }
+        
+        # Get agent-level timeout (defaults to llm_timeout_default if not mapped)
+        agent_llm_timeout = agent_timeout_map.get(agent_name, settings.llm_timeout_default)
+        
+        # Orchestrator timeout = 3x agent-level timeout (multiplier provides buffer)
+        orchestrator_timeout = agent_llm_timeout * 3
+        
+        # Fallback defaults for agents without LLM timeouts (non-LLM agents)
         default_timeouts = {
             'DataAgent': 180,                          # 3 minutes for data fetching
             'CategoryAgent': 300,                       # 5 minutes for categorization
-            'SentimentAgent': 300,                      # 5 minutes for sentiment analysis
             'InsightAgent': 300,                        # 5 minutes for insights
             'PresentationAgent': 600,                   # 10 minutes for presentation generation
             'SegmentationAgent': 300,                   # 5 minutes for segmentation
             'TrendAgent': 240,                          # 4 minutes for trends
-            'TopicDetectionAgent': 300,                 # 5 minutes for topic detection
-            'SubTopicDetectionAgent': 300,              # 5 minutes for subtopic detection
             'ExampleExtractionAgent': 240,              # 4 minutes for examples
             'AgentPerformanceAgent': 240,               # 4 minutes for agent performance
             'FinPerformanceAgent': 240,                 # 4 minutes for Fin performance
             'TopicSentimentAgent': 300,                 # 5 minutes for topic sentiment
-            'OutputFormatterAgent': 180,                # 3 minutes for output formatting
-            'CrossPlatformCorrelationAgent': 300,       # 5 minutes for correlation
             'CannyTopicDetectionAgent': 300,            # 5 minutes for Canny topics
         }
-
-        # Try to get from settings/config
-        from src.config.settings import settings
-        if hasattr(settings, 'agent_timeouts'):
-            return settings.agent_timeouts.get(agent_name, default_timeouts.get(agent_name, 300))
-
-        return default_timeouts.get(agent_name, 300)
+        
+        # Use mapped timeout if available, otherwise fallback to defaults
+        if agent_name in agent_timeout_map:
+            return orchestrator_timeout
+        else:
+            return default_timeouts.get(agent_name, 300)
     
     def _save_checkpoint(self, analysis_id: str, agent_name: str, result: Dict[str, Any]):
         """

@@ -12,6 +12,11 @@ from src.config.settings import settings
 logger = logging.getLogger(__name__)
 
 
+class ProviderUnavailableError(Exception):
+    """Raised when LLM provider is unavailable (circuit breaker open)"""
+    pass
+
+
 class OpenAIClient:
     """Client for OpenAI API interactions."""
     
@@ -23,6 +28,17 @@ class OpenAIClient:
         
         self.client = AsyncOpenAI(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize circuit breaker for resilience
+        from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+        self.circuit_breaker = CircuitBreaker(
+            name="openai_api",
+            config=CircuitBreakerConfig(
+                failure_threshold=5,
+                timeout_seconds=60,
+                expected_exceptions=(Exception,)
+            )
+        )
     
     async def test_connection(self) -> bool:
         """Test connection to OpenAI API."""
@@ -57,31 +73,42 @@ class OpenAIClient:
             from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
             import asyncio
             
-            @retry(
-                wait=wait_random_exponential(min=1, max=60),
-                stop=stop_after_attempt(6),
-                retry=retry_if_exception_type((Exception,)),
-                reraise=True
-            )
-            async def _call_with_retry():
-                return await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature
-            )
+            # Wrap API call with circuit breaker
+            from src.utils.circuit_breaker import CircuitBreakerOpenError
             
-            # Execute with timeout (60s for complex analysis)
-            response = await asyncio.wait_for(_call_with_retry(), timeout=60)
+            async def _make_api_call():
+                @retry(
+                    wait=wait_random_exponential(min=1, max=60),
+                    stop=stop_after_attempt(6),
+                    retry=retry_if_exception_type((Exception,)),
+                    reraise=True
+                )
+                async def _call_with_retry():
+                    return await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": "You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature
+                    )
+                
+                # Execute with configurable timeout from settings
+                return await asyncio.wait_for(_call_with_retry(), timeout=settings.llm_client_timeout)
+            
+            # Call through circuit breaker
+            try:
+                response = await self.circuit_breaker.call_async(_make_api_call)
+            except CircuitBreakerOpenError as e:
+                self.logger.error(f"OpenAI API circuit breaker is open: {e}")
+                raise ProviderUnavailableError("OpenAI API circuit breaker is open - service temporarily unavailable") from e
             
             analysis = response.choices[0].message.content
             self.logger.info("AI analysis generated successfully")

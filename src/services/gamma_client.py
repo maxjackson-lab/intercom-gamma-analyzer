@@ -40,17 +40,26 @@ class GammaClient:
         self.base_url = "https://public-api.gamma.app/v1.0"
         self.max_polls = max_polls
         self.poll_interval = poll_interval
-        self.max_total_wait_seconds = max_total_wait_seconds
         self.jitter = jitter
         self.max_5xx_retries = max_5xx_retries
 
-        # Comment 4: Configure httpx timeout with explicit read timeout separate from connect
-        # connect=60s for slow connections, read=30s for regular API responses
-        timeout_seconds = getattr(settings, 'gamma_timeout', 30)
-        self.timeout = httpx.Timeout(timeout_seconds, connect=60.0, read=timeout_seconds)
+        # Configure httpx timeout with explicit read timeout separate from connect
+        # Use configurable timeouts from settings (defaults: 120s request, 240s polling)
+        request_timeout = getattr(settings, 'gamma_request_timeout', settings.gamma_timeout)
+        polling_timeout = getattr(settings, 'gamma_polling_timeout', 240)
         
-        # Comment 4: Longer read timeout for polling endpoints (60-120s)
-        self.polling_timeout = httpx.Timeout(120.0, connect=60.0, read=120.0)
+        # Initial request timeout: connect=60s for slow connections, read=request_timeout
+        self.timeout = httpx.Timeout(request_timeout, connect=60.0, read=request_timeout)
+        
+        # Polling endpoint timeout: Longer read timeout for polling (240s default)
+        self.polling_timeout = httpx.Timeout(polling_timeout, connect=60.0, read=polling_timeout)
+        
+        # Update max_total_wait_seconds to be derived from polling timeout
+        # Allow multiple polling cycles (default: 8 minutes = 480s)
+        # If using default (480s), derive from polling timeout (2x polling timeout)
+        if max_total_wait_seconds == 480:  # Only override if using default
+            max_total_wait_seconds = int(polling_timeout * 2)  # 2x polling timeout
+        self.max_total_wait_seconds = max_total_wait_seconds
         
         # Lazy initialization: Create httpx client on first use
         # This prevents issues during import/initialization

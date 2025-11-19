@@ -17,6 +17,7 @@ from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ class OutputFormatterAgent(BaseAgent):
         # RATE LIMITING: Per Anthropic/OpenAI docs
         # Only 1 LLM call per analysis, but still add protection
         self.llm_semaphore = asyncio.Semaphore(5)  # Lower limit (strategic calls only)
-        self.llm_timeout = 120  # 2 minute timeout (complex reasoning)
+        self.llm_timeout = settings.output_formatter_timeout  # Configurable timeout from settings
     
     def get_agent_specific_instructions(self) -> str:
         """Output formatter instructions"""

@@ -12,6 +12,11 @@ from src.config.settings import settings
 logger = logging.getLogger(__name__)
 
 
+class ProviderUnavailableError(Exception):
+    """Raised when LLM provider is unavailable (circuit breaker open)"""
+    pass
+
+
 class ClaudeClient:
     """Client for Anthropic Claude API interactions."""
     
@@ -28,6 +33,17 @@ class ClaudeClient:
         self.temperature = settings.anthropic_temperature
         self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize circuit breaker for resilience
+        from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+        self.circuit_breaker = CircuitBreaker(
+            name="claude_api",
+            config=CircuitBreakerConfig(
+                failure_threshold=5,
+                timeout_seconds=60,
+                expected_exceptions=(Exception,)
+            )
+        )
         
         model_type = "Haiku 4.5 (processor)" if use_processor_model else "Sonnet 4.5 (intensive)"
         self.logger.info(f"ClaudeClient initialized with {model_type}: {self.model}")
@@ -64,28 +80,39 @@ class ClaudeClient:
             from tenacity import retry, wait_random_exponential, stop_after_attempt, retry_if_exception_type
             import asyncio
             
-            @retry(
-                wait=wait_random_exponential(min=1, max=60),
-                stop=stop_after_attempt(6),
-                retry=retry_if_exception_type((Exception,)),
-                reraise=True
-            )
-            async def _call_with_retry():
-                return await self.client.messages.create(
-                    model=self.model,
-                    max_tokens=self.max_tokens,
-                    temperature=self.temperature,
-                    system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
-                )
+            # Wrap API call with circuit breaker
+            from src.utils.circuit_breaker import CircuitBreakerOpenError
             
-            # Execute with timeout (60s for complex analysis)
-            response = await asyncio.wait_for(_call_with_retry(), timeout=60)
+            async def _make_api_call():
+                @retry(
+                    wait=wait_random_exponential(min=1, max=60),
+                    stop=stop_after_attempt(6),
+                    retry=retry_if_exception_type((Exception,)),
+                    reraise=True
+                )
+                async def _call_with_retry():
+                    return await self.client.messages.create(
+                        model=self.model,
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                        system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ]
+                    )
+                
+                # Execute with configurable timeout from settings
+                return await asyncio.wait_for(_call_with_retry(), timeout=settings.llm_client_timeout)
+            
+            # Call through circuit breaker
+            try:
+                response = await self.circuit_breaker.call_async(_make_api_call)
+            except CircuitBreakerOpenError as e:
+                self.logger.error(f"Claude API circuit breaker is open: {e}")
+                raise ProviderUnavailableError("Claude API circuit breaker is open - service temporarily unavailable") from e
             
             analysis = response.content[0].text
             self.logger.info("Claude analysis generated successfully")

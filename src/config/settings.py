@@ -41,6 +41,20 @@ class Settings(BaseSettings):
     anthropic_max_tokens: int = Field(4000, env="ANTHROPIC_MAX_TOKENS")
     anthropic_temperature: float = Field(0.1, env="ANTHROPIC_TEMPERATURE")
     
+    # LLM Timeout Settings (configurable per agent and client)
+    llm_timeout_default: int = Field(60, env="LLM_TIMEOUT_DEFAULT")  # Default timeout for LLM calls (seconds)
+    llm_client_timeout: int = Field(60, env="LLM_CLIENT_TIMEOUT")  # Client-level timeout for OpenAI/Claude clients
+    topic_detection_timeout: int = Field(60, env="TOPIC_DETECTION_TIMEOUT")  # TopicDetectionAgent timeout
+    subtopic_detection_timeout: int = Field(60, env="SUBTOPIC_DETECTION_TIMEOUT")  # SubTopicDetectionAgent timeout
+    quality_insights_timeout: int = Field(60, env="QUALITY_INSIGHTS_TIMEOUT")  # QualityInsightsAgent timeout
+    sentiment_timeout: int = Field(60, env="SENTIMENT_TIMEOUT")  # SentimentAgent timeout
+    output_formatter_timeout: int = Field(120, env="OUTPUT_FORMATTER_TIMEOUT")  # OutputFormatterAgent timeout (longer for complex reasoning)
+    correlation_timeout: int = Field(60, env="CORRELATION_TIMEOUT")  # CorrelationAgent timeout
+    
+    # LLM Concurrency Settings (provider-specific semaphore limits)
+    openai_concurrency: int = Field(10, env="OPENAI_CONCURRENCY")  # Max concurrent OpenAI requests (default: 10)
+    anthropic_concurrency: int = Field(2, env="ANTHROPIC_CONCURRENCY")  # Max concurrent Anthropic requests (default: 2, Tier 1 limit: 50 RPM)
+    
     # Canny API Settings
     canny_api_key: Optional[str] = Field(None, env="CANNY_API_KEY")
     canny_base_url: str = Field("https://canny.io/api/v1", env="CANNY_BASE_URL")
@@ -83,17 +97,41 @@ class Settings(BaseSettings):
         """
         Get the effective output directory.
         
-        For web executions, uses EXECUTION_OUTPUT_DIR if set.
-        For CLI executions, uses output_directory setting.
+        Canonical path pattern:
+        - Web executions: outputs/executions/<execution_id>/ (via EXECUTION_OUTPUT_DIR)
+        - CLI executions: outputs/ (via output_directory setting)
+        
+        ⚠️  DEPRECATED: Prefer using output_manager.get_output_directory() or 
+        output_manager.get_output_file_path() instead of this property.
+        
+        All human-facing artifacts MUST use output_manager helpers to ensure:
+        - Browser visibility (files saved to execution-specific directories)
+        - Consistent paths across CLI and web executions
+        - Proper handling of Railway persistent volumes
+        
+        This property is kept for backward compatibility but may return bare
+        outputs/ directory in web context, which won't be visible in browser.
         """
         import os
+        import logging
         execution_dir = os.getenv('EXECUTION_OUTPUT_DIR')
+        
+        # Warn if bare outputs/ directory returned in web context
+        if not execution_dir and os.getenv('RAILWAY_ENVIRONMENT'):
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "effective_output_directory returning bare 'outputs/' in web context. "
+                "Files may not be visible in browser. Use output_manager.get_output_file_path() instead."
+            )
+        
         return execution_dir if execution_dir else self.output_directory
     
     # Gamma Settings
     gamma_base_url: str = Field("https://gamma.app/api", env="GAMMA_BASE_URL")
     gamma_default_template: str = Field("presentation", env="GAMMA_DEFAULT_TEMPLATE")
-    gamma_timeout: int = Field(60, env="GAMMA_TIMEOUT")
+    gamma_request_timeout: int = Field(120, env="GAMMA_REQUEST_TIMEOUT")  # Initial request timeout (seconds)
+    gamma_polling_timeout: int = Field(240, env="GAMMA_POLLING_TIMEOUT")  # Polling endpoint timeout (seconds)
+    gamma_timeout: int = Field(120, env="GAMMA_TIMEOUT")  # Legacy: kept for backward compatibility, maps to gamma_request_timeout
 
     # Data Export & PII Settings
     redact_sensitive_outputs: bool = Field(True, env="REDACT_SENSITIVE_OUTPUTS")

@@ -67,15 +67,53 @@ railway run cat /app/outputs/voice_of_customer_*.json > local_file.json
 
 ---
 
-## Finding Your Files
+## Output Locations
 
-### Sample-Mode Files (Should be visible):
+### Canonical Path Pattern
+
+All output files follow a consistent pattern based on execution context:
+
+**Web Executions (Railway/Web UI):**
+```
+outputs/executions/<execution_id>/
+  ├── voice_of_customer_*.md
+  ├── voice_of_customer_*.json
+  ├── voice_of_customer_*.log
+  ├── agent_thinking_*.log
+  ├── agent_metrics_*.json (or agent_thinking_*.observability.json)
+  └── gamma_url_*.txt
+```
+
+**CLI Executions:**
+```
+outputs/
+  ├── voice_of_customer_*.md
+  ├── voice_of_customer_*.json
+  └── ...
+```
+
+**Railway Persistent Volume (if configured):**
+```
+/mnt/persistent/outputs/executions/<execution_id>/
+  └── (same structure as web executions)
+```
+
+### Implementation Details
+
+- **All code MUST use** `output_manager.get_output_file_path(filename)` for human-facing artifacts
+- **Deprecated:** `settings.effective_output_directory` may return bare `outputs/` in web context
+- **Browser visibility:** Files saved to `outputs/executions/<id>/` are automatically visible in Railway Files tab
+- **Execution ID:** Automatically generated per web execution (format: `sample-mode_Last-Week_Nov-13-5-27pm`)
+
+### Finding Your Files
+
+#### Sample-Mode Files (Should be visible):
 ```
 /app/outputs/executions/<execution_id>/sample_mode_*.json
 /app/outputs/executions/<execution_id>/sample_mode_*.log
 ```
 
-### VOC Files (Might be in root, not executions/):
+#### VOC Files (Might be in root, not executions/):
 ```
 /app/outputs/VoC_Report_*.md          ← OLD LOCATION (before fix)
 /app/outputs/VoC_Analysis_*.json      ← OLD LOCATION (before fix)
@@ -93,7 +131,7 @@ All files will be in:
   ├── voice_of_customer_*.json
   ├── voice_of_customer_*.log
   ├── agent_thinking_*.log
-  └── agent_thinking_*.observability.json  ← NEW! Structured data
+  └── agent_metrics_*.json (or agent_thinking_*.observability.json)  ← NEW! Structured data
 ```
 
 **All visible in browser Files tab!**

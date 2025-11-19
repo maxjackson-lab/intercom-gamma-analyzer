@@ -118,14 +118,24 @@ class ChunkedFetcher:
                     max_conversations=max_conversations
                 )
                 
-                self.logger.info(f"✅ Fetched {len(conversations)} conversations")
+                fetch_output_count = len(conversations)
+                self.logger.info(f"✅ Fetched {fetch_output_count} conversations")
                 
                 # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
                 if self.enable_preprocessing and self.preprocessor and conversations:
-                    self.logger.info(f"Preprocessing {len(conversations)} conversations...")
+                    preprocess_input_count = len(conversations)
+                    self.logger.info(f"Preprocessing {preprocess_input_count} conversations...")
                     conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
                         conversations,
                         options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
+                    )
+                    preprocess_output_count = len(conversations)
+                    preprocess_dropped_count = preprocess_input_count - preprocess_output_count
+                    preprocess_pct_kept = (preprocess_output_count / preprocess_input_count * 100) if preprocess_input_count > 0 else 0
+                    
+                    self.logger.info(
+                        f"Preprocessing: {preprocess_input_count} → {preprocess_output_count} valid "
+                        f"({preprocess_pct_kept:.1f}% kept, {preprocess_dropped_count} dropped)"
                     )
                     self.logger.info(
                         f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "

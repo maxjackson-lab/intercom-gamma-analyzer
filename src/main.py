@@ -171,7 +171,8 @@ def standard_flags(
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
 @click.option('--output-dir', default='outputs', help='Output directory for reports')
-def cli(verbose: bool, output_dir: str):
+@click.option('--skip-validation', is_flag=True, help='Skip API key validation on startup (for testing)')
+def cli(verbose: bool, output_dir: str, skip_validation: bool):
     """Intercom to Gamma Analysis Tool - Dual Mode Analysis"""
     setup_logging(verbose)
     settings.output_directory = output_dir
@@ -184,6 +185,34 @@ def cli(verbose: bool, output_dir: str):
         "Dual-mode conversation analysis for Voice of Customer and trend analysis",
         border_style="blue"
     ))
+    
+    # Validate configuration on startup (unless skipped)
+    if not skip_validation:
+        try:
+            from src.services.config_validator import validate_configuration, validate_environment_variables
+            import asyncio
+            
+            # Run async validation
+            validation_results = asyncio.run(validate_configuration())
+            env_results = validate_environment_variables()
+            
+            # Log summary
+            status_icons = []
+            for service, is_valid in validation_results.items():
+                icon = "✅" if is_valid else "❌"
+                status_icons.append(f"{service}: {icon}")
+            
+            console.print(f"[dim]API Keys: {', '.join(status_icons)}[/dim]")
+            
+        except ValueError as e:
+            # Critical API keys missing - fail fast
+            console.print(f"[bold red]❌ Configuration Error: {e}[/bold red]")
+            console.print("[yellow]Fix API keys in environment variables or use --skip-validation to bypass[/yellow]")
+            sys.exit(1)
+        except Exception as e:
+            # Non-critical validation error - warn but continue
+            console.print(f"[yellow]⚠️  Configuration validation warning: {e}[/yellow]")
+            console.print("[dim]Continuing with limited functionality...[/dim]")
 
 
 # DISABLED: This command uses unfinished CLI refactoring - use 'voice-of-customer' instead
@@ -4303,9 +4332,12 @@ def sample_mode(count: int, start_date: Optional[str], end_date: Optional[str],
             logging.getLogger(module).setLevel(logging.DEBUG)
         console.print(f"[yellow]🔍 Verbose Logging: ENABLED[/yellow]\n")
     
-    # Enable agent thinking logger if requested
+    # Always enable metrics-only observability (tracks errors/timeouts without full logging)
+    from src.utils.agent_thinking_logger import AgentThinkingLogger
+    AgentThinkingLogger.enable_metrics_only()
+    
+    # Enable full agent thinking logger if requested (opt-in)
     if show_agent_thinking:
-        from src.utils.agent_thinking_logger import AgentThinkingLogger
         from pathlib import Path
         
         # Create thinking log file
@@ -5259,14 +5291,16 @@ async def run_topic_based_analysis(month: int, year: int, tier1_countries: List[
         console.print(f"📋 Complete log: {log_file.name}")
         console.print(f"[dim]📂 All files saved to execution directory (visible in Files tab!)[/dim]")
         
-        # 🔧 AUTO-EXPORT OBSERVABILITY JSON (if agent thinking was enabled)
+        # 🔧 AUTO-EXPORT OBSERVABILITY JSON (always on - metrics-only or full thinking)
         try:
             from src.utils.agent_thinking_logger import AgentThinkingLogger
             thinking = AgentThinkingLogger.get_logger()
-            if thinking.is_enabled():
+            # Export JSON in both metrics-only and full thinking modes
+            if thinking.is_enabled() or thinking.is_metrics_mode():
                 json_file = thinking.export_json()
                 if json_file:
-                    console.print(f"\n📊 [bold cyan]Observability data exported: {json_file.name}[/bold cyan]")
+                    mode_label = "full thinking" if thinking.is_enabled() else "metrics-only"
+                    console.print(f"\n📊 [bold cyan]Observability data exported ({mode_label}): {json_file.name}[/bold cyan]")
                     console.print(f"[dim]Use scripts/analyze_observability.py to analyze LLM failures[/dim]")
         except Exception as e:
             logger.warning(f"Could not export observability JSON: {e}")

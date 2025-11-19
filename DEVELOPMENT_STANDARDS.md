@@ -520,6 +520,91 @@ chunk_size = 50  # Conversations per batch
 
 **This is process documentation, not runtime behavior.**
 
+## LLM Timeout Configuration
+
+**All LLM timeouts are now configurable via environment variables in `src/config/settings.py`.**
+
+### Agent-Level Timeouts
+
+Each agent has its own configurable timeout:
+
+| Agent | Setting | Default | Environment Variable |
+|-------|---------|---------|---------------------|
+| TopicDetectionAgent | `topic_detection_timeout` | 60s | `TOPIC_DETECTION_TIMEOUT` |
+| SubTopicDetectionAgent | `subtopic_detection_timeout` | 60s | `SUBTOPIC_DETECTION_TIMEOUT` |
+| QualityInsightsAgent | `quality_insights_timeout` | 60s | `QUALITY_INSIGHTS_TIMEOUT` |
+| SentimentAgent | `sentiment_timeout` | 60s | `SENTIMENT_TIMEOUT` |
+| OutputFormatterAgent | `output_formatter_timeout` | 120s | `OUTPUT_FORMATTER_TIMEOUT` |
+| CorrelationAgent | `correlation_timeout` | 60s | `CORRELATION_TIMEOUT` |
+
+### Client-Level Timeouts
+
+LLM clients (OpenAI, Claude) use a shared client-level timeout:
+
+| Client | Setting | Default | Environment Variable |
+|--------|---------|---------|---------------------|
+| OpenAIClient | `llm_client_timeout` | 60s | `LLM_CLIENT_TIMEOUT` |
+| ClaudeClient | `llm_client_timeout` | 60s | `LLM_CLIENT_TIMEOUT` |
+
+### Orchestrator Timeouts
+
+The orchestrator derives timeouts from agent-level timeouts:
+
+**Policy:** Orchestrator timeout = 3× agent-level LLM timeout
+
+This multiplier provides buffer for:
+- Multiple LLM calls per agent execution
+- Retries and exponential backoff
+- Processing overhead between calls
+
+**Example:**
+- `TopicDetectionAgent` timeout: 60s
+- Orchestrator timeout for `TopicDetectionAgent`: 180s (3×60)
+
+### How to Tune Timeouts
+
+**Via Environment Variables (Recommended):**
+
+```bash
+# Set per-agent timeout
+export TOPIC_DETECTION_TIMEOUT=90  # Increase to 90s for slower responses
+
+# Set client-level timeout (affects all agents using that client)
+export LLM_CLIENT_TIMEOUT=90
+
+# Set default timeout (used if agent-specific timeout not set)
+export LLM_TIMEOUT_DEFAULT=60
+```
+
+**Via Code (For Testing):**
+
+```python
+from src.config.settings import settings
+
+# Temporarily override for testing
+settings.topic_detection_timeout = 90
+```
+
+**When to Increase Timeouts:**
+- Seeing frequent `asyncio.TimeoutError` in logs
+- LLM responses are consistently slow (>80% of timeout duration)
+- Processing large batches of conversations
+
+**When to Decrease Timeouts:**
+- Timeouts are too lenient (calls hang for minutes)
+- Want faster failure detection for degraded providers
+- Testing with smaller batches
+
+**Relationship Between Timeouts:**
+- Agent timeout < Client timeout: Agent timeout takes precedence
+- Orchestrator timeout = 3× Agent timeout: Provides buffer for retries
+- All timeouts are independent: Changing one doesn't affect others
+
+**See also:**
+- `src/config/settings.py` - All timeout configuration fields
+- `src/agents/orchestrator.py` - `_get_agent_timeout()` method
+- Error-log-first debugging workflow (below) - How to diagnose timeout issues
+
 ## Error-Log-First Debugging Workflow
 
 **When a run fails, ALWAYS retrieve and analyze logs BEFORE adjusting code or configuration.**

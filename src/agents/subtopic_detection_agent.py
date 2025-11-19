@@ -16,10 +16,11 @@ from datetime import datetime
 from collections import defaultdict
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.utils.ai_client_helper import get_ai_client
+from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
 from src.utils.conversation_utils import extract_conversation_text
 from src.utils.subcategory_mapper import SubcategoryMapper
 from src.config.taxonomy import TaxonomyManager
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,12 +69,12 @@ class SubTopicDetectionAgent(BaseAgent):
         taxonomy_manager = TaxonomyManager()
         self.subcategory_mapper = SubcategoryMapper(taxonomy_manager)
         
-        # RATE LIMITING: Per Anthropic/OpenAI docs
-        # Tier 1: 50 RPM limit → 10 concurrent = safe buffer
+        # RATE LIMITING: Provider-specific concurrency limits
+        # OpenAI: Default 10 concurrent (configurable via OPENAI_CONCURRENCY)
+        # Anthropic: Default 2 concurrent (configurable via ANTHROPIC_CONCURRENCY, Tier 1: 50 RPM)
         # Source: https://docs.anthropic.com/en/api/rate-limits
-        import asyncio
-        self.llm_semaphore = asyncio.Semaphore(10)  # Limit concurrent LLM calls
-        self.llm_timeout = 30  # 30 second timeout per LLM call
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific semaphore
+        self.llm_timeout = settings.subtopic_detection_timeout  # Configurable timeout from settings
         
         # LLM Tier 2 Validation: DEFAULT TRUE - Accuracy over cost
         # LLM validates EVERY Tier 2 subcategory for maximum accuracy

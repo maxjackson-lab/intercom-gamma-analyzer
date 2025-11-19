@@ -42,17 +42,16 @@ class AgentThinkingLogger:
     """
     Singleton logger for capturing agent LLM interactions and reasoning.
     
-    When enabled (via --show-agent-thinking flag), logs:
-    - Prompts sent to LLMs
-    - Responses received
-    - Agent reasoning/decisions
-    - Validation checks
+    Two modes:
+    1. Metrics-only mode (always on): Tracks error/timeout counts without storing full prompts/responses
+    2. Full thinking mode (opt-in via --show-agent-thinking): Logs prompts, responses, and reasoning
     
     Also exports structured JSON for observability/analysis.
     """
     
     _instance = None
-    _enabled = False
+    _enabled = False  # Full thinking logging (opt-in)
+    _metrics_mode = False  # Metrics-only mode (always on)
     _console = Console()
     _log_file = None
     _events = []  # Structured events for JSON export
@@ -77,7 +76,7 @@ class AgentThinkingLogger:
             pacific_now = get_pacific_time()
             
             output_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_file, 'w') as f:
+            with open(output_file, 'w', encoding='utf-8') as f:
                 f.write("="*80 + "\n")
                 f.write("AGENT THINKING LOG\n")
                 f.write(f"Generated: {pacific_now.strftime('%b %d, %Y at %I:%M%p Pacific')}\n")
@@ -93,8 +92,23 @@ class AgentThinkingLogger:
     
     @classmethod
     def is_enabled(cls):
-        """Check if logging is enabled"""
+        """Check if full thinking logging is enabled"""
         return cls._enabled
+    
+    @classmethod
+    def enable_metrics_only(cls):
+        """Enable metrics-only mode (always on for observability)"""
+        cls._metrics_mode = True
+        if cls._instance is None:
+            cls._instance = cls()
+        if not cls._events:  # Only reset if empty
+            cls._events = []
+        logger.debug("Metrics-only observability enabled")
+    
+    @classmethod
+    def is_metrics_mode(cls):
+        """Check if metrics-only mode is active"""
+        return cls._metrics_mode
     
     def log_prompt(
         self, 
@@ -287,51 +301,84 @@ class AgentThinkingLogger:
         error_message: str,
         context: Optional[Dict[str, Any]] = None
     ):
-        """Log error/exception for observability"""
-        if not self._enabled:
-            return
-        
+        """Log error/exception for observability (works in both full and metrics-only mode)"""
         from src.utils.timezone_utils import get_pacific_time
         pacific_now = get_pacific_time()
         timestamp = pacific_now.strftime('%I:%M:%S%p')
         
-        # Console output
-        self._console.print(f"\n[bold red]❌ {agent_name}: ERROR[/bold red]")
-        self._console.print(f"[red]Type: {error_type}[/red]")
-        self._console.print(f"[red]Message: {error_message}[/red]")
+        # Console output (only if full thinking enabled)
+        if self._enabled:
+            self._console.print(f"\n[bold red]❌ {agent_name}: ERROR[/bold red]")
+            self._console.print(f"[red]Type: {error_type}[/red]")
+            self._console.print(f"[red]Message: {error_message}[/red]")
         
-        # Structured JSON event
+        # Structured JSON event (always tracked in metrics mode)
+        if self._enabled or self._metrics_mode:
+            self._events.append({
+                'event_type': 'error',
+                'agent': agent_name,
+                'timestamp': pacific_now.isoformat(),
+                'timestamp_readable': timestamp,
+                'error_type': error_type,  # 'timeout', 'rate_limit', 'validation', 'api_error'
+                'error_message': error_message,
+                'context': context or {},
+                'success': False
+            })
+    
+    def log_error_metrics(
+        self,
+        agent_name: str,
+        error_type: str,
+        error_details: Optional[Dict[str, Any]] = None
+    ):
+        """
+        Log error metrics even when thinking logger disabled.
+        Used for metrics-only observability mode.
+        """
+        if not self._metrics_mode:
+            return
+        
+        from src.utils.timezone_utils import get_pacific_time
+        pacific_now = get_pacific_time()
+        
         self._events.append({
             'event_type': 'error',
             'agent': agent_name,
             'timestamp': pacific_now.isoformat(),
-            'timestamp_readable': timestamp,
-            'error_type': error_type,
-            'error_message': error_message,
-            'context': context or {},
+            'error_type': error_type,  # 'timeout', 'rate_limit', 'validation', 'api_error'
+            'error_details': error_details or {},
             'success': False
         })
     
-    def export_json(self, output_file: Optional[Path] = None) -> Path:
+    def export_json(self, output_file: Optional[Path] = None) -> Optional[Path]:
         """
         Export all events as structured JSON for analysis.
         
+        Works in both full thinking mode and metrics-only mode.
+        In metrics-only mode, exports lightweight metrics file.
+        
         Returns:
-            Path to exported JSON file
+            Path to exported JSON file, or None if no events
         """
         if not self._events:
-            logger.warning("No events to export")
+            logger.debug("No events to export")
             return None
         
         if output_file is None:
-            # Auto-generate filename based on log file
+            # Auto-generate filename based on mode
+            from src.utils.output_manager import get_output_file_path
+            from src.utils.timezone_utils import get_pacific_time
+            pacific_now = get_pacific_time()
+            timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")
+            
             if self._log_file:
+                # Full thinking mode: use log file name
                 output_file = self._log_file.with_suffix('.observability.json')
+            elif self._metrics_mode:
+                # Metrics-only mode: lightweight filename
+                output_file = get_output_file_path(f"agent_metrics_{timestamp}.json")
             else:
-                from src.utils.output_manager import get_output_file_path
-                from src.utils.timezone_utils import get_pacific_time
-                pacific_now = get_pacific_time()
-                timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")
+                # Fallback
                 output_file = get_output_file_path(f"agent_observability_{timestamp}.json")
         
         # Export summary statistics
@@ -357,6 +404,7 @@ class AgentThinkingLogger:
             'metadata': {
                 'exported_at': datetime.now().isoformat(),
                 'total_events': len(self._events),
+                'mode': 'full_thinking' if self._enabled else 'metrics_only',
                 'log_file': str(self._log_file) if self._log_file else None
             },
             'summary': summary,
@@ -364,8 +412,8 @@ class AgentThinkingLogger:
         }
         
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_file, 'w') as f:
-            json.dump(export_data, f, indent=2, default=str)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, indent=2, default=str, ensure_ascii=False)
         
         logger.info(f"Exported {len(self._events)} events to {output_file}")
         return output_file
