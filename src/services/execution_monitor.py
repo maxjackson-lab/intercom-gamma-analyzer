@@ -417,9 +417,6 @@ class ExecutionMonitor:
         agent_name: str, 
         status: AgentStatus,
         message: str = "",
-        confidence: Optional[float] = None,
-        token_usage: Optional[Dict[str, int]] = None,
-        cost: Optional[float] = None,
         **kwargs
     ):
         """
@@ -454,12 +451,6 @@ class ExecutionMonitor:
                 agent_exec.duration_seconds = (agent_exec.completed_at - agent_exec.started_at).total_seconds()
         
         # Update additional fields
-        if confidence is not None:
-            agent_exec.confidence = confidence
-        if token_usage:
-            agent_exec.token_usage.update(token_usage)
-        if cost is not None:
-            agent_exec.cost = cost
         for key, value in kwargs.items():
             if hasattr(agent_exec, key):
                 setattr(agent_exec, key, value)

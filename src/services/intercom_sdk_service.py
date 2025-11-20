@@ -143,8 +143,7 @@ class IntercomSDKService:
         start_date: datetime, 
         end_date: datetime,
         max_conversations: Optional[int] = None,
-        request_options: Optional[Dict] = None,
-        max_pages: Optional[int] = None
+        request_options: Optional[Dict] = None
     ) -> List[Dict]:
         """
         Fetch conversations within a date range with automatic pagination.
@@ -160,7 +159,6 @@ class IntercomSDKService:
             end_date: End of date range (inclusive)
             max_conversations: Optional limit on number of conversations to fetch
             request_options: Optional dict for SDK request options (e.g., {'max_retries': 3, 'timeout': 60})
-            max_pages: Deprecated alias for limiting data (each page ≈ 50 conversations)
             
         Returns:
             List of conversation dictionaries with enriched contact details
@@ -193,13 +191,6 @@ class IntercomSDKService:
             per_page=50,  # 50 is optimal per Intercom docs
             starting_after=None
         )
-        if max_pages:
-            approx_limit = max_pages * pagination.per_page
-            if not max_conversations or approx_limit < max_conversations:
-                self.logger.info(
-                    f"Applying legacy max_pages limit ({max_pages} pages ≈ {approx_limit} conversations)"
-                )
-                max_conversations = approx_limit
         
         try:
             # Provide sane defaults for SDK request options (timeouts + retries)

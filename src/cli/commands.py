@@ -403,7 +403,7 @@ async def voice_of_customer(
     elif analysis_type == 'synthesis':
         return await run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail)
     else:  # complete
-        return await run_complete_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail, digest_mode=False)
+        return await run_complete_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail)
 
 
 async def canny_analysis(

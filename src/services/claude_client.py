@@ -63,13 +63,7 @@ class ClaudeClient:
             self.logger.error(f"Claude API connection failed: {e}")
             raise
     
-    async def generate_analysis(
-        self,
-        prompt: str,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        **kwargs
-    ) -> str:
+    async def generate_analysis(self, prompt: str, **kwargs) -> str:
         """
         Generate analysis using Claude with retry + timeout.
         
@@ -98,9 +92,9 @@ class ClaudeClient:
                 )
                 async def _call_with_retry():
                     return await self.client.messages.create(
-                        model=model or self.model,
+                        model=self.model,
                         max_tokens=self.max_tokens,
-                        temperature=temperature if temperature is not None else self.temperature,
+                        temperature=self.temperature,
                         system="You are an expert data analyst specializing in customer support analytics. You provide clear, actionable insights based on conversation data.",
                         messages=[
                             {

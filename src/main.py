@@ -4534,8 +4534,6 @@ async def run_test_topic_based(conversations):
 @click.option('--llm-topic-detection', is_flag=True, default=True,
               help='🤖 LLM-first topic detection (DEFAULT: ON for accuracy - use --no-llm-topic-detection to disable)')
 @click.option('--output-dir', default='outputs', help='Output directory')
-@click.option('--digest-mode', is_flag=True, default=False,
-             help='Digest mode: executive summary, topic cards, prioritized actions only')
 def voice_of_customer_analysis(
     time_period: Optional[str],
     periods_back: int,
@@ -4555,8 +4553,7 @@ def voice_of_customer_analysis(
     multi_agent: bool,
     analysis_type: str,
     audit_trail: bool,
-    output_dir: str,
-    digest_mode: bool
+    output_dir: str
 ):
     """
     Generate Voice of Customer sentiment analysis.
@@ -4673,25 +4670,11 @@ def voice_of_customer_analysis(
     start_dt, end_dt = get_date_range_pacific(start_date, end_date)
     
     if analysis_type == 'topic-based':
-        asyncio.run(run_topic_based_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            test_mode,
-            test_data_count_int,
-            audit_trail,
-            digest_mode=digest_mode
-        ))
+        asyncio.run(run_topic_based_analysis_custom(start_dt, end_dt, generate_gamma, test_mode, test_data_count_int, audit_trail))
     elif analysis_type == 'synthesis':
         asyncio.run(run_synthesis_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail))
     else:  # complete
-        asyncio.run(run_complete_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            audit_trail,
-            digest_mode=digest_mode
-        ))
+        asyncio.run(run_complete_analysis_custom(start_dt, end_dt, generate_gamma, audit_trail))
 
 
 @cli.command(name='agent-performance')
@@ -4933,8 +4916,7 @@ async def run_topic_based_analysis_custom(
     generate_gamma: bool,
     test_mode: bool = False,
     test_data_count: str = "100",
-    audit_trail: bool = False,
-    digest_mode: bool = False
+    audit_trail: bool = False
 ):
     """Run topic-based analysis with custom date range"""
     try:
@@ -5044,8 +5026,7 @@ async def run_topic_based_analysis_custom(
             start_date=start_date,
             end_date=end_date,
             period_type=period_type,
-            period_label=period_label,
-            digest_mode=digest_mode
+            period_label=period_label
         )
         
         # Save output
@@ -5196,21 +5177,9 @@ async def run_synthesis_analysis_custom(start_date: datetime, end_date: datetime
     console.print(f"📁 Results saved: {results_file}")
 
 
-async def run_complete_analysis_custom(
-    start_date: datetime,
-    end_date: datetime,
-    generate_gamma: bool,
-    audit_trail: bool = False,
-    digest_mode: bool = False
-):
+async def run_complete_analysis_custom(start_date: datetime, end_date: datetime, generate_gamma: bool, audit_trail: bool = False):
     """Run both analyses"""
-    await run_topic_based_analysis_custom(
-        start_date,
-        end_date,
-        generate_gamma,
-        audit_trail=audit_trail,
-        digest_mode=digest_mode
-    )
+    await run_topic_based_analysis_custom(start_date, end_date, generate_gamma, audit_trail=audit_trail)
     console.print("\n" + "="*80 + "\n")
     await run_synthesis_analysis_custom(start_date, end_date, generate_gamma, audit_trail)
     console.print("\n🎉 Complete analysis finished!")

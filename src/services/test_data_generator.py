@@ -11,7 +11,7 @@ realistic volume testing.
 import logging
 import random
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
@@ -162,8 +162,7 @@ class TestDataGenerator:
         start_date: datetime = None,
         end_date: datetime = None,
         include_free_tier: bool = True,
-        include_paid_tier: bool = True,
-        agent_filter: Optional[str] = None
+        include_paid_tier: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Generate realistic test conversations.
@@ -186,18 +185,11 @@ class TestDataGenerator:
         
         self.logger.info(f"🧪 Generating {count} test conversations")
         self.logger.info(f"   Date range: {start_date.date()} to {end_date.date()}")
-        if agent_filter:
-            self.logger.info(f"   Agent filter: {agent_filter}")
         
         conversations = []
         date_range_seconds = int((end_date - start_date).total_seconds())
-        normalized_filter = agent_filter.lower() if agent_filter else None
-        max_attempts = count * 5 if normalized_filter else count
-        attempts = 0
         
-        while len(conversations) < count and attempts < max_attempts:
-            attempts += 1
-            i = attempts  # Use attempt count for deterministic IDs
+        for i in range(count):
             # Determine tier
             tier = self._select_random_tier()
             
@@ -238,18 +230,7 @@ class TestDataGenerator:
                         index=i
                     )
             
-            # Apply optional agent/vendor filter
-            if normalized_filter and not self._matches_agent_filter(conv, normalized_filter):
-                continue
-            
             conversations.append(conv)
-        
-        if normalized_filter and len(conversations) < count:
-            self.logger.warning(
-                f"Requested {count} conversations for agent '{agent_filter}' "
-                f"but only generated {len(conversations)} after {attempts} attempts. "
-                "Consider relaxing filters or increasing include_paid_tier/include_free_tier options."
-            )
         
         self.logger.info(f"   ✅ Generated {len(conversations)} conversations")
         self._log_distribution(conversations)
@@ -408,8 +389,7 @@ class TestDataGenerator:
                 ]
             },
             # Add tier info for segmentation (top-level field expected by SegmentationAgent)
-            'tier': tier,
-            '_test_agent_type': 'fin_ai'
+            'tier': tier
         }
     
     def _create_human_conversation(
@@ -541,20 +521,6 @@ class TestDataGenerator:
             'tier': tier,
             '_test_agent_type': agent_type
         }
-    
-    def _matches_agent_filter(self, conversation: Dict[str, Any], agent_filter: str) -> bool:
-        """Check if generated conversation matches requested agent filter."""
-        agent_type = conversation.get('_test_agent_type')
-        
-        if agent_filter in ('horatio', 'boldr', 'escalated'):
-            return agent_type == agent_filter
-        if agent_filter in ('fin', 'fin_ai', 'ai', 'support_sal'):
-            return agent_type == 'fin_ai'
-        if agent_filter in ('all', 'any', 'team'):
-            return True
-        
-        # Unknown filters default to including the conversation
-        return True
     
     def _log_distribution(self, conversations: List[Dict]) -> None:
         """Log the distribution of generated conversations."""

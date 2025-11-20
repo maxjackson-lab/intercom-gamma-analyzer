@@ -104,13 +104,3 @@ def get_date_range_pacific(start_date_str: str, end_date_str: str) -> tuple[date
     
     return start_dt, end_dt
 
-
-def get_pacific_time() -> datetime:
-    """
-    Get the current datetime in Pacific Time.
-    
-    Returns:
-        Timezone-aware datetime in Pacific Time
-    """
-    return datetime.now(PACIFIC_TZ)
-

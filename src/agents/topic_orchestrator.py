@@ -195,8 +195,7 @@ class TopicOrchestrator:
         period_type: str = None,
         period_label: str = None,
         canny_posts: List[Dict] = None,
-        ai_model: AIModel = AIModel.OPENAI_GPT4,
-        digest_mode: bool = False
+        ai_model: AIModel = AIModel.OPENAI_GPT4
     ) -> Dict[str, Any]:
         """
         Execute complete weekly VoC analysis with optional Canny integration.
@@ -237,8 +236,7 @@ class TopicOrchestrator:
             metadata={
                 'week_id': week_id,
                 'period_type': period_type,
-                'period_label': period_label,
-                'digest_mode': digest_mode
+                'period_label': period_label
             }
         )
         
@@ -1141,7 +1139,6 @@ class TopicOrchestrator:
                 'period_label': period_label,
                 'period_start': context.period_start if hasattr(context, 'period_start') else None,
                 'period_end': context.period_end if hasattr(context, 'period_end') else None,
-                'digest_mode': digest_mode,
                 'formatted_report': formatter_result.data.get('formatted_output', ''),
                 'summary': {
                     'total_conversations': len(conversations),

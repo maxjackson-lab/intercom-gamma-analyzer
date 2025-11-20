@@ -377,41 +377,21 @@ def create_safe_command_translation(
     explanation: str,
     command: Optional[str] = None,
     args: Optional[List[str]] = None,
-    *,
-    dangerous: bool = False,
-    confirmation_required: bool = False,
-    risk_score: float = 0.0,
-    confidence: float = 1.0,
-    warnings: Optional[List[str]] = None,
-    suggestions: Optional[List[str]] = None,
-    model_used: Optional[ModelType] = None,
-    processing_time_ms: Optional[int] = None,
-    cache_hit: bool = False,
-    **extra_fields
+    **kwargs
 ) -> CommandTranslation:
     """Create a safe command translation with validation."""
-    translation = CommandTranslation(
+    return CommandTranslation(
         action=action,
         command=command,
         args=args or [],
         explanation=explanation,
-        dangerous=dangerous,
-        confirmation_required=confirmation_required,
-        risk_score=risk_score,
-        confidence=confidence,
-        warnings=warnings or [],
-        suggestions=suggestions or [],
-        model_used=model_used,
-        processing_time_ms=processing_time_ms,
-        cache_hit=cache_hit
+        dangerous=kwargs.get("dangerous", False),
+        confirmation_required=kwargs.get("confirmation_required", False),
+        risk_score=kwargs.get("risk_score", 0.0),
+        confidence=kwargs.get("confidence", 1.0),
+        warnings=kwargs.get("warnings", []),
+        suggestions=kwargs.get("suggestions", [])
     )
-    
-    # Preserve backwards compatibility for any extra known fields
-    for key, value in extra_fields.items():
-        if hasattr(translation, key):
-            setattr(translation, key, value)
-    
-    return translation
 
 
 class IntentType(Enum):
