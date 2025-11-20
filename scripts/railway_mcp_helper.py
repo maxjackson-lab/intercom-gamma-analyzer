@@ -17,14 +17,26 @@ Usage:
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Optional, List, Dict
 from datetime import datetime
 
 
-def get_latest_execution_dir(base_path: Path = Path("/app/outputs/executions")) -> Optional[Path]:
+def get_outputs_base_path() -> Path:
+    """Resolve the correct outputs base path, honoring Railway persistent volumes."""
+    volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH")
+    if volume_path:
+        return Path(volume_path) / "outputs"
+    return Path("/app/outputs")
+
+
+def get_latest_execution_dir(base_path: Optional[Path] = None) -> Optional[Path]:
     """Get the most recent execution directory."""
+    if base_path is None:
+        base_path = get_outputs_base_path() / "executions"
+    
     if not base_path.exists():
         return None
     
@@ -89,7 +101,7 @@ def main():
     command = sys.argv[1]
     
     if command == "list-files":
-        base_path = Path("/app/outputs/executions")
+        base_path = get_outputs_base_path() / "executions"
         latest_dir = get_latest_execution_dir(base_path)
         
         if not latest_dir:
@@ -108,7 +120,7 @@ def main():
             print(f"     Modified: {file_info['modified']}\n")
     
     elif command == "read-latest":
-        base_path = Path("/app/outputs/executions")
+        base_path = get_outputs_base_path() / "executions"
         latest_dir = get_latest_execution_dir(base_path)
         
         if not latest_dir:
@@ -157,7 +169,7 @@ def main():
         # Handle relative paths
         if not file_path.is_absolute():
             # Try in outputs directory
-            file_path = Path("/app/outputs") / file_path
+            file_path = get_outputs_base_path() / file_path
         
         try:
             if file_path.suffix == '.json':

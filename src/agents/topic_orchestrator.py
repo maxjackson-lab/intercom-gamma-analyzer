@@ -580,7 +580,15 @@ class TopicOrchestrator:
             conversations_by_topic_full = {}
             topics_by_conv_id = topic_detection_result.data.get('topics_by_conversation', {})
             
-            for conv in paid_conversations:
+            # IMPORTANT: Use the full conversation set (not just paid tier) so topic analysis
+            # reflects all customer data. Using only paid conversations caused sampling gaps,
+            # especially for free-tier heavy topics, which led to "only 10 of N" limitations.
+            source_conversations = conversations or []
+            if not source_conversations:
+                # Fallback to paid conversations if for some reason the master list is empty
+                source_conversations = paid_conversations
+            
+            for conv in source_conversations:
                 conv_id = conv.get('id')
                 topics_for_conv = topics_by_conv_id.get(conv_id, [])
                 
