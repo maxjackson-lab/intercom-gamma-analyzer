@@ -59,7 +59,13 @@ class OpenAIClient:
             self.logger.error(f"OpenAI API connection failed: {e}")
             raise
     
-    async def generate_analysis(self, prompt: str) -> str:
+    async def generate_analysis(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        **_: Any
+    ) -> str:
         """
         Generate analysis using OpenAI with retry + timeout.
         
@@ -85,7 +91,7 @@ class OpenAIClient:
                 )
                 async def _call_with_retry():
                     return await self.client.chat.completions.create(
-                        model=self.model,
+                        model=model or self.model,
                         messages=[
                             {
                                 "role": "system",
@@ -97,7 +103,7 @@ class OpenAIClient:
                             }
                         ],
                         max_tokens=self.max_tokens,
-                        temperature=self.temperature
+                        temperature=temperature if temperature is not None else self.temperature
                     )
                 
                 # Execute with configurable timeout from settings
@@ -247,9 +253,24 @@ class OpenAIClient:
             self.logger.error(f"Failed to generate recommendations: {e}")
             raise
     
-    async def analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Analyze sentiment of customer feedback (legacy method)."""
-        return await self.analyze_sentiment_multilingual(text, language=None)
+    async def analyze_sentiment(
+        self,
+        text: str,
+        language: Optional[str] = None,
+        model: Optional[str] = None,
+        fallback: bool = False,
+        **_: Any
+    ) -> Dict[str, Any]:
+        """
+        Analyze sentiment of customer feedback (legacy compatibility helper).
+        
+        Accepts the newer factory signature but simply forwards to the multilingual
+        implementation since model selection is handled upstream.
+        """
+        return await self.analyze_sentiment_multilingual(
+            text,
+            language=language
+        )
     
     async def analyze_sentiment_multilingual(
         self, 

@@ -1013,7 +1013,8 @@ async def run_complete_analysis_custom(
     start_dt: datetime,
     end_dt: datetime,
     generate_gamma: bool,
-    audit_trail: bool
+    audit_trail: bool,
+    digest_mode: bool = False
 ) -> Dict[str, Any]:
     """Run custom complete analysis."""
     console.print("[yellow]Custom complete analysis not yet implemented in CLI module[/yellow]")

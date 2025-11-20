@@ -65,10 +65,18 @@ class ExecutionStateManager:
     - Cancellation signal tracking
     """
     
-    def __init__(self, max_concurrent: int = 5, max_queue_size: int = 20, persistence_dir: str = "/app/outputs/jobs"):
+    def __init__(
+        self,
+        max_concurrent: int = 5,
+        max_queue_size: int = 20,
+        persistence_dir: Optional[str] = None,
+        outputs_base_path: Optional[str] = None
+    ):
         self.max_concurrent = max_concurrent
         self.max_queue_size = max_queue_size
-        self.persistence_dir = Path(persistence_dir)
+        self.outputs_base_path = Path(outputs_base_path) if outputs_base_path else Path("/app/outputs")
+        self.outputs_base_path.mkdir(parents=True, exist_ok=True)
+        self.persistence_dir = Path(persistence_dir) if persistence_dir else self.outputs_base_path / "jobs"
         self.logger = logging.getLogger(self.__class__.__name__)
         
         # Create persistence directory
@@ -142,7 +150,15 @@ class ExecutionStateManager:
             self.logger.info(f"Created execution {execution_id} (queue position: {execution.queue_position})")
             return execution
     
-    async def start_execution(self, execution_id: str) -> bool:
+    async def start_execution(
+        self,
+        execution_id: str,
+        command: Optional[str] = None,
+        args: Optional[List[str]] = None,
+        date_range: Optional[Dict[str, Any]] = None,
+        conversations_count: Optional[int] = None,
+        **_: Any
+    ) -> bool:
         """
         Move an execution from queue to active.
         
@@ -168,6 +184,14 @@ class ExecutionStateManager:
             
             # Update execution state
             execution = self._executions[execution_id]
+            if command:
+                execution.command = command
+            if args:
+                execution.args = args
+            if date_range:
+                execution.date_range = date_range
+            if conversations_count is not None:
+                execution.conversations_count = conversations_count
             execution.status = ExecutionStatus.STARTING
             execution.queue_position = None
             
@@ -384,7 +408,7 @@ class ExecutionStateManager:
                 if cleanup_files:
                     # Delete all tracked output files
                     for filename in state.output_files:
-                        filepath = Path("/app/outputs") / filename
+                        filepath = self.outputs_base_path / filename
                         if filepath.exists():
                             try:
                                 filepath.unlink()
@@ -396,7 +420,7 @@ class ExecutionStateManager:
                     # Delete audit files (if not already in output_files)
                     for filename in state.audit_files:
                         if filename not in state.output_files:
-                            filepath = Path("/app/outputs") / filename
+                            filepath = self.outputs_base_path / filename
                             if filepath.exists():
                                 try:
                                     filepath.unlink()
