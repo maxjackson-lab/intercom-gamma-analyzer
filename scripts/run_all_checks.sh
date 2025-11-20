@@ -137,6 +137,10 @@ run_check "P0" "Pydantic Model Instantiation" \
     "scripts/check_pydantic_instantiations.py" \
     "Validates Pydantic models are created with required fields"
 
+run_check "P0" "Frontend UI Completeness" \
+    "scripts/check_frontend_ui_completeness.py" \
+    "Validates UI controls map to Railway flags (all 4 layers)"
+
 # P1 Checks (High Impact - Run unless --p0)
 if [ "$CHECK_LEVEL" != "p0" ]; then
     echo ""
