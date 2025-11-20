@@ -33,8 +33,18 @@ def check_cli_railway_alignment():
         print("   (This is OK if FastAPI deps not installed)")
         return True
     
+    # Import WebCommandExecutor to check its hardcoded schema
+    try:
+        from src.services.web_command_executor import WebCommandExecutor
+        executor_schema = WebCommandExecutor.COMMAND_SCHEMAS.get('python', {})
+        executor_allowed_flags = executor_schema.get('allowed_flags', set())
+    except Exception as e:
+        print(f"⚠️  Could not load WebCommandExecutor: {e}")
+        executor_allowed_flags = None
+    
     errors = []
     warnings = []
+    executor_errors = []
     
     # Map CLI command names to Railway keys
     cli_to_railway = {
@@ -63,7 +73,7 @@ def check_cli_railway_alignment():
         railway_flags = set(CANONICAL_COMMAND_MAPPINGS[railway_key]['allowed_flags'].keys())
         railway_flags = {f.replace('--', '') for f in railway_flags}
         
-        # Compare
+        # Compare CLI ↔ Railway
         cli_only = cli_params - railway_flags
         railway_only = railway_flags - cli_params
         
@@ -71,15 +81,29 @@ def check_cli_railway_alignment():
             errors.append(f"❌ {cli_name}: CLI has {cli_only} but Railway doesn't")
         if railway_only:
             errors.append(f"❌ {cli_name}: Railway has {railway_only} but CLI doesn't")
+        
+        # NEW: Check WebCommandExecutor alignment (Layer 3)
+        if executor_allowed_flags is not None:
+            # Extract flag names from Railway canonical (with -- prefix)
+            railway_flags_with_prefix = set(CANONICAL_COMMAND_MAPPINGS[railway_key]['allowed_flags'].keys())
+            
+            # Check if Railway flags exist in executor whitelist
+            executor_missing = railway_flags_with_prefix - executor_allowed_flags
+            if executor_missing:
+                executor_errors.append(
+                    f"❌ {cli_name}: Railway canonical has {executor_missing} but WebCommandExecutor.COMMAND_SCHEMAS doesn't"
+                )
     
     # Print results
-    if errors:
+    if errors or executor_errors:
         print("=" * 80)
         print("❌ CLI ↔ RAILWAY ALIGNMENT ERRORS FOUND")
         print("=" * 80)
         for error in errors:
             print(f"  {error}")
-        print("\nFIX: Update both CLI and Railway to match")
+        for error in executor_errors:
+            print(f"  {error}")
+        print("\nFIX: Update CLI, Railway canonical mappings, AND WebCommandExecutor.COMMAND_SCHEMAS")
         print("See: CLI_WEB_ALIGNMENT_CHECKLIST.md")
         return False
     
@@ -96,6 +120,13 @@ def check_cli_railway_alignment():
     print("=" * 80)
     print(f"Checked {len(cli_to_railway)} commands")
     print("All flags properly aligned!\n")
+    
+    if executor_allowed_flags is not None:
+        print("✅ WebCommandExecutor whitelist also verified")
+    else:
+        print("⚠️  WebCommandExecutor check skipped (module not loaded)")
+    print()
+    
     return True
 
 
