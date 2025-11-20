@@ -9,10 +9,10 @@ import json
 import asyncio
 import logging
 import signal
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any
-from functools import wraps
+from typing import Dict, Any, List, Optional
+from functools import wraps, lru_cache
 from collections import defaultdict
 import time
 
@@ -32,13 +32,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _default_get_pacific_time() -> datetime:
+    return datetime.now()
+
+
+def _default_datetime_to_pacific(dt: datetime) -> datetime:
+    return dt
+
+
+try:
+    from src.utils.timezone_utils import get_pacific_time, datetime_to_pacific  # type: ignore
+except Exception:
+    logger.warning("timezone_utils not available; falling back to naive timestamps")
+    get_pacific_time = _default_get_pacific_time
+    datetime_to_pacific = _default_datetime_to_pacific
+
 # Read version information from environment
 APP_VERSION = os.getenv('APP_VERSION', 'dev')
 GIT_COMMIT = os.getenv('GIT_COMMIT', 'unknown')
 BUILD_DATE = os.getenv('BUILD_DATE', datetime.now().isoformat())
 
-# Track application start time for uptime calculation
-app_start_time = datetime.now()
+# Track application start time for uptime calculation (Pacific time)
+app_start_time = get_pacific_time()
 
 # Log version info on startup
 logger.info(f"Application Version: {APP_VERSION}")
@@ -80,7 +96,6 @@ try:
 except ImportError:
     HAS_FASTAPI = False
 
-# Import with absolute paths to avoid relative import issues
 try:
     from src.chat.chat_interface import ChatInterface
     from src.config.settings import Settings
@@ -93,6 +108,49 @@ except ImportError as e:
     logger.error(f"❌ Chat dependencies import failed: {e}")
     logger.warning("   This is likely due to missing heavy dependencies (sentence-transformers, faiss-cpu)")
     logger.warning("   The web interface will still work, but chat features will be limited")
+
+# ============================================================================
+# OUTPUT PATH & TIME HELPERS
+# ============================================================================
+
+@lru_cache(maxsize=1)
+def _primary_outputs_path() -> Path:
+    """Return the preferred base outputs directory (volume if available)."""
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+    base_path = Path(volume_path) / "outputs" if volume_path else Path("/app/outputs")
+    base_path.mkdir(parents=True, exist_ok=True)
+    return base_path
+
+
+@lru_cache(maxsize=1)
+def _all_output_paths() -> tuple[Path, ...]:
+    """Return all output directories to scan (volume first, then container)."""
+    paths: List[Path] = []
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+    if volume_path:
+        volume_outputs = Path(volume_path) / "outputs"
+        volume_outputs.mkdir(parents=True, exist_ok=True)
+        paths.append(volume_outputs)
+    container_outputs = Path("/app/outputs")
+    container_outputs.mkdir(parents=True, exist_ok=True)
+    if container_outputs not in paths:
+        paths.append(container_outputs)
+    return tuple(paths)
+
+
+def _get_execution_base_path() -> Path:
+    """Ensure the executions directory exists and return it."""
+    base = _primary_outputs_path() / "executions"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def _format_pacific_timestamp_from_epoch(epoch_seconds: float) -> str:
+    """Convert an epoch timestamp to ISO Pacific time."""
+    utc_dt = datetime.fromtimestamp(epoch_seconds, tz=timezone.utc)
+    pacific_dt = datetime_to_pacific(utc_dt)
+    return pacific_dt.isoformat()
+
 
 # ============================================================================
 # SECURITY: Rate Limiting and Request Tracking
@@ -476,6 +534,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': True,
                 'description': 'Separate feedback by agent type (Finn, Boldr, Horatio, etc.)'
+            },
+            '--digest-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Concise narrative (executive summary + topic cards + prioritized actions)'
             }
         },
         'estimated_duration': '10-30 minutes'
@@ -510,21 +573,15 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'default': False,
                 'description': 'Include per-agent metrics and taxonomy breakdown'
             },
+            '--focus-categories': {
+                'type': 'string',
+                'description': 'Comma-separated categories to focus on (e.g., "Bug,API")'
+            },
             '--output-format': {
                 'type': 'enum',
                 'values': ['markdown', 'json', 'excel', 'gamma'],
                 'default': 'markdown',
                 'description': 'Output format for results'
-            },
-            '--gamma-export': {
-                'type': 'enum',
-                'values': ['pdf', 'pptx'],
-                'description': 'Gamma export format (when output-format=gamma)'
-            },
-            '--output-dir': {
-                'type': 'string',
-                'default': 'outputs',
-                'description': 'Output directory for files'
             },
             '--test-mode': {
                 'type': 'boolean',
@@ -535,6 +592,16 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'string',
                 'default': '100',
                 'description': 'Test data count (tiny, micro, small, medium, large, xlarge, xxlarge, or number)'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation output'
+            },
+            '--analyze-troubleshooting': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable AI-powered troubleshooting deep dive'
             },
             '--audit-trail': {
                 'type': 'boolean',
@@ -551,10 +618,6 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['openai', 'claude'],
                 'default': 'openai',
                 'description': 'AI model to use (ChatGPT or Claude)'
-            },
-            '--filter-category': {
-                'type': 'string',
-                'description': 'Filter by taxonomy category (focus area)'
             },
             '--start-date': {
                 'type': 'date',
@@ -671,6 +734,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period for analysis'
             },
+            '--days': {
+                'type': 'integer',
+                'default': 30,
+                'description': 'Deprecated fallback for number of rolling days to analyze'
+            },
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
@@ -721,6 +789,10 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--filter-category': {
                 'type': 'string',
                 'description': 'Filter by taxonomy category'
+            },
+            '--max-pages': {
+                'type': 'integer',
+                'description': 'Maximum pages to fetch (testing)'
             },
             '--start-date': {
                 'type': 'date',
@@ -746,6 +818,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period for analysis'
             },
+            '--days': {
+                'type': 'integer',
+                'default': 30,
+                'description': 'Deprecated fallback for number of days to analyze'
+            },
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
@@ -796,6 +873,10 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--filter-category': {
                 'type': 'string',
                 'description': 'Filter by taxonomy category'
+            },
+            '--max-pages': {
+                'type': 'integer',
+                'description': 'Maximum pages to fetch (testing)'
             },
             '--start-date': {
                 'type': 'date',
@@ -821,6 +902,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period for analysis'
             },
+            '--days': {
+                'type': 'integer',
+                'default': 30,
+                'description': 'Deprecated fallback for number of days to analyze'
+            },
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
@@ -871,6 +957,10 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--filter-category': {
                 'type': 'string',
                 'description': 'Filter by taxonomy category'
+            },
+            '--max-pages': {
+                'type': 'integer',
+                'description': 'Maximum pages to fetch (testing)'
             },
             '--start-date': {
                 'type': 'date',
@@ -896,6 +986,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period for analysis'
             },
+            '--days': {
+                'type': 'integer',
+                'default': 30,
+                'description': 'Deprecated fallback for number of days to analyze'
+            },
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
@@ -946,6 +1041,10 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--filter-category': {
                 'type': 'string',
                 'description': 'Filter by taxonomy category'
+            },
+            '--max-pages': {
+                'type': 'integer',
+                'description': 'Maximum pages to fetch (testing)'
             },
             '--start-date': {
                 'type': 'date',
@@ -971,6 +1070,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period for analysis'
             },
+            '--days': {
+                'type': 'integer',
+                'default': 30,
+                'description': 'Deprecated fallback for number of days to analyze'
+            },
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
@@ -1021,6 +1125,10 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--filter-category': {
                 'type': 'string',
                 'description': 'Filter by taxonomy category'
+            },
+            '--max-pages': {
+                'type': 'integer',
+                'description': 'Maximum pages to fetch (testing)'
             },
             '--start-date': {
                 'type': 'date',
@@ -1196,6 +1304,10 @@ CANONICAL_COMMAND_MAPPINGS = {
         'estimated_duration': '5-15 minutes'
     }
 }
+
+# Legacy aliases used by older web/CLI integrations
+CANONICAL_COMMAND_MAPPINGS['agent_performance_team'] = CANONICAL_COMMAND_MAPPINGS['agent_performance']
+CANONICAL_COMMAND_MAPPINGS['tech_analysis'] = CANONICAL_COMMAND_MAPPINGS['tech_troubleshooting']
 def validate_command_request(analysis_type: str, flags: Dict[str, Any]) -> tuple[bool, str]:
     """
     Validate command request against canonical schema.
@@ -1346,7 +1458,13 @@ def initialize_chat():
         logger.info("✅ Command executor initialized successfully")
         
         logger.info("🔧 Initializing state manager...")
-        state_manager = ExecutionStateManager(max_concurrent=5, max_queue_size=20)
+        outputs_base_path = _primary_outputs_path()
+        state_manager = ExecutionStateManager(
+            max_concurrent=5,
+            max_queue_size=20,
+            persistence_dir=str(outputs_base_path / "jobs"),
+            outputs_base_path=str(outputs_base_path)
+        )
         logger.info("✅ State manager initialized successfully")
         
         return True
@@ -1701,6 +1819,19 @@ if HAS_FASTAPI:
                             • Solves double-counting issues completely<br>
                             • Cost: ~$1 per 200 conversations (worth it for accuracy!)<br>
                             • Uncheck to revert to keyword-only mode
+                    </div>
+                </div>
+                
+                <!-- Digest Mode Toggle -->
+                <div id="digestModeContainer" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: none;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="digestModeToggle" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600; color: #60a5fa;">📄 Digest Mode (Executive Readout)</span>
+                    </label>
+                    <div style="font-size: 11px; color: #93c5fd; margin-top: 10px; line-height: 1.5;">
+                        • Outputs executive summary, Tier-1 topic cards, prioritized actions<br>
+                        • Hides legacy trend/churn blocks to keep narrative concise<br>
+                        • Perfect for weekly proofs or leadership readouts
                     </div>
                 </div>
                 
@@ -2461,8 +2592,8 @@ if HAS_FASTAPI:
                 days = args_list[idx + 1]
                 date_desc = f"Last-{days}-Days"
         
-        # Current timestamp in human-readable format
-        now = datetime.now()
+        # Current timestamp in human-readable format (Pacific)
+        now = get_pacific_time()
         time_str = now.strftime('%b-%d-%I-%M%p').replace('-0', '-').lower()  # Nov-13-5-27pm
         
         # Combine: mode_date-description_time
@@ -2482,44 +2613,66 @@ if HAS_FASTAPI:
         Returns list of {name, size, path, created_at}
         """
         files = []
+        seen_paths = set()
         
-        # Strategy 1: Scan ALL execution directories (find any files that exist)
-        executions_base = Path("/app/outputs/executions")
-        if executions_base.exists():
-            for exec_dir in executions_base.iterdir():
-                if exec_dir.is_dir():
-                    # Check if this directory matches the execution (by time proximity or name)
-                    for file_path in exec_dir.rglob('*'):
-                        if file_path.is_file():
-                            # Get relative path from outputs/ for download links
-                            rel_path = file_path.relative_to(Path("/app/outputs"))
-                            files.append({
-                                'name': file_path.name,
-                                'path': str(rel_path),
-                                'size': file_path.stat().st_size,
-                                'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                                'directory': exec_dir.name
-                            })
+        # Strategy 1: Scan execution directories on all known bases
+        for outputs_base in _all_output_paths():
+            executions_base = outputs_base / "executions"
+            if not executions_base.exists():
+                continue
             
-            if files:
-                logger.info(f"📂 Found {len(files)} files across {len(set(f['directory'] for f in files))} execution directories")
-                return files
-        
-        # Strategy 2: Scan flat outputs/ directory (legacy)
-        outputs_dir = Path("/app/outputs")
-        if outputs_dir.exists():
-            for file_path in outputs_dir.glob('*'):
-                if file_path.is_file():
-                    rel_path = file_path.relative_to(outputs_dir.parent)
+            for exec_dir in executions_base.iterdir():
+                if not exec_dir.is_dir():
+                    continue
+                
+                for file_path in exec_dir.rglob('*'):
+                    if not file_path.is_file():
+                        continue
+                    
+                    rel_path = file_path.relative_to(outputs_base)
+                    rel_path_str = str(rel_path)
+                    if rel_path_str in seen_paths:
+                        continue
+                    
+                    seen_paths.add(rel_path_str)
+                    stat = file_path.stat()
                     files.append({
                         'name': file_path.name,
-                        'path': str(rel_path),
-                        'size': file_path.stat().st_size,
-                        'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                        'directory': 'root'
+                        'path': rel_path_str,
+                        'size': stat.st_size,
+                        'created_at': _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                        'directory': exec_dir.name
                     })
         
-        logger.info(f"📂 Found {len(files)} total output files")
+        if files:
+            logger.info(
+                f"📂 Found {len(files)} files across "
+                f"{len(set(f['directory'] for f in files))} execution directories"
+            )
+            return files
+        
+        # Strategy 2: Scan flat outputs/ directory (legacy)
+        for outputs_base in _all_output_paths():
+            for file_path in outputs_base.glob('*'):
+                if not file_path.is_file():
+                    continue
+                
+                rel_path = file_path.relative_to(outputs_base)
+                rel_path_str = str(rel_path)
+                if rel_path_str in seen_paths:
+                    continue
+                
+                seen_paths.add(rel_path_str)
+                stat = file_path.stat()
+                files.append({
+                    'name': file_path.name,
+                    'path': rel_path_str,
+                    'size': stat.st_size,
+                    'created_at': _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                    'directory': 'root'
+                })
+        
+        logger.info(f"📂 Found {len(files)} total output files (legacy scan)")
         return files
     
     @app.post("/execute/start")
@@ -2572,7 +2725,7 @@ if HAS_FASTAPI:
             
             # Generate human-readable execution directory name
             exec_dir_name = _generate_execution_directory_name(args_list, execution_id)
-            exec_dir_path = Path("/app/outputs/executions") / exec_dir_name
+            exec_dir_path = _get_execution_base_path() / exec_dir_name
             exec_dir_path.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"📁 Created execution directory: {exec_dir_name}")
@@ -2683,7 +2836,7 @@ if HAS_FASTAPI:
         # Debug: Check persistence directory
         import os
         from pathlib import Path
-        persistence_dir = Path("/app/outputs/jobs")
+        persistence_dir = _primary_outputs_path() / "jobs"
         debug_info = {
             "persistence_dir_exists": persistence_dir.exists(),
             "persistence_dir_path": str(persistence_dir),
@@ -2714,45 +2867,46 @@ if HAS_FASTAPI:
         """
         Browse ALL available output files (no execution ID needed).
         
-        Returns all files currently in /app/outputs/ organized by directory.
+        Returns all files currently in the outputs directory (volume or container) organized by directory.
         Use this to see what files exist from past runs.
         """
         if request:
             await check_rate_limit(request)
         
-        all_files = []
+        all_files: List[Dict[str, Any]] = []
+        seen_paths = set()
         
-        # Check for Railway persistent volume first
-        volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
-        if volume_path:
-            executions_base = Path(volume_path) / "outputs" / "executions"
-            outputs_base = Path(volume_path) / "outputs"
-            logger.info(f"Using Railway persistent volume: {executions_base}")
-        else:
-            executions_base = Path("/app/outputs/executions")
-            outputs_base = Path("/app/outputs")
-        
-        # Scan execution directories
-        if executions_base.exists():
+        # Scan all known output bases so persistent volumes + container agree
+        for outputs_base in _all_output_paths():
+            executions_base = outputs_base / "executions"
+            if not executions_base.exists():
+                continue
+            
+            logger.debug(f"Browsing files from base: {outputs_base}")
             for exec_dir in executions_base.iterdir():
-                if exec_dir.is_dir():
-                    for file_path in exec_dir.rglob('*'):
-                        if file_path.is_file():
-                            # Get relative path from CORRECT base (volume or app)
-                            try:
-                                rel_path = file_path.relative_to(outputs_base)
-                            except ValueError:
-                                # Fallback if relative_to fails
-                                rel_path = file_path.relative_to(file_path.parent.parent)
-                            
-                            all_files.append({
-                                'name': file_path.name,
-                                'path': str(rel_path),
-                                'size': file_path.stat().st_size,
-                                'created_at': datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                                'directory': exec_dir.name,
-                                'type': file_path.suffix[1:] if file_path.suffix else 'unknown'
-                            })
+                if not exec_dir.is_dir():
+                    continue
+                
+                for file_path in exec_dir.rglob('*'):
+                    if not file_path.is_file():
+                        continue
+                    
+                    rel_path = file_path.relative_to(outputs_base)
+                    rel_str = str(rel_path)
+                    if rel_str in seen_paths:
+                        continue
+                    
+                    seen_paths.add(rel_str)
+                    stat = file_path.stat()
+                    all_files.append({
+                        'name': file_path.name,
+                        'path': rel_str,
+                        'size': stat.st_size,
+                        'created_at': _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                        'directory': exec_dir.name,
+                        'type': file_path.suffix[1:] if file_path.suffix else 'unknown',
+                        'base_path': str(outputs_base)
+                    })
         
         # Group by directory
         by_directory = {}
@@ -2783,37 +2937,34 @@ if HAS_FASTAPI:
         if ".." in file_path or file_path.startswith("/"):
             raise HTTPException(status_code=400, detail="Invalid file path")
         
-        # Build full path (check volume first)
-        volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
-        if volume_path and not file_path.startswith('/'):
-            base_path = Path(volume_path) / "outputs"
-        else:
-            base_path = Path("/app/outputs")
+        # Resolve file relative to any known outputs base
+        full_path: Optional[Path] = None
+        for base_path in _all_output_paths():
+            try:
+                candidate = (base_path / file_path).resolve()
+                base_resolved = base_path.resolve()
+                if not str(candidate).startswith(str(base_resolved)):
+                    continue
+            except (OSError, ValueError, RuntimeError):
+                continue
+            
+            if candidate.exists() and candidate.is_file():
+                full_path = candidate
+                break
         
-        full_path = base_path / file_path
-        
-        # Security: Ensure file is within outputs directory
-        try:
-            full_path = full_path.resolve()
-            outputs_dir = base_path.resolve()
-            if not str(full_path).startswith(str(outputs_dir)):
-                raise HTTPException(status_code=400, detail="Access denied")
-        except (OSError, ValueError, RuntimeError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid file path: {e}")
-        
-        # Check if file exists
-        if not full_path.exists() or not full_path.is_file():
+        if not full_path:
             raise HTTPException(status_code=404, detail="File not found")
         
         # Determine content type with UTF-8 encoding
         content_type = "application/octet-stream"
-        if file_path.endswith(".json"):
+        filename = full_path.name.lower()
+        if filename.endswith(".json"):
             content_type = "application/json; charset=utf-8"
-        elif file_path.endswith(".csv"):
+        elif filename.endswith(".csv"):
             content_type = "text/csv; charset=utf-8"
-        elif file_path.endswith(".md"):
+        elif filename.endswith(".md"):
             content_type = "text/markdown; charset=utf-8"
-        elif file_path.endswith(".txt") or file_path.endswith(".log"):
+        elif filename.endswith(".txt") or filename.endswith(".log"):
             content_type = "text/plain; charset=utf-8"
         
         # Return file
@@ -2846,14 +2997,22 @@ if HAS_FASTAPI:
         import os
         from pathlib import Path
         
-        outputs_dir = Path("/app/outputs")
-        if not outputs_dir.exists():
-            return {"files": [], "total": 0, "filtered_count": 0}
-        
         files = []
-        for file_path in outputs_dir.rglob("*"):
-            if file_path.is_file():
+        seen_paths = set()
+        for outputs_dir in _all_output_paths():
+            if not outputs_dir.exists():
+                continue
+            
+            logger.debug(f"Listing output files from path: {outputs_dir}")
+            for file_path in outputs_dir.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                
                 relative_path = file_path.relative_to(outputs_dir)
+                rel_str = str(relative_path)
+                if rel_str in seen_paths:
+                    continue
+                
                 file_name = file_path.name
                 
                 # Determine if this is an audit trail file
@@ -2866,17 +3025,20 @@ if HAS_FASTAPI:
                     continue
                 
                 # Apply execution_id filter
-                if execution_id and execution_id not in file_name:
+                if execution_id and execution_id not in file_name and execution_id not in rel_str:
                     continue
                 
+                stat = file_path.stat()
                 files.append({
                     "name": file_name,
-                    "path": str(relative_path),
-                    "size": file_path.stat().st_size,
-                    "modified": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                    "path": rel_str,
+                    "size": stat.st_size,
+                    "modified": _format_pacific_timestamp_from_epoch(stat.st_mtime),
                     "type": 'audit' if is_audit else 'analysis',
-                    "extension": file_path.suffix
+                    "extension": file_path.suffix,
+                    "base_path": str(outputs_dir)
                 })
+                seen_paths.add(rel_str)
         
         # Sort by modification time (newest first)
         files.sort(key=lambda x: x["modified"], reverse=True)

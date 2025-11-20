@@ -12,7 +12,8 @@ Purpose:
 
 import logging
 import asyncio
-from typing import Dict, Any, List, Set
+import os
+from typing import Dict, Any, List, Set, Optional, Tuple
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
@@ -364,6 +365,12 @@ Return ONLY valid JSON, no other text:
             else:
                 self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics - proceeding with formatting")
             
+            digest_mode = context.metadata.get('digest_mode', False)
+            legacy_sections_enabled = (not digest_mode) and (
+                os.getenv('OUTPUT_FORMATTER_LEGACY_SECTIONS', 'false').lower() == 'true'
+            )
+            topic_names = list(topic_dist.keys())
+            
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
             fin_performance = context.previous_results.get('FinPerformanceAgent', {}).get('data', {})
@@ -401,6 +408,8 @@ Return ONLY valid JSON, no other text:
             
             # Get analytical insights for later sections
             analytical_insights = context.previous_results.get('AnalyticalInsights', {})
+            macro_callouts = self._build_topic_callouts(topic_names, analytical_insights)
+            quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {}) if analytical_insights else {}
             
             # Build output
             output_sections = []
@@ -453,7 +462,7 @@ Return ONLY valid JSON, no other text:
             
             # Add language breakdown if available
             lang_dist = seg_summary.get('language_distribution', {})
-            if lang_dist:
+            if lang_dist and not digest_mode:
                 total_langs = seg_summary.get('total_languages', len(lang_dist))
                 output_sections.append(f"**Languages**: {total_langs} languages represented")
                 
@@ -485,7 +494,7 @@ Return ONLY valid JSON, no other text:
             
             # Week-over-Week Changes Section (if prior snapshot exists)
             comparison_data = context.metadata.get('comparison_data')
-            if comparison_data:
+            if comparison_data and not digest_mode:
                 self.logger.info("Adding Week-over-Week Changes section")
                 comparison_section = self._format_comparison_section(comparison_data)
                 output_sections.append(comparison_section)
@@ -496,7 +505,7 @@ Return ONLY valid JSON, no other text:
             
             # Pattern Intelligence Section (if analytical insights available)
             # Note: This now returns separate top-level sections for Correlations and Anomalies
-            if analytical_insights:
+            if legacy_sections_enabled and analytical_insights:
                 try:
                     pattern_section = self._format_pattern_intelligence_section(analytical_insights)
                     if pattern_section:
@@ -505,7 +514,10 @@ Return ONLY valid JSON, no other text:
                     self.logger.warning(f"Error adding Pattern Intelligence section: {e}")
             
             # Section 1: Voice of Customer (Paid Customers)
-            output_sections.append("## Customer Topics (Paid Tier - Human Support)")
+            topic_section_title = "## Topic Cards (Paid Tier - Human Support)"
+            if digest_mode:
+                topic_section_title = "## Topic Digest (Paid Tier)"
+            output_sections.append(topic_section_title)
             output_sections.append("")
             
             # 🧠 SMART ORDERING: Use LLM strategic priority (not just volume!)
@@ -533,10 +545,13 @@ Return ONLY valid JSON, no other text:
             # Get LLM trend insights from TrendAgent (outside loop for efficiency)
             trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
             trend_insights = trend_agent_data.get('trend_insights', {})
-            
+            topic_summaries: List[Dict[str, Any]] = []
+            quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
+
             for topic_name, topic_stats in sorted_topics:
                 # Get sentiment and examples for this topic (defensive reads)
-                sentiment = topic_sentiments.get(topic_name, {}).get('data', {}).get('sentiment_insight', 'No sentiment analysis available')
+                sentiment_payload = topic_sentiments.get(topic_name, {}).get('data', {})
+                sentiment = sentiment_payload.get('sentiment_insight', 'No sentiment analysis available')
                 examples_data = topic_examples.get(topic_name, {}).get('data', {})
                 examples = examples_data.get('examples', []) if examples_data else []
                 
@@ -558,6 +573,22 @@ Return ONLY valid JSON, no other text:
                 
                 # Get sub-topic data for this topic
                 subtopics_for_topic = subtopics_data.get(topic_name, {}) if subtopics_data else {}
+                subtopic_summary = self._summarize_subtopics(subtopics_for_topic)
+                supporting_evidence = macro_callouts.get(topic_name, [])
+                actionable_insight = self._derive_actionable_insight(
+                    topic_name,
+                    sentiment_payload,
+                    supporting_evidence,
+                    trend_explanation
+                )
+                severity, severity_reasons = self._calculate_topic_severity(
+                    topic_name,
+                    topic_stats,
+                    sentiment_payload,
+                    fin_performance,
+                    supporting_evidence,
+                    quality_topic_metrics
+                )
                 
                 # Format card
                 card = self._format_topic_card(
@@ -569,12 +600,51 @@ Return ONLY valid JSON, no other text:
                     trend_explanation,
                     period_label,
                     subtopics_for_topic,
-                    context.conversations  # Pass conversations for highlights/lowlights extraction
+                    context.conversations,  # Pass conversations for highlights/lowlights extraction
+                    supporting_evidence=supporting_evidence,
+                    actionable_insight=actionable_insight,
+                    subtopic_summary=subtopic_summary,
+                    digest_mode=digest_mode
                 )
                 output_sections.append(card)
+                
+                topic_summaries.append({
+                    'name': topic_name,
+                    'stats': topic_stats,
+                    'sentiment': sentiment,
+                    'actionable_insight': actionable_insight,
+                    'severity': severity,
+                    'severity_reasons': severity_reasons,
+                    'volume_pct': topic_stats.get('percentage', 0),
+                    'supporting_evidence': supporting_evidence
+                })
+            
+            recommendations = self._build_weighted_recommendations(topic_summaries)
+            if recommendations:
+                output_sections.append("## Prioritized Actions")
+                output_sections.append("")
+                top_recs = recommendations[:3] if digest_mode else recommendations[:5]
+                for idx, rec in enumerate(top_recs, 1):
+                    output_sections.append(
+                        f"{idx}. **{rec['topic']}** — {rec['action']} "
+                        f"(Impact Score: {rec['impact']:.2f} = {rec['volume_pct']:.1f}% × {rec['severity']:.2f})"
+                    )
+                    if rec.get('rationale'):
+                        output_sections.append(f"   {rec['rationale']}")
+                    output_sections.append("")
+                output_sections.append("---")
+                output_sections.append("")
+            elif digest_mode:
+                output_sections.append("## Prioritized Actions")
+                output_sections.append("\n_No eligible actions identified for this run_\n")
+                output_sections.append("---\n")
+
+            if digest_mode:
+                output_sections.append("_Digest mode enabled: historical trends and macro sections omitted for brevity._")
+                output_sections.append("")
             
             # Churn Risk Section (if analytical insights available)
-            if analytical_insights:
+            if legacy_sections_enabled and analytical_insights:
                 try:
                     churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
                     if churn_data and churn_data.get('high_risk_conversations'):
@@ -588,7 +658,7 @@ Return ONLY valid JSON, no other text:
             
             # Section 2: Fin AI Performance
             has_tier_data = False
-            if fin_performance:
+            if not digest_mode and fin_performance:
                 # Check if we have tier-based data (new format) or legacy format
                 has_tier_data = 'free_tier' in fin_performance or 'paid_tier' in fin_performance
 
@@ -625,7 +695,7 @@ Return ONLY valid JSON, no other text:
                     output_sections.append("")
                     fin_card = self._format_fin_card(fin_performance)
                     output_sections.append(fin_card)
-            else:
+            elif not digest_mode:
                 # Fin performance data missing - add placeholder
                 placeholder = self._generate_missing_section_placeholder(
                     "Fin AI Performance Analysis",
@@ -634,7 +704,7 @@ Return ONLY valid JSON, no other text:
                 output_sections.append(placeholder)
             
             # Resolution Quality Metrics Section (if analytical insights available)
-            if analytical_insights:
+            if legacy_sections_enabled and analytical_insights:
                 try:
                     quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
                     if quality_data:
@@ -647,7 +717,7 @@ Return ONLY valid JSON, no other text:
                     self.logger.warning(f"Error adding Resolution Quality section: {e}")
             
             # Analysis Confidence & Limitations Section (if analytical insights available)
-            if analytical_insights:
+            if legacy_sections_enabled and analytical_insights:
                 try:
                     confidence_data = analytical_insights.get('ConfidenceMetaAgent', {}).get('data', {})
                     if confidence_data:
@@ -680,6 +750,7 @@ Return ONLY valid JSON, no other text:
                 
                 # 🎯 STRUCTURED DATA: Preserve ALL agent insights (for debugging & future Gamma improvements)
                 'structured_data': {
+                    'digest_mode': digest_mode,
                     'topics': {
                         topic_name: {
                             'volume': stats['volume'],
@@ -722,7 +793,9 @@ Return ONLY valid JSON, no other text:
                         'start_date': context.start_date.isoformat() if context.start_date else None,
                         'end_date': context.end_date.isoformat() if context.end_date else None,
                         'total_conversations': total_convs
-                    }
+                    },
+                    'topic_summaries': topic_summaries,
+                    'recommendations': recommendations
                 }
             }
             
@@ -775,128 +848,301 @@ Return ONLY valid JSON, no other text:
                 execution_time=execution_time
             )
     
-    def _format_topic_card(self, topic_name: str, stats: Dict, sentiment: str, examples: List[Dict], trend: str, trend_explanation: str = "", period_label: str = "Weekly", subtopics: Dict = None, conversations: List[Dict] = None) -> str:
+    def _format_topic_card(
+        self,
+        topic_name: str,
+        stats: Dict,
+        sentiment: str,
+        examples: List[Dict],
+        trend: str,
+        trend_explanation: str = "",
+        period_label: str = "Weekly",
+        subtopics: Dict = None,
+        conversations: List[Dict] = None,
+        supporting_evidence: Optional[List[str]] = None,
+        actionable_insight: Optional[str] = None,
+        subtopic_summary: Optional[List[str]] = None,
+        digest_mode: bool = False
+    ) -> str:
         """Format a single topic card"""
         detection_method = stats.get('detection_method', 'unknown')
-        method_label = "Intercom conversation attribute" if detection_method == 'attribute' else "Keyword detection" if detection_method == 'keyword' else "Detection method not specified"
+        method_label = (
+            "Intercom conversation attribute" if detection_method == 'attribute'
+            else "Keyword detection" if detection_method == 'keyword'
+            else "Detection method not specified"
+        )
         
-        card = f"""### {topic_name}{trend}
-**{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**  
-**Detection Method**: {method_label}
-
-**Sentiment**: {sentiment}
-"""
+        card_lines: List[str] = [
+            f"### {topic_name}{trend}",
+            f"**{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**",
+            f"**Detection Method**: {method_label}",
+            f"**Sentiment**: {sentiment}"
+        ]
         
-        # Add trend explanation if available
+        if actionable_insight:
+            card_lines.append(f"**Actionable Insight**: {actionable_insight}")
+        
         if trend_explanation:
-            card += f"\n**Trend Analysis**: {trend_explanation}\n"
+            card_lines.append(f"**Trend**: {trend_explanation}")
         
-        # Add sub-topic breakdown if available
-        if subtopics and (subtopics.get('tier2') or subtopics.get('tier3')):
-            card += "\n**Sub-Topic Breakdown**:\n"
-            
-            # Tier 2 sub-topics
+        if subtopic_summary:
+            card_lines.append("**Top Subtopics:**")
+            for summary_line in subtopic_summary:
+                card_lines.append(f"- {summary_line}")
+        elif subtopics and (subtopics.get('tier2') or subtopics.get('tier3')):
+            card_lines.append("**Sub-Topic Breakdown:**")
             tier2 = subtopics.get('tier2', {})
             if tier2:
-                card += "\n_Tier 2: From Intercom Data_\n"
-                # Sort by volume descending and limit to top 10
-                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:10]
+                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:3]
                 for subtopic_name, subtopic_data in sorted_tier2:
                     volume = subtopic_data.get('volume', 0)
                     percentage = subtopic_data.get('percentage', 0)
-                    source = subtopic_data.get('source', 'unknown')
-                    card += f"  - {subtopic_name}: {volume} conversations ({percentage}%) [Source: {source}]\n"
-            
-            # Tier 3 sub-topics
-            tier3 = subtopics.get('tier3', {})
-            if tier3:
-                card += "\n_Tier 3: AI-Discovered Themes_\n"
-                # Sort by volume descending and limit to top 5
-                sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:5]
-                for theme_name, theme_data in sorted_tier3:
-                    volume = theme_data.get('volume', 0)
-                    percentage = theme_data.get('percentage', 0)
-                    card += f"  - {theme_name}: {volume} conversations ({percentage}%)\n"
-            
-            card += "\n"
+                    card_lines.append(f"- {subtopic_name}: {volume} convs ({percentage}%)")
         
-        # Extract highlights/lowlights if conversations are provided
-        if conversations and examples and len(examples) >= 5:
+        if supporting_evidence:
+            card_lines.append("**Supporting Evidence:**")
+            for evidence in supporting_evidence:
+                card_lines.append(f"- {evidence}")
+        
+        highlights: List[Dict] = []
+        lowlights: List[Dict] = []
+        if conversations and examples and len(examples) >= 2:
             try:
                 highlights_lowlights = self._extract_highlights_lowlights(examples, topic_name, conversations)
                 highlights = highlights_lowlights.get('highlights', [])
                 lowlights = highlights_lowlights.get('lowlights', [])
-                
-                # Format highlights
-                if highlights:
-                    card += "**Highlights** (Best Experiences) ✅:\n\n"
-                    for i, example in enumerate(highlights, 1):
-                        preview = example.get('preview', 'No preview available')
-                        url = example.get('intercom_url', '#')
-                        language = example.get('language', 'English')
-                        translation = example.get('translation')
-                        
-                        if translation and language != 'English':
-                            card += f"{i}. \"{translation}\"\n"
-                            card += f"   _{language}: \"{preview}\"_\n"
-                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
-                        else:
-                            lang_label = f"_{language}_ " if language and language != 'English' else ""
-                            card += f"{i}. {lang_label}\"{preview}\"\n"
-                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
-                
-                # Format lowlights
-                if lowlights:
-                    card += "**Lowlights** (Areas for Improvement) ⚠️:\n\n"
-                    for i, example in enumerate(lowlights, 1):
-                        preview = example.get('preview', 'No preview available')
-                        url = example.get('intercom_url', '#')
-                        language = example.get('language', 'English')
-                        translation = example.get('translation')
-                        
-                        if translation and language != 'English':
-                            card += f"{i}. \"{translation}\"\n"
-                            card += f"   _{language}: \"{preview}\"_\n"
-                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
-                        else:
-                            lang_label = f"_{language}_ " if language and language != 'English' else ""
-                            card += f"{i}. {lang_label}\"{preview}\"\n"
-                            card += f"   **[📎 View in Intercom →]({url})**\n\n"
-                
             except Exception as e:
                 self.logger.warning(f"Error extracting highlights/lowlights for {topic_name}: {e}")
-                # Fall back to showing all examples
         
-        # If no highlights/lowlights extraction, show all examples
-        if not (conversations and examples and len(examples) >= 5):
-            card += "**Examples**:\n\n"
+        highlight_limit = 2 if digest_mode else 3
+        lowlight_limit = 2 if digest_mode else 3
         
-        # Add examples with validation, language info, translation, and enhanced link formatting
-        if examples and len(examples) > 0:
-            for i, example in enumerate(examples, 1):
-                # Defensive read of example fields
-                preview = example.get('preview', 'No preview available') if isinstance(example, dict) else 'Invalid example format'
-                url = example.get('intercom_url', '#') if isinstance(example, dict) else '#'
-                language = example.get('language', 'English') if isinstance(example, dict) else 'English'
-                translation = example.get('translation') if isinstance(example, dict) else None
-                
-                # Format based on whether translation is available
-                if translation and language != 'English':
-                    # Show translation first (English), then original in italics
-                    card += f"{i}. \"{translation}\"\n"
-                    card += f"   _{language}: \"{preview}\"_\n"
-                    card += f"   **[📎 View in Intercom →]({url})**\n\n"
-                else:
-                    # Show language label for non-English without translation
-                    lang_label = f"_{language}_ " if language and language != 'English' else ""
-                    card += f"{i}. {lang_label}\"{preview}\"\n"
-                    card += f"   **[📎 View in Intercom →]({url})**\n\n"
+        if highlights:
+            card_lines.append("**Highlights** (Best Experiences) ✅:")
+            for i, example in enumerate(highlights[:highlight_limit], 1):
+                card_lines.extend(self._format_example_line(i, example))
+        
+        if lowlights:
+            card_lines.append("**Lowlights** (Areas for Improvement) ⚠️:")
+            for i, example in enumerate(lowlights[:lowlight_limit], 1):
+                card_lines.extend(self._format_example_line(i, example))
+        
+        if (not highlights and not lowlights) or digest_mode:
+            card_lines.append("**Examples:**")
+            example_limit = 2 if digest_mode else 4
+            if examples and len(examples) > 0:
+                for i, example in enumerate(examples[:example_limit], 1):
+                    card_lines.extend(self._format_example_line(i, example))
+            else:
+                card_lines.append("_No examples available - topic may have low volume or quality conversations_")
+        
+        card_lines.append("\n---\n")
+        return "\n".join(card_lines)
+    
+    def _format_example_line(self, index: int, example: Dict) -> List[str]:
+        """Format a single example with translation/language context."""
+        if not isinstance(example, dict):
+            return [f"{index}. \"No preview available\"", ""]
+        
+        preview = example.get('preview', 'No preview available')
+        url = example.get('intercom_url', '#')
+        language = example.get('language', 'English')
+        translation = example.get('translation')
+        
+        lines: List[str] = []
+        if translation and language and language.lower() != 'english':
+            lines.append(f"{index}. \"{translation}\"")
+            lines.append(f"   _{language}: \"{preview}\"_")
         else:
-            card += "_No examples available - topic may have low volume or quality conversations_\n"
+            lang_label = f"_{language}_ " if language and language != 'English' else ""
+            lines.append(f"{index}. {lang_label}\"{preview}\"")
         
-        card += "\n---\n"
+        lines.append(f"   **[📎 View in Intercom →]({url})**")
+        lines.append("")
+        return lines
+    
+    def _summarize_subtopics(self, subtopics: Dict, tier2_limit: int = 2, tier3_limit: int = 1) -> Optional[List[str]]:
+        if not subtopics:
+            return None
+        summary: List[str] = []
+        tier2 = subtopics.get('tier2', {})
+        if tier2:
+            sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:tier2_limit]
+            for name, data in sorted_tier2:
+                percentage = data.get('percentage')
+                summary.append(f"{name} ({percentage}%)")
+        tier3 = subtopics.get('tier3', {})
+        if tier3 and len(summary) < (tier2_limit + tier3_limit):
+            sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:tier3_limit]
+            for name, data in sorted_tier3:
+                percentage = data.get('percentage')
+                summary.append(f"{name} ({percentage}% - AI discovered)")
+        return summary or None
+    
+    def _derive_actionable_insight(
+        self,
+        topic_name: str,
+        sentiment_payload: Dict[str, Any],
+        callouts: List[str],
+        trend_explanation: str
+    ) -> Optional[str]:
+        if callouts:
+            return callouts[0]
+        insight = sentiment_payload.get('sentiment_insight')
+        if insight:
+            return insight
+        if trend_explanation:
+            return trend_explanation
+        sentiment_label = sentiment_payload.get('sentiment')
+        if sentiment_label:
+            return f"{sentiment_label}: continue monitoring {topic_name}"
+        return None
+    
+    def _calculate_topic_severity(
+        self,
+        topic_name: str,
+        stats: Dict[str, Any],
+        sentiment_payload: Dict[str, Any],
+        fin_performance: Dict[str, Any],
+        callouts: List[str],
+        quality_topic_metrics: Dict[str, Any]
+    ) -> Tuple[float, List[str]]:
+        severity = 1.0
+        reasons: List[str] = []
         
-        return card
+        sentiment_label = (sentiment_payload.get('sentiment_label') or sentiment_payload.get('sentiment') or '').lower()
+        if 'negative' in sentiment_label or 'very low' in sentiment_label:
+            severity += 0.8
+            reasons.append("Negative sentiment trend")
+        elif 'neutral' in sentiment_label:
+            severity += 0.3
+        elif 'positive' in sentiment_label:
+            severity += 0.1
+        
+        quality_entry = quality_topic_metrics.get(topic_name, {})
+        fcr_value = quality_entry.get('fcr')
+        if isinstance(fcr_value, (int, float)) and fcr_value < 0.5:
+            severity += (0.5 - fcr_value)
+            reasons.append(f"FCR only {fcr_value:.0%}")
+        
+        fin_penalty, fin_reason = self._get_fin_topic_penalty(topic_name, fin_performance)
+        if fin_penalty > 0:
+            severity += fin_penalty
+            if fin_reason:
+                reasons.append(fin_reason)
+        
+        if callouts:
+            severity += 0.3
+            reasons.extend(callouts[:1])
+        
+        severity = min(severity, 3.0)
+        return severity, reasons
+    
+    def _get_fin_topic_penalty(self, topic_name: str, fin_performance: Dict[str, Any]) -> Tuple[float, Optional[str]]:
+        if not fin_performance:
+            return 0.0, None
+        penalty = 0.0
+        reason = None
+        for tier_key, label in (('free_tier', 'Free Tier'), ('paid_tier', 'Paid Tier')):
+            tier_metrics = fin_performance.get(tier_key, {})
+            topic_perf = tier_metrics.get('performance_by_topic', {})
+            if not isinstance(topic_perf, dict) or topic_name not in topic_perf:
+                continue
+            rate = topic_perf[topic_name].get('resolution_rate')
+            if isinstance(rate, (int, float)):
+                gap = max(0.0, 0.6 - rate)
+                if gap > penalty:
+                    penalty = gap
+                    reason = f"{label} Fin resolution {rate:.0%}"
+        return penalty, reason
+    
+    def _build_topic_callouts(self, topic_names: List[str], analytical_insights: Dict[str, Any]) -> Dict[str, List[str]]:
+        callouts = {name: [] for name in topic_names}
+        if not analytical_insights:
+            return callouts
+        budgets = {
+            'CorrelationAgent': 1,
+            'QualityInsightsAgent': 1,
+            'ChurnRiskAgent': 1
+        }
+        # Correlation callouts
+        correlation_data = analytical_insights.get('CorrelationAgent', {}).get('data', {})
+        for correlation in correlation_data.get('correlations', []):
+            if budgets['CorrelationAgent'] <= 0:
+                break
+            text_blob = " ".join(filter(None, [
+                correlation.get('description'),
+                correlation.get('insight'),
+                correlation.get('context')
+            ]))
+            topic = self._match_topic_name(text_blob, topic_names)
+            if topic:
+                callouts[topic].append(f"Correlation: {correlation.get('insight', correlation.get('description'))}")
+                budgets['CorrelationAgent'] -= 1
+                break
+        # Quality anomalies
+        quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
+        for anomaly in quality_data.get('anomalies', []):
+            if budgets['QualityInsightsAgent'] <= 0:
+                break
+            topic = anomaly.get('topic') or self._match_topic_name(
+                " ".join([anomaly.get('description', ''), anomaly.get('observation', '')]),
+                topic_names
+            )
+            if topic:
+                summary = anomaly.get('observation') or anomaly.get('description')
+                callouts[topic].append(f"Quality: {summary}")
+                budgets['QualityInsightsAgent'] -= 1
+                break
+        # Churn signals
+        churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
+        for conv in churn_data.get('high_risk_conversations', []):
+            if budgets['ChurnRiskAgent'] <= 0:
+                break
+            detected_topics = conv.get('detected_topics') or conv.get('topics') or []
+            if not detected_topics and isinstance(conv.get('signals'), list):
+                detected_topics = conv.get('signals')
+            topic = None
+            for candidate in detected_topics:
+                topic = self._match_topic_name(str(candidate), topic_names)
+                if topic:
+                    break
+            if topic:
+                summary = conv.get('llm_analysis') or ", ".join(conv.get('signals', [])[:2])
+                callouts[topic].append(f"Churn Risk: {summary or 'Escalation risk detected'}")
+                budgets['ChurnRiskAgent'] -= 1
+                break
+        return callouts
+    
+    def _match_topic_name(self, text: str, topic_names: List[str]) -> Optional[str]:
+        if not text:
+            return None
+        lower_text = text.lower()
+        for topic in topic_names:
+            if topic.lower() in lower_text:
+                return topic
+        return None
+    
+    def _build_weighted_recommendations(self, topic_summaries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        recommendations: List[Dict[str, Any]] = []
+        for summary in topic_summaries:
+            volume_pct = summary.get('volume_pct', 0.0)
+            severity = summary.get('severity', 1.0)
+            impact = (volume_pct / 100.0) * severity
+            action = summary.get('actionable_insight') or f"Address {summary.get('name')}"
+            reasons = summary.get('severity_reasons', [])
+            evidence = summary.get('supporting_evidence', [])
+            rationale_parts = reasons[:2] + evidence[:1]
+            rationale = "; ".join(rationale_parts)
+            recommendations.append({
+                'topic': summary.get('name'),
+                'impact': impact,
+                'severity': severity,
+                'volume_pct': volume_pct,
+                'action': action,
+                'rationale': rationale
+            })
+        return sorted(recommendations, key=lambda x: x['impact'], reverse=True)
     
     def _format_fin_card(self, fin_data: Dict) -> str:
         """Format Fin AI performance card"""

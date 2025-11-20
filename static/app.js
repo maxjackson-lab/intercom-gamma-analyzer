@@ -262,6 +262,7 @@ async function runAnalysis() {
         const aiModel = document.getElementById('aiModel')?.value;
         const testMode = document.getElementById('testMode')?.checked || false;
         const auditMode = document.getElementById('auditMode')?.checked || false;
+        const digestMode = document.getElementById('digestModeToggle')?.checked || false;
         
         // Get test mode options if enabled
         const testDataCount = document.getElementById('testDataCount')?.value || '100';
@@ -332,6 +333,10 @@ async function runAnalysis() {
                 args.push('--llm-topic-detection');
             }
             
+            if (digestMode) {
+                args.push('--digest-mode');
+            }
+            
         } else if (analysisType === 'voice-of-customer-synthesis') {
             args.push('voice-of-customer');
             args.push('--analysis-type', 'synthesis');
@@ -352,6 +357,10 @@ async function runAnalysis() {
             const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
             if (llmTopicDetectionVoc) {
                 args.push('--llm-topic-detection');
+            }
+            
+            if (digestMode) {
+                args.push('--digest-mode');
             }
             
         } else if (analysisType.startsWith('agent-performance-')) {
@@ -955,6 +964,18 @@ function updateAnalysisOptions() {
     const llmTopicDetectionVocContainer = document.getElementById('llmTopicDetectionVocContainer');
     if (llmTopicDetectionVocContainer) {
         llmTopicDetectionVocContainer.style.display = isVoC ? 'block' : 'none';
+    }
+    
+    const digestModeContainer = document.getElementById('digestModeContainer');
+    if (digestModeContainer) {
+        const showDigest = analysisType === 'voice-of-customer-hilary' || analysisType === 'voice-of-customer-complete';
+        digestModeContainer.style.display = showDigest ? 'block' : 'none';
+        if (!showDigest) {
+            const digestToggle = document.getElementById('digestModeToggle');
+            if (digestToggle) {
+                digestToggle.checked = false;
+            }
+        }
     }
     
     // Hide/show Time Period (hide for sample-mode - it has its own)
