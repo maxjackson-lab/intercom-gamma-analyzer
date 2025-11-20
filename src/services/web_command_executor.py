@@ -63,7 +63,7 @@ class WebCommandExecutor:
                 "--count", "--save-to-file", "--no-save", "--test-llm", "--schema-mode",
                 "--test-all-agents", "--show-agent-thinking", "--llm-topic-detection", "--include-hierarchy",
                 # Analysis options
-                "--multi-agent", "--analysis-type",
+                "--multi-agent", "--analysis-type", "--digest-mode",
                 "--focus-areas", "--focus-categories",
                 "--max-conversations", "--parallel",
                 # Agent options
