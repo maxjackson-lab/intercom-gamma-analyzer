@@ -48,8 +48,14 @@ function displayAllFiles(data) {
         return;
     }
     
-    let html = '<div style="margin-bottom: 20px;">';
-    html += `<p style="color: #22c55e; font-weight: 600;">Found ${data.total_files} files</p>`;
+    let html = '<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">';
+    html += `<p style="color: #22c55e; font-weight: 600; margin: 0;">Found ${data.total_files} files</p>`;
+    html += `
+        <button onclick="downloadAllAsZip()" 
+                style="padding: 8px 16px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 6px; color: #22c55e; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+            📦 Download All as ZIP
+        </button>
+    `;
     html += '</div>';
     
     // Group by directory
@@ -156,9 +162,48 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(loadAllAvailableFiles, 30000);
 });
 
+async function downloadAllAsZip() {
+    console.log('📦 Downloading all files as ZIP...');
+    
+    try {
+        const response = await fetch('/api/download-zip?file_type=all');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+        
+        // Get filename from response headers
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'outputs.zip';
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename=(.+)/);
+            if (match) {
+                filename = match[1].replace(/['"]/g, '');
+            }
+        }
+        
+        // Download the ZIP
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log(`✅ ZIP download started: ${filename}`);
+    } catch (error) {
+        console.error(`❌ ZIP download failed: ${error.message}`);
+        alert(`Failed to download ZIP: ${error.message}`);
+    }
+}
+
 // Export to global scope
 window.loadAllAvailableFiles = loadAllAvailableFiles;
 window.downloadFileFromBrowser = downloadFileFromBrowser;
+window.downloadAllAsZip = downloadAllAsZip;
 
 console.log('✅ File browser loaded');
 

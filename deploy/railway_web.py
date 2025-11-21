@@ -2902,11 +2902,16 @@ if HAS_FASTAPI:
                         'name': file_path.name,
                         'path': rel_str,
                         'size': stat.st_size,
-                        'created_at': _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                        'created_at': _format_pacific_timestamp_from_epoch(stat.st_ctime),
+                        'modified_at': _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                        'created_epoch': stat.st_ctime,  # For sorting
                         'directory': exec_dir.name,
                         'type': file_path.suffix[1:] if file_path.suffix else 'unknown',
                         'base_path': str(outputs_base)
                     })
+        
+        # Sort all files by creation time (newest first)
+        all_files.sort(key=lambda x: x['created_epoch'], reverse=True)
         
         # Group by directory
         by_directory = {}
@@ -2915,6 +2920,10 @@ if HAS_FASTAPI:
             if dir_name not in by_directory:
                 by_directory[dir_name] = []
             by_directory[dir_name].append(file_info)
+        
+        # Sort each directory's files by creation time
+        for dir_files in by_directory.values():
+            dir_files.sort(key=lambda x: x['created_epoch'], reverse=True)
         
         return {
             'total_files': len(all_files),
@@ -2973,6 +2982,94 @@ if HAS_FASTAPI:
             path=str(full_path),
             media_type=content_type,
             filename=full_path.name
+        )
+    
+    @app.get("/api/download-zip")
+    async def download_outputs_zip(
+        execution_id: str = None,
+        file_type: str = "all",
+        request: Request = None
+    ):
+        """
+        Download output files as a ZIP archive.
+        
+        Query params:
+        - execution_id: Filter by execution ID (optional)
+        - file_type: Filter by type ('audit', 'analysis', 'all') [default: all]
+        
+        Returns a ZIP file containing all matching files with their directory structure preserved.
+        """
+        # Check rate limit
+        if request:
+            await check_rate_limit(request)
+        
+        import zipfile
+        import io
+        from pathlib import Path
+        from fastapi.responses import StreamingResponse
+        
+        # Create in-memory ZIP
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            file_count = 0
+            seen_paths = set()
+            
+            for outputs_dir in _all_output_paths():
+                if not outputs_dir.exists():
+                    continue
+                
+                for file_path in outputs_dir.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+                    
+                    relative_path = file_path.relative_to(outputs_dir)
+                    rel_str = str(relative_path)
+                    
+                    # Avoid duplicates
+                    if rel_str in seen_paths:
+                        continue
+                    
+                    file_name = file_path.name
+                    
+                    # Apply filters
+                    is_audit = 'audit_trail' in file_name.lower()
+                    
+                    if file_type == 'audit' and not is_audit:
+                        continue
+                    if file_type == 'analysis' and is_audit:
+                        continue
+                    
+                    if execution_id and execution_id not in file_name and execution_id not in rel_str:
+                        continue
+                    
+                    # Add to ZIP with directory structure preserved
+                    zip_file.write(file_path, arcname=rel_str)
+                    seen_paths.add(rel_str)
+                    file_count += 1
+        
+        if file_count == 0:
+            raise HTTPException(status_code=404, detail="No files found matching criteria")
+        
+        # Prepare response
+        zip_buffer.seek(0)
+        
+        # Generate filename
+        from src.utils.timezone_utils import get_pacific_time
+        timestamp = get_pacific_time().strftime("%Y%m%d_%H%M%S")
+        
+        if execution_id:
+            zip_filename = f"outputs_{execution_id}_{timestamp}.zip"
+        else:
+            zip_filename = f"outputs_{file_type}_{timestamp}.zip"
+        
+        return StreamingResponse(
+            iter([zip_buffer.getvalue()]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={zip_filename}",
+                "Content-Length": str(len(zip_buffer.getvalue()))
+            }
         )
     
     @app.get("/outputs")
@@ -3034,14 +3131,17 @@ if HAS_FASTAPI:
                     "path": rel_str,
                     "size": stat.st_size,
                     "modified": _format_pacific_timestamp_from_epoch(stat.st_mtime),
+                    "modified_epoch": stat.st_mtime,  # For sorting
+                    "created": _format_pacific_timestamp_from_epoch(stat.st_ctime),
+                    "created_epoch": stat.st_ctime,  # For sorting
                     "type": 'audit' if is_audit else 'analysis',
                     "extension": file_path.suffix,
                     "base_path": str(outputs_dir)
                 })
                 seen_paths.add(rel_str)
         
-        # Sort by modification time (newest first)
-        files.sort(key=lambda x: x["modified"], reverse=True)
+        # Sort by creation time (newest first) - chronological order
+        files.sort(key=lambda x: x["created_epoch"], reverse=True)
         
         # Apply limit
         limited_files = files[:limit]
