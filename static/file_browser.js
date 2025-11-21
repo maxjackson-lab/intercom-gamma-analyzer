@@ -64,9 +64,15 @@ function displayAllFiles(data) {
     for (const [dirName, files] of Object.entries(byDirectory)) {
         html += `
             <div style="margin-bottom: 30px; padding: 15px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
-                <h4 style="color: #60a5fa; margin: 0 0 10px 0;">
-                    📂 ${dirName.replace(/_/g, ' ')}
-                </h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="color: #60a5fa; margin: 0;">
+                        📂 ${dirName.replace(/_/g, ' ')}
+                    </h4>
+                    <button onclick="downloadFolderAsZip('${dirName}')" 
+                            style="padding: 6px 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); border-radius: 4px; color: #a78bfa; cursor: pointer; font-size: 12px; font-weight: 600;">
+                        📦 Download Folder
+                    </button>
+                </div>
                 <div style="margin-left: 10px;">
         `;
         
@@ -200,10 +206,50 @@ async function downloadAllAsZip() {
     }
 }
 
+async function downloadFolderAsZip(folderName) {
+    console.log(`📦 Downloading folder as ZIP: ${folderName}`);
+    
+    try {
+        // Use folder name as a filter (it's part of the execution directory name)
+        const response = await fetch(`/api/download-folder-zip?folder=${encodeURIComponent(folderName)}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+        
+        // Get filename from response headers
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `${folderName}.zip`;
+        if (contentDisposition) {
+            const match = contentDisposition.match(/filename=(.+)/);
+            if (match) {
+                filename = match[1].replace(/['"]/g, '');
+            }
+        }
+        
+        // Download the ZIP
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log(`✅ Folder ZIP download started: ${filename}`);
+    } catch (error) {
+        console.error(`❌ Folder ZIP download failed: ${error.message}`);
+        alert(`Failed to download folder ZIP: ${error.message}`);
+    }
+}
+
 // Export to global scope
 window.loadAllAvailableFiles = loadAllAvailableFiles;
 window.downloadFileFromBrowser = downloadFileFromBrowser;
 window.downloadAllAsZip = downloadAllAsZip;
+window.downloadFolderAsZip = downloadFolderAsZip;
 
 console.log('✅ File browser loaded');
 

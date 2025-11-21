@@ -3072,6 +3072,79 @@ if HAS_FASTAPI:
             }
         )
     
+    @app.get("/api/download-folder-zip")
+    async def download_folder_zip(
+        folder: str,
+        request: Request = None
+    ):
+        """
+        Download a specific execution folder as a ZIP archive.
+        
+        Query params:
+        - folder: The folder/directory name to download (required)
+        
+        Returns a ZIP file containing all files from that specific folder.
+        """
+        # Check rate limit
+        if request:
+            await check_rate_limit(request)
+        
+        import zipfile
+        import io
+        from pathlib import Path
+        from fastapi.responses import StreamingResponse
+        
+        # Create in-memory ZIP
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            file_count = 0
+            
+            for outputs_dir in _all_output_paths():
+                if not outputs_dir.exists():
+                    continue
+                
+                # Look for the specific folder (could be in executions/ or directly in outputs/)
+                target_dirs = [
+                    outputs_dir / "executions" / folder,
+                    outputs_dir / folder
+                ]
+                
+                for target_dir in target_dirs:
+                    if not target_dir.exists() or not target_dir.is_dir():
+                        continue
+                    
+                    # Add all files from this directory
+                    for file_path in target_dir.rglob("*"):
+                        if not file_path.is_file():
+                            continue
+                        
+                        # Get path relative to the target folder (not outputs root)
+                        relative_path = file_path.relative_to(target_dir)
+                        
+                        # Add to ZIP with folder structure
+                        zip_file.write(file_path, arcname=str(relative_path))
+                        file_count += 1
+        
+        if file_count == 0:
+            raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found or contains no files")
+        
+        # Prepare response
+        zip_buffer.seek(0)
+        
+        # Generate filename (sanitize folder name for safe filename)
+        safe_folder = folder.replace('/', '_').replace('\\', '_')
+        zip_filename = f"{safe_folder}.zip"
+        
+        return StreamingResponse(
+            iter([zip_buffer.getvalue()]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={zip_filename}",
+                "Content-Length": str(len(zip_buffer.getvalue()))
+            }
+        )
+    
     @app.get("/outputs")
     async def list_output_files(
         file_type: str = "all",
