@@ -411,7 +411,10 @@ async def run_agent_performance_analysis(
     focus_categories: Optional[str] = None,
     generate_gamma: bool = False,
     individual_breakdown: bool = False,
-    analyze_troubleshooting: bool = False
+    analyze_troubleshooting: bool = False,
+    test_mode: bool = False,
+    test_data_count: int = 100,
+    audit_trail: bool = False
 ) -> Dict[str, Any]:
     """Run comprehensive agent performance analysis with optional Gamma generation."""
     try:
@@ -429,15 +432,26 @@ async def run_agent_performance_analysis(
         if focus_categories:
             console.print(f"Focus: {focus_categories}\n")
         
-        # Fetch conversations
-        console.print("📥 Fetching conversations...")
-        fetcher = ChunkedFetcher()
-        all_conversations = await fetcher.fetch_conversations_chunked(
-            start_date=start_date,
-            end_date=end_date
-        )
-        
-        console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
+        # Fetch or generate conversations
+        if test_mode:
+            console.print(f"🧪 [yellow]TEST MODE: Generating {test_data_count} mock conversations...[/yellow]")
+            from src.services.test_data_generator import TestDataGenerator
+            generator = TestDataGenerator()
+            all_conversations = generator.generate_conversations(
+                count=test_data_count,
+                start_date=start_date,
+                end_date=end_date,
+                agent_filter=agent
+            )
+            console.print(f"   ✅ Generated {len(all_conversations)} test conversations\n")
+        else:
+            console.print("📥 Fetching conversations...")
+            fetcher = ChunkedFetcher()
+            all_conversations = await fetcher.fetch_conversations_chunked(
+                start_date=start_date,
+                end_date=end_date
+            )
+            console.print(f"   ✅ Fetched {len(all_conversations)} total conversations\n")
         
         # Filter by agent email domain
         console.print(f"🔍 Filtering conversations for {agent_name}...")

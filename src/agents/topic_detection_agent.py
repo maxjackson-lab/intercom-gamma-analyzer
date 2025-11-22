@@ -273,7 +273,7 @@ class TopicDetectionAgent(BaseAgent):
                 "keywords": ["abuse", "harmful", "offensive", "inappropriate", "violation", "terms of service", 
                            "not shareable", "link not working", "sharing issue", "spam", "harassment",
                            "abusive", "report", "complaint", "violate", "policy", 
-                           "suspend", "suspended", "ban", "banned", "disabled", "blocked"],
+                           "suspend", "suspended", "banned", "disabled", "blocked", "ban account"],
                 "priority": 1
             },
             "Account": {
@@ -289,7 +289,7 @@ class TopicDetectionAgent(BaseAgent):
                 "attribute": "Billing",
                 "keywords": ["invoice", "payment", "subscription", "billing", "charge", "refund", 
                            "cancel", "payment method", "plan", "charged", "bill", "subscribe", 
-                           "unsubscribe", "renew", "renewal", "paid", "pay", "credit card",
+                           "unsubscribe", "renew", "renewal", "paid", "paying", "credit card",
                            "paypal", "stripe", "receipt", "transaction", "cost", "price", "pricing"],
                 "priority": 2
             },
@@ -329,7 +329,8 @@ class TopicDetectionAgent(BaseAgent):
                 "attribute": "Product Question",
                 "keywords": ["how to", "how do i", "question", "help with", "what is", "can i", "feature",
                            "how can", "help me", "need help", "where is", "where do", "when can",
-                           "tutorial", "guide", "instructions", "explain", "understand", "confused"],
+                           "tutorial", "guide", "instructions", "explain", "understand", "confused",
+                           "is it possible"],
                 "priority": 3
             },
             "Promotions": {

@@ -26,6 +26,28 @@ class TopicOrchestratorV2:
             report_type="voc_v2"
         )
 
-    async def execute_weekly_analysis(self, *args, **kwargs):
-        return await self._orchestrator.execute_weekly_analysis(*args, **kwargs)
+    async def execute_weekly_analysis(
+        self,
+        conversations,
+        week_id=None,
+        start_date=None,
+        end_date=None,
+        period_type=None,
+        period_label=None,
+        canny_posts=None,
+        ai_model=None,
+        digest_mode=False
+    ):
+        """Proxy to TopicOrchestrator.execute_weekly_analysis with same signature."""
+        return await self._orchestrator.execute_weekly_analysis(
+            conversations=conversations,
+            week_id=week_id,
+            start_date=start_date,
+            end_date=end_date,
+            period_type=period_type,
+            period_label=period_label,
+            canny_posts=canny_posts,
+            ai_model=ai_model,
+            digest_mode=digest_mode
+        )
 
