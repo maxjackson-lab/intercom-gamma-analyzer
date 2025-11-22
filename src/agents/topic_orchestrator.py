@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pydantic import ValidationError
 
-from src.agents.base_agent import AgentContext
+from src.agents.base_agent import AgentContext, BaseAgent
 from src.agents.segmentation_agent import SegmentationAgent
 from src.agents.topic_detection_agent import TopicDetectionAgent
 from src.agents.subtopic_detection_agent import SubTopicDetectionAgent
