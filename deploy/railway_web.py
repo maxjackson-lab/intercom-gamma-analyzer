@@ -3094,6 +3094,8 @@ if HAS_FASTAPI:
         from pathlib import Path
         from fastapi.responses import StreamingResponse
         
+        logger.info(f"Download folder ZIP requested: {folder}")
+        
         # Create in-memory ZIP
         zip_buffer = io.BytesIO()
         
@@ -3101,7 +3103,9 @@ if HAS_FASTAPI:
             file_count = 0
             
             for outputs_dir in _all_output_paths():
+                logger.info(f"Checking outputs path: {outputs_dir}")
                 if not outputs_dir.exists():
+                    logger.warning(f"Outputs dir does not exist: {outputs_dir}")
                     continue
                 
                 # Look for the specific folder (could be in executions/ or directly in outputs/)
@@ -3111,9 +3115,12 @@ if HAS_FASTAPI:
                 ]
                 
                 for target_dir in target_dirs:
+                    logger.info(f"Checking target dir: {target_dir}")
                     if not target_dir.exists() or not target_dir.is_dir():
+                        logger.debug(f"Target dir not found or not a directory: {target_dir}")
                         continue
                     
+                    logger.info(f"Found target directory: {target_dir}")
                     # Add all files from this directory
                     for file_path in target_dir.rglob("*"):
                         if not file_path.is_file():
@@ -3125,6 +3132,9 @@ if HAS_FASTAPI:
                         # Add to ZIP with folder structure
                         zip_file.write(file_path, arcname=str(relative_path))
                         file_count += 1
+                        logger.debug(f"Added file to ZIP: {relative_path}")
+        
+        logger.info(f"ZIP created with {file_count} files")
         
         if file_count == 0:
             raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found or contains no files")
