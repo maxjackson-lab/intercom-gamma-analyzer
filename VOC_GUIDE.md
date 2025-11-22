@@ -19,6 +19,28 @@ python src/main.py voice-of-customer --start-date 2024-01-01 --end-date 2024-01-
 python src/main.py voice-of-customer --start-date 2024-01-01 --end-date 2024-01-07 --include-trends
 ```
 
+### VOC-V2 Narrative Mode
+
+Use `voc-v2` when you need the weekly operations story Hilary shares with exec staff. It layers BPO workload, Fin gaps, and prioritized actions into one narrative.
+
+```bash
+# Run the new narrative report for last week
+python src/main.py voc-v2 --time-period week --generate-gamma
+
+# Fast digest for exec sync
+python src.main.py voc-v2 --time-period week --digest-mode
+```
+
+Highlights:
+- Executive summary tying top topics + Fin knowledge gaps + Horatio/Boldr load
+- Embedded BPO snapshot, so no separate vendor command is required
+- Inline quotes with Intercom links and a prioritized action list
+- Outputs stored under `outputs/voc_v2/` to keep history separate from the classic reports
+
+> Need per-agent coaching detail? Continue using `python src.main.py agent-performance --agent horatio --individual-breakdown` (or `--agent boldr`). VOC-V2 references the same vendor data but keeps individual evaluation inside the existing BPO modes.
+
+> Want the same output with fewer flags? Use `python src/main.py agent-eval --vendor horatio --time-period week` to jump straight into the individual breakdown workflow (defaults to taxonomy + Gamma-ready narrative).
+
 ### Advanced Options
 
 ```bash

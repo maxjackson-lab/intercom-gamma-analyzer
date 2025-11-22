@@ -4694,6 +4694,126 @@ def voice_of_customer_analysis(
         ))
 
 
+
+@cli.command(name='voc-v2')
+@click.option('--time-period', type=click.Choice(['yesterday', 'week', 'month', 'quarter']),
+              help='Time period for analysis (overrides start/end dates if provided)')
+@click.option('--periods-back', type=int, default=1,
+              help='Number of periods back to analyze (e.g., --time-period month --periods-back 3)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD) - used if no time-period specified')
+@click.option('--end-date', help='End date (YYYY-MM-DD) - used if no time-period specified')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model to use (openai or claude). Defaults to config setting.')
+@click.option('--generate-gamma', is_flag=True, default=False,
+              help='Generate Gamma presentation from results')
+@click.option('--test-mode', is_flag=True, default=False,
+              help='🧪 Use mock test data instead of Intercom API (fast, no API calls)')
+@click.option('--test-data-count', type=str, default='100',
+              help='Number of test conversations or preset (100, 500, 1000, 5000, 10000, or custom number)')
+@click.option('--verbose', is_flag=True, default=False,
+              help='Enable verbose DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False,
+              help='Enable audit trail logging for debugging and compliance')
+@click.option('--llm-topic-detection', is_flag=True, default=True,
+              help='🤖 LLM-first topic detection (DEFAULT: ON for accuracy - use --no-llm-topic-detection to disable)')
+@click.option('--digest-mode', is_flag=True, default=False,
+              help='Digest mode: short narrative + top actions only')
+def voice_of_customer_v2_analysis(
+    time_period: Optional[str],
+    periods_back: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    ai_model: Optional[str],
+    generate_gamma: bool,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    llm_topic_detection: bool,
+    digest_mode: bool
+):
+    """
+    VOC-V2: Narrative, BPO-aware Voice of Customer analysis.
+    """
+    from src.utils.time_utils import calculate_date_range, format_date_range_for_display
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+        start_date = start_dt.strftime('%Y-%m-%d')
+        end_date = end_dt.strftime('%Y-%m-%d')
+        label = time_period.capitalize() if time_period else "Custom Range"
+        console.print(f"[bold]VOC-V2 Narrative Analysis - {label}[/bold]")
+        console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
+    except ValueError as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        return
+
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model}[/cyan]")
+
+    if llm_topic_detection:
+        os.environ['LLM_TOPIC_DETECTION'] = 'true'
+        console.print(f"[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
+        console.print(f"[dim]   Uses GPT-4o-mini to classify every conversation[/dim]")
+
+    preset_counts = {
+        'micro': 100,
+        'small': 500,
+        'medium': 1000,
+        'large': 5000,
+        'xlarge': 10000,
+        'xxlarge': 20000
+    }
+    parsed_test_count = test_data_count
+    try:
+        if test_mode:
+            if test_data_count.lower() in preset_counts:
+                test_data_count_int = preset_counts[test_data_count.lower()]
+                preset_label = test_data_count.lower()
+            else:
+                test_data_count_int = int(test_data_count)
+                preset_label = None
+            info = f" ({preset_label})" if preset_label else ""
+            console.print(f"[yellow]🧪 Test Mode: {test_data_count_int} mock conversations{info}[/yellow]")
+            parsed_test_count = str(test_data_count_int)
+        else:
+            test_data_count_int = int(test_data_count) if test_data_count.isdigit() else 0
+    except ValueError:
+        console.print(f"[red]Invalid test data count '{test_data_count}'[/red]")
+        return
+
+    if verbose:
+        console.print()
+
+    from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+
+    asyncio.run(run_topic_based_analysis_custom(
+        start_dt,
+        end_dt,
+        generate_gamma,
+        test_mode=test_mode,
+        test_data_count=parsed_test_count,
+        audit_trail=audit_trail,
+        digest_mode=digest_mode,
+        orchestrator_factory=TopicOrchestratorV2,
+        output_prefix="voc_v2",
+        output_subdir="voc_v2"
+    ))
+
+
 @cli.command(name='agent-performance')
 @click.option('--agent', type=click.Choice(['horatio', 'boldr', 'escalated']), required=True,
               help='Agent to analyze (horatio, boldr, or escalated to senior staff)')
@@ -4706,6 +4826,7 @@ def voice_of_customer_analysis(
 @click.option('--start-date', help='Start date (YYYY-MM-DD) - overrides time-period')
 @click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
 @click.option('--focus-categories', help='Comma-separated categories to focus on (e.g., "Bug,API")')
+@click.option('--filter-category', help='Alias for focus categories (taxonomy filter)')
 @click.option('--generate-gamma', is_flag=True, help='Generate Gamma presentation')
 @click.option('--output-format', type=click.Choice(['gamma', 'markdown', 'json', 'excel']), default='markdown',
               help='Output format for results')
@@ -4719,7 +4840,8 @@ def voice_of_customer_analysis(
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
               help='AI model to use for analysis (overrides config setting)')
 def agent_performance(agent: str, individual_breakdown: bool, time_period: Optional[str], periods_back: int,
-                     start_date: Optional[str], end_date: Optional[str], focus_categories: Optional[str], 
+                     start_date: Optional[str], end_date: Optional[str], focus_categories: Optional[str],
+                     filter_category: Optional[str],
                      generate_gamma: bool, output_format: str, analyze_troubleshooting: bool = False, 
                      test_mode: bool = False, test_data_count: str = '100',
                      verbose: bool = False, audit_trail: bool = False, ai_model: Optional[str] = None):
@@ -4794,6 +4916,9 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
     if audit_trail:
         console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
     
+    if filter_category and not focus_categories:
+        focus_categories = filter_category
+
     console.print(f"[bold green]{agent_name} Performance Analysis[/bold green]")
     console.print(f"Date Range: {start_date_str} to {end_date_str}")
     if individual_breakdown:
@@ -4806,6 +4931,108 @@ def agent_performance(agent: str, individual_breakdown: bool, time_period: Optio
         analyze_troubleshooting, test_mode, test_data_count_int, audit_trail
     ))
 
+
+@cli.command(name='agent-eval')
+@click.option('--vendor', type=click.Choice(['horatio', 'boldr', 'escalated']), required=True,
+              help='Vendor team to evaluate')
+@click.option('--time-period', type=click.Choice(['week', 'month', '6-weeks', 'quarter']),
+              help='Time period for analysis')
+@click.option('--periods-back', type=int, default=1,
+              help='Number of periods back to analyze (e.g., --time-period week --periods-back 4)')
+@click.option('--start-date', help='Start date (YYYY-MM-DD) - overrides time-period')
+@click.option('--end-date', help='End date (YYYY-MM-DD) - overrides time-period')
+@click.option('--focus-categories', help='Comma-separated taxonomy categories to emphasize')
+@click.option('--filter-category', help='Alias for focus categories (taxonomy filter)')
+@click.option('--generate-gamma', is_flag=True, default=False, help='Generate Gamma presentation output')
+@click.option('--test-mode', is_flag=True, default=False, help='Use generated mock data (no API calls)')
+@click.option('--test-data-count', type=str, default='100',
+              help='Test data count preset (micro, small, medium, large, xlarge, xxlarge) or number')
+@click.option('--verbose', is_flag=True, default=False, help='Enable DEBUG logging')
+@click.option('--audit-trail', is_flag=True, default=False, help='Generate audit trail artifacts')
+@click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
+              help='AI model override for analysis')
+def agent_eval(
+    vendor: str,
+    time_period: Optional[str],
+    periods_back: int,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    focus_categories: Optional[str],
+    filter_category: Optional[str],
+    generate_gamma: bool,
+    test_mode: bool,
+    test_data_count: str,
+    verbose: bool,
+    audit_trail: bool,
+    ai_model: Optional[str]
+):
+    """Shortcut command for per-agent evaluation with individual breakdown enabled."""
+    from src.utils.time_utils import calculate_date_range, format_date_range_for_display
+
+    if ai_model:
+        os.environ['AI_MODEL'] = ai_model
+        console.print(f"[cyan]🤖 AI Model: {ai_model.upper()}[/cyan]")
+
+    try:
+        start_dt, end_dt = calculate_date_range(
+            time_period=time_period,
+            periods_back=periods_back,
+            start_date=start_date,
+            end_date=end_date,
+            end_is_yesterday=True
+        )
+        console.print(f"[bold]Agent Evaluation - {vendor.title()}[/bold]")
+        console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
+    except ValueError as err:
+        console.print(f"[red]Error: {err}[/red]")
+        return
+
+    test_data_presets = {
+        'micro': 100,
+        'small': 500,
+        'medium': 1000,
+        'large': 5000,
+        'xlarge': 10000,
+        'xxlarge': 20000
+    }
+    test_data_count_int = 0
+    try:
+        if test_mode:
+            if test_data_count.lower() in test_data_presets:
+                test_data_count_int = test_data_presets[test_data_count.lower()]
+                console.print(f"[yellow]🧪 Test Mode: {test_data_count_int} mock conversations ({test_data_count.lower()})[/yellow]")
+            else:
+                test_data_count_int = int(test_data_count)
+                console.print(f"[yellow]🧪 Test Mode: {test_data_count_int} mock conversations[/yellow]")
+    except ValueError:
+        console.print(f"[red]Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge, xxlarge)[/red]")
+        return
+
+    if verbose:
+        import logging
+        logging.getLogger().setLevel(logging.DEBUG)
+        for module in ['agents', 'services', 'src.agents', 'src.services']:
+            logging.getLogger(module).setLevel(logging.DEBUG)
+        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+
+    if audit_trail:
+        console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+
+    if filter_category and not focus_categories:
+        focus_categories = filter_category
+
+    asyncio.run(run_agent_performance_analysis(
+        vendor,
+        start_dt,
+        end_dt,
+        focus_categories,
+        generate_gamma,
+        individual_breakdown=True,
+        analyze_troubleshooting=False,
+        test_mode=test_mode,
+        test_data_count=test_data_count_int,
+        audit_trail=audit_trail
+    ))
 
 @cli.command(name='agent-coaching-report')
 @click.option('--vendor', type=click.Choice(['horatio', 'boldr']), required=True,
@@ -4927,6 +5154,8 @@ def chat(model: str, enable_cache: bool, railway: bool):
         console.print("[yellow]Check the logs for more details[/yellow]")
 
 
+
+
 async def run_topic_based_analysis_custom(
     start_date: datetime, 
     end_date: datetime, 
@@ -4934,13 +5163,17 @@ async def run_topic_based_analysis_custom(
     test_mode: bool = False,
     test_data_count: str = "100",
     audit_trail: bool = False,
-    digest_mode: bool = False
+    digest_mode: bool = False,
+    orchestrator_factory=None,
+    output_prefix: str = "topic_based",
+    output_subdir: Optional[str] = None
 ):
     """Run topic-based analysis with custom date range"""
     try:
         # 🔧 ENABLE CONSOLE RECORDING (capture ALL output to .log file!)
         # This ensures users have complete logs even if SSE disconnects
         console.record = True
+        output_base_dir = get_output_directory()
         
         # Comment 3: Add timing logs for heavy imports
         verbose_imports = os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
@@ -4959,11 +5192,11 @@ async def run_topic_based_analysis_custom(
         from src.services.gamma_generator import GammaGenerator
         from src.services.audit_trail import AuditTrail
         from src.utils.time_utils import detect_period_type
+        from src.utils.output_manager import get_output_directory
         
         # Initialize audit trail if enabled
         audit = None
         if audit_trail:
-            from src.utils.output_manager import get_output_directory
             audit = AuditTrail(output_dir=str(get_output_directory()))
             audit.step("Initialization", "Started Voice of Customer Analysis", {
                 'start_date': start_date.strftime('%Y-%m-%d'),
@@ -5035,7 +5268,8 @@ async def run_topic_based_analysis_custom(
             conversations_count=len(conversations)
         )
         
-        orchestrator = TopicOrchestrator(audit_trail=audit, execution_monitor=monitor)
+        orchestrator_cls = orchestrator_factory or TopicOrchestrator
+        orchestrator = orchestrator_cls(audit_trail=audit, execution_monitor=monitor)
         week_id = start_date.strftime('%Y-W%W')
         
         results = await orchestrator.execute_weekly_analysis(
@@ -5051,7 +5285,11 @@ async def run_topic_based_analysis_custom(
         # Save output
         from src.utils.output_manager import get_output_file_path
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_file = get_output_file_path(f"topic_based_{week_id}_{timestamp}.md")
+        filename = f"{output_prefix}_{week_id}_{timestamp}.md"
+        if output_subdir:
+            filename = f"{output_subdir}/{filename}"
+        report_file = get_output_file_path(filename)
+        report_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(report_file, 'w') as f:
             f.write(results.get('formatted_report', ''))
@@ -5124,7 +5362,7 @@ async def run_topic_based_analysis_custom(
                             'Gamma_URL_Topic', start_date, end_date, file_type='txt', 
                             period_label=results.get('period_label', 'Custom')
                         )
-                        url_file = output_dir / url_filename
+                        url_file = output_base_dir / url_filename
                         with open(url_file, 'w') as f:
                             f.write(gamma_url)
                         console.print(f"📁 URL saved to: {url_file}")

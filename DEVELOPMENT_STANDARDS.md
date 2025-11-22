@@ -24,12 +24,34 @@
 2. **Add logging statements** - Log important events, errors, and debug info
 3. **Handle edge cases** - Test and handle unusual inputs/conditions
 4. **Validate inputs** - Check all inputs and provide clear error messages
+5. **Audit prompts** - If a change touches any LLM instruction, run the Prompt Audit Checklist (representative sample note, no contradictory directives, good/bad examples, grounding reminder). Document the updated prompt in code review.
 
 ### Before Completing Any Feature:
 1. **All tests must pass** - 100% test coverage for new code
 2. **Logging is comprehensive** - All important events are logged
 3. **Error handling is complete** - No unhandled exceptions
 4. **Documentation is updated** - README, docstrings, and comments are current
+
+## Prompt Audit Checklist
+
+Whenever you touch a prompt (agent instructions, formatter templates, orchestrator metadata), run this audit before shipping:
+
+1. **Context Sandwich**  
+   - Start with role/purpose, then enumerate the exact data being passed (sample counts, tiers, representative caveats), and close with success criteria.
+2. **No Contradictions**  
+   - Ensure there is a single source of truth for tone, audience, and scope. Remove legacy phrases that ask the model to do the opposite (e.g., “analyze ALL conversations” when we only pass 10 samples).
+3. **Representative Sample Clause**  
+   - If you are truncating data, explicitly state that the subset is representative and the model must not request additional records.
+4. **Good/Bad Examples**  
+   - Provide at least one positive and one negative micro-example so the LLM understands the desired granularity (see `PROMPT_CATALOG.md` for templates).
+5. **Grounding & Citations**  
+   - Remind the model to cite conversation IDs/links, avoid hallucinated URLs, and note data gaps.
+6. **LLM Operations Alignment**  
+   - Confirm timeouts, semaphores, and chunk sizes match the instructions. Never change multiple LLM controls at once (per DEVELOPMENT_STANDARDS → LLM Operational Controls).
+7. **Record Keeping**  
+   - Document the prompt change (reason + before/after summary) in PR descriptions or `PROMPT_CATALOG.md` so other agents inherit the new guidance.
+
+> **Tip:** Use the `Prompt Audit` quick form in `PROMPT_CATALOG.md` when reviewing prompts so the checklist above is stored next to the actual template.
 
 ## Testing Standards
 

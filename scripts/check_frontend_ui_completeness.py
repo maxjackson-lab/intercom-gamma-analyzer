@@ -180,6 +180,7 @@ def validate_frontend_completeness():
     cli_to_ui_types = {
         'sample_mode': ['sample-mode'],
         'voice_of_customer': ['voice-of-customer-hilary', 'voice-of-customer-synthesis', 'voice-of-customer-complete'],
+        'voc_v2': ['voc-v2'],
         'agent_performance': ['agent-performance-*'],
         'agent_coaching': ['agent-coaching-*'],
         'canny_analysis': ['canny-analysis'],
@@ -275,7 +276,7 @@ def validate_frontend_completeness():
     # Check that digest-mode is only sent for appropriate commands
     for analysis_type, flags in flag_usage.items():
         if '--digest-mode' in flags:
-            if not analysis_type.startswith('voice-of-customer'):
+            if not (analysis_type.startswith('voice-of-customer') or analysis_type == 'voc-v2'):
                 errors.append(
                     f"❌ {analysis_type} sends --digest-mode but it's only valid for voice-of-customer"
                 )

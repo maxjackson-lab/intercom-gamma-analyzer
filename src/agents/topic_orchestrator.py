@@ -91,7 +91,15 @@ def _normalize_agent_result(result: Any) -> Dict[str, Any]:
 class TopicOrchestrator:
     """Orchestrates topic-based multi-agent workflow"""
     
-    def __init__(self, ai_factory: AIModelFactory = None, audit_trail=None, execution_monitor=None):
+    def __init__(
+        self,
+        ai_factory: AIModelFactory = None,
+        audit_trail=None,
+        execution_monitor=None,
+        formatter_agent: Optional[BaseAgent] = None,
+        bpo_agent: Optional[BaseAgent] = None,
+        report_type: str = "voc_v1"
+    ):
         #Audit trail for detailed narration
         self.audit = audit_trail
         
@@ -107,7 +115,10 @@ class TopicOrchestrator:
         self.fin_performance_agent = FinPerformanceAgent(audit=self.audit)
         # TrendAgent will get historical_snapshot_service via lazy property when needed
         self._trend_agent = None
-        self.output_formatter_agent = OutputFormatterAgent()
+        self.formatter_agent = formatter_agent or OutputFormatterAgent()
+        self.formatter_agent_name = getattr(self.formatter_agent, 'name', 'OutputFormatterAgent')
+        self.bpo_performance_agent = bpo_agent
+        self.report_type = report_type
         
         # Analytical insight agents (Phase 4.5)
         self.correlation_agent = CorrelationAgent()
@@ -778,6 +789,30 @@ class TopicOrchestrator:
 
             self.logger.info(f"   ✅ Fin analysis complete")
             
+            # Optional BPO performance analysis
+            if self.bpo_performance_agent:
+                try:
+                    self.logger.info("🏢 Running BPO performance summary")
+                    bpo_context = context.model_copy()
+                    segmentation_data_for_bpo = workflow_results.get('SegmentationAgent', {}).get('data', segmentation_result.data)
+                    bpo_context.metadata = {
+                        'agent_distribution': segmentation_data_for_bpo.get('agent_distribution', {}),
+                        'topics_by_conversation': topics_by_conv,
+                        'topic_distribution': topic_dist,
+                        'fin_performance': _normalize_agent_result(fin_result).get('data', {}),
+                        'week_id': week_id,
+                        'period_label': period_label
+                    }
+                    bpo_context.previous_results = {
+                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                    }
+                    bpo_result = await self.bpo_performance_agent.execute(bpo_context)
+                    workflow_results[self.bpo_performance_agent.name] = _normalize_agent_result(bpo_result)
+                except Exception as err:
+                    self.logger.warning(f"BpoPerformanceAgent failed: {err}")
+            
             # PHASE 4.5: Analytical Insights
             self.logger.info("🔍 Phase 4.5: Analytical Insights (Correlation, Quality, Churn Risk, Confidence)")
             
@@ -1049,6 +1084,8 @@ class TopicOrchestrator:
                 'TrendAgent': _normalize_agent_result(trend_result),
                 'AnalyticalInsights': analytical_insights  # Phase 4.5 results
             }
+            if self.bpo_performance_agent and self.bpo_performance_agent.name in workflow_results:
+                output_context.previous_results[self.bpo_performance_agent.name] = workflow_results[self.bpo_performance_agent.name]
             # Get historical context for "What We Cannot Determine" section
             historical_context = {'weeks_available': 0}
             if self.historical_snapshot_service:
@@ -1077,16 +1114,18 @@ class TopicOrchestrator:
                 'period_type': period_type,
                 'period_label': period_label,
                 'historical_context': historical_context,
-                'comparison_data': comparison_data
+                'comparison_data': comparison_data,
+                'bpo_summary': workflow_results.get(self.bpo_performance_agent.name, {}).get('data') if self.bpo_performance_agent else {}
             }
             
             # Report agent start
+            formatter_agent_key = self.formatter_agent_name
             if self.monitor:
-                await self.monitor.update_agent_status('OutputFormatterAgent', AgentStatus.RUNNING,
+                await self.monitor.update_agent_status(formatter_agent_key, AgentStatus.RUNNING,
                                                       "Formatting analysis for Gamma presentation")
             
-            formatter_result = await self.output_formatter_agent.execute(output_context)
-            workflow_results['OutputFormatterAgent'] = _normalize_agent_result(formatter_result)
+            formatter_result = await self.formatter_agent.execute(output_context)
+            workflow_results[formatter_agent_key] = _normalize_agent_result(formatter_result)
             
             # 📋 SAVE AGENT DEBUG REPORT (Human-Readable Summary of All Agent Outputs)
             try:
@@ -1105,7 +1144,7 @@ class TopicOrchestrator:
             
             # Report agent completion
             if self.monitor:
-                await self.monitor.update_agent_status('OutputFormatterAgent', AgentStatus.COMPLETED,
+                await self.monitor.update_agent_status(formatter_agent_key, AgentStatus.COMPLETED,
                                                       "Formatted output ready",
                                                       confidence=formatter_result.confidence)
             
@@ -1123,9 +1162,9 @@ class TopicOrchestrator:
             
             # Display agent result
             try:
-                display.display_agent_result('OutputFormatterAgent', _normalize_agent_result(formatter_result), show_full_data)
+                display.display_agent_result(formatter_agent_key, _normalize_agent_result(formatter_result), show_full_data)
             except Exception as e:
-                logger.warning(f"Failed to display OutputFormatterAgent result: {e}")
+                logger.warning(f"Failed to display {formatter_agent_key} result: {e}")
             
             self.logger.info(f"   ✅ Output formatted")
             
@@ -1142,6 +1181,7 @@ class TopicOrchestrator:
                 'period_start': context.period_start if hasattr(context, 'period_start') else None,
                 'period_end': context.period_end if hasattr(context, 'period_end') else None,
                 'digest_mode': digest_mode,
+                'report_type': self.report_type,
                 'formatted_report': formatter_result.data.get('formatted_output', ''),
                 'summary': {
                     'total_conversations': len(conversations),
@@ -1328,7 +1368,7 @@ class TopicOrchestrator:
                 metrics['agent_timings'].get('ConfidenceMetaAgent', {}).get('execution_time', 0)
             ),
             'trend_analysis': metrics['agent_timings'].get('TrendAgent', {}).get('execution_time', 0),
-            'output_formatting': metrics['agent_timings'].get('OutputFormatterAgent', {}).get('execution_time', 0)
+            'output_formatting': metrics['agent_timings'].get(self.formatter_agent_name, {}).get('execution_time', 0)
         }
         
         self.logger.info(f"📊 Metrics Summary:")

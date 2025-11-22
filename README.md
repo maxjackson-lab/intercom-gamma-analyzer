@@ -92,6 +92,32 @@ python -m src.main voice --month 5 --year 2024 --generate-gamma
 python -m src.main voice --month 5 --year 2024 --tier1-countries "US,Canada,UK,Germany" --generate-gamma
 ```
 
+### **VOC-V2 Narrative Mode (Weekly Ops Readout)**
+```bash
+# Last week with digest narrative + Gamma deck
+python src/main.py voc-v2 --time-period week --generate-gamma --digest-mode
+
+# Custom range with test data preview
+python src/main.py voc-v2 --start-date 2025-11-12 --end-date 2025-11-19 --test-mode --test-data-count 500
+```
+
+VOC-V2 produces the data-rich narrative shared in Hilary's weekly operations meeting:
+- Executive storyline that ties topics, Fin gaps, and BPO workloads together
+- Embedded Horatio/Boldr summary so vendor performance stays visible
+- Inline quotes with Intercom links plus prioritized actions
+- Optional `--digest-mode` for a three-minute skim
+
+### **Agent Evaluation (Individual Breakdown)**
+```bash
+# Horatio weekly individual evaluation with mock data
+python src/main.py agent-eval --vendor horatio --time-period week --test-mode --test-data-count micro
+
+# Boldr custom range with Gamma deck
+python src/main.py agent-eval --vendor boldr --start-date 2025-11-01 --end-date 2025-11-21 --generate-gamma
+```
+
+`agent-eval` is a shortcut to the individual breakdown workflow—Horatio, Boldr, or escalated teams—with taxonomy focus (`--filter-category Billing`) and Gamma export parity with the core agent performance command.
+
 ### **Trend Analysis**
 ```bash
 # Last 30 days with billing focus

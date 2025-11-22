@@ -430,6 +430,79 @@ CANONICAL_COMMAND_MAPPINGS = {
         },
         'estimated_duration': '30sec-10min (depends on --schema-mode)'
     },
+    'voc_v2': {
+        'command': 'python',
+        'args': ['src/main.py', 'voc-v2'],
+        'display_name': 'VOC-V2 Narrative (Hilary)',
+        'description': 'Narrative Voice of Customer report with BPO insights',
+        'allowed_flags': {
+            '--time-period': {
+                'type': 'enum',
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
+                'default': 'week',
+                'description': 'Time period for analysis'
+            },
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'min': 1,
+                'max': 12,
+                'description': 'Number of periods to analyze'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Custom start date'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Custom end date'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use mock test data'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data size (micro, small, etc. or number)'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail outputs'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable DEBUG logging'
+            },
+            '--digest-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Shorten report to top 3 topics'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'Primary AI provider'
+            },
+            '--llm-topic-detection': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Enable LLM-first topic detection'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
+    },
     'voice_of_customer': {
         'command': 'python',
         'args': ['src/main.py', 'voice-of-customer'],
@@ -577,6 +650,10 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'string',
                 'description': 'Comma-separated categories to focus on (e.g., "Bug,API")'
             },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Alias for focus-categories (taxonomy filter)'
+            },
             '--output-format': {
                 'type': 'enum',
                 'values': ['markdown', 'json', 'excel', 'gamma'],
@@ -631,6 +708,83 @@ CANONICAL_COMMAND_MAPPINGS = {
             }
         },
         'estimated_duration': '5-15 minutes'
+    },
+    'agent_eval': {
+        'command': 'python',
+        'args': ['src/main.py', 'agent-eval'],
+        'display_name': 'Agent Evaluation (Individual)',
+        'description': 'Per-agent evaluation with taxonomy highlights',
+        'allowed_flags': {
+            '--vendor': {
+                'type': 'enum',
+                'values': ['horatio', 'boldr', 'escalated'],
+                'required': True,
+                'description': 'Vendor team to evaluate'
+            },
+            '--time-period': {
+                'type': 'enum',
+                'values': ['week', 'month', '6-weeks', 'quarter'],
+                'default': 'week',
+                'description': 'Time period for evaluation'
+            },
+            '--periods-back': {
+                'type': 'integer',
+                'default': 1,
+                'min': 1,
+                'max': 12,
+                'description': 'Number of historical periods'
+            },
+            '--start-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Custom start date'
+            },
+            '--end-date': {
+                'type': 'date',
+                'format': 'YYYY-MM-DD',
+                'description': 'Custom end date'
+            },
+            '--focus-categories': {
+                'type': 'string',
+                'description': 'Comma-separated taxonomy categories'
+            },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Alias for focus categories'
+            },
+            '--generate-gamma': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate Gamma presentation'
+            },
+            '--test-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Use mock data instead of Intercom API'
+            },
+            '--test-data-count': {
+                'type': 'string',
+                'default': '100',
+                'description': 'Test data preset (micro, small, etc.) or number'
+            },
+            '--verbose': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Enable DEBUG logging'
+            },
+            '--audit-trail': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Generate audit trail artifacts'
+            },
+            '--ai-model': {
+                'type': 'enum',
+                'values': ['openai', 'claude'],
+                'default': 'openai',
+                'description': 'Primary AI provider'
+            }
+        },
+        'estimated_duration': '3-10 minutes'
     },
     'agent_coaching': {
         'command': 'python',
@@ -1308,6 +1462,7 @@ CANONICAL_COMMAND_MAPPINGS = {
 # Legacy aliases used by older web/CLI integrations
 CANONICAL_COMMAND_MAPPINGS['agent_performance_team'] = CANONICAL_COMMAND_MAPPINGS['agent_performance']
 CANONICAL_COMMAND_MAPPINGS['tech_analysis'] = CANONICAL_COMMAND_MAPPINGS['tech_troubleshooting']
+CANONICAL_COMMAND_MAPPINGS['voc-v2'] = CANONICAL_COMMAND_MAPPINGS['voc_v2']
 def validate_command_request(analysis_type: str, flags: Dict[str, Any]) -> tuple[bool, str]:
     """
     Validate command request against canonical schema.
@@ -1538,6 +1693,7 @@ if HAS_FASTAPI:
                         <option value="voice-of-customer-hilary" selected>VoC: Hilary Format (Topic Cards)</option>
                         <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
                         <option value="voice-of-customer-complete">VoC: Complete (Both Formats)</option>
+                        <option value="voc-v2">VoC: Narrative V2 (Hilary Weekly Story)</option>
                     </optgroup>
                     <optgroup label="Category Deep Dives">
                         <option value="analyze-billing">Billing Analysis</option>
@@ -1557,6 +1713,11 @@ if HAS_FASTAPI:
                     <optgroup label="Agent Performance - Individual Breakdown">
                         <option value="agent-performance-horatio-individual">Horatio: Individual Agents + Taxonomy</option>
                         <option value="agent-performance-boldr-individual">Boldr: Individual Agents + Taxonomy</option>
+                    </optgroup>
+                    <optgroup label="Agent Evaluation">
+                        <option value="agent-eval-horatio">Horatio: Agent Evaluation</option>
+                        <option value="agent-eval-boldr">Boldr: Agent Evaluation</option>
+                        <option value="agent-eval-escalated">Escalated/Senior: Agent Evaluation</option>
                     </optgroup>
                     <optgroup label="Agent Coaching Reports">
                         <option value="agent-coaching-horatio">Horatio: Coaching & Development</option>

@@ -109,10 +109,15 @@ Examples to match:
                 })
         
         return f"""
-Sample conversations for this topic (showing {len(sample)} of {len(topic_conversations)}):
-{json.dumps(sample, indent=2)}
+Representative sample for topic: {context.metadata.get('current_topic')}
 
-Analyze ALL {len(topic_conversations)} conversations to generate your insight.
+You have {len(topic_conversations)} total conversations for this topic.
+The {len(sample)} snippets below were curated to REPRESENT the broader sentiment pattern.
+
+Use ONLY these samples (they are representative) to infer the nuanced sentiment insight.
+
+Sample conversations (representative {len(sample)} of {len(topic_conversations)}):
+{json.dumps(sample, indent=2)}
 """
     
     def validate_input(self, context: AgentContext) -> bool:

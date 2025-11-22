@@ -281,6 +281,8 @@ async function runAnalysis() {
             aiModel, testMode, auditMode, taxonomyFilter
         });
         
+        const isVocFamily = analysisType && (analysisType.startsWith('voice-of-customer') || analysisType === 'voc-v2');
+        
         // Build command based on analysis type
         let command = 'python';
         let args = ['src/main.py'];
@@ -363,6 +365,18 @@ async function runAnalysis() {
                 args.push('--digest-mode');
             }
             
+        } else if (analysisType === 'voc-v2') {
+            args.push('voc-v2');
+            
+            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
+            if (llmTopicDetectionVoc) {
+                args.push('--llm-topic-detection');
+            }
+            
+            if (digestMode) {
+                args.push('--digest-mode');
+            }
+            
         } else if (analysisType.startsWith('agent-performance-')) {
             args.push('agent-performance');
             
@@ -378,6 +392,17 @@ async function runAnalysis() {
             // Check if individual breakdown
             if (analysisType.includes('individual')) {
                 args.push('--individual-breakdown');
+            }
+            
+        } else if (analysisType.startsWith('agent-eval-')) {
+            args.push('agent-eval');
+            
+            if (analysisType.includes('horatio')) {
+                args.push('--vendor', 'horatio');
+            } else if (analysisType.includes('boldr')) {
+                args.push('--vendor', 'boldr');
+            } else if (analysisType.includes('escalated')) {
+                args.push('--vendor', 'escalated');
             }
             
         } else if (analysisType.startsWith('agent-coaching-')) {
@@ -424,7 +449,7 @@ async function runAnalysis() {
         if (analysisType !== 'sample-mode') {
             if (outputFormat === 'gamma') {
                 args.push('--generate-gamma');
-            } else if (outputFormat && !analysisType.startsWith('voice-of-customer')) {
+            } else if (outputFormat && !isVocFamily) {
                 args.push('--output-format', outputFormat);
             }
         }
@@ -448,21 +473,22 @@ async function runAnalysis() {
         }
         
         // Handle data source
-        if (dataSource === 'canny' && analysisType.startsWith('voice-of-customer')) {
+        if (dataSource === 'canny' && isVocFamily) {
             // Switch to canny-analysis
             args = ['src/main.py', 'canny-analysis'];
             if (timePeriod !== 'custom') {
                 args.push('--time-period', timePeriod);
             }
-        } else if (dataSource === 'both' && analysisType.startsWith('voice-of-customer')) {
+        } else if (dataSource === 'both' && isVocFamily) {
             args.push('--include-canny');
         }
         
         // Add taxonomy filter if specified (now supported in CLI)
         if (taxonomyFilter && taxonomyFilter !== '') {
-            // Apply to voice-of-customer, agent-performance, and category commands
-            if (analysisType.startsWith('voice-of-customer') || 
+            // Apply to voice-of-customer, agent-performance, agent-eval, and category commands
+            if (isVocFamily ||
                 analysisType.startsWith('agent-performance') ||
+                analysisType.startsWith('agent-eval') ||
                 analysisType.startsWith('analyze-')) {
                 args.push('--filter-category', taxonomyFilter);
                 console.log('Applied taxonomy filter:', taxonomyFilter);
@@ -938,7 +964,7 @@ function updateAnalysisOptions() {
     // Show/hide individual breakdown info
     const individualInfo = document.getElementById('individualBreakdownInfo');
     if (individualInfo) {
-        const showIndividual = analysisType.includes('individual');
+        const showIndividual = analysisType.includes('individual') || analysisType.startsWith('agent-eval');
         individualInfo.style.display = showIndividual ? 'block' : 'none';
     }
     
@@ -958,7 +984,7 @@ function updateAnalysisOptions() {
     
     // Determine if this is a diagnostic mode
     const isDiagnostic = analysisType === 'sample-mode';
-    const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
+    const isVoC = analysisType && (analysisType.startsWith('voice-of-customer') || analysisType === 'voc-v2');
     
     // Show/hide LLM topic detection for VOC
     const llmTopicDetectionVocContainer = document.getElementById('llmTopicDetectionVocContainer');
@@ -968,7 +994,7 @@ function updateAnalysisOptions() {
     
     const digestModeContainer = document.getElementById('digestModeContainer');
     if (digestModeContainer) {
-        const showDigest = analysisType === 'voice-of-customer-hilary' || analysisType === 'voice-of-customer-complete';
+        const showDigest = analysisType === 'voice-of-customer-hilary' || analysisType === 'voice-of-customer-complete' || analysisType === 'voc-v2';
         digestModeContainer.style.display = showDigest ? 'block' : 'none';
         if (!showDigest) {
             const digestToggle = document.getElementById('digestModeToggle');
