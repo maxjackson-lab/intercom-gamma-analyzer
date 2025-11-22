@@ -5170,6 +5170,9 @@ async def run_topic_based_analysis_custom(
 ):
     """Run topic-based analysis with custom date range"""
     try:
+        # Import output_manager first (used early for console recording)
+        from src.utils.output_manager import get_output_directory
+        
         # 🔧 ENABLE CONSOLE RECORDING (capture ALL output to .log file!)
         # This ensures users have complete logs even if SSE disconnects
         console.record = True
@@ -5192,7 +5195,6 @@ async def run_topic_based_analysis_custom(
         from src.services.gamma_generator import GammaGenerator
         from src.services.audit_trail import AuditTrail
         from src.utils.time_utils import detect_period_type
-        from src.utils.output_manager import get_output_directory
         
         # Initialize audit trail if enabled
         audit = None
