@@ -245,6 +245,10 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'string',
                 'description': 'Comma-separated categories to focus on (e.g., "Bug,API")'
             },
+            '--filter-category': {
+                'type': 'string',
+                'description': 'Alias for focus categories (taxonomy filter)'
+            },
             '--output-format': {
                 'type': 'enum',
                 'values': ['markdown', 'json', 'excel', 'gamma'],
