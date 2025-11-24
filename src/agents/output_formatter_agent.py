@@ -332,6 +332,63 @@ Return ONLY valid JSON, no other text:
 
 ---
 """
+
+    def _format_bpo_snapshot_section(self, bpo_data: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not bpo_data:
+            return None
+        lines = ["## BPO Snapshot", ""]
+        summary = bpo_data.get('bpo_snapshot_summary')
+        if summary:
+            lines.append(summary)
+            lines.append("")
+        vendor_overview = bpo_data.get('vendor_overview', {})
+        if vendor_overview:
+            for vendor, info in vendor_overview.items():
+                share = info.get('share_of_paid_workload', 0) * 100
+                pressure = info.get('pressure_level', 'stable').title()
+                lines.append(
+                    f"- **{vendor.title()}**: {info.get('total_conversations', 0):,} convs "
+                    f"({share:.0f}% of human load) — Pressure: {pressure}. {info.get('notes', '')}"
+                )
+            lines.append("")
+        pressure_points = bpo_data.get('pressure_points', [])
+        if pressure_points:
+            lines.append("**Vendor Pressure Points:**")
+            for point in pressure_points[:3]:
+                lines.append(f"- {point}")
+            lines.append("")
+        return "\n".join(lines)
+
+    def _format_cross_agent_section(self, analytical_insights: Optional[Dict[str, Any]]) -> Optional[str]:
+        if not analytical_insights:
+            return None
+        lines = ["## Cross-Agent Signals", ""]
+        correlations = analytical_insights.get('CorrelationAgent', {}).get('data', {}).get('correlations', [])
+        churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
+
+        if correlations:
+            lines.append("**Correlations:**")
+            for corr in correlations[:3]:
+                lines.append(f"- {corr.get('description')}: {corr.get('insight', corr.get('context'))}")
+            lines.append("")
+
+        risk_total = churn_data.get('risk_breakdown', {}).get('total_risk_signals')
+        if risk_total:
+            lines.append(f"**Churn Alerts:** {risk_total} explicit churn signals flagged this week.")
+            high_value = churn_data.get('risk_breakdown', {}).get('high_value_at_risk')
+            if high_value:
+                lines.append(f"- {high_value} involve Business/Ultra customers.")
+            lines.append("")
+
+        quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {})
+        anomalies = quality_data.get('anomalies', [])
+        if anomalies:
+            lines.append("**Quality Gaps:**")
+            for anomaly in anomalies[:2]:
+                lines.append(f"- {anomaly.get('observation') or anomaly.get('description')}")
+            lines.append("")
+
+        return "\n".join(lines) if len(lines) > 2 else None
     
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute output formatting"""
@@ -374,7 +431,11 @@ Return ONLY valid JSON, no other text:
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
             fin_performance = context.previous_results.get('FinPerformanceAgent', {}).get('data', {})
+            bpo_performance = context.previous_results.get('BpoPerformanceAgent', {})
             trends = context.previous_results.get('TrendAgent', {}).get('data', {}).get('trends', {})
+            bpo_topic_highlights = {}
+            if isinstance(bpo_performance, dict):
+                bpo_topic_highlights = bpo_performance.get('topic_vendor_highlights', {})
             
             # Get sub-topic data (defensive read for backward compatibility)
             subtopics_data = context.previous_results.get('SubTopicDetectionAgent', {}).get('data', {}).get('subtopics_by_tier1_topic', {})
@@ -489,6 +550,15 @@ Return ONLY valid JSON, no other text:
                     output_sections.append(f"{i}. {insight}")
                     output_sections.append("")
             
+            bpo_section = self._format_bpo_snapshot_section(bpo_performance)
+            if bpo_section:
+                output_sections.append(bpo_section)
+
+            cross_section = self._format_cross_agent_section(analytical_insights)
+            if cross_section:
+                output_sections.append(cross_section)
+                output_sections.append("")
+
             output_sections.append("---")
             output_sections.append("")
             
@@ -546,6 +616,7 @@ Return ONLY valid JSON, no other text:
             trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
             trend_insights = trend_agent_data.get('trend_insights', {})
             topic_summaries: List[Dict[str, Any]] = []
+            topic_cards: List[Dict[str, Any]] = []
             quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
 
             for topic_name, topic_stats in sorted_topics:
@@ -591,6 +662,12 @@ Return ONLY valid JSON, no other text:
                 )
                 
                 # Format card
+                operational_notes: List[str] = []
+                vendor_callout = bpo_topic_highlights.get(topic_name, {}).get('inline_callout')
+                if vendor_callout:
+                    operational_notes.append(vendor_callout)
+                operational_notes.extend(self._build_fin_operational_callout(topic_name, fin_performance))
+
                 card = self._format_topic_card(
                     topic_name,
                     topic_stats,
@@ -604,9 +681,15 @@ Return ONLY valid JSON, no other text:
                     supporting_evidence=supporting_evidence,
                     actionable_insight=actionable_insight,
                     subtopic_summary=subtopic_summary,
+                    operational_notes=operational_notes,
                     digest_mode=digest_mode
                 )
-                output_sections.append(card)
+                topic_cards.append({
+                    'topic': topic_name,
+                    'card': card,
+                    'severity': severity,
+                    'volume': topic_stats.get('volume', 0)
+                })
                 
                 topic_summaries.append({
                     'name': topic_name,
@@ -618,6 +701,16 @@ Return ONLY valid JSON, no other text:
                     'volume_pct': topic_stats.get('percentage', 0),
                     'supporting_evidence': supporting_evidence
                 })
+
+            if digest_mode:
+                topic_cards = sorted(
+                    topic_cards,
+                    key=lambda x: (x['severity'], x['volume']),
+                    reverse=True
+                )[:3]
+
+            for entry in topic_cards:
+                output_sections.append(entry['card'])
             
             recommendations = self._build_weighted_recommendations(topic_summaries)
             if recommendations:
@@ -640,7 +733,7 @@ Return ONLY valid JSON, no other text:
                 output_sections.append("---\n")
 
             if digest_mode:
-                output_sections.append("_Digest mode enabled: historical trends and macro sections omitted for brevity._")
+                output_sections.append("_Digest mode: showing top three topics, single quotes, and condensed sections._")
                 output_sections.append("")
             
             # Churn Risk Section (if analytical insights available)
@@ -862,6 +955,7 @@ Return ONLY valid JSON, no other text:
         supporting_evidence: Optional[List[str]] = None,
         actionable_insight: Optional[str] = None,
         subtopic_summary: Optional[List[str]] = None,
+        operational_notes: Optional[List[str]] = None,
         digest_mode: bool = False
     ) -> str:
         """Format a single topic card"""
@@ -878,6 +972,11 @@ Return ONLY valid JSON, no other text:
             f"**Detection Method**: {method_label}",
             f"**Sentiment**: {sentiment}"
         ]
+
+        if operational_notes:
+            joined = " | ".join(filter(None, operational_notes))
+            if joined:
+                card_lines.append(f"**Operations**: {joined}")
         
         if actionable_insight:
             card_lines.append(f"**Actionable Insight**: {actionable_insight}")
@@ -904,6 +1003,15 @@ Return ONLY valid JSON, no other text:
             for evidence in supporting_evidence:
                 card_lines.append(f"- {evidence}")
         
+        if digest_mode:
+            card_lines.append("**Representative Quote:**")
+            if examples:
+                card_lines.extend(self._format_example_line(1, examples[0]))
+            else:
+                card_lines.append("_No examples available - topic sample limited_")
+            card_lines.append("\n---\n")
+            return "\n".join(card_lines)
+
         highlights: List[Dict] = []
         lowlights: List[Dict] = []
         if conversations and examples and len(examples) >= 2:
@@ -927,7 +1035,7 @@ Return ONLY valid JSON, no other text:
             for i, example in enumerate(lowlights[:lowlight_limit], 1):
                 card_lines.extend(self._format_example_line(i, example))
         
-        if (not highlights and not lowlights) or digest_mode:
+        if not highlights and not lowlights:
             card_lines.append("**Examples:**")
             example_limit = 2 if digest_mode else 4
             if examples and len(examples) > 0:
@@ -1055,6 +1163,24 @@ Return ONLY valid JSON, no other text:
                     penalty = gap
                     reason = f"{label} Fin resolution {rate:.0%}"
         return penalty, reason
+
+    def _build_fin_operational_callout(self, topic_name: str, fin_performance: Dict[str, Any]) -> List[str]:
+        notes: List[str] = []
+        if not fin_performance:
+            return notes
+        for tier_key, label in (('free_tier', 'Free tier'), ('paid_tier', 'Paid tier')):
+            tier_metrics = fin_performance.get(tier_key, {})
+            topic_metrics = tier_metrics.get('performance_by_topic', {})
+            if not isinstance(topic_metrics, dict):
+                continue
+            metrics = topic_metrics.get(topic_name)
+            if not metrics:
+                continue
+            rate = metrics.get('resolution_rate')
+            total = metrics.get('total')
+            if rate is not None and total is not None:
+                notes.append(f"{label}: Fin deflecting {rate:.0%} of {total} cases")
+        return notes
     
     def _build_topic_callouts(self, topic_names: List[str], analytical_insights: Dict[str, Any]) -> Dict[str, List[str]]:
         callouts = {name: [] for name in topic_names}

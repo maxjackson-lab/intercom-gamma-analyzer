@@ -1,451 +1,415 @@
-"""
-NarrativeFormatterAgent: Builds data-rich VOC narratives for Hilary's ops readout.
-
-Key goals:
-- Executive storyline grounded in metrics
-- Topic stories with quotes + vendor impact
-- Embedded BPO snapshot
-- Prioritized actions
-"""
-
+import json
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, Any, List, Optional
 
-from src.agents.base_agent import BaseAgent, AgentContext, AgentResult, ConfidenceLevel
+from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.utils.ai_client_helper import get_ai_client
 
 
 class NarrativeFormatterAgent(BaseAgent):
-    """Format multi-agent outputs into a narrative weekly digest."""
+    """
+    LLM-powered formatter that stitches all agent outputs into a cohesive narrative.
+
+    Focuses on executive storyline, cross-agent signals, vendor workload, and
+    prioritized actions instead of card-by-card restatement.
+    """
 
     def __init__(self):
-        super().__init__(name="NarrativeFormatterAgent", model="gpt-4o-mini", temperature=0.0)
+        super().__init__(
+            name="NarrativeFormatterAgent",
+            model="gpt-4o",
+            temperature=0.35
+        )
         self.logger = logging.getLogger(__name__)
+        self.ai_client = get_ai_client()
 
-    def validate_input(self, context: AgentContext) -> bool:
-        if not context.previous_results:
-            raise ValueError("NarrativeFormatterAgent requires previous agent results")
-        return True
+    def get_agent_specific_instructions(self) -> str:
+        return """
+You are Hilary's weekly storyteller. Synthesize multi-agent outputs into a single,
+connected narrative. Link topics together, reference vendor workload inline,
+and explain what needs to happen next. Avoid bullet dumps of raw data.
+"""
 
     def get_task_description(self, context: AgentContext) -> str:
-        week_id = context.metadata.get('week_id') or context.metadata.get('period_label') or "current range"
-        return f"Compose a narrative Voice of Customer report for {week_id} using aggregated agent outputs."
+        return "Craft the VoC Narrative V2 report (executive storyline, topic stories, actions)."
 
-    def format_context_data(self, context: AgentContext) -> str:
-        topics = context.previous_results.get('TopicDetectionAgent', {}).get('data', {}).get('topic_distribution', {})
-        top_topics = ", ".join(list(topics.keys())[:5]) or "No topics detected"
-        return f"Top topics in scope: {top_topics}"
+    def validate_input(self, context: AgentContext) -> bool:
+        required_keys = [
+            'SegmentationAgent',
+            'TopicDetectionAgent',
+            'TopicSentiments',
+            'FinPerformanceAgent'
+        ]
+        previous = context.previous_results or {}
+        missing = [key for key in required_keys if key not in previous]
+        if missing:
+            raise ValueError(f"Missing agent outputs: {', '.join(missing)}")
+        return True
 
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        formatted = result.get('formatted_output')
-        if not formatted:
-            raise ValueError("Narrative formatter must return 'formatted_output'")
+        if 'formatted_output' not in result:
+            raise ValueError("NarrativeFormatterAgent output missing formatted_output")
         return True
 
     async def execute(self, context: AgentContext) -> AgentResult:
-        start_time = datetime.now()
         try:
             self.validate_input(context)
-            digest_mode = context.metadata.get('digest_mode', False)
-
-            prev = context.previous_results
-            segmentation = prev.get('SegmentationAgent', {}).get('data', {})
-            topic_detection = prev.get('TopicDetectionAgent', {}).get('data', {})
-            subtopics = prev.get('SubTopicDetectionAgent', {}).get('data', {}).get('subtopics_by_tier1_topic', {})
-            topic_sentiments = prev.get('TopicSentiments', {})
-            topic_examples = prev.get('TopicExamples', {})
-            fin_summary = prev.get('FinPerformanceAgent', {}).get('data', {})
-            trend_data = prev.get('TrendAgent', {}).get('data', {})
-            bpo_summary = prev.get('BpoPerformanceAgent', {}).get('data', {})
-            analytical = prev.get('AnalyticalInsights', {})
-
-            topic_dist = topic_detection.get('topic_distribution', {})
-            topics_by_volume = sorted(
-                [
-                    (topic, stats) if isinstance(stats, dict) else (topic, {'volume': stats, 'percentage': 0})
-                    for topic, stats in topic_dist.items()
-                ],
-                key=lambda item: item[1].get('volume', 0),
-                reverse=True
-            )
-
-            header = self._build_header(context)
-            exec_section = self._build_exec_summary(topics_by_volume, topic_sentiments, bpo_summary)
-            metrics_section = self._build_metrics_table(segmentation, topic_dist, fin_summary)
-            bpo_section = self._build_bpo_section(bpo_summary)
-            topic_sections, topic_summaries = self._build_topic_sections(
-                topics_by_volume,
-                topic_sentiments,
-                topic_examples,
-                subtopics,
-                trend_data,
-                bpo_summary,
-                fin_summary,
-                analytical,
-                digest_mode
-            )
-            actions_section = self._build_actions(topic_summaries, digest_mode)
-            risk_section = self._build_risk_section(analytical, fin_summary, digest_mode)
-            signals_section = self._build_cross_agent_section(analytical, fin_summary)
-
-            report_parts = [
-                header,
-                exec_section,
-                metrics_section,
-                signals_section,
-                bpo_section,
-                "## Topic Stories",
-                *topic_sections,
-                actions_section
-            ]
-
-            if risk_section:
-                report_parts.append(risk_section)
-
-            if digest_mode:
-                report_parts.append("_Digest mode enabled: full historical analyses available via voc-v2 standard run._")
-
-            formatted_output = "\n\n".join(part for part in report_parts if part)
-
-            execution_time = (datetime.now() - start_time).total_seconds()
-            return AgentResult(
-                agent_name=self.name,
-                success=True,
-                data={
-                    'formatted_output': formatted_output,
-                    'topics_included': [t for t, _ in topics_by_volume[:5]],
-                    'digest_mode': digest_mode
-                },
-                confidence=1.0,
-                confidence_level=ConfidenceLevel.HIGH,
-                execution_time=execution_time,
-                token_count=0
-            )
-        except Exception as err:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            self.logger.error(f"NarrativeFormatterAgent error: {err}", exc_info=True)
+        except ValueError as exc:
             return AgentResult(
                 agent_name=self.name,
                 success=False,
-                data={},
+                data={'error': str(exc)},
                 confidence=0.0,
                 confidence_level=ConfidenceLevel.LOW,
-                error_message=str(err),
-                execution_time=execution_time
+                limitations=[str(exc)],
+                execution_time=0.0
             )
 
-    def _build_header(self, context: AgentContext) -> str:
-        start = context.start_date
-        end = context.end_date
-        if start and end:
-            header = f"# Voice of Customer Narrative: {start.strftime('%b %d')} - {end.strftime('%b %d, %Y')}"
-        else:
-            period_label = context.metadata.get('period_label') or context.metadata.get('week_id', '')
-            header = f"# Voice of Customer Narrative - {period_label}"
-        return header
+        payload = self._assemble_payload(context)
+        prompt = self._build_prompt(context, payload)
 
-    def _build_exec_summary(
+        try:
+            narrative = await self.ai_client.generate_analysis(prompt)
+            formatted_output = narrative.strip()
+        except Exception as exc:
+            self.logger.warning(f"Narrative LLM call failed, falling back: {exc}")
+            formatted_output = self._fallback_narrative(payload)
+
+        result_data = {
+            'formatted_output': formatted_output,
+            'structured_data': payload
+        }
+
+        try:
+            self.validate_output(result_data)
+        except ValueError as exc:
+            return AgentResult(
+                agent_name=self.name,
+                success=False,
+                data={'error': str(exc)},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                limitations=[str(exc)],
+                execution_time=0.0
+            )
+
+        confidence = 0.85 if "Executive Narrative" in formatted_output else 0.7
+        return AgentResult(
+            agent_name=self.name,
+            success=True,
+            data=result_data,
+            confidence=confidence,
+            confidence_level=ConfidenceLevel.HIGH if confidence >= 0.8 else ConfidenceLevel.MEDIUM,
+            limitations=[],
+            sources=["multi-agent synthesis"],
+            execution_time=0.0
+        )
+
+    def _assemble_payload(self, context: AgentContext) -> Dict[str, Any]:
+        previous = context.previous_results or {}
+        segmentation = (previous.get('SegmentationAgent') or {}).get('data', {})
+        segmentation_summary = segmentation.get('segmentation_summary', {}) if isinstance(segmentation.get('segmentation_summary'), dict) else {}
+        topic_detection = (previous.get('TopicDetectionAgent') or {}).get('data', {})
+        topic_dist = topic_detection.get('topic_distribution', {})
+        topic_sentiments = previous.get('TopicSentiments', {})
+        fin_performance = (previous.get('FinPerformanceAgent') or {}).get('data', {})
+        bpo_entry = previous.get('BpoPerformanceAgent') or {}
+        bpo_performance = bpo_entry.get('data', {}) if isinstance(bpo_entry, dict) else {}
+        topic_examples = previous.get('TopicExamples') or {}
+        if not isinstance(topic_examples, dict):
+            topic_examples = {}
+        analytical = previous.get('AnalyticalInsights', {})
+        synthesis_summary = previous.get('SynthesisEngine') or {}
+        if not isinstance(synthesis_summary, dict):
+            synthesis_summary = {'data': synthesis_summary}
+        digest_mode = bool((context.metadata or {}).get('digest_mode'))
+
+        top_topics = self._build_topic_profiles(
+            topic_dist,
+            topic_sentiments,
+            fin_performance,
+            bpo_performance,
+            analytical,
+            topic_examples,
+            digest_mode
+        )
+        total_conversations = len(context.conversations or [])
+        fin_free_snapshot = fin_performance.get('free_tier', {}) if isinstance(fin_performance.get('free_tier'), dict) else {}
+        fin_paid_snapshot = fin_performance.get('paid_tier', {}) if isinstance(fin_performance.get('paid_tier'), dict) else {}
+
+        metrics_overview = {
+            'total_conversations': total_conversations,
+            'paid_human_conversations': segmentation_summary.get('paid_human_count'),
+            'free_fin_only_conversations': segmentation_summary.get('free_fin_only_count'),
+            'topic_count': len(top_topics),
+            'fin_free_resolution_rate': fin_free_snapshot.get('resolution_rate'),
+            'fin_paid_resolution_rate': fin_paid_snapshot.get('resolution_rate')
+        }
+
+        cross_agent_signals = self._extract_cross_agent_signals(analytical)
+
+        return {
+            'timeframe': {
+                'start': context.start_date.isoformat() if context.start_date else None,
+                'end': context.end_date.isoformat() if context.end_date else None,
+                'week_id': context.metadata.get('week_id')
+            },
+            'volume_summary': {
+                'total_conversations': total_conversations,
+                'paid_human': segmentation_summary.get('paid_human_count'),
+                'free_fin_only': segmentation_summary.get('free_fin_only_count'),
+                'topic_count': len(top_topics)
+            },
+            'fin_overview': {
+                'free_tier': {
+                    'resolution_rate': fin_free_snapshot.get('resolution_rate'),
+                    'total_conversations': fin_free_snapshot.get('total_conversations')
+                },
+                'paid_tier': {
+                    'resolution_rate': fin_paid_snapshot.get('resolution_rate'),
+                    'total_conversations': fin_paid_snapshot.get('total_conversations')
+                }
+            },
+            'topics': top_topics,
+            'bpo_snapshot': bpo_performance,
+            'cross_agent_signals': cross_agent_signals,
+            'risk_watchlist': bpo_performance.get('risk_watchlist', []),
+            'prioritized_actions_hint': [t.get('action_hint') for t in top_topics[:4]],
+            'metrics_overview': metrics_overview,
+            'synthesis_summary': synthesis_summary,
+            'settings': {'digest_mode': digest_mode}
+        }
+
+    def _build_topic_profiles(
         self,
-        topics_by_volume: List,
-        topic_sentiments: Dict,
-        bpo_summary: Dict
-    ) -> str:
-        if not topics_by_volume:
-            return "## Executive Narrative\n\n_No topics detected._"
+        topic_dist: Dict[str, Dict[str, Any]],
+        sentiments: Dict[str, Any],
+        fin_performance: Dict[str, Any],
+        bpo_performance: Dict[str, Any],
+        analytical: Dict[str, Any],
+        topic_examples: Dict[str, Any],
+        digest_mode: bool = False
+    ) -> List[Dict[str, Any]]:
+        profiles: List[Dict[str, Any]] = []
+        bpo_highlights = bpo_performance.get('topic_vendor_highlights', {})
+        churn_highlights = self._extract_churn_highlights(analytical)
+        correlation_highlights = self._extract_correlation_highlights(analytical)
+        max_topics = 3 if digest_mode else 8
 
-        lines = ["## Executive Narrative", ""]
-        for topic, stats in topics_by_volume[:3]:
-            pct = stats.get('percentage', 0.0)
-            sentiment = self._get_sentiment_line(topic, topic_sentiments)
-            vendor_callout = self._vendor_pressure_line(topic, bpo_summary)
-            narrative = f"- {topic}: {pct:.1f}% of weekly volume. {sentiment}"
-            if vendor_callout:
-                narrative += f" {vendor_callout}"
-            lines.append(narrative.strip())
+        sorted_topics = sorted(
+            topic_dist.items(),
+            key=lambda x: x[1].get('volume', 0),
+            reverse=True
+        )
+        for topic_name, stats in sorted_topics[:max_topics]:
+            sentiment_payload = sentiments.get(topic_name, {}).get('data', {})
+            quotes = self._extract_topic_quotes(topic_examples, topic_name, digest_mode)
+            profile = {
+                'name': topic_name,
+                'volume': stats.get('volume'),
+                'percentage': stats.get('percentage'),
+                'sentiment': sentiment_payload.get('sentiment_insight'),
+                'examples': self._extract_example_snippet(sentiments, topic_name),
+                'bpo_callout': bpo_highlights.get(topic_name, {}),
+                'fin_performance': self._extract_fin_topic_metrics(topic_name, fin_performance),
+                'signals': [],
+                'quotes': quotes
+            }
+            if churn_highlights.get(topic_name):
+                profile['signals'].append(churn_highlights[topic_name])
+            if correlation_highlights.get(topic_name):
+                profile['signals'].append(correlation_highlights[topic_name])
+            profile['action_hint'] = sentiment_payload.get('sentiment_insight')
+            profiles.append(profile)
+        return profiles
 
-        if len(topics_by_volume) > 3:
-            remaining = sum(stats.get('percentage', 0.0) for _, stats in topics_by_volume[3:])
-            lines.append(f"- Other topics collectively represent {remaining:.1f}% of weekly contacts.")
-
-        return "\n".join(lines)
-
-    def _build_metrics_table(self, segmentation: Dict, topic_dist: Dict, fin_summary: Dict) -> str:
-        total_convs = len(segmentation.get('paid_customer_conversations', [])) + len(segmentation.get('free_fin_only_conversations', []))
-        paid = len(segmentation.get('paid_customer_conversations', []))
-        free = len(segmentation.get('free_fin_only_conversations', []))
-        total_topics = len(topic_dist)
-        free_resolution = fin_summary.get('free_tier', {}).get('resolution_rate', 0.0)
-        paid_resolution = fin_summary.get('paid_tier', {}).get('resolution_rate', 0.0)
-
-        lines = [
-            "## Metrics at a Glance",
-            "",
-            "| Metric | Value |",
-            "| --- | --- |",
-            f"| Total Conversations | {total_convs:,} |",
-            f"| Paid vs Free | {paid:,} paid / {free:,} free |",
-            f"| Topics Identified | {total_topics} |"
-        ]
-
-        if free_resolution:
-            lines.append(f"| Fin Free-tier Resolution | {free_resolution:.1%} |")
-        if paid_resolution:
-            lines.append(f"| Fin Paid-tier Resolution | {paid_resolution:.1%} |")
-
-        return "\n".join(lines)
-
-    def _build_bpo_section(self, bpo_summary: Dict) -> str:
-        vendors = bpo_summary.get('vendors')
-        if not vendors:
-            return "## BPO Snapshot\n\n_No vendor workload recorded this week._"
-
-        lines = ["## BPO Snapshot", ""]
-        for vendor, stats in vendors.items():
-            volume = stats.get('volume', 0)
-            top_topics = ", ".join(f"{topic} ({count})" for topic, count in stats.get('top_topics', [])[:3])
-            lines.append(f"**{vendor.capitalize()}** — {volume} conversations")
-            if top_topics:
-                lines.append(f"- Top focus: {top_topics}")
-            billing_share = stats.get('billing_share')
-            if billing_share:
-                lines.append(f"- Billing load: {billing_share:.0%} of their queue")
-            note = stats.get('note')
-            if note:
-                lines.append(f"- Note: {note}")
-            lines.append("")
-
-        if bpo_summary.get('concerns'):
-            lines.append("**Pressure Points:**")
-            for concern in bpo_summary['concerns']:
-                lines.append(f"- {concern}")
-
-        return "\n".join(lines)
-
-    def _build_topic_sections(
-        self,
-        topics_by_volume: List,
-        topic_sentiments: Dict,
-        topic_examples: Dict,
-        subtopics: Dict,
-        trend_data: Dict,
-        bpo_summary: Dict,
-        fin_summary: Dict,
-        analytical: Dict,
-        digest_mode: bool
-    ):
-        sections = []
-        topic_summaries = []
-        max_topics = 3 if digest_mode else 5
-
-        for topic, stats in topics_by_volume[:max_topics]:
-            pct = stats.get('percentage', 0.0)
-            sentiment_line = self._get_sentiment_line(topic, topic_sentiments)
-            quote_lines = self._select_quotes(topic_examples, topic, digest_mode)
-            subtopic_line = self._summarize_subtopics(topic, subtopics)
-            vendor_line = self._vendor_pressure_line(topic, bpo_summary)
-            trend_line = self._trend_line(topic, trend_data)
-            fin_line = self._fin_line(topic, fin_summary)
-            correlation_line = self._correlation_line(topic, analytical)
-
-            section_lines = [
-                f"### {topic} ({pct:.1f}% of weekly volume)",
-                sentiment_line
-            ]
-            if trend_line:
-                section_lines.append(trend_line)
-            if subtopic_line:
-                section_lines.append(subtopic_line)
-            if vendor_line:
-                section_lines.append(vendor_line)
-            if fin_line:
-                section_lines.append(fin_line)
-            if correlation_line:
-                section_lines.append(correlation_line)
-            if quote_lines:
-                section_lines.append("**Customer Quotes:**")
-                section_lines.extend(quote_lines)
-
-            sections.append("\n".join(section_lines))
-
-            topic_summaries.append({
-                'name': topic,
-                'volume_pct': pct,
-                'severity': self._estimate_severity(topic, bpo_summary),
-                'actionable_insight': sentiment_line,
-                'severity_reasons': [trend_line] if trend_line else [],
-                'supporting_evidence': quote_lines[:1] if quote_lines else []
-            })
-
-        return sections, topic_summaries
-
-    def _build_actions(self, topic_summaries: List[Dict[str, Any]], digest_mode: bool) -> str:
-        recommendations = self._build_weighted_recommendations(topic_summaries)
-        limit = 3 if digest_mode else 5
-        lines = ["## Prioritized Actions", ""]
-        for idx, rec in enumerate(recommendations[:limit], start=1):
-            line = f"{idx}. **{rec['topic']}** — {rec['action']} (Impact: {rec['impact']:.2f})"
-            lines.append(line)
-            if rec.get('rationale'):
-                lines.append(f"   {rec['rationale']}")
-        if len(lines) == 2:
-            lines.append("_No high-impact actions identified_")
-        return "\n".join(lines)
-
-    def _build_risk_section(self, analytical: Dict, fin_summary: Dict, digest_mode: bool) -> Optional[str]:
-        if digest_mode:
-            return None
-
-        churn_data = analytical.get('ChurnRiskAgent', {}).get('data', {}) if analytical else {}
-        if not churn_data:
-            return None
-
-        high_risk = churn_data.get('high_risk_conversations', [])
-        if not high_risk:
-            return None
-
-        lines = ["## Risk & Escalation Watchlist", ""]
-        lines.append(f"- {len(high_risk)} conversations flagged as churn-risk this week.")
-        patterns = churn_data.get('risk_breakdown', {}).get('top_signals')
-        if patterns:
-            lines.append("- Signals: " + ", ".join(patterns[:5]))
-        if fin_summary.get('free_tier', {}).get('knowledge_gap_rate', 0) > 0.3:
-            lines.append("- Free-tier Fin knowledge gaps remain high (>30%) and escalate to humans.")
-        return "\n".join(lines)
-
-    def _build_cross_agent_section(self, analytical: Dict, fin_summary: Dict) -> str:
-        if not analytical and not fin_summary:
-            return ""
-
-        lines: List[str] = ["## Cross-Agent Signals", ""]
-        content_added = False
-
-        correlation_data = analytical.get('CorrelationAgent', {}).get('data', {}) if analytical else {}
-        correlations = correlation_data.get('correlations', []) if correlation_data else []
-        if correlations:
-            lines.append("**Correlation Highlights:**")
-            for corr in correlations[:3]:
-                insight = corr.get('insight') or corr.get('description')
-                if insight:
-                    lines.append(f"- {insight}")
-            lines.append("")
-            content_added = True
-
-        churn_data = analytical.get('ChurnRiskAgent', {}).get('data', {}) if analytical else {}
-        breakdown = churn_data.get('risk_breakdown', {}) if churn_data else {}
-        total_signals = breakdown.get('total_risk_signals')
-        if total_signals:
-            high_value = breakdown.get('high_value_at_risk', 0)
-            lines.append(f"**Churn Watch:** {total_signals} signals, {high_value} high-value accounts at risk.")
-            content_added = True
-
-        free_gap = fin_summary.get('free_tier', {}).get('knowledge_gap_rate') if fin_summary else None
-        if free_gap:
-            lines.append(f"**Fin Free-tier Gaps:** Knowledge gap rate at {free_gap:.0%}.")
-            content_added = True
-
-        paid_gap = fin_summary.get('paid_tier', {}).get('knowledge_gap_rate') if fin_summary else None
-        if paid_gap and paid_gap > 0.05:
-            lines.append(f"**Fin Paid-tier Drift:** {paid_gap:.0%} of paid cases need escalation.")
-            content_added = True
-
-        return "\n".join(lines).strip() if content_added else ""
-
-    def _get_sentiment_line(self, topic: str, topic_sentiments: Dict) -> str:
-        insight = topic_sentiments.get(topic, {}).get('data', {}).get('sentiment_insight')
-        if insight:
-            return insight
-        return f"Customers continue to raise issues related to {topic.lower()}."
-
-    def _vendor_pressure_line(self, topic: str, bpo_summary: Dict) -> Optional[str]:
-        vendors = bpo_summary.get('vendors') or {}
-        pressures = []
-        for vendor, stats in vendors.items():
-            topic_counts = dict(stats.get('top_topics', []))
-            if topic in topic_counts:
-                pressures.append(f"{vendor.capitalize()} is handling {topic_counts[topic]} cases here")
-        if pressures:
-            return "; ".join(pressures)
+    def _extract_example_snippet(self, sentiments: Dict[str, Any], topic: str) -> Optional[str]:
+        examples = sentiments.get(topic, {}).get('data', {}).get('sample_quotes')
+        if examples:
+            return examples[0]
         return None
 
-    def _trend_line(self, topic: str, trend_data: Dict) -> Optional[str]:
-        insights = trend_data.get('trend_insights') or {}
-        return insights.get(topic)
+    def _extract_topic_quotes(
+        self,
+        topic_examples: Dict[str, Any],
+        topic: str,
+        digest_mode: bool
+    ) -> List[Dict[str, Any]]:
+        """
+        Returns curated quote metadata (text + link) for a topic.
+        Limits to 1 quote in digest mode, else 2.
+        """
+        examples_payload = topic_examples.get(topic, {})
+        data = examples_payload.get('data', {}) if isinstance(examples_payload, dict) else {}
+        raw_examples = data.get('examples') or []
+        if not isinstance(raw_examples, list):
+            return []
 
-    def _summarize_subtopics(self, topic: str, subtopics: Dict) -> Optional[str]:
-        topic_data = subtopics.get(topic, {})
-        tier2 = topic_data.get('tier2', {})
-        if not tier2:
-            return None
-        top = sorted(tier2.items(), key=lambda item: item[1].get('volume', 0), reverse=True)[:3]
-        summary = ", ".join(f"{name} ({data.get('volume', 0)})" for name, data in top)
-        return f"Top subtopics: {summary}"
-
-    def _select_quotes(self, topic_examples: Dict, topic: str, digest_mode: bool) -> List[str]:
-        examples = topic_examples.get(topic, {}).get('data', {}).get('examples', [])
-        limit = 1 if digest_mode else 2
-        quotes = []
-        for example in examples[:limit]:
-            preview = example.get('preview')
-            if not preview:
+        max_quotes = 1 if digest_mode else 2
+        quotes: List[Dict[str, Any]] = []
+        for example in raw_examples[:max_quotes]:
+            preview = example.get('translation') or example.get('preview')
+            link = example.get('intercom_url')
+            if not preview or not link:
                 continue
-            url = example.get('intercom_url')
-            quote = f"- \"{preview.strip()}\""
-            if url:
-                quote += f" — [View in Intercom]({url})"
-            quotes.append(quote)
+            quotes.append({
+                'text': preview.strip(),
+                'original_preview': example.get('preview'),
+                'intercom_url': link,
+                'conversation_id': example.get('conversation_id'),
+                'language': example.get('language'),
+                'translation': example.get('translation'),
+                'needs_translation': example.get('needs_translation'),
+                'created_at': example.get('created_at')
+            })
         return quotes
 
-    def _estimate_severity(self, topic: str, bpo_summary: Dict) -> float:
-        severity = 1.0
-        vendors = bpo_summary.get('vendors') or {}
-        for stats in vendors.values():
-            topic_counts = dict(stats.get('top_topics', []))
-            if topic in topic_counts and topic_counts[topic] >= 50:
-                severity += 0.2
-        return severity
+    def _extract_fin_topic_metrics(self, topic: str, fin_performance: Dict[str, Any]) -> Dict[str, Any]:
+        summary: Dict[str, Any] = {}
+        for tier_key, label in (('free_tier', 'Free Tier'), ('paid_tier', 'Paid Tier')):
+            tier_metrics = fin_performance.get(tier_key, {})
+            perf = tier_metrics.get('performance_by_topic', {})
+            if isinstance(perf, dict) and topic in perf:
+                summary[label] = {
+                    'resolution_rate': perf[topic].get('resolution_rate'),
+                    'total': perf[topic].get('total')
+                }
+        return summary
 
-    def _build_weighted_recommendations(self, topic_summaries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        recommendations: List[Dict[str, Any]] = []
-        for summary in topic_summaries:
-            volume_pct = summary.get('volume_pct', 0.0)
-            severity = summary.get('severity', 1.0)
-            impact = (volume_pct / 100.0) * severity
-            action = summary.get('actionable_insight') or f"Address {summary.get('name')}"
-            reasons = summary.get('severity_reasons', [])
-            evidence = summary.get('supporting_evidence', [])
-            rationale_parts = [part for part in reasons + evidence if part]
-            rationale = "; ".join(rationale_parts)
-            recommendations.append({
-                'topic': summary.get('name'),
-                'impact': impact,
-                'severity': severity,
-                'volume_pct': volume_pct,
-                'action': action,
-                'rationale': rationale
-            })
-        return sorted(recommendations, key=lambda x: x['impact'], reverse=True)
-
-    def _fin_line(self, topic: str, fin_summary: Dict) -> Optional[str]:
-        if not fin_summary:
-            return None
-        struggling = fin_summary.get('free_tier', {}).get('struggling_topics', [])
-        for entry in struggling:
-            if isinstance(entry, (list, tuple)) and entry and entry[0] == topic:
-                count = entry[1] if len(entry) > 1 else None
-                if count:
-                    return f"Fin free-tier struggling here ({count} unresolved cases)."
-                return "Fin free-tier struggling on this workflow."
-        return None
-
-    def _correlation_line(self, topic: str, analytical: Dict) -> Optional[str]:
+    def _extract_cross_agent_signals(self, analytical: Dict[str, Any]) -> Dict[str, List[str]]:
+        signals = {'correlations': [], 'churn': []}
         if not analytical:
-            return None
+            return signals
         correlation_data = analytical.get('CorrelationAgent', {}).get('data', {})
-        correlations = correlation_data.get('correlations', [])
-        for corr in correlations:
+        for corr in correlation_data.get('correlations', [])[:3]:
+            signals['correlations'].append(
+                f"{corr.get('description')}: {corr.get('insight')}"
+            )
+        churn_data = analytical.get('ChurnRiskAgent', {}).get('data', {})
+        high_risk = churn_data.get('risk_breakdown', {}).get('total_risk_signals')
+        if high_risk:
+            signals['churn'].append(
+                f"{high_risk} explicit churn signals detected (see watchlist)."
+            )
+        return signals
+
+    def _extract_churn_highlights(self, analytical: Dict[str, Any]) -> Dict[str, str]:
+        highlights: Dict[str, str] = {}
+        if not analytical:
+            return highlights
+        churn_data = analytical.get('ChurnRiskAgent', {}).get('data', {})
+        for convo in churn_data.get('high_risk_conversations', [])[:5]:
+            topics = convo.get('detected_topics') or convo.get('topics') or []
+            summary = convo.get('llm_analysis') or ", ".join(convo.get('signals', [])[:2])
+            for topic in topics:
+                highlights[str(topic)] = f"Churn risk: {summary}"
+        return highlights
+
+    def _extract_correlation_highlights(self, analytical: Dict[str, Any]) -> Dict[str, str]:
+        highlights: Dict[str, str] = {}
+        if not analytical:
+            return highlights
+        correlation_data = analytical.get('CorrelationAgent', {}).get('data', {})
+        for corr in correlation_data.get('correlations', [])[:5]:
             description = corr.get('description', '')
-            insight = corr.get('insight')
-            if topic.lower() in description.lower():
-                return f"{insight or description}"
-        return None
+            insight = corr.get('insight', '')
+            for topic_word in description.split('↔'):
+                topic_name = topic_word.strip()
+                if topic_name:
+                    highlights[topic_name] = f"Correlation: {insight or description}"
+        return highlights
+
+    def _build_prompt(self, context: AgentContext, payload: Dict[str, Any]) -> str:
+        payload_json = json.dumps(payload, ensure_ascii=False, indent=2)
+        digest_mode = payload.get('settings', {}).get('digest_mode', False)
+        digest_guidance = ""
+        if digest_mode:
+            digest_guidance = """
+DIGEST MODE CONSTRAINTS:
+- Executive Narrative must be a single concise paragraph (≤3 sentences).
+- Topic Stories should cover only the provided topics (already trimmed) and stay to ~2 sentences plus one inline quote per topic.
+- Prioritized Actions should include no more than two brief bullets with crisp verbs.
+"""
+        return f"""
+You are the NarrativeFormatterAgent. Based on the structured data below,
+craft the "VoC: Narrative V2 (Hilary Weekly Story)" report.
+
+DATA (representative sample of the week's conversations):
+{payload_json}
+
+OUTPUT RULES:
+1. Return clean markdown only.
+2. Follow this section order exactly:
+   # Executive Narrative (tie the week together with 2-3 sentences unless digest mode says otherwise)
+   ## Metrics at a Glance (render a markdown table with columns Metric | Value that covers: total conversations, paid human workload, free Fin-only volume, topic count, Fin free-tier resolution rate, Fin paid-tier resolution rate. Use "N/A" if a number is missing.)
+   ## Cross-Agent Signals (bullets linking correlations/churn)
+   ## BPO Snapshot (Horatio/Boldr loads + pressure points)
+   ## Topic Stories (one subsection per topic, weaving sentiment, Fin stats, vendor load, analytical signals, and exactly one curated quote that links to Intercom)
+   ## Prioritized Actions (3 numbered items max unless digest mode constrains further)
+   ## Risk Watchlist (bullets or '_No acute risks detected_')
+3. When writing Topic Stories, embed one curated quote inline using the format ["customer text"](intercom_url). Prefer translations when available and note the original language if it was not English.
+4. Mention Fin resolution performance or knowledge gaps inline when relevant and cite vendor workload inline (e.g., "Horatio carrying 62% of escalations").
+5. Use the provided metrics verbatim—do not invent numbers. If data is missing, explicitly write "N/A".
+6. Keep sentences concise, human, and confident. No generic refusals. Refer to the data as a "representative weekly sample."
+{digest_guidance}
+"""
+
+    def _fallback_narrative(self, payload: Dict[str, Any]) -> str:
+        topics = payload.get('topics', [])
+        cross_signals = payload.get('cross_agent_signals', {})
+        bpo = payload.get('bpo_snapshot', {})
+        metrics = payload.get('metrics_overview', {})
+        fmt = lambda value: value if value not in (None, "") else "N/A"
+        summary_lines = [
+            "# Executive Narrative",
+            "Customer volume continued at typical levels. Key friction remains concentrated in the top topics listed below.",
+            "",
+            "## Metrics at a Glance",
+            "| Metric | Value |",
+            "| --- | --- |",
+            f"| Total conversations | {fmt(metrics.get('total_conversations'))} |",
+            f"| Paid human workload | {fmt(metrics.get('paid_human_conversations'))} |",
+            f"| Free Fin-only volume | {fmt(metrics.get('free_fin_only_conversations'))} |",
+            f"| Topic count | {fmt(metrics.get('topic_count'))} |",
+            f"| Fin free-tier resolution rate | {fmt(metrics.get('fin_free_resolution_rate'))} |",
+            f"| Fin paid-tier resolution rate | {fmt(metrics.get('fin_paid_resolution_rate'))} |",
+            "",
+            "## Cross-Agent Signals"
+        ]
+        if any(cross_signals.values()):
+            for bucket in ('correlations', 'churn'):
+                for item in cross_signals.get(bucket, []):
+                    summary_lines.append(f"- {item}")
+        else:
+            summary_lines.append("- No cross-agent anomalies detected.")
+        summary_lines.append("")
+        summary_lines.append("## BPO Snapshot")
+        if bpo:
+            summary_lines.append(bpo.get('bpo_snapshot_summary', "_See vendor overview from upstream data._"))
+        else:
+            summary_lines.append("_No vendor workload data available._")
+        summary_lines.append("")
+        summary_lines.append("## Topic Stories")
+        for topic in topics[:3]:
+            summary_lines.append(f"### {topic['name']}")
+            summary_lines.append(f"- Sentiment: {topic.get('sentiment') or 'No sentiment insight available.'}")
+            bpo_line = topic.get('bpo_callout', {}).get('inline_callout')
+            if bpo_line:
+                summary_lines.append(f"- Vendor Load: {bpo_line}")
+            quote = (topic.get('quotes') or [])
+            if quote:
+                quote_payload = quote[0]
+                text = quote_payload.get('text') or quote_payload.get('original_preview') or ''
+                if len(text) > 140:
+                    text = text[:137] + "..."
+                summary_lines.append(f"- Quote: [{text}]({quote_payload.get('intercom_url')})")
+            summary_lines.append("")
+        summary_lines.append("## Prioritized Actions")
+        summary_lines.append("1. Focus on top friction topics and rebalance Horatio/Boldr workload.")
+        summary_lines.append("")
+        summary_lines.append("## Risk Watchlist")
+        risks = payload.get('risk_watchlist') or ["_No acute risks detected_"]
+        for risk in risks:
+            summary_lines.append(f"- {risk}")
+        return "\n".join(summary_lines)
 

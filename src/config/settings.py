@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     canny_base_url: str = Field("https://canny.io/api/v1", env="CANNY_BASE_URL")
     canny_timeout: int = Field(30, env="CANNY_TIMEOUT")
     canny_max_retries: int = Field(3, env="CANNY_MAX_RETRIES")
+
+    # Snowflake Warehouse (Canny data) - optional
+    snowflake_account: Optional[str] = Field(None, env="SNOWFLAKE_ACCOUNT")
+    snowflake_user: Optional[str] = Field(None, env="SNOWFLAKE_USER")
+    snowflake_password: Optional[str] = Field(None, env="SNOWFLAKE_PASSWORD")
+    snowflake_role: Optional[str] = Field(None, env="SNOWFLAKE_ROLE")
+    snowflake_warehouse: Optional[str] = Field(None, env="SNOWFLAKE_WAREHOUSE")
+    snowflake_database: Optional[str] = Field(None, env="SNOWFLAKE_DATABASE")
+    snowflake_schema: Optional[str] = Field(None, env="SNOWFLAKE_SCHEMA")
+    snowflake_canny_table: Optional[str] = Field(None, env="SNOWFLAKE_CANNY_TABLE")
     
     # Analysis Settings
     default_analysis_days: int = Field(30, env="DEFAULT_ANALYSIS_DAYS")

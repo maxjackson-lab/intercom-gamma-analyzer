@@ -23,6 +23,19 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 
+def setup_verbose_logging():
+    """Enable DEBUG level logging across CLI modules."""
+    logging.getLogger().setLevel(logging.DEBUG)
+    for module in ['agents', 'services', 'src.agents', 'src.services']:
+        logging.getLogger(module).setLevel(logging.DEBUG)
+    console.print("[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
+
+
+def show_audit_trail_enabled():
+    """Display audit trail enabled message."""
+    console.print("[purple]📋 Audit Trail Mode: ENABLED[/purple]")
+
+
 def display_results(results: Any, analysis_type: str = "analysis"):
     """Display analysis results in a formatted way."""
     console.print(f"\n[bold blue]{analysis_type.title()} Results[/bold blue]")

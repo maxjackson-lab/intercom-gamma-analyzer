@@ -9,14 +9,21 @@ import pytest
 import json
 from datetime import datetime
 
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS, validate_command_request
 
-# Import the FastAPI app and schema
+# Import the FastAPI app
 try:
-    from deploy.railway_web import app, CANONICAL_COMMAND_MAPPINGS, validate_command_request
+    from deploy.railway_web import app
     HAS_FASTAPI = True
 except ImportError:
     HAS_FASTAPI = False
-    CANONICAL_COMMAND_MAPPINGS = None
+    app = None
+
+
+def test_deploy_reexports_canonical_mapping():
+    """Ensure deploy.railway_web re-exports the canonical schema singleton."""
+    from deploy.railway_web import CANONICAL_COMMAND_MAPPINGS as deploy_mapping
+    assert deploy_mapping is CANONICAL_COMMAND_MAPPINGS
 
 
 @pytest.fixture

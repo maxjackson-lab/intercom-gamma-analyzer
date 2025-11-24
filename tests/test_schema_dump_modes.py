@@ -245,22 +245,21 @@ class TestCLIFlagValidation:
     
     def test_railway_schema_mode_in_allowed_flags(self):
         """Test that Railway web.py includes --schema-mode in allowed flags."""
-        import deploy.railway_web as railway_web
+        from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
         
-        if hasattr(railway_web, 'CANONICAL_COMMAND_MAPPINGS'):
-            sample_mode_config = railway_web.CANONICAL_COMMAND_MAPPINGS.get('sample_mode', {})
-            allowed_flags = sample_mode_config.get('allowed_flags', {})
-            
-            # Should have --schema-mode flag
-            assert '--schema-mode' in allowed_flags
-            
-            # Should have correct enum values
-            flag_config = allowed_flags['--schema-mode']
-            assert flag_config['type'] == 'enum'
-            assert 'quick' in flag_config['values']
-            assert 'standard' in flag_config['values']
-            assert 'deep' in flag_config['values']
-            assert 'comprehensive' in flag_config['values']
+        sample_mode_config = CANONICAL_COMMAND_MAPPINGS.get('sample_mode', {})
+        allowed_flags = sample_mode_config.get('allowed_flags', {})
+        
+        # Should have --schema-mode flag
+        assert '--schema-mode' in allowed_flags
+        
+        # Should have correct enum values
+        flag_config = allowed_flags['--schema-mode']
+        assert flag_config['type'] == 'enum'
+        assert 'quick' in flag_config['values']
+        assert 'standard' in flag_config['values']
+        assert 'deep' in flag_config['values']
+        assert 'comprehensive' in flag_config['values']
 
 
 

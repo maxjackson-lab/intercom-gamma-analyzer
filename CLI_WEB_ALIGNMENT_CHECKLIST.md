@@ -206,7 +206,7 @@ if (analysisType === 'your-command') {
 def test_flag_alignment_your_command():
     """Test that your-command flags align across CLI, Railway, Frontend."""
     from src.main import cli
-    from deploy.railway_web import CANONICAL_COMMAND_MAPPINGS
+    from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
     
     # Get CLI flags
     cli_command = cli.commands['your-command']
@@ -245,7 +245,7 @@ def test_flag_alignment_your_command():
   - [ ] Function signature parameter
   - [ ] Actually USED in function body
 
-- [ ] **2. Added to Railway** (`deploy/railway_web.py`)
+- [ ] **2. Added to Railway Schema** (`src/cli/schema.py`)
   - [ ] In `CANONICAL_COMMAND_MAPPINGS[command]['allowed_flags']`
   - [ ] Type matches CLI (enum/boolean/integer/date)
   - [ ] Values match CLI choices
@@ -322,7 +322,7 @@ Add this to pre-commit or CI:
 
 def check_alignment():
     from src.main import cli
-    from deploy.railway_web import CANONICAL_COMMAND_MAPPINGS
+    from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
     
     errors = []
     

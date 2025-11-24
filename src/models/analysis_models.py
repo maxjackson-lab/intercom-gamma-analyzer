@@ -477,6 +477,10 @@ class SegmentationPayload(BaseModel):
         default_factory=dict,
         description="Count of conversations by agent type"
     )
+    agent_assignments: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-conversation assignment with segment/vendor metadata"
+    )
     segmentation_summary: Dict[str, Any] = Field(
         default_factory=dict,
         description="Summary statistics for segmentation"

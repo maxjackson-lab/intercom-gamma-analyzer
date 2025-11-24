@@ -20,6 +20,8 @@ from typing import Dict, List, Set, Tuple
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
+
 
 def find_all_cli_commands() -> List[str]:
     """Find all CLI commands by parsing src/main.py."""
@@ -44,58 +46,7 @@ def find_all_cli_commands() -> List[str]:
 
 def find_railway_mappings() -> Dict[str, Dict]:
     """Load Railway CANONICAL_COMMAND_MAPPINGS."""
-    railway_web = Path("deploy/railway_web.py")
-    if not railway_web.exists():
-        return {}
-    
-    # Parse CANONICAL_COMMAND_MAPPINGS
-    with open(railway_web, 'r') as f:
-        content = f.read()
-    
-    mappings = {}
-    # Find CANONICAL_COMMAND_MAPPINGS block
-    canon_start = content.find("CANONICAL_COMMAND_MAPPINGS = {")
-    if canon_start == -1:
-        return {}
-    
-    # Find all command keys within CANONICAL_COMMAND_MAPPINGS
-    # Look for pattern: 'command_name': { ... 'command': 'python', ... }
-    pattern = r"['\"]([a-z_]+)['\"]:\s*\{[^}]*'command':\s*['\"]python['\"]"
-    matches = re.findall(pattern, content[canon_start:], re.DOTALL)
-    
-    # Extract command info
-    for match in matches:
-        # Find the command definition block
-        start_pattern = f"'{match}':" + r"\s*\{"
-        start_match = re.search(start_pattern, content[canon_start:])
-        if start_match:
-            block_start = canon_start + start_match.start()
-            # Find matching closing brace
-            brace_count = 0
-            block_end = block_start
-            for i, char in enumerate(content[block_start:], start=block_start):
-                if char == '{':
-                    brace_count += 1
-                elif char == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        block_end = i + 1
-                        break
-            
-            block = content[block_start:block_end]
-            
-            # Only include if it has 'command': 'python' (actual command mapping)
-            if "'command':" in block and "'python'" in block:
-                display_name = re.search(r"'display_name':\s*['\"]([^\'\"]+)['\"]", block)
-                description = re.search(r"'description':\s*['\"]([^\'\"]+)['\"]", block)
-                
-                mappings[match] = {
-                    'display_name': display_name.group(1) if display_name else match,
-                    'description': description.group(1) if description else '',
-                    'has_allowed_flags': "'allowed_flags':" in block
-                }
-    
-    return mappings
+    return CANONICAL_COMMAND_MAPPINGS
 
 
 def find_file_saving_commands() -> Set[str]:

@@ -19,7 +19,7 @@ Performance Modes:
 
 import logging
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pydantic import ValidationError
 
@@ -326,9 +326,10 @@ Output: Segmented conversations with agent type labels
                 'fin_ai': [],        # Fin AI only (free tier)
                 'unknown': []        # Unclassified
             }
+            agent_assignments: Dict[str, Dict[str, Any]] = {}
             
             for conv in conversations:
-                segment, agent_type = self._classify_conversation(conv)
+                segment, agent_type, vendor_label = self._classify_conversation(conv)
 
                 if segment == 'paid':
                     paid_customers.append(conv)
@@ -343,6 +344,13 @@ Output: Segmented conversations with agent type labels
                     agent_type = 'unknown'
                 
                 agent_distribution[agent_type].append(conv)
+
+                conv_id = str(conv.get('id') or len(agent_assignments))
+                agent_assignments[conv_id] = {
+                    'segment': segment,
+                    'agent_type': agent_type,
+                    'vendor': vendor_label
+                }
 
             # Tier distribution tracking and tier data quality
             tier_distribution = {'free': 0, 'team': 0, 'business': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
@@ -467,6 +475,7 @@ Output: Segmented conversations with agent type labels
                 'agent_distribution': {
                     k: len(v) for k, v in agent_distribution.items()
                 },
+            'agent_assignments': agent_assignments,
 
                 # Enhanced segmentation summary
                 'segmentation_summary': {
@@ -629,7 +638,7 @@ Output: Segmented conversations with agent type labels
         
         return False
     
-    def _classify_conversation(self, conv: Dict) -> tuple[str, str]:
+    def _classify_conversation(self, conv: Dict) -> tuple[str, str, Optional[str]]:
         """
         Classify conversation by customer tier and optionally ESCALATION CHAIN.
 
@@ -644,12 +653,14 @@ Output: Segmented conversations with agent type labels
         3. Paid tier → detect escalation chain (if enabled) or simple Paid/Fin split
 
         Returns:
-            (segment, agent_type) where:
+            (segment, agent_type, vendor_label) where:
             segment: 'paid', 'free', 'unknown'
             agent_type: 'fin_only', 'fin_to_horatio', 'fin_to_boldr', 'fin_to_vendor_to_senior', 
                        'escalated', 'horatio', 'boldr', 'fin_ai', 'unknown'
+            vendor_label: 'horatio', 'boldr', 'senior', 'fin', or None
         """
         conv_id = conv.get('id', 'unknown')
+        detected_vendor: Optional[str] = None
 
         # Step 1: Extract tier FIRST (tier-first classification)
         tier = self._extract_customer_tier(conv)
@@ -668,7 +679,7 @@ Output: Segmented conversations with agent type labels
                     f"Free tier customer {conv_id} has admin_assignee_id={admin_assignee_id} "
                     f"- likely abuse/trust & safety case"
                 )
-            return ('free', 'fin_ai')
+            return ('free', 'fin_ai', 'fin')
 
         # Step 3: Paid tier classification
         
@@ -680,10 +691,10 @@ Output: Segmented conversations with agent type labels
             # Simple logic: Did Fin resolve it without human?
             if ai_participated and not admin_assignee_id:
                 # Fin-only (no human)
-                return ('paid', 'fin_only')
+                return ('paid', 'fin_only', 'fin')
             else:
                 # Has human involvement (don't care which vendor)
-                return ('paid', 'unknown')  # Generic paid with human
+                return ('paid', 'unknown', detected_vendor)  # Generic paid with human
         
         # DETAILED PATH: Track full escalation chains
         # Extract actual conversation text for vendor/staff detection
@@ -810,6 +821,14 @@ Output: Segmented conversations with agent type labels
             has_boldr = True
             self.logger.debug(f"Boldr agent detected via text pattern in conversation {conv_id}")
         
+        # Consolidate vendor label if detected
+        if has_horatio and has_boldr:
+            detected_vendor = 'mixed'
+        elif has_horatio:
+            detected_vendor = 'horatio'
+        elif has_boldr:
+            detected_vendor = 'boldr'
+
         # NOW DETERMINE ESCALATION CHAIN based on detected agents
         # Check if Fin was involved (already determined via _determine_ai_participation)
         fin_involved = ai_participated
@@ -823,41 +842,41 @@ Output: Segmented conversations with agent type labels
         if fin_involved:
             # Scenario 3: FIN → VENDOR → SENIOR STAFF
             if has_senior_staff and (has_horatio or has_boldr):
-                vendor = 'horatio' if has_horatio else 'boldr'
-                self.logger.info(f"🔥 ESCALATION CHAIN: Fin → {vendor.title()} → Senior Staff")
-                return 'paid', 'fin_to_vendor_to_senior'
+                vendor = 'horatio' if has_horatio and not has_boldr else 'boldr' if has_boldr and not has_horatio else detected_vendor
+                self.logger.info(f"🔥 ESCALATION CHAIN: Fin → {(vendor or 'vendor').title()} → Senior Staff")
+                return 'paid', 'fin_to_vendor_to_senior', vendor or 'senior'
             
             # Scenario 2A: FIN → HORATIO
             elif has_horatio:
                 self.logger.info(f"📈 ESCALATION CHAIN: Fin → Horatio")
-                return 'paid', 'fin_to_horatio'
+                return 'paid', 'fin_to_horatio', 'horatio'
             
             # Scenario 2B: FIN → BOLDR
             elif has_boldr:
                 self.logger.info(f"📈 ESCALATION CHAIN: Fin → Boldr")
-                return 'paid', 'fin_to_boldr'
+                return 'paid', 'fin_to_boldr', 'boldr'
             
             # Edge case: Fin → Senior Staff directly (skip vendor)
             elif has_senior_staff:
                 self.logger.info(f"🔥 ESCALATION CHAIN: Fin → Senior Staff (direct)")
-                return 'paid', 'fin_to_senior_direct'
+                return 'paid', 'fin_to_senior_direct', 'senior'
             
             # Scenario 1: JUST FIN (no escalation)
             else:
                 self.logger.info(f"✅ NO ESCALATION: Just Fin")
-                return 'paid', 'fin_only'
+                return 'paid', 'fin_only', 'fin'
         
         # NO FIN DETECTED - Direct human handling
         # This means conversation went straight to human without Fin
         if has_senior_staff:
             self.logger.info(f"Human only: Senior staff (no Fin)")
-            return 'paid', 'escalated'
+            return 'paid', 'escalated', 'senior'
         elif has_horatio:
             self.logger.info(f"Human only: Horatio (no Fin)")
-            return 'paid', 'horatio'
+            return 'paid', 'horatio', 'horatio'
         elif has_boldr:
             self.logger.info(f"Human only: Boldr (no Fin)")
-            return 'paid', 'boldr'
+            return 'paid', 'boldr', 'boldr'
         
         # Check for HUMAN admin response in conversation parts (not Sal)
         # NOTE: Sal/Support Sal is Fin AI, not a human admin
@@ -890,7 +909,7 @@ Output: Segmented conversations with agent type labels
                 if ai_resolution_state.lower() in ['resolved', 'completed', 'closed']:
                     # Intercom says Fin resolved it - trust the SDK
                     self.logger.debug(f"Paid tier: Fin RESOLVED per Intercom SDK (resolution_state={ai_resolution_state})")
-                    return 'paid', 'fin_resolved'
+                    return 'paid', 'fin_resolved', 'fin'
                 elif ai_resolution_state.lower() in ['escalated', 'handed_off', 'transferred']:
                     # Intercom says it was escalated - check if to known agent or unknown
                     self.logger.debug(f"Paid tier: Escalated per Intercom SDK (resolution_state={ai_resolution_state})")
@@ -900,8 +919,8 @@ Output: Segmented conversations with agent type labels
                             author_email = part.get('author', {}).get('email', '').lower()
                             if author_email and '@' in author_email:
                                 if not any(x in author_email for x in ['support', 'fin', 'bot']):
-                                    return 'paid', 'unknown'  # Real human escalation
-                    return 'paid', 'unknown'  # Escalated but can't identify agent
+                                    return 'paid', 'unknown', detected_vendor  # Real human escalation
+                    return 'paid', 'unknown', detected_vendor  # Escalated but can't identify agent
                 else:
                     # Unknown resolution state - fall back to heuristics
                     self.logger.debug(f"Paid tier: Unknown resolution_state '{ai_resolution_state}', using fallback logic")
@@ -932,27 +951,27 @@ Output: Segmented conversations with agent type labels
                     # Has admin + failed resolution signals = escalated
                     if not is_closed or has_bad_rating or reopens > 1:
                         self.logger.debug(f"Paid tier: Fallback - escalated (admin present, poor resolution signals)")
-                        return 'paid', 'unknown'
+                        return 'paid', 'unknown', detected_vendor
                 
                 # No human escalation + good signals = Fin resolved
                 if (is_closed or low_engagement) and not has_bad_rating and reopens <= 1:
                     self.logger.debug(f"Paid tier: Fallback - Fin resolved (good resolution signals)")
-                    return 'paid', 'fin_resolved'
+                    return 'paid', 'fin_resolved', 'fin'
                 else:
                     self.logger.debug(f"Paid tier: Fallback - Fin resolved (default, ai_participated via helper=True)")
-                    return 'paid', 'fin_resolved'
+                    return 'paid', 'fin_resolved', 'fin'
         
         # ai_participated=False (via helper) but has admin response → Real human handled without Fin
         if has_admin_response:
             self.logger.debug(f"Paid customer: Human admin (ai_participated via helper=False)")
-            return 'paid', 'unknown'
+            return 'paid', 'unknown', detected_vendor
         
         # No AI, no admin → edge case
         if has_bot_response:
             self.logger.debug(f"Paid tier: Bot response but ai_participated via helper=False")
-            return 'paid', 'fin_resolved'
+            return 'paid', 'fin_resolved', 'fin'
 
         # Cannot determine
         self.logger.debug(f"Unable to classify conversation {conv_id} - insufficient data")
-        return 'unknown', 'unknown'
+        return 'unknown', 'unknown', detected_vendor
 

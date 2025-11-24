@@ -37,13 +37,14 @@ from src.analyzers.voice_of_customer_analyzer import VoiceOfCustomerAnalyzer
 from src.analyzers.canny_analyzer import CannyAnalyzer
 from src.services.canny_client import CannyClient
 from src.services.canny_preprocessor import CannyPreprocessor
-from src.services.ai_model_factory import AIModelFactory, AIModel
+from src.services.ai_model_factory import AIModelFactory
 from src.services.agent_feedback_separator import AgentFeedbackSeparator
 from src.agents.agent_performance_agent import AgentPerformanceAgent
 from src.agents.base_agent import AgentContext
 from src.agents.topic_orchestrator import TopicOrchestrator
 from src.agents.orchestrator import MultiAgentOrchestrator
 from src.services.test_data_generator import TestDataGenerator
+from src.utils.ai_client_helper import resolve_ai_model_choice
 from src.utils.time_utils import generate_descriptive_filename, detect_period_type
 from src.utils.timezone_utils import get_date_range_pacific
 
@@ -820,7 +821,7 @@ async def run_canny_analysis(
         # Run sentiment analysis
         console.print(f"[yellow]Running sentiment analysis...[/yellow]")
         
-        ai_model_enum = AIModel.ANTHROPIC_CLAUDE if ai_model == 'claude' else AIModel.OPENAI_GPT4
+        ai_model_enum = resolve_ai_model_choice(ai_model)
         
         analysis_results = await canny_analyzer.analyze_canny_sentiment(
             posts=posts,
@@ -1004,7 +1005,8 @@ async def run_synthesis_analysis_custom(
     start_dt: datetime,
     end_dt: datetime,
     generate_gamma: bool,
-    audit_trail: bool
+    audit_trail: bool,
+    extra_conversations: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """Run custom synthesis analysis."""
     console.print("[yellow]Custom synthesis analysis not yet implemented in CLI module[/yellow]")
@@ -1028,7 +1030,8 @@ async def run_complete_analysis_custom(
     end_dt: datetime,
     generate_gamma: bool,
     audit_trail: bool,
-    digest_mode: bool = False
+    digest_mode: bool = False,
+    extra_conversations: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """Run custom complete analysis."""
     console.print("[yellow]Custom complete analysis not yet implemented in CLI module[/yellow]")

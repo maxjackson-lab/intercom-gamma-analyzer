@@ -7,6 +7,7 @@ Handles per-execution directories for organized file storage.
 
 import os
 from pathlib import Path
+from typing import Optional, Union
 
 
 def get_output_directory() -> Path:
@@ -67,7 +68,10 @@ def get_output_directory() -> Path:
     return output_dir
 
 
-def get_output_file_path(filename: str) -> Path:
+def get_output_file_path(
+    filename: str,
+    base_dir: Optional[Union[str, Path]] = None
+) -> Path:
     """
     Get full path for an output file.
     
@@ -77,6 +81,10 @@ def get_output_file_path(filename: str) -> Path:
     Returns:
         Full path to the output file in the appropriate directory
     """
-    output_dir = get_output_directory()
+    if base_dir is not None:
+        output_dir = Path(base_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        output_dir = get_output_directory()
     return output_dir / filename
 

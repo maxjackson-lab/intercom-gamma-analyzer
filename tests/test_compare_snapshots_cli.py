@@ -17,7 +17,7 @@ from datetime import date
 from unittest.mock import Mock, patch, MagicMock
 from typing import Dict, Any
 
-from src.cli.commands import compare_snapshots
+from src.cli.snapshot_commands import compare_snapshots
 from src.services.historical_snapshot_service import HistoricalSnapshotService
 from src.services.duckdb_storage import DuckDBStorage
 
@@ -71,7 +71,7 @@ def temp_duckdb_with_snapshots():
 @pytest.fixture
 def mock_console():
     """Mock Rich console to capture output"""
-    with patch('src.cli.commands.console') as mock:
+    with patch('src.cli.snapshot_commands.console') as mock:
         yield mock
 
 
@@ -82,7 +82,7 @@ def mock_console():
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_success(temp_duckdb_with_snapshots, mock_console):
     """Test successful snapshot comparison"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         # Setup mock to use temp DB
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
@@ -107,7 +107,7 @@ async def test_compare_snapshots_command_success(temp_duckdb_with_snapshots, moc
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_current_not_found(temp_duckdb_with_snapshots, mock_console):
     """Test error handling when current snapshot doesn't exist"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
         
@@ -126,7 +126,7 @@ async def test_compare_snapshots_command_current_not_found(temp_duckdb_with_snap
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_prior_not_found(temp_duckdb_with_snapshots, mock_console):
     """Test error handling when prior snapshot doesn't exist"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
         
@@ -144,9 +144,9 @@ async def test_compare_snapshots_command_prior_not_found(temp_duckdb_with_snapsh
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_displays_tables(temp_duckdb_with_snapshots):
     """Test that comparison displays Rich tables"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage, \
-         patch('src.cli.commands.console') as mock_console, \
-         patch('src.cli.commands.Table') as MockTable:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage, \
+         patch('src.cli.snapshot_commands.console') as mock_console, \
+         patch('src.cli.snapshot_commands.Table') as MockTable:
         
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
@@ -162,9 +162,9 @@ async def test_compare_snapshots_command_displays_tables(temp_duckdb_with_snapsh
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_displays_panels(temp_duckdb_with_snapshots):
     """Test that significant changes display as panels"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage, \
-         patch('src.cli.commands.console') as mock_console, \
-         patch('src.cli.commands.Panel') as MockPanel:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage, \
+         patch('src.cli.snapshot_commands.console') as mock_console, \
+         patch('src.cli.snapshot_commands.Panel') as MockPanel:
         
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
@@ -178,9 +178,9 @@ async def test_compare_snapshots_command_displays_panels(temp_duckdb_with_snapsh
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_show_details_flag(temp_duckdb_with_snapshots):
     """Test show_details flag displays additional information"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage, \
-         patch('src.cli.commands.console') as mock_console, \
-         patch('src.cli.commands.Table') as MockTable:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage, \
+         patch('src.cli.snapshot_commands.console') as mock_console, \
+         patch('src.cli.snapshot_commands.Table') as MockTable:
         
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
@@ -200,8 +200,8 @@ async def test_compare_snapshots_command_show_details_flag(temp_duckdb_with_snap
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_calls_service_calculate_comparison(temp_duckdb_with_snapshots):
     """Test command calls HistoricalSnapshotService.calculate_comparison"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage, \
-         patch('src.cli.commands.HistoricalSnapshotService') as MockService:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage, \
+         patch('src.cli.snapshot_commands.HistoricalSnapshotService') as MockService:
         
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
@@ -227,8 +227,8 @@ async def test_compare_snapshots_command_calls_service_calculate_comparison(temp
 @pytest.mark.asyncio
 async def test_compare_snapshots_command_handles_service_error(temp_duckdb_with_snapshots, mock_console):
     """Test command handles service errors gracefully"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage, \
-         patch('src.cli.commands.HistoricalSnapshotService') as MockService:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage, \
+         patch('src.cli.snapshot_commands.HistoricalSnapshotService') as MockService:
         
         MockStorage.return_value = DuckDBStorage(temp_duckdb_with_snapshots)
         
@@ -250,7 +250,7 @@ async def test_compare_snapshots_command_handles_service_error(temp_duckdb_with_
 @pytest.mark.asyncio
 async def test_compare_snapshots_validates_snapshot_data(temp_duckdb_with_snapshots):
     """Test command validates snapshot data before comparison"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
         
@@ -266,7 +266,7 @@ async def test_compare_snapshots_validates_snapshot_data(temp_duckdb_with_snapsh
 @pytest.mark.asyncio
 async def test_compare_snapshots_returns_counts(temp_duckdb_with_snapshots):
     """Test command returns pattern counts"""
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         mock_storage = DuckDBStorage(temp_duckdb_with_snapshots)
         MockStorage.return_value = mock_storage
         
@@ -372,7 +372,7 @@ async def test_compare_snapshots_same_id():
     }
     storage.store_analysis_snapshot(snap_data)
     
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         MockStorage.return_value = storage
         
         result = await compare_snapshots('weekly_20251107', 'weekly_20251107', False)
@@ -418,7 +418,7 @@ async def test_compare_snapshots_empty_topics():
     storage.store_analysis_snapshot(snap1_data)
     storage.store_analysis_snapshot(snap2_data)
     
-    with patch('src.cli.commands.DuckDBStorage') as MockStorage:
+    with patch('src.cli.snapshot_commands.DuckDBStorage') as MockStorage:
         MockStorage.return_value = storage
         
         result = await compare_snapshots('weekly_20251107', 'weekly_20251031', False)

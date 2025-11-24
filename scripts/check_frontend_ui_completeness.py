@@ -22,6 +22,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
+
 
 def extract_ui_controls_from_html(railway_web_path: str) -> Dict[str, str]:
     """
@@ -160,8 +162,6 @@ def validate_frontend_completeness():
     Exhaustive check: every Railway flag should have UI wiring, 
     and every UI control should map to a valid Railway flag.
     """
-    from deploy.railway_web import CANONICAL_COMMAND_MAPPINGS
-    
     errors = []
     warnings = []
     info = []

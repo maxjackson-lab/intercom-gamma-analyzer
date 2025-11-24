@@ -16,22 +16,12 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
+
+
 def check_cli_railway_alignment():
     """Check that CLI flags match Railway allowed_flags."""
     from src.main import cli
-    
-    # Import Railway mappings
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("railway_web", "deploy/railway_web.py")
-    railway_web = importlib.util.module_from_spec(spec)
-    
-    try:
-        spec.loader.exec_module(railway_web)
-        CANONICAL_COMMAND_MAPPINGS = railway_web.CANONICAL_COMMAND_MAPPINGS
-    except Exception as e:
-        print(f"⚠️  Could not load Railway mappings: {e}")
-        print("   (This is OK if FastAPI deps not installed)")
-        return True
     
     # Import WebCommandExecutor to check its hardcoded schema
     try:

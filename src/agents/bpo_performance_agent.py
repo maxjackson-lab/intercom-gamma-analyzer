@@ -1,213 +1,290 @@
-"""
-BpoPerformanceAgent: Summarizes Horatio/Boldr performance for narrative reports.
-
-Purpose:
-- Aggregate vendor workload from SegmentationAgent results
-- Highlight top topics each vendor is handling
-- Surface escalation patterns and pressure points
-"""
-
 import logging
-from collections import Counter, defaultdict
-from datetime import datetime
-from typing import Dict, Any, List
+from collections import defaultdict
+from typing import Dict, Any, List, Optional, Tuple
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 
 
 class BpoPerformanceAgent(BaseAgent):
-    """Summarize BPO vendor performance (Horatio, Boldr, etc.)."""
+    """
+    Summarizes Horatio/Boldr workload distribution and pressure points.
 
-    VENDOR_BUCKETS = {
-        'horatio': ['horatio', 'fin_to_horatio'],
-        'boldr': ['boldr', 'fin_to_boldr']
-    }
+    Consumes segmentation + topic outputs to highlight vendor-specific load,
+    workload imbalances, and topics where a single vendor is carrying the majority
+    of human volume.
+    """
 
     def __init__(self):
-        super().__init__(name="BpoPerformanceAgent", model="gpt-4o-mini", temperature=0.0)
+        super().__init__(
+            name="BpoPerformanceAgent",
+            model="gpt-4o-mini",
+            temperature=0.0
+        )
         self.logger = logging.getLogger(__name__)
+
+    def get_agent_specific_instructions(self) -> str:
+        return """
+You are a workload analyst focused on BPO partners.
+Quantify how Horatio and Boldr workloads are distributed across topics,
+identify pressure points, and highlight imbalances executives should see.
+"""
+
+    def get_task_description(self, context: AgentContext) -> str:
+        assignments = (context.metadata or {}).get('agent_assignments', {})
+        return f"Evaluate BPO workload across {len(assignments)} paid-tier conversations."
+
+    def format_context_data(self, context: AgentContext) -> str:
+        metadata = context.metadata or {}
+        assignments = metadata.get('agent_assignments', {})
+        summary = metadata.get('segmentation_summary', {})
+        paid_human = summary.get('paid_human_count', 0)
+        return (
+            f"Assignments analyzed: {len(assignments)}\n"
+            f"Paid human conversations: {paid_human}"
+        )
 
     def validate_input(self, context: AgentContext) -> bool:
         metadata = context.metadata or {}
-        if 'agent_distribution' not in metadata or 'topics_by_conversation' not in metadata:
-            raise ValueError("BpoPerformanceAgent requires agent_distribution and topics_by_conversation")
+        if not metadata.get('agent_assignments'):
+            raise ValueError("agent_assignments metadata missing for BPO analysis")
+        if not metadata.get('topics_by_conversation'):
+            raise ValueError("topics_by_conversation metadata missing for BPO analysis")
         return True
 
-    def get_task_description(self, context: AgentContext) -> str:
-        week_id = context.metadata.get('week_id') or "current range"
-        return f"Summarize Horatio/Boldr workload for {week_id}"
-
-    def format_context_data(self, context: AgentContext) -> str:
-        vendor_keys = ", ".join(context.metadata.get('agent_distribution', {}).keys())
-        return f"Available routing buckets: {vendor_keys}"
-
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        if 'vendors' not in result:
-            raise ValueError("BpoPerformanceAgent output must include vendor summaries")
+        required_fields = ['vendor_overview', 'topic_vendor_highlights']
+        for field in required_fields:
+            if field not in result:
+                raise ValueError(f"BPO output missing '{field}'")
         return True
 
     async def execute(self, context: AgentContext) -> AgentResult:
-        start_time = datetime.now()
         try:
             self.validate_input(context)
-            metadata = context.metadata or {}
-            agent_distribution = metadata.get('agent_distribution', {})
-            topics_by_conversation = metadata.get('topics_by_conversation', {})
-            topic_distribution = metadata.get('topic_distribution', {})
-            fin_performance = metadata.get('fin_performance', {})
-
-            vendors_summary = {}
-            total_vendor_volume = 0
-
-            for vendor, buckets in self.VENDOR_BUCKETS.items():
-                conversations = self._collect_vendor_conversations(agent_distribution, buckets)
-                if not conversations:
-                    continue
-
-                stats = self._build_vendor_stats(vendor, conversations, topics_by_conversation, topic_distribution)
-                stats['escalations'] = len(agent_distribution.get(f'fin_to_{vendor}', []))
-                vendors_summary[vendor] = stats
-                total_vendor_volume += stats['volume']
-
-            # Senior/escalated handling
-            senior_conversations = agent_distribution.get('fin_to_vendor_to_senior', []) + agent_distribution.get('fin_to_senior_direct', [])
-            if senior_conversations:
-                vendors_summary['senior_staff'] = self._build_vendor_stats(
-                    'senior_staff', senior_conversations, topics_by_conversation, topic_distribution
-                )
-                vendors_summary['senior_staff']['note'] = "Includes vendor + senior escalations"
-                total_vendor_volume += vendors_summary['senior_staff']['volume']
-
-            highlights, concerns = self._derive_storylines(vendors_summary, fin_performance)
-
-            result_data = {
-                'vendors': vendors_summary,
-                'total_vendor_conversations': total_vendor_volume,
-                'highlights': highlights,
-                'concerns': concerns
-            }
-
-            execution_time = (datetime.now() - start_time).total_seconds()
-            confidence = 1.0 if total_vendor_volume >= 200 else 0.7 if total_vendor_volume >= 50 else 0.5
-            confidence_level = (ConfidenceLevel.HIGH if confidence >= 0.9
-                                else ConfidenceLevel.MEDIUM if confidence >= 0.7
-                                else ConfidenceLevel.LOW)
-
-            return AgentResult(
-                agent_name=self.name,
-                success=True,
-                data=result_data,
-                confidence=confidence,
-                confidence_level=confidence_level,
-                limitations=[],
-                sources=["SegmentationAgent.agent_distribution", "TopicDetectionAgent.topics_by_conversation"],
-                execution_time=execution_time,
-                token_count=0
-            )
-        except Exception as err:
-            execution_time = (datetime.now() - start_time).total_seconds()
-            self.logger.error(f"BpoPerformanceAgent error: {err}")
+        except ValueError as exc:
             return AgentResult(
                 agent_name=self.name,
                 success=False,
-                data={},
+                data={'error': str(exc)},
                 confidence=0.0,
                 confidence_level=ConfidenceLevel.LOW,
-                error_message=str(err),
-                execution_time=execution_time
+                limitations=[str(exc)],
+                execution_time=0.0
             )
 
-    def _collect_vendor_conversations(self, agent_distribution: Dict[str, List[Dict]], buckets: List[str]) -> List[Dict]:
-        seen_ids = set()
-        conversations: List[Dict] = []
-        for bucket in buckets:
-            for conv in agent_distribution.get(bucket, []):
-                conv_id = str(conv.get('id'))
-                if conv_id in seen_ids:
-                    continue
-                seen_ids.add(conv_id)
-                conversations.append(conv)
-        return conversations
+        metadata = context.metadata or {}
+        assignments = metadata.get('agent_assignments', {})
+        topics_by_conversation = metadata.get('topics_by_conversation', {})
+        topic_distribution = metadata.get('topic_distribution', {})
+        segmentation_summary = metadata.get('segmentation_summary', {})
 
-    def _build_vendor_stats(
-        self,
-        vendor: str,
-        conversations: List[Dict],
-        topics_by_conversation: Dict[str, List[str]],
-        topic_distribution: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        topic_counts = Counter()
-        billing_count = 0
-        examples = []
+        vendor_totals = defaultdict(int)
+        vendor_topic_totals = defaultdict(lambda: defaultdict(int))
+        topic_vendor_counts = defaultdict(lambda: defaultdict(int))
 
-        for conv in conversations:
-            conv_id = str(conv.get('id'))
-            conv_topics = topics_by_conversation.get(conv_id, [])
-            if not conv_topics and conv.get('custom_attributes'):
-                for attr_topic in conv.get('custom_attributes', {}):
-                    if attr_topic in topic_distribution:
-                        conv_topics.append(attr_topic)
-            for topic in conv_topics:
-                topic_counts[topic] += 1
-                if topic.lower() == 'billing':
-                    billing_count += 1
-
-            if len(examples) < 3:
-                preview = self._extract_preview(conv)
-                if preview:
-                    examples.append({
-                        'id': conv_id,
-                        'preview': preview,
-                        'topics': conv_topics
-                    })
-
-        volume = len(conversations)
-        top_topics = topic_counts.most_common(5)
-        billing_share = (billing_count / volume) if volume else 0.0
-
-        return {
-            'vendor': vendor,
-            'volume': volume,
-            'top_topics': top_topics,
-            'billing_share': billing_share,
-            'examples': examples
-        }
-
-    def _derive_storylines(self, vendors_summary: Dict[str, Dict], fin_performance: Dict[str, Any]):
-        highlights = []
-        concerns = []
-
-        for vendor, stats in vendors_summary.items():
-            volume = stats.get('volume', 0)
-            billing_share = stats.get('billing_share', 0.0)
-            top_topics = stats.get('top_topics', [])
-            if not top_topics:
+        for conv_id, assignment in assignments.items():
+            vendor_bucket = self._map_vendor_bucket(assignment)
+            if not vendor_bucket:
                 continue
 
-            top_topic_name = top_topics[0][0]
-            highlights.append(
-                f"{vendor.capitalize()} handled {volume} conversations; top load: {top_topic_name} ({top_topics[0][1]} cases)"
+            conversations_topics = topics_by_conversation.get(conv_id, [])
+            normalized_topics = self._normalize_topic_list(conversations_topics)
+
+            vendor_totals[vendor_bucket] += 1
+            for topic_name in normalized_topics:
+                topic_vendor_counts[topic_name][vendor_bucket] += 1
+                vendor_topic_totals[vendor_bucket][topic_name] += 1
+
+        paid_human_total = sum(
+            vendor_totals[v] for v in ('horatio', 'boldr', 'senior')
+        )
+        if paid_human_total == 0:
+            paid_human_total = segmentation_summary.get('paid_human_count', 0)
+
+        vendor_overview = self._build_vendor_overview(
+            vendor_totals,
+            vendor_topic_totals,
+            paid_human_total
+        )
+        topic_highlights, pressure_points = self._build_topic_highlights(
+            topic_vendor_counts,
+            topic_distribution
+        )
+
+        summary_text = self._build_snapshot_summary(vendor_overview, paid_human_total)
+
+        result_data = {
+            'vendor_overview': vendor_overview,
+            'topic_vendor_highlights': topic_highlights,
+            'bpo_snapshot_summary': summary_text,
+            'pressure_points': pressure_points,
+            'risk_watchlist': pressure_points[:5]
+        }
+
+        try:
+            self.validate_output(result_data)
+        except ValueError as exc:
+            return AgentResult(
+                agent_name=self.name,
+                success=False,
+                data={'error': str(exc)},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                limitations=[str(exc)],
+                execution_time=0.0
             )
 
-            if billing_share >= 0.4:
-                concerns.append(f"{vendor.capitalize()} is overwhelmed by billing ( {billing_share:.0%} of their queue )")
+        confidence = 0.9 if paid_human_total >= 200 else 0.7
+        return AgentResult(
+            agent_name=self.name,
+            success=True,
+            data=result_data,
+            confidence=confidence,
+            confidence_level=ConfidenceLevel.HIGH if confidence >= 0.8 else ConfidenceLevel.MEDIUM,
+            limitations=[],
+            sources=['SegmentationAgent', 'TopicDetectionAgent'],
+            execution_time=0.0
+        )
 
-        # Add Fin knowledge gap context for escalations
-        free_tier = fin_performance.get('free_tier', {})
-        struggling_topics = free_tier.get('struggling_topics', [])
-        if struggling_topics:
-            topic_names = ", ".join(topic for topic, _ in struggling_topics[:3])
-            concerns.append(f"Fin free-tier struggles ({topic_names}) are spilling into BPO workloads")
+    def _map_vendor_bucket(self, assignment: Dict[str, Any]) -> Optional[str]:
+        segment = assignment.get('segment')
+        if segment != 'paid':
+            return None
+        agent_type = assignment.get('agent_type', '')
+        vendor = assignment.get('vendor')
 
-        return highlights, concerns
+        if vendor in {'horatio', 'boldr', 'senior'}:
+            return vendor
+        if agent_type in {'horatio', 'fin_to_horatio'}:
+            return 'horatio'
+        if agent_type in {'boldr', 'fin_to_boldr'}:
+            return 'boldr'
+        if agent_type in {'fin_to_vendor_to_senior', 'escalated', 'fin_to_senior_direct'}:
+            return vendor if vendor in {'horatio', 'boldr'} else 'senior'
+        return None
 
-    def _extract_preview(self, conversation: Dict[str, Any]) -> str:
-        messages = conversation.get('customer_messages') or []
-        if messages:
-            preview = messages[0][:180]
-            return preview
-        full_text = conversation.get('full_text')
-        if full_text:
-            return full_text[:180]
-        return ""
+    def _normalize_topic_list(self, topics: Any) -> List[str]:
+        normalized: List[str] = []
+        if isinstance(topics, list):
+            for entry in topics:
+                if isinstance(entry, dict):
+                    topic_name = entry.get('topic')
+                    if topic_name:
+                        normalized.append(topic_name)
+                elif isinstance(entry, str):
+                    normalized.append(entry)
+        return normalized
+
+    def _build_vendor_overview(
+        self,
+        vendor_totals: Dict[str, int],
+        vendor_topic_totals: Dict[str, Dict[str, int]],
+        paid_human_total: int
+    ) -> Dict[str, Dict[str, Any]]:
+        overview: Dict[str, Dict[str, Any]] = {}
+        for vendor, total in vendor_totals.items():
+            if vendor not in {'horatio', 'boldr', 'senior'} or total == 0:
+                continue
+            share = (total / paid_human_total) if paid_human_total else 0.0
+            top_topics = sorted(
+                vendor_topic_totals[vendor].items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:3]
+            overview[vendor] = {
+                'total_conversations': total,
+                'share_of_paid_workload': share,
+                'top_topics': top_topics,
+                'pressure_level': self._derive_pressure_level(total, share),
+                'notes': self._build_vendor_note(vendor, total, share)
+            }
+        return overview
+
+    def _build_topic_highlights(
+        self,
+        topic_vendor_counts: Dict[str, Dict[str, int]],
+        topic_distribution: Dict[str, Dict[str, Any]]
+    ) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
+        highlights: Dict[str, Dict[str, Any]] = {}
+        pressure_points: List[str] = []
+        for topic, vendor_counts in topic_vendor_counts.items():
+            total = sum(vendor_counts.values())
+            if total == 0:
+                continue
+            sorted_vendors = sorted(
+                vendor_counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+            leader, leader_count = sorted_vendors[0]
+            share = leader_count / total
+            inline_callout = self._format_topic_callout(sorted_vendors, total)
+            highlights[topic] = {
+                'leading_vendor': leader,
+                'leading_share': share,
+                'inline_callout': inline_callout,
+                'human_volume': total
+            }
+            topic_volume = topic_distribution.get(topic, {}).get('volume', total)
+            if total >= 80 and share >= 0.65:
+                pressure_points.append(
+                    f"{topic}: {self._label_vendor(leader)} carrying {leader_count}/{total} "
+                    f"({share:.0%}) human escalations"
+                )
+        return highlights, pressure_points
+
+    def _build_snapshot_summary(self, overview: Dict[str, Dict[str, Any]], total: int) -> str:
+        if total == 0 or not overview:
+            return "No paid human workload detected for Horatio or Boldr this week."
+        parts = []
+        for vendor_key in ['horatio', 'boldr']:
+            vendor = overview.get(vendor_key)
+            if not vendor:
+                continue
+            share_pct = vendor['share_of_paid_workload'] * 100
+            parts.append(
+                f"{self._label_vendor(vendor_key)} handling {vendor['total_conversations']:,} "
+                f"cases ({share_pct:.0f}% of human volume)"
+            )
+        senior = overview.get('senior')
+        if senior:
+            parts.append(
+                f"Senior staff managing {senior['total_conversations']:,} urgent escalations"
+            )
+        return "; ".join(parts)
+
+    def _derive_pressure_level(self, total: int, share: float) -> str:
+        if share >= 0.6 or total >= 800:
+            return 'high'
+        if share >= 0.45 or total >= 500:
+            return 'medium'
+        return 'stable'
+
+    def _build_vendor_note(self, vendor: str, total: int, share: float) -> str:
+        label = self._label_vendor(vendor)
+        share_pct = share * 100
+        if share_pct >= 60:
+            return f"{label} is absorbing {share_pct:.0f}% of human workload – monitor burnout risk."
+        if share_pct <= 30:
+            return f"{label} volume light at {share_pct:.0f}% – opportunity to rebalance."
+        return f"{label} workload steady at {share_pct:.0f}%."
+
+    def _label_vendor(self, vendor: str) -> str:
+        mapping = {
+            'horatio': 'Horatio',
+            'boldr': 'Boldr',
+            'senior': 'Senior staff'
+        }
+        return mapping.get(vendor, vendor.title() if vendor else 'Vendor')
+
+    def _format_topic_callout(
+        self,
+        sorted_vendors: List[Tuple[str, int]],
+        total: int
+    ) -> str:
+        parts = []
+        for vendor, count in sorted_vendors[:2]:
+            label = self._label_vendor(vendor)
+            parts.append(f"{label} {count:,} ({(count/total):.0%})")
+        return "; ".join(parts)
 

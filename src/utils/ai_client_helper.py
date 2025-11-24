@@ -5,7 +5,8 @@ Makes it easy for agents to use the configured AI model.
 
 import logging
 import asyncio
-from typing import Union
+from typing import Optional, Union
+
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.openai_client import OpenAIClient
 from src.services.claude_client import ClaudeClient
@@ -49,6 +50,45 @@ def get_ai_factory() -> AIModelFactory:
         AIModelFactory instance
     """
     return AIModelFactory()
+
+
+def resolve_ai_model_choice(model_name: Optional[str]) -> AIModel:
+    """
+    Convert a CLI/model string into the corresponding AIModel enum value.
+
+    Args:
+        model_name: User-provided model identifier (e.g., "openai", "claude").
+
+    Returns:
+        AIModel enum representing the requested provider.
+        Defaults to OPENAI_GPT4 when the value is missing or unrecognized.
+    """
+    if not model_name:
+        return AIModel.OPENAI_GPT4
+
+    normalized = model_name.strip().lower()
+    alias_map = {
+        "gpt-4": "openai",
+        "gpt-4o": "openai",
+        "gpt-4o-mini": "openai",
+        "openai": "openai",
+        "claude": "claude",
+        "anthropic": "claude",
+        "claude-sonnet": "claude",
+        "claude-opus": "claude",
+    }
+
+    candidate = alias_map.get(normalized, normalized)
+
+    try:
+        return AIModel(candidate)
+    except ValueError:
+        logger.warning(
+            "Unknown AI model '%s' requested; defaulting to %s",
+            model_name,
+            AIModel.OPENAI_GPT4.value,
+        )
+        return AIModel.OPENAI_GPT4
 
 
 def get_recommended_semaphore(client: Union[OpenAIClient, ClaudeClient]) -> asyncio.Semaphore:

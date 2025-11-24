@@ -15,7 +15,7 @@ import logging
 import json
 import re
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -61,7 +61,7 @@ class SampleMode:
     
     async def pull_sample(
         self,
-        count: int = 50,
+        count: Optional[int] = None,
         start_date: datetime = None,
         end_date: datetime = None,
         save_to_file: bool = True,
@@ -95,9 +95,14 @@ class SampleMode:
         }
         
         config = mode_configs.get(schema_mode, mode_configs['standard'])
-        actual_count = config['count']
+        actual_count = count if count is not None else config['count']
         detail_samples = config['detail_samples']
         llm_topic_count = config['llm_topics']
+        
+        if count is not None:
+            console.print(f"[cyan]🔢 Using explicit sample count from --count: {actual_count} conversations[/cyan]")
+        else:
+            console.print(f"[dim]Using schema-mode default count: {actual_count} conversations[/dim]")
         
         console.print(f"\n[bold cyan]Schema Mode: {schema_mode.upper()}[/bold cyan]")
         console.print(f"[dim]Count: {actual_count} | Detail samples: {detail_samples} | LLM topics: {llm_topic_count}[/dim]\n")
@@ -1345,7 +1350,7 @@ class SampleMode:
 
 
 async def run_sample_mode(
-    count: int = 50,
+    count: Optional[int] = None,
     start_date: datetime = None,
     end_date: datetime = None,
     save_to_file: bool = True,
@@ -1360,7 +1365,7 @@ async def run_sample_mode(
     Convenience function to run sample mode.
     
     Args:
-        count: Number of conversations (50-100 recommended)
+        count: Optional explicit sample size (10-100). When None, schema_mode sets the count (quick=50, standard=200, deep=500, comprehensive=1000)
         start_date: Start date (defaults to 7 days ago)
         end_date: End date (defaults to now)
         save_to_file: Save to outputs/

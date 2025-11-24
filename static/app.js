@@ -302,10 +302,15 @@ async function runAnalysis() {
             args.push('--save-to-file');  // Always save JSON and .log file
             args.push('--test-llm');  // Always run LLM sentiment test
             args.push('--schema-mode', schemaMode);  // User-selected depth
+            if (sampleCount) {
+                args.push('--count', sampleCount);  // Explicit CLI-mapped sample volume
+            }
             args.push('--ai-model', sampleAiModel);  // AI model for LLM test (from sample-mode panel)
             
-            // Add hierarchy flag (only send --no-hierarchy if unchecked, since default is true)
-            if (!includeHierarchy) {
+            // Add hierarchy flag explicitly so CLI + Railway see the intended boolean
+            if (includeHierarchy) {
+                args.push('--include-hierarchy');
+            } else {
                 args.push('--no-hierarchy');
             }
             
@@ -330,6 +335,20 @@ async function runAnalysis() {
             args.push('--multi-agent');
             
             // LLM topic detection if checkbox enabled
+            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
+            if (llmTopicDetectionVoc) {
+                args.push('--llm-topic-detection');
+            }
+            
+            if (digestMode) {
+                args.push('--digest-mode');
+            }
+            
+        } else if (analysisType === 'voice-of-customer-narrative-v2') {
+            args.push('voice-of-customer');
+            args.push('--analysis-type', 'narrative-v2');
+            args.push('--multi-agent');
+            
             const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
             if (llmTopicDetectionVoc) {
                 args.push('--llm-topic-detection');
@@ -394,6 +413,11 @@ async function runAnalysis() {
                 args.push('--individual-breakdown');
             }
             
+            const troubleshootingToggle = document.getElementById('agentPerformanceTroubleshootingToggle');
+            if (troubleshootingToggle?.checked) {
+                args.push('--analyze-troubleshooting');
+            }
+            
         } else if (analysisType.startsWith('agent-eval-')) {
             args.push('agent-eval');
             
@@ -403,6 +427,8 @@ async function runAnalysis() {
                 args.push('--vendor', 'boldr');
             } else if (analysisType.includes('escalated')) {
                 args.push('--vendor', 'escalated');
+            }
+
             }
             
         } else if (analysisType.startsWith('agent-coaching-')) {
@@ -485,11 +511,22 @@ async function runAnalysis() {
         
         // Add taxonomy filter if specified (now supported in CLI)
         if (taxonomyFilter && taxonomyFilter !== '') {
-            // Apply to voice-of-customer, agent-performance, agent-eval, and category commands
-            if (isVocFamily ||
+            if (analysisType.startsWith('agent-performance')) {
+                args.push('--focus-categories', taxonomyFilter);
+                console.log('Applied agent performance focus categories:', taxonomyFilter);
+            }
+            if (
+                isVocFamily ||
                 analysisType.startsWith('agent-performance') ||
                 analysisType.startsWith('agent-eval') ||
-                analysisType.startsWith('analyze-')) {
+                analysisType.startsWith('agent-coaching') ||
+                analysisType.startsWith('analyze-') ||
+                analysisType === 'tech-analysis'
+            ) {
+                args.push('--filter-category', taxonomyFilter);
+                console.log('Applied taxonomy filter:', taxonomyFilter);
+            }
+
                 args.push('--filter-category', taxonomyFilter);
                 console.log('Applied taxonomy filter:', taxonomyFilter);
             }
@@ -977,6 +1014,17 @@ function updateAnalysisOptions() {
     
     // Show/hide team overview info
     const teamInfo = document.getElementById('teamOverviewInfo');
+    const agentPerformanceOptions = document.getElementById('agentPerformanceOptions');
+    const showAgentPerformanceOptions = analysisType.startsWith('agent-performance');
+    if (agentPerformanceOptions) {
+        agentPerformanceOptions.style.display = showAgentPerformanceOptions ? 'block' : 'none';
+        if (!showAgentPerformanceOptions) {
+            const troubleshootingToggle = document.getElementById('agentPerformanceTroubleshootingToggle');
+            if (troubleshootingToggle) {
+                troubleshootingToggle.checked = false;
+            }
+        }
+    }
     if (teamInfo) {
         const showTeam = analysisType.includes('team');
         teamInfo.style.display = showTeam ? 'block' : 'none';
@@ -994,7 +1042,9 @@ function updateAnalysisOptions() {
     
     const digestModeContainer = document.getElementById('digestModeContainer');
     if (digestModeContainer) {
-        const showDigest = analysisType === 'voice-of-customer-hilary' || analysisType === 'voice-of-customer-complete' || analysisType === 'voc-v2';
+        const digestEligible = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete', 'voice-of-customer-narrative-v2', 'voc-v2']);
+        const showDigest = digestEligible.has(analysisType);
+
         digestModeContainer.style.display = showDigest ? 'block' : 'none';
         if (!showDigest) {
             const digestToggle = document.getElementById('digestModeToggle');

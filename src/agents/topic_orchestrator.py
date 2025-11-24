@@ -21,6 +21,7 @@ from src.agents.subtopic_detection_agent import SubTopicDetectionAgent
 from src.agents.topic_sentiment_agent import TopicSentimentAgent
 from src.agents.example_extraction_agent import ExampleExtractionAgent
 from src.agents.fin_performance_agent import FinPerformanceAgent
+from src.agents.bpo_performance_agent import BpoPerformanceAgent
 from src.agents.trend_agent import TrendAgent
 from src.agents.output_formatter_agent import OutputFormatterAgent
 from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
@@ -113,11 +114,11 @@ class TopicOrchestrator:
         self.topic_sentiment_agent = TopicSentimentAgent()
         self.example_extraction_agent = ExampleExtractionAgent()
         self.fin_performance_agent = FinPerformanceAgent(audit=self.audit)
+        self.bpo_performance_agent = bpo_agent or BpoPerformanceAgent()
         # TrendAgent will get historical_snapshot_service via lazy property when needed
         self._trend_agent = None
         self.formatter_agent = formatter_agent or OutputFormatterAgent()
         self.formatter_agent_name = getattr(self.formatter_agent, 'name', 'OutputFormatterAgent')
-        self.bpo_performance_agent = bpo_agent
         self.report_type = report_type
         
         # Analytical insight agents (Phase 4.5)
@@ -467,6 +468,38 @@ class TopicOrchestrator:
             
             # ALSO pass topics_by_conversation to metadata for agents that need it
             context.metadata['topics_by_conversation'] = topics_by_conv
+
+            # PHASE 2.4: BPO Vendor Performance
+            self.logger.info("👥 Phase 2.4: BPO Vendor Load Analysis")
+            bpo_result_data = {}
+            try:
+                bpo_context = context.model_copy()
+                bpo_context.metadata = {
+                    'agent_assignments': segmentation_result.data.get('agent_assignments', {}),
+                    'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
+                    'topics_by_conversation': topics_by_conv,
+                    'topic_distribution': topic_dist,
+                    'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
+                }
+                bpo_context.previous_results = {
+                    'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                }
+                bpo_result = await self.bpo_performance_agent.execute(bpo_context)
+                bpo_result_data = _normalize_agent_result(bpo_result)
+                workflow_results['BpoPerformanceAgent'] = bpo_result_data
+                try:
+                    display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
+                except Exception as e:
+                    logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
+            except Exception as e:
+                self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
+                workflow_results['BpoPerformanceAgent'] = {
+                    'agent_name': 'BpoPerformanceAgent',
+                    'success': False,
+                    'error_message': str(e),
+                    'data': {}
+                }
             
             # PHASE 2.5: Sub-Topic Detection
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")
@@ -714,6 +747,10 @@ class TopicOrchestrator:
                     'sentiment_confidence': sentiment_result.confidence,
                     'examples_count': len(examples_result.data.get('examples', []))
                 }
+            
+            # Expose full per-topic artifacts for downstream formatters (Narrative V2, synthesis, etc.)
+            workflow_results['TopicSentiments'] = topic_sentiments
+            workflow_results['TopicExamples'] = topic_examples
             
             # PHASE 4: Fin Analysis (on free and paid fin-resolved conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
@@ -1081,6 +1118,7 @@ class TopicOrchestrator:
                 'TopicSentiments': topic_sentiments,  # Already normalized dicts
                 'TopicExamples': topic_examples,  # Already normalized dicts
                 'FinPerformanceAgent': _normalize_agent_result(fin_result),
+                'BpoPerformanceAgent': bpo_result_data,
                 'TrendAgent': _normalize_agent_result(trend_result),
                 'AnalyticalInsights': analytical_insights  # Phase 4.5 results
             }
@@ -1115,7 +1153,8 @@ class TopicOrchestrator:
                 'period_label': period_label,
                 'historical_context': historical_context,
                 'comparison_data': comparison_data,
-                'bpo_summary': workflow_results.get(self.bpo_performance_agent.name, {}).get('data') if self.bpo_performance_agent else {}
+                'bpo_summary': workflow_results.get(self.bpo_performance_agent.name, {}).get('data') if self.bpo_performance_agent else {},
+                'digest_mode': (context.metadata or {}).get('digest_mode')
             }
             
             # Report agent start

@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from deploy.railway_web import CANONICAL_COMMAND_MAPPINGS
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS, validate_command_request
 
 
 class TestSchemaCliContract:
@@ -188,8 +188,6 @@ class TestSchemaCliContract:
     
     def test_schema_validation_function(self):
         """Test that schema validation function works correctly"""
-        from deploy.railway_web import validate_command_request
-        
         # Test valid request
         valid, error = validate_command_request('voice_of_customer', {
             '--time-period': 'week',

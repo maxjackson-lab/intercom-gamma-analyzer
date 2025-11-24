@@ -62,6 +62,7 @@ class WebCommandExecutor:
                 # Sample mode options
                 "--count", "--save-to-file", "--no-save", "--test-llm", "--schema-mode",
                 "--test-all-agents", "--show-agent-thinking", "--llm-topic-detection", "--include-hierarchy",
+                "--no-hierarchy",
                 # Analysis options
                 "--multi-agent", "--analysis-type", "--digest-mode",
                 "--focus-areas", "--focus-categories",
