@@ -413,3 +413,24 @@ OUTPUT RULES:
             summary_lines.append(f"- {risk}")
         return "\n".join(summary_lines)
 
+    def format_context_data(self, context: AgentContext) -> str:
+        """
+        Provide a concise JSON summary for BaseAgent prompt builders.
+
+        NarrativeFormatterAgent primarily consumes prior agent outputs
+        rather than raw conversation text, so we list those keys and
+        high-level metadata to avoid bloating prompts.
+        """
+        summary = {
+            "analysis_id": context.analysis_id,
+            "analysis_type": context.analysis_type,
+            "date_range": {
+                "start": context.start_date.isoformat() if context.start_date else None,
+                "end": context.end_date.isoformat() if context.end_date else None,
+            },
+            "conversation_count": len(context.conversations or []),
+            "previous_results_keys": sorted(list((context.previous_results or {}).keys())),
+            "metadata": context.metadata,
+        }
+        return json.dumps(summary, ensure_ascii=False, indent=2)
+
