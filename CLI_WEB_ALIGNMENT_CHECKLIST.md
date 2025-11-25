@@ -2,16 +2,20 @@
 
 ## The Fundamental Problem
 
-**Every command has 4 implementations that MUST match:**
+**Every command has 3 implementations that MUST match:**
 
 1. **CLI** (`src/main.py`) - The actual command logic
-2. **Railway Validation** (`deploy/railway_web.py`) - CANONICAL_COMMAND_MAPPINGS
-3. **WebCommandExecutor** (`src/services/web_command_executor.py`) - COMMAND_SCHEMAS ← HIDDEN LAYER!
-4. **Frontend** (`static/app.js`) - What the UI sends
+2. **Schema** (`src/cli/schema.py`) - CANONICAL_COMMAND_MAPPINGS (source of truth)
+3. **Frontend** (`static/app.js`) - What the UI sends
 
-**If these don't align → Validation errors, ignored flags, broken features**
+**Previously (4-layer contract):**
+- WebCommandExecutor (`src/services/web_command_executor.py`) had a separate hardcoded whitelist
+- This "hidden Layer 3" was frequently forgotten, causing validation errors
 
-⚠️ **Critical:** WebCommandExecutor has a SEPARATE whitelist that's easy to forget!
+**Now (3-layer contract):**
+- WebCommandExecutor schema is **AUTO-GENERATED** from CANONICAL_COMMAND_MAPPINGS
+- No manual maintenance required for executor whitelist
+- If these don't align → Validation errors, ignored flags, broken features
 
 ---
 
@@ -37,23 +41,7 @@ def your_command(..., your_flag: str):  # ← Add to function signature!
 
 ---
 
-**Step 2: WebCommandExecutor Whitelist (`src/services/web_command_executor.py`) - EASY TO FORGET!**
-
-Add to `COMMAND_SCHEMAS['python']['allowed_flags']`:
-```python
-"allowed_flags": {
-    # ...existing flags...
-    "--your-flag",  # Add to the set!
-}
-```
-
-✅ **Verification:**
-- [ ] Flag added to allowed_flags set (line ~63)
-- [ ] No typos in flag name
-
----
-
-**Step 3: Railway Validation (`deploy/railway_web.py`)**
+**Step 2: Schema (`src/cli/schema.py`)**
 
 Find the command in `CANONICAL_COMMAND_MAPPINGS`:
 ```python
@@ -76,10 +64,11 @@ Find the command in `CANONICAL_COMMAND_MAPPINGS`:
 - [ ] Type matches CLI type (enum = Choice, boolean = is_flag, etc.)
 - [ ] Values match CLI choices EXACTLY
 - [ ] Default matches CLI default
+- [ ] ✅ WebCommandExecutor schema auto-generated (no manual step needed!)
 
 ---
 
-**Step 4: Frontend (`static/app.js`)**
+**Step 3: Frontend (`static/app.js`)**
 
 In `runAnalysis()` function:
 ```javascript
@@ -152,9 +141,10 @@ if (analysisType === 'your-command') {
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
-│ LAYER 2: Railway (deploy/railway_web.py)   │
-│ - Validates flags match CLI                │
-│ - Prevents invalid flags from reaching CLI │
+│ LAYER 2: Schema (src/cli/schema.py)        │
+│ - CANONICAL_COMMAND_MAPPINGS               │
+│ - Source of truth for all flags            │
+│ - AUTO-GENERATES WebCommandExecutor schema │
 │ - MUST mirror CLI exactly                  │
 └─────────────────────────────────────────────┘
                     ↓
@@ -162,11 +152,18 @@ if (analysisType === 'your-command') {
 │ LAYER 3: Frontend (static/app.js)          │
 │ - Builds args array from UI inputs         │
 │ - Sends only flags that CLI accepts        │
-│ - MUST know Railway's validation rules     │
+│ - MUST know Schema's validation rules      │
 └─────────────────────────────────────────────┘
 ```
 
-**Rule:** CLI is the source of truth. Railway and Frontend must match it.
+**Rule:** CLI is the source of truth. Schema mirrors CLI. Frontend uses Schema.
+**WebCommandExecutor:** Auto-generated from Schema (no manual maintenance).
+
+> **Phase 5: Testing & Documentation Complete**  
+> Alignment is now enforced by both automation (`scripts/check_cli_web_alignment.py`) and dedicated
+> test suites covering CLI handlers (`tests/test_*_commands.py`), orchestration strategies
+> (`tests/test_orchestration_strategies.py`, `tests/test_unified_orchestrator.py`), and FastAPI routes
+> (`tests/test_routes_*.py`). Keep these suites updated whenever you add a new flag or command.
 
 ---
 
@@ -180,9 +177,9 @@ if (analysisType === 'your-command') {
    # Should list --your-flag
    ```
 
-2. **Check Railway validates it:**
+2. **Check Schema validates it:**
    ```python
-   # In deploy/railway_web.py
+   # In src/cli/schema.py
    CANONICAL_COMMAND_MAPPINGS['your_command']['allowed_flags']
    # Should have '--your-flag'
    ```
@@ -245,11 +242,12 @@ def test_flag_alignment_your_command():
   - [ ] Function signature parameter
   - [ ] Actually USED in function body
 
-- [ ] **2. Added to Railway Schema** (`src/cli/schema.py`)
+- [ ] **2. Added to Schema** (`src/cli/schema.py`)
   - [ ] In `CANONICAL_COMMAND_MAPPINGS[command]['allowed_flags']`
   - [ ] Type matches CLI (enum/boolean/integer/date)
   - [ ] Values match CLI choices
   - [ ] Default matches CLI default
+  - [ ] ✅ WebCommandExecutor schema auto-generated (no manual step)
 
 - [ ] **3. Added to Frontend** (`static/app.js`)
   - [ ] HTML element exists (if needed)
@@ -261,6 +259,27 @@ def test_flag_alignment_your_command():
   - [ ] CLI help shows flag: `python src/main.py command --help`
   - [ ] Web UI doesn't error on submit
   - [ ] Flag value is actually used (check logs)
+  - [ ] Run `./scripts/check_cli_web_alignment.py` (verifies auto-generation)
+
+---
+
+## Auto-Generation Details (Phase 3 Complete)
+
+**What Changed:**
+- WebCommandExecutor schema is now auto-generated from `CANONICAL_COMMAND_MAPPINGS`
+- Function: `src/cli/schema.py::generate_executor_schema()`
+- Called at module load time in `src/services/web_command_executor.py`
+
+**Benefits:**
+- ✅ Eliminates manual maintenance of executor whitelist
+- ✅ Reduces 4-layer contract to 3 layers
+- ✅ Prevents "forgot to update executor" errors
+- ✅ Single source of truth (CANONICAL_COMMAND_MAPPINGS)
+
+**Verification:**
+- Run `./scripts/check_cli_web_alignment.py` to verify auto-generation works
+- Script checks that generated schema has all expected flags
+- No manual WebCommandExecutor updates needed
 
 ---
 
@@ -307,58 +326,43 @@ def test_flag_alignment_your_command():
 **Prevention:**
 Always follow the checklist in ORDER:
 1. CLI first (source of truth)
-2. Railway second (mirrors CLI)
-3. Frontend last (uses Railway's validation)
+2. Schema second (mirrors CLI, auto-generates executor)
+3. Frontend last (uses Schema's validation)
 
 ---
 
 ## Verification Script
 
-Add this to pre-commit or CI:
+Run this to verify all layers are aligned:
 
-```python
-#!/usr/bin/env python3
-"""Verify CLI ↔ Railway ↔ Frontend alignment."""
+```bash
+./scripts/check_cli_web_alignment.py
+```
 
-def check_alignment():
-    from src.main import cli
-    from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
-    
-    errors = []
-    
-    for cmd_name, cmd_obj in cli.commands.items():
-        # Get CLI params
-        cli_params = {p.name.replace('_', '-') for p in cmd_obj.params}
-        
-        # Get Railway flags (convert sample-mode → sample_mode)
-        railway_key = cmd_name.replace('-', '_')
-        if railway_key not in CANONICAL_COMMAND_MAPPINGS:
-            continue  # Some CLI commands not in Railway
-        
-        railway_flags = set(CANONICAL_COMMAND_MAPPINGS[railway_key]['allowed_flags'].keys())
-        railway_flags = {f.replace('--', '') for f in railway_flags}
-        
-        # Compare
-        cli_only = cli_params - railway_flags
-        railway_only = railway_flags - cli_params
-        
-        if cli_only:
-            errors.append(f"{cmd_name}: CLI has {cli_only} but Railway doesn't")
-        if railway_only:
-            errors.append(f"{cmd_name}: Railway has {railway_only} but CLI doesn't")
-    
-    if errors:
-        print("❌ Alignment errors found:")
-        for error in errors:
-            print(f"  - {error}")
-        return False
-    else:
-        print("✅ All commands aligned!")
-        return True
+The script verifies:
+1. CLI ↔ Schema alignment (flags match)
+2. WebCommandExecutor auto-generation (schema generated correctly)
+3. Frontend consistency (no obvious flag issues)
 
-if __name__ == '__main__':
-    import sys
-    sys.exit(0 if check_alignment() else 1)
+## Testing
+
+Automated verification is backed by targeted pytest suites:
+
+| Scope | Tests |
+|-------|-------|
+| CLI command handlers | `tests/test_voc_commands.py`, `tests/test_system_commands.py`, `tests/test_export_commands.py`, etc. |
+| Orchestrators & strategies | `tests/test_unified_orchestrator.py`, `tests/test_orchestration_strategies.py` |
+| FastAPI routes | `tests/test_routes_execution.py`, `tests/test_routes_timeline.py`, `tests/test_routes_chat.py`, `tests/test_routes_files.py` |
+
+**Coverage expectations**
+- Every user-facing command must have at least one unit test covering the handler path.
+- New orchestration strategies require success + failure cases in `tests/test_orchestration_strategies.py`.
+- Any new route must be represented in the appropriate `tests/test_routes_*.py` file.
+
+**Sample commands to run**
+```bash
+python -m pytest tests/test_voc_commands.py
+python -m pytest tests/test_routes_execution.py
 ```
 
 ---
@@ -367,12 +371,12 @@ if __name__ == '__main__':
 
 **The 3-Layer Alignment Rule:**
 
-> When you add/change ANY flag, update ALL 3 layers in this order:
+> When you add/change ANY flag, update the layers in this order:
 > 1. CLI (source of truth)
-> 2. Railway (validation layer)
+> 2. Schema (mirrors CLI, auto-generates executor)
 > 3. Frontend (sender layer)
 >
-> Use the checklist above. No exceptions.
+> Automation + tests enforce the rule: the alignment script validates metadata while the pytest
+> suites ensure behaviour across commands, orchestrators, and web routes.
 
 **Add this to your .cursorrules or agent instructions!**
-

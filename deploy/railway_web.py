@@ -667,7 +667,7 @@ if HAS_FASTAPI:
                     
                     <label style="color: #e5e7eb; font-size: 14px; display: block;">Time Period:</label>
                     <select id="sampleTimePeriod" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
-                        <option value="day">Last 24 Hours</option>
+                        <option value="yesterday">Last 24 Hours</option>
                         <option value="week" selected>Last Week ⭐</option>
                         <option value="month">Last Month</option>
                     </select>

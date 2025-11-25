@@ -223,6 +223,34 @@ git push origin <branch>
 
 ## Code Style & Patterns
 
+### Orchestration Patterns
+- Use `UnifiedOrchestrator` with pluggable strategies for all orchestration flows.
+- All strategies return `AgentResult` (Pydantic) and inherit timeout/checkpoint logic from `BaseOrchestrator`.
+- Select the appropriate strategy:
+  - `ComprehensiveStrategy` for category-driven comprehensive analysis
+  - `MultiAgentStrategy` for the five-agent workflow with checkpointing
+  - `StoryDrivenStrategy` for narrative-focused customer journeys
+
+```python
+from src.services.unified_orchestrator import UnifiedOrchestrator
+from src.services.strategies import ComprehensiveStrategy
+from src.agents.base_agent import AgentContext
+
+context = AgentContext(
+    analysis_id="analysis_123",
+    analysis_type="comprehensive",
+    start_date=start_date,
+    end_date=end_date,
+)
+
+strategy = ComprehensiveStrategy()
+orchestrator = UnifiedOrchestrator(strategy=strategy)
+result = await orchestrator.execute(context)
+assert result.success
+```
+
+- Legacy orchestrators (`AnalysisOrchestrator`, `MultiAgentOrchestrator`, `StoryDrivenOrchestrator`) are thin wrappers that log a deprecation warning; prefer the unified layer directly.
+
 ### Agent Development
 - All agents inherit from `BaseAgent` and implement `execute(context: AgentContext) -> AgentResult`
 - Use `AgentContext` to pass data between agents
@@ -695,54 +723,47 @@ def _analyze_topic_detection(self, conversations):
 ```
 
 ✅ **ALWAYS add UI when adding CLI flag:**
-1. Add flag to CLI (`src/main.py`)
-2. Add to Railway validation (`deploy/railway_web.py`)
-3. Add checkbox/dropdown to UI (`deploy/railway_web.py` HTML)
-4. Wire up in JavaScript (`static/app.js`)
+1. Implement/modify the handler in `src/cli/<domain>_commands.py` and expose it via `src/main.py`.
+2. Update `CANONICAL_COMMAND_MAPPINGS` in `src/cli/schema.py`.
+3. Run `python scripts/check_cli_web_alignment.py`.
+4. Add the UI control and wiring in `static/app.js`.
 
-**Verification:**
-```bash
-python scripts/check_cli_web_alignment.py
-```
-
-**Why This Matters:**
-- Users can't use features they can't see
-- CLI-only features create hidden functionality
-- Leads to drift between CLI and web experience
-
-**Example (Nov 11, 2025):**
-- Added `--show-agent-thinking` flag
-- Immediately added UI checkbox
-- Both CLI and UI users can access feature
+**Command Handler Pattern**
+- `src/cli/*_commands.py`: async implementations (no Click calls, no direct exit).
+- `src/main.py`: Click decorators that forward to the handlers.
+- `src/cli/schema.py`: Single source of truth for flags, consumed by WebCommandExecutor.
+- `static/app.js`: Builds the CLI argument array from HTML inputs.
 
 ### The 3-Layer Contract
-Every CLI command has 3 implementations that MUST stay aligned:
-1. **CLI** (`src/main.py`) - Source of truth, actual implementation
-2. **Railway** (`deploy/railway_web.py`) - Validation layer in CANONICAL_COMMAND_MAPPINGS
-3. **Frontend** (`static/app.js`) - UI that sends commands
+Every CLI command has 3 layers that MUST stay aligned:
+1. **CLI** (`src/main.py` + `src/cli/*_commands.py`) – Source of truth and actual behaviour.
+2. **Schema** (`src/cli/schema.py`) – `CANONICAL_COMMAND_MAPPINGS` auto-generate the executor whitelist.
+3. **Frontend** (`static/app.js`) – UI that sends only schema-approved flags.
 
 ### MANDATORY: When Adding/Changing ANY Flag
 
 **Always update ALL 3 layers in this order:**
 
-1. **CLI First** (`src/main.py`):
+1. **CLI First**:
 ```python
 @cli.command(name='your-command')
 @click.option('--your-flag', type=click.Choice(['val1', 'val2']), default='val1')
-def your_command(..., your_flag: str):  # ← MUST be in signature!
-    # Actually USE the flag (don't just accept it)
+@async_command
+async def your_command(..., your_flag: str):
+    await your_module.run_your_command(..., your_flag=your_flag)
 ```
 
-2. **Railway Second** (`deploy/railway_web.py`):
+2. **Schema Second** (`src/cli/schema.py`):
 ```python
-CANONICAL_COMMAND_MAPPINGS = {
-    'your_command': {
-        'allowed_flags': {
-            '--your-flag': {
-                'type': 'enum',  # MUST match CLI type
-                'values': ['val1', 'val2'],  # MUST match CLI choices
-                'default': 'val1'  # MUST match CLI default
-            }
+'your_command': {
+    'command': 'python',
+    'args': ['src/main.py', 'your-command'],
+    'allowed_flags': {
+        '--your-flag': {
+            'type': 'enum',
+            'values': ['val1', 'val2'],
+            'default': 'val1',
+            'description': 'Your flag description',
         }
     }
 }
@@ -751,8 +772,11 @@ CANONICAL_COMMAND_MAPPINGS = {
 3. **Frontend Last** (`static/app.js`):
 ```javascript
 if (analysisType === 'your-command') {
-    const flagValue = document.getElementById('yourFlag')?.value;
-    args.push('--your-flag', flagValue);
+    args.push('your-command');
+    const yourFlagValue = document.getElementById('yourFlag')?.value;
+    if (yourFlagValue) {
+        args.push('--your-flag', yourFlagValue);
+    }
 }
 ```
 
@@ -760,21 +784,19 @@ if (analysisType === 'your-command') {
 
 Before committing changes to commands/flags:
 - [ ] Run `python scripts/check_cli_web_alignment.py`
-- [ ] Verify flag is in CLI `@click.option`
-- [ ] Verify flag is in function signature
-- [ ] Verify flag is in Railway `allowed_flags`
-- [ ] Verify types match (enum=Choice, boolean=is_flag)
-- [ ] Verify frontend sends flag conditionally (not to all commands)
+- [ ] Verify Click decorator + function signature + handler usage
+- [ ] Verify flag definition in `CANONICAL_COMMAND_MAPPINGS`
+- [ ] Verify frontend only sends the flag when applicable
 - [ ] Test in web UI (no validation errors)
 
 ### Common Mistakes
-- ❌ Adding flag to Railway but forgetting CLI function signature
-- ❌ Frontend sending --verbose to diagnostic modes (sample-mode)
-- ❌ Type mismatch: Railway says 'boolean' but CLI uses Choice
-- ❌ Values mismatch: Railway says ['quick'] but CLI says ['fast']
+- ❌ Adding flag to schema but forgetting the CLI signature
+- ❌ Frontend sending global flags (e.g., `--verbose`) to commands that do not accept them
+- ❌ Type mismatch between CLI and schema (boolean vs enum)
+- ❌ Forgetting to update UI after changing defaults or allowable values
 
 ### Reference
-See `CLI_WEB_ALIGNMENT_CHECKLIST.md` for detailed guide
+See `CLI_WEB_ALIGNMENT_CHECKLIST.md` and `docs/CLI_COMMAND_INVENTORY.md` for the authoritative command list and testing guidance
 
 ## SSE and Background Execution (CRITICAL)
 

@@ -172,6 +172,12 @@ intercom-analyzer/
 └── pyproject.toml
 ```
 
+## 📚 Additional Documentation
+- [Developer Onboarding](DEVELOPER_ONBOARDING.md)
+- [Migration Guide](MIGRATION_GUIDE.md)
+- [System Architecture Guide](SYSTEM_ARCHITECTURE_GUIDE.md)
+- [CLI ↔ Web Alignment Checklist](CLI_WEB_ALIGNMENT_CHECKLIST.md)
+
 ## 🤖 **Multi-Agent Workflow**
 
 The TopicOrchestrator coordinates a 7-phase analysis pipeline:

@@ -16,6 +16,7 @@ from src.cli.utils import console
 from src.config.settings import settings
 from src.services.sample_mode import run_sample_mode
 from src.utils.agent_thinking_logger import AgentThinkingLogger
+from src.utils.time_utils import calculate_date_range
 
 
 async def run_sample_mode_command(
@@ -49,13 +50,12 @@ async def run_sample_mode_command(
 
     # Parse dates
     if time_period:
-        end = datetime.now()
-        if time_period == "day":
-            start = end - timedelta(days=1)
-        elif time_period == "week":
-            start = end - timedelta(days=7)
-        else:  # month
-            start = end - timedelta(days=30)
+        normalized_period = 'yesterday' if time_period == 'day' else time_period
+        start, end = calculate_date_range(
+            time_period=normalized_period,
+            periods_back=1,
+            end_is_yesterday=False
+        )
     else:
         start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else datetime.now() - timedelta(days=7)
         end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else datetime.now()

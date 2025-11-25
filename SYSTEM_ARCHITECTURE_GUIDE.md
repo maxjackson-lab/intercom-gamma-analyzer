@@ -824,6 +824,90 @@ class AgentContext:
 
 ---
 
+## Unified Orchestration Layer (Phase 4 Refactor)
+
+### Overview
+Phase 4 consolidated the legacy Analysis, Multi-Agent, and Story-Driven orchestrators into a single unified orchestration layer. Strategies now plug into shared infrastructure instead of re-implementing timeout handling, checkpointing, and recovery logic.
+
+### Architecture
+- **UnifiedOrchestrator** – validates `AgentContext`, times execution, and delegates to a configured strategy.
+- **BaseOrchestrator** – shared utilities for timeouts, checkpoint persistence, metrics aggregation, and structured error handling.
+- **Strategies** – pluggable orchestration flows inheriting from `OrchestrationStrategy`:
+  - `ComprehensiveStrategy` for category-driven comprehensive analysis
+  - `MultiAgentStrategy` for the five-agent workflow with checkpoints
+  - `StoryDrivenStrategy` for narrative-focused journey analysis
+
+### Benefits
+- Consistent timeout/checkpoint policy across every orchestration flow
+- Pydantic `AgentResult` returns instead of untyped dictionaries
+- Faster addition of new orchestration modes (implement a strategy, reuse BaseOrchestrator)
+- Legacy orchestrators remain as adapters, so existing callers keep working
+
+### Usage
+```python
+from src.agents.base_agent import AgentContext
+from src.services.strategies import ComprehensiveStrategy
+from src.services.unified_orchestrator import UnifiedOrchestrator
+
+context = AgentContext(
+    analysis_id="analysis_123",
+    analysis_type="comprehensive",
+    start_date=start_date,
+    end_date=end_date,
+)
+
+strategy = ComprehensiveStrategy()
+orchestrator = UnifiedOrchestrator(strategy=strategy)
+result = await orchestrator.execute(context, options={"generate_gamma_presentation": True})
+```
+
+### Migration
+`AnalysisOrchestrator`, `MultiAgentOrchestrator`, and `StoryDrivenOrchestrator` now log a deprecation warning and delegate directly to the unified layer. New development should instantiate strategies directly.
+
+## Refactored Architecture (Phase 1–4 Complete)
+
+### Modular CLI Layout
+- **`src/cli/`** hosts the async implementations grouped by domain (e.g., `voc_commands.py`, `snapshot_commands.py`, `export_commands.py`).
+- **`src/main.py`** is now a thin Click shim that delegates to the modules above.
+- **`src/cli/schema.py`** defines `CANONICAL_COMMAND_MAPPINGS`, the single source of truth for flags, defaults, and validation rules.
+- **`scripts/check_cli_web_alignment.py`** enforces the 3-layer contract described in `CLI_WEB_ALIGNMENT_CHECKLIST.md`.
+
+### Unified Web Application
+- `deploy/web/app_factory.py` wires FastAPI middleware, static assets, and route modules located under `deploy/web/routes_*.py`.
+- `WebCommandExecutor` automatically consumes the schema generated from `CANONICAL_COMMAND_MAPPINGS`, eliminating the old Railway-only whitelist.
+- Background execution, SSE keepalives, chat metadata, timeline browsing, and file downloads all live within the same FastAPI instance.
+
+### Three-Layer CLI → Schema → Frontend Contract
+```
+Layer 1: CLI (`src/main.py`)
+Layer 2: Schema (`src/cli/schema.py`)
+Layer 3: Frontend (`static/app.js`)
+```
+- CLI defines what flags exist and how they are used.
+- Schema mirrors CLI exactly and auto-generates the executor whitelist.
+- Frontend reads UI values and sends only the schema-approved flags.
+- Tests now cover all three layers (`tests/test_voc_commands.py`, `tests/test_routes_execution.py`, etc.).
+
+### Updated Diagram
+```mermaid
+flowchart LR
+    CLI[CLI Commands\nsrc/main.py] --> Schema[Canonical Schema\nsrc/cli/schema.py]
+    Schema --> Executor[WebCommandExecutor\n + FastAPI Routes]
+    Executor --> Orchestrator[UnifiedOrchestrator\n+ Strategies]
+    Orchestrator --> Agents[Specialized Agents\nsrc/agents/*]
+    Agents --> DataServices[ETL & Services\nsrc/services/*]
+    Executor --> UI[FastAPI UI & static/app.js]
+    DataServices --> DuckDB[(DuckDB Storage)]
+```
+
+### Benefits
+1. **Testability** – Each layer has dedicated test modules: CLI commands, strategies, and web routes.
+2. **Maintainability** – Flags are declared once in the schema and automatically flow to Railway + UI validation.
+3. **Operational Alignment** – CLI, schema, and frontend changes are validated by automation (alignment script + route tests).
+4. **Faster Migrations** – New feature work plugs into the documented directories with predictable scaffolding (`MIGRATION_GUIDE.md`).
+
+See `CLI_WEB_ALIGNMENT_CHECKLIST.md` and `docs/CLI_COMMAND_INVENTORY.md` for the exhaustive command catalogue plus validation steps.
+
 ## Summary
 
 ### What Makes This Architecture Work

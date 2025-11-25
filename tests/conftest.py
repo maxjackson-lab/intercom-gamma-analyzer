@@ -8,8 +8,10 @@ import tempfile
 import shutil
 from pathlib import Path
 from datetime import datetime, date, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import json
+
+from fastapi.testclient import TestClient
 
 # Proper package imports - tests should be run with pytest from project root
 # If running from within tests/ directory, run: python -m pytest from root instead
@@ -17,6 +19,7 @@ from src.config.settings import Settings
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.elt_pipeline import ELTPipeline
 from src.config.taxonomy import TaxonomyManager, Category, Subcategory
+from src.services.execution_state_manager import ExecutionStateManager, ExecutionStatus
 
 
 @pytest.fixture(scope="session")
@@ -1748,6 +1751,158 @@ def mock_output_formatter_context_without_subtopics():
             'TrendAgent': {'data': trend_result}
         }
     )
+
+
+@pytest.fixture
+def web_app(monkeypatch, tmp_path):
+    """Provide a FastAPI TestClient with stubbed execution, storage, and chat services."""
+    from deploy.web import app_factory, routes_execution
+
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Force routes to use the temporary outputs directory for outputs/files APIs
+    monkeypatch.setattr(routes_execution, "_primary_outputs_path", lambda: outputs_dir)
+    monkeypatch.setattr(routes_execution, "_all_output_paths", lambda: (outputs_dir,))
+
+    executor_holder: Dict[str, Any] = {}
+    state_manager_holder: Dict[str, ExecutionStateManager] = {}
+    storage_holder: Dict[str, Any] = {}
+    historical_holder: Dict[str, Any] = {}
+    chat_holder: Dict[str, Any] = {}
+
+    class DummyExecutor:
+        def __init__(self, base_path: Path):
+            self._base_path = base_path
+            self._counter = 0
+            self.started = []
+            self.cancelled = set()
+
+        def _get_project_root(self) -> Path:
+            return self._base_path
+
+        def generate_execution_id(self) -> str:
+            self._counter += 1
+            return f"exec-{self._counter}"
+
+        async def execute_command(
+            self,
+            command: str,
+            args: List[str],
+            execution_id: str,
+            env_vars: Optional[Dict[str, str]] = None,
+        ):
+            self.started.append((execution_id, command, tuple(args)))
+            yield {
+                "type": "stdout",
+                "data": f"{command} {' '.join(args)}".strip(),
+                "timestamp": datetime.now().isoformat(),
+            }
+            await asyncio.sleep(0)
+            yield {
+                "type": "status",
+                "data": "completed successfully",
+                "timestamp": datetime.now().isoformat(),
+            }
+
+        async def cancel_execution(self, execution_id: str) -> None:
+            self.cancelled.add(execution_id)
+
+    class DummyDuckDBStorage:
+        def __init__(self):
+            self.snapshots: Dict[str, Dict[str, Any]] = {}
+
+        def get_analysis_snapshot(self, snapshot_id: str):
+            return self.snapshots.get(snapshot_id)
+
+        def mark_snapshot_reviewed(self, snapshot_id: str, reviewed_by: str, notes: Optional[str]):
+            snapshot = self.snapshots.get(snapshot_id)
+            if not snapshot:
+                return False
+            snapshot["reviewed"] = True
+            snapshot["reviewed_by"] = reviewed_by
+            snapshot["reviewed_at"] = datetime.now()
+            snapshot["notes"] = notes
+            return True
+
+    class DummyHistoricalService:
+        def __init__(self):
+            self.snapshots: List[Dict[str, Any]] = []
+            now = datetime.now()
+            self.context: Dict[str, Any] = {
+                "baseline_date": now,
+                "earliest_snapshot": now,
+                "latest_snapshot": now,
+            }
+            self.comparison: Dict[str, Any] = {"volume_changes": {}, "summary": "ok"}
+
+        async def list_snapshots_async(self, analysis_type: Optional[str], limit: int):
+            return self.snapshots[:limit]
+
+        async def get_historical_context_async(self):
+            return dict(self.context)
+
+        def calculate_comparison(self, current: Dict[str, Any], prior: Dict[str, Any]):
+            return self.comparison
+
+    class DummyChatInterface:
+        def __init__(self):
+            self.filters = {"vendors": ["horatio", "boldr"]}
+            self.stats = {"messages_processed": 0}
+            self.queries: List[Dict[str, Any]] = []
+
+        def process_query(self, query: str, context: Dict[str, Any]):
+            self.stats["messages_processed"] += 1
+            self.queries.append({"query": query, "context": context})
+            return {"success": True, "response": f"Processed: {query}"}
+
+        def get_supported_filters(self):
+            return self.filters
+
+        def get_performance_stats(self):
+            return self.stats
+
+    def fake_init_execution_services(app):
+        executor = DummyExecutor(outputs_dir)
+        state_manager = ExecutionStateManager(
+            max_concurrent=5,
+            max_queue_size=10,
+            persistence_dir=str(outputs_dir / "jobs"),
+            outputs_base_path=str(outputs_dir),
+        )
+        executor_holder["instance"] = executor
+        state_manager_holder["instance"] = state_manager
+        app.state.command_executor = executor
+        app.state.state_manager = state_manager
+
+    def fake_init_duckdb_services(app):
+        storage = DummyDuckDBStorage()
+        history = DummyHistoricalService()
+        storage_holder["instance"] = storage
+        historical_holder["instance"] = history
+        app.state.duckdb_storage = storage
+        app.state.historical_service = history
+
+    def fake_init_chat_interface(app):
+        chat = DummyChatInterface()
+        chat_holder["instance"] = chat
+        app.state.chat_interface = chat
+
+    monkeypatch.setattr(app_factory, "_initialize_execution_services", fake_init_execution_services)
+    monkeypatch.setattr(app_factory, "_initialize_duckdb_services", fake_init_duckdb_services)
+    monkeypatch.setattr(app_factory, "_initialize_chat_interface", fake_init_chat_interface)
+    monkeypatch.setattr(app_factory, "_start_cleanup_scheduler", lambda app: None)
+
+    with TestClient(app_factory.create_app()) as client:
+        yield {
+            "client": client,
+            "executor": executor_holder.get("instance"),
+            "state_manager": state_manager_holder.get("instance"),
+            "storage": storage_holder.get("instance"),
+            "historical_service": historical_holder.get("instance"),
+            "chat_interface": chat_holder.get("instance"),
+            "outputs_dir": outputs_dir,
+        }
 
 
 

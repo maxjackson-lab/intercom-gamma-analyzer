@@ -16,12 +16,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from src.agents.base_agent import AgentContext
 from src.cli.utils import console
 from src.cli.voc_shared import (
     fetch_canny_conversations_from_warehouse,
     fetch_conversations_for_range,
     run_voc_narrative_analysis,
 )
+from src.services.strategies import ComprehensiveStrategy
+from src.services.unified_orchestrator import UnifiedOrchestrator
 
 
 async def run_topic_based_analysis_custom(
@@ -545,7 +548,6 @@ async def run_comprehensive_analysis(
     """Run comprehensive analysis across all categories and components."""
     from src.utils.time_utils import calculate_date_range
     from src.config.test_data import parse_test_data_count, get_preset_display_name
-    from src.services.orchestrator import AnalysisOrchestrator
 
     generate_gamma = output_format == 'gamma'
 
@@ -601,9 +603,6 @@ async def run_comprehensive_analysis(
         console.print(f"Max conversations: {max_conversations}")
         console.print(f"Output directory: {output_dir}")
 
-        # Initialize orchestrator
-        orchestrator = AnalysisOrchestrator()
-
         # Set up options
         options = {
             'max_conversations': max_conversations,
@@ -625,9 +624,17 @@ async def run_comprehensive_analysis(
         ) as progress:
             task = progress.add_task("Running comprehensive analysis...", total=None)
 
-            results = await orchestrator.run_comprehensive_analysis(
-                start_dt, end_dt, options
+            strategy = ComprehensiveStrategy()
+            orchestrator = UnifiedOrchestrator(strategy=strategy)
+            context = AgentContext(
+                analysis_id=f"comprehensive_{timestamp}",
+                analysis_type='comprehensive',
+                start_date=start_dt,
+                end_date=end_dt
             )
+
+            agent_result = await orchestrator.execute(context, options=options)
+            results = agent_result.data
 
             progress.update(task, description="✅ Comprehensive analysis completed")
 

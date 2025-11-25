@@ -81,7 +81,7 @@ This document inventories every `@cli.command` defined in `src/main.py` and reco
 | `analyze-sites` | Sites reliability | Delegates to `run_sites_analysis` | `src/cli/category_commands.py` | Same |
 | `analyze-api` | API issues | Delegates to `run_api_analysis` | `src/cli/category_commands.py` | Same |
 | `analyze-all-categories` (new) | All categories with modern taxonomy | Delegates to `run_all_categories_analysis_v2` | `src/cli/category_commands.py` | Comprehensive taxonomy orchestrator |
-| `comprehensive-analysis` | Multi-surface (FIN, technical, macro) | Delegates to `run_comprehensive_analysis` | `src/cli/voc_commands.py` | `AnalysisOrchestrator` |
+| `comprehensive-analysis` | Multi-surface (FIN, technical, macro) | Delegates to `run_comprehensive_analysis` | `src/cli/voc_commands.py` | `UnifiedOrchestrator` + `ComprehensiveStrategy` |
 | `voice-of-customer` | Flagship multi-agent pipeline | Delegates to `run_voice_of_customer_analysis` | `src/cli/voc_commands.py` | `voc_orchestrator`, `narrative_orchestrator` |
 
 *Note: All VoC and category commands now live in `src/cli/voc_commands.py` and `src/cli/category_commands.py` as of Phase 1.4.*
@@ -219,6 +219,8 @@ Use this inventory as the authoritative list when moving code so that we can tra
   - `src/cli/legacy_category_commands.py`
 - **Target achieved:** ✅ `src/main.py` < 1,500 lines (actual: ~1,466)
 
+Phase 4 extends this refactor by unifying orchestration flows so every CLI command now receives a typed `AgentResult` from the same infrastructure, improving reliability for both CLI and Railway execution paths.
+
 ### Phase 2: Web Server Consolidation ✅ COMPLETE
 - **Goal:** Replace the legacy dual FastAPI servers (`railway_web.py` in repo root + `deploy/railway_web.py`) with a single modular application under `deploy/web/`.
 - **Entry Point:** `deploy/railway_web.py` is now a 25-line thin wrapper that imports `create_app()` from `deploy/web/app_factory.py` and boots Uvicorn with Railway’s env vars (`HOST`, `PORT`, `LOG_LEVEL`).
@@ -233,3 +235,23 @@ Use this inventory as the authoritative list when moving code so that we can tra
 - **Deprecated Endpoints:** The legacy `/download?file=<path>` endpoint from the removed root-level `railway_web.py` has been replaced by `/outputs/<path>`. A compatibility route in `routes_files.py` provides 301 redirects for backward compatibility, but clients should migrate to `/outputs/<path>` directly.
 - **Railway Alignment:** `railway.toml` already points to `python deploy/railway_web.py`; health checks remain `/health`. Background SSE settings (keepalive, timeouts) + EXECUTION_API_TOKEN gate are now centralized in `routes_execution`.
 - **Phase 3 Readiness:** With the web layer modularized, we can auto-generate WebCommandExecutor schemas and keep CLI/Web/Railway flag alignment scripts focused on the single FastAPI entry point.
+
+### Phase 4: Consolidate Orchestrators ✅ COMPLETE
+- [x] Created unified orchestration layer
+- [x] Extracted common logic to `BaseOrchestrator`
+- [x] Migrated three orchestrators into strategies
+- [x] Updated CLI command handlers to call the unified layer
+- [x] Kept legacy orchestrators as thin wrappers for backward compatibility
+
+**Files Created**
+- `src/services/base_orchestrator.py` – shared timeout/checkpoint/error-handling utilities
+- `src/services/unified_orchestrator.py` – pluggable orchestrator entry point
+- `src/services/strategies/comprehensive.py` – comprehensive analysis strategy
+- `src/services/strategies/multi_agent.py` – multi-agent workflow strategy
+- `src/services/strategies/story_driven.py` – story-driven analysis strategy
+
+**Files Modified**
+- `src/services/orchestrator.py` – now a wrapper (deprecated warning + delegation)
+- `src/agents/orchestrator.py` – wrapper exposing multi-agent strategy
+- `src/services/story_driven_orchestrator.py` – wrapper exposing story-driven strategy
+- `src/cli/voc_commands.py` – uses `UnifiedOrchestrator` for comprehensive analysis
