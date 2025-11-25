@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, AsyncIterator, Any, Deque
 from pathlib import Path
 
 from ..config.settings import settings
+from ..cli.schema import generate_executor_schema
 
 
 class WebCommandExecutor:
@@ -49,53 +50,10 @@ class WebCommandExecutor:
     }
     
     # Per-command argument schemas - defines allowed patterns for specific commands
-    COMMAND_SCHEMAS = {
-        "python": {
-            "allowed_modules": {"src.main", "-m"},
-            "allowed_flags": {
-                # Help and info
-                "--help", "-h", "--version", "-v", "--verbose", "--test-mode", "--test-data-count",
-                # Output options
-                "--output-dir", "--output-format", "--gamma-export", "--generate-gamma",
-                # Date/time options - with strict validation
-                "--start-date", "--end-date", "--time-period", "--days", "--periods-back", "--max-pages",
-                # Sample mode options
-                "--count", "--save-to-file", "--no-save", "--test-llm", "--schema-mode",
-                "--test-all-agents", "--show-agent-thinking", "--llm-topic-detection", "--include-hierarchy",
-                "--no-hierarchy",
-                # Analysis options
-                "--multi-agent", "--analysis-type", "--digest-mode",
-                "--focus-areas", "--focus-categories",
-                "--max-conversations", "--parallel",
-                # Agent options
-                "--agent", "--agent-type", "--vendor", "--individual-breakdown", "--top-n",
-                # AI model options
-                "--ai-model", "--enable-fallback", "--force-standard", "--force-multi-agent",
-                # Data source options
-                "--board-id", "--canny-board-id", "--include-canny",
-                "--include-comments", "--include-votes", "--include-trends",
-                "--separate-agent-feedback",
-                # Debugging and audit options
-                "--audit-trail", "--analyze-troubleshooting",
-                # Other options
-                "--export-format", "--limit", "--category", "--subcategory", "--filter-category"
-            },
-            # Per-flag validation schemas
-            "flag_schemas": {
-                "--time-period": {"type": "enum", "values": ["yesterday", "week", "month", "quarter", "year", "6-weeks"]},
-                "--days": {"type": "int", "min": 1, "max": 365},
-                "--limit": {"type": "int", "min": 1, "max": 10000},
-                "--top-n": {"type": "int", "min": 1, "max": 100},
-                "--test-data-count": {"type": "string"},
-                "--gamma-export": {"type": "enum", "values": ["pdf", "pptx"]},
-                "--agent": {"type": "enum", "values": ["horatio", "boldr", "escalated"]},
-                "--vendor": {"type": "enum", "values": ["horatio", "boldr"]},
-                "--analysis-type": {"type": "enum", "values": ["topic-based", "synthesis", "complete"]},
-                "--export-format": {"type": "enum", "values": ["json", "csv", "markdown"]},
-                "--category": {"type": "enum", "values": ["Billing", "Bug", "Product Question", "Account", "Feedback", "Agent/Buddy", "Workspace", "Privacy", "Chargeback", "Partnerships", "Promotions", "Abuse", "Unknown"]},
-            }
-        }
-    }
+    # AUTO-GENERATED from src/cli/schema.py::CANONICAL_COMMAND_MAPPINGS
+    # This eliminates the "hidden Layer 3" that developers often forgot to update.
+    # See: src/cli/schema.py::generate_executor_schema()
+    COMMAND_SCHEMAS = generate_executor_schema()
     
     # Shell metacharacters that are not allowed in arguments
     SHELL_METACHARACTERS = re.compile(r'[;|&$><`*?~\n\x00]')
@@ -244,25 +202,23 @@ class WebCommandExecutor:
                     # Validate flag value if schema exists
                     if flag_name in flag_schemas:
                         flag_schema = flag_schemas[flag_name]
+                        requires_value = flag_schema.get('requires_value', True)
                         
-                        # Check if value is in the same arg (--flag=value) or next arg
+                        # Check if value is in the same arg (--flag=value)
                         if '=' in arg:
-                            # Value is in same arg (e.g., --flag=value)
                             value = arg.split('=', 1)[1]
-                            # Validate value based on schema
                             self._validate_flag_value(flag_name, value, flag_schema)
-                            validated_args.append(arg)  # Append the whole --flag=value
+                            validated_args.append(arg)
                         elif i + 1 < len(args) and not args[i + 1].startswith('-'):
-                            # Value is in next arg (e.g., --flag value)
                             value = args[i + 1]
-                            # Validate value based on schema
                             self._validate_flag_value(flag_name, value, flag_schema)
-                            validated_args.append(arg)  # Append the flag
-                            validated_args.append(value)  # Append the value
-                            i += 1  # Skip next arg since we already added it
+                            validated_args.append(arg)
+                            validated_args.append(value)
+                            i += 1
                         else:
-                            # Flag expects a value but none provided
-                            raise ValueError(f"Argument {i}: flag '{flag_name}' requires a value")
+                            if requires_value:
+                                raise ValueError(f"Argument {i}: flag '{flag_name}' requires a value")
+                            validated_args.append(arg)
                     else:
                         # Boolean flag or flag without schema (no value expected)
                         validated_args.append(arg)

@@ -3,6 +3,8 @@ Canonical CLI command schema shared between CLI and Railway web server.
 """
 from typing import Any, Dict, Optional, Tuple
 
+DEFAULT_ALLOWED_MODULES = frozenset({'src.main', '-m'})
+
 CANONICAL_COMMAND_MAPPINGS = {
     'sample_mode': {
         'command': 'python',
@@ -19,16 +21,18 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['day', 'week', 'month'],
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'default': 'week',
                 'description': 'Time period for sampling'
             },
             '--start-date': {
                 'type': 'date',
+                'format': 'YYYY-MM-DD',
                 'description': 'Start date (YYYY-MM-DD)'
             },
             '--end-date': {
                 'type': 'date',
+                'format': 'YYYY-MM-DD',
                 'description': 'End date (YYYY-MM-DD)'
             },
             '--save-to-file': {
@@ -225,7 +229,7 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['week', 'month', '6-weeks', 'quarter'],
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'default': 'week',
                 'description': 'Time period for analysis'
             },
@@ -318,7 +322,7 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['week', 'month'],
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'default': 'week',
                 'description': 'Time period for analysis'
             },
@@ -414,6 +418,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
@@ -498,6 +504,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
@@ -582,6 +590,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
@@ -666,6 +676,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
@@ -753,13 +765,15 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
                 'type': 'enum',
-                'values': ['markdown', 'gamma'],
+                'values': ['markdown', 'json', 'excel', 'gamma'],
                 'default': 'markdown',
-                'description': 'Narrative output (markdown) or trigger Gamma deck generation'
+                'description': 'Output format for results'
             },
             '--gamma-export': {
                 'type': 'enum',
@@ -832,6 +846,8 @@ CANONICAL_COMMAND_MAPPINGS = {
             '--periods-back': {
                 'type': 'integer',
                 'default': 1,
+                'min': 1,
+                'max': 12,
                 'description': 'Number of periods to analyze'
             },
             '--output-format': {
@@ -911,7 +927,7 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--time-period': {
                 'type': 'enum',
-                'values': ['week', 'month', 'quarter'],
+                'values': ['yesterday', 'week', 'month', 'quarter', 'year', '6-weeks'],
                 'description': 'Time period shortcut (overrides start/end)'
             },
             '--board-id': {
@@ -946,7 +962,7 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--output-format': {
                 'type': 'enum',
-                'values': ['gamma', 'markdown', 'json', 'excel'],
+                'values': ['markdown', 'json', 'excel', 'gamma'],
                 'default': 'markdown',
                 'description': 'Output format'
             },
@@ -1042,3 +1058,90 @@ def validate_command_request(analysis_type: str, flags: Dict[str, Any]) -> Tuple
             return False, f"Missing required flag: {flag_name}"
     
     return True, None
+
+
+def generate_executor_schema() -> Dict[str, Any]:
+    """
+    Auto-generate WebCommandExecutor schema from CANONICAL_COMMAND_MAPPINGS.
+    
+    This eliminates manual maintenance of the WebCommandExecutor whitelist,
+    reducing the 4-layer contract (CLI → Schema → Executor → Frontend) to
+    3 layers (CLI → Schema → Frontend).
+    
+    The generated schema has identical structure to the previous hardcoded version
+    in WebCommandExecutor.COMMAND_SCHEMAS, ensuring backward compatibility.
+    
+    Returns:
+        Dict with structure matching WebCommandExecutor.COMMAND_SCHEMAS:
+        {
+            'python': {
+                'allowed_modules': {'src.main', '-m'},
+                'allowed_flags': set of all flag names,
+                'flag_schemas': dict of per-flag validation rules
+            }
+        }
+    
+    Example usage:
+        COMMAND_SCHEMAS = generate_executor_schema()
+    """
+    def build_flag_schema(flag_def: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        flag_type = flag_def.get('type')
+        if flag_type in (None, 'boolean'):
+            return None
+        
+        requires_value = flag_def.get('requires_value')
+        if requires_value is None:
+            requires_value = True
+        else:
+            requires_value = bool(requires_value)
+        
+        if flag_type == 'enum':
+            return {
+                'type': 'enum',
+                'values': flag_def.get('values', []),
+                'requires_value': requires_value
+            }
+        if flag_type == 'integer':
+            schema_entry: Dict[str, Any] = {'type': 'int', 'requires_value': requires_value}
+            if 'min' in flag_def:
+                schema_entry['min'] = flag_def['min']
+            if 'max' in flag_def:
+                schema_entry['max'] = flag_def['max']
+            return schema_entry
+        if flag_type == 'date':
+            return {'type': 'date', 'requires_value': requires_value}
+        if flag_type == 'string':
+            return {'type': 'string', 'requires_value': requires_value}
+        
+        raise ValueError(f"Unsupported flag type '{flag_type}'")
+    
+    # Extract all unique flags from all commands
+    all_flags: set = set()
+    flag_schemas: Dict[str, Dict[str, Any]] = {}
+    flag_origins: Dict[str, str] = {}
+    
+    for command_key, command_schema in CANONICAL_COMMAND_MAPPINGS.items():
+        for flag_name, flag_def in command_schema['allowed_flags'].items():
+            all_flags.add(flag_name)
+            
+            schema_entry = build_flag_schema(flag_def)
+            if not schema_entry:
+                continue
+            
+            if flag_name in flag_schemas and flag_schemas[flag_name] != schema_entry:
+                origin = flag_origins[flag_name]
+                raise ValueError(
+                    f"Flag '{flag_name}' has conflicting schema definitions between "
+                    f"'{origin}' and '{command_key}'"
+                )
+            
+            flag_schemas[flag_name] = schema_entry
+            flag_origins[flag_name] = command_key
+    
+    return {
+        'python': {
+            'allowed_modules': set(DEFAULT_ALLOWED_MODULES),
+            'allowed_flags': all_flags,
+            'flag_schemas': flag_schemas
+        }
+    }

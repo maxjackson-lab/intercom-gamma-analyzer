@@ -4,8 +4,11 @@ Verify CLI ↔ Railway ↔ Frontend alignment.
 
 This script checks that all flags are properly aligned across:
 1. CLI definitions (src/main.py)
-2. Railway validation (deploy/railway_web.py)
+2. Schema (src/cli/schema.py) - CANONICAL_COMMAND_MAPPINGS
 3. Frontend implementation (static/app.js)
+
+Note: WebCommandExecutor schema is now AUTO-GENERATED from CANONICAL_COMMAND_MAPPINGS,
+so Layer 3 (executor whitelist) no longer requires manual verification.
 
 Run this before committing changes to commands/flags.
 """
@@ -16,25 +19,15 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS, DEFAULT_ALLOWED_MODULES
 
 
 def check_cli_railway_alignment():
     """Check that CLI flags match Railway allowed_flags."""
     from src.main import cli
     
-    # Import WebCommandExecutor to check its hardcoded schema
-    try:
-        from src.services.web_command_executor import WebCommandExecutor
-        executor_schema = WebCommandExecutor.COMMAND_SCHEMAS.get('python', {})
-        executor_allowed_flags = executor_schema.get('allowed_flags', set())
-    except Exception as e:
-        print(f"⚠️  Could not load WebCommandExecutor: {e}")
-        executor_allowed_flags = None
-    
     errors = []
     warnings = []
-    executor_errors = []
     
     # Map CLI command names to Railway keys
     cli_to_railway = {
@@ -71,29 +64,16 @@ def check_cli_railway_alignment():
             errors.append(f"❌ {cli_name}: CLI has {cli_only} but Railway doesn't")
         if railway_only:
             errors.append(f"❌ {cli_name}: Railway has {railway_only} but CLI doesn't")
-        
-        # NEW: Check WebCommandExecutor alignment (Layer 3)
-        if executor_allowed_flags is not None:
-            # Extract flag names from Railway canonical (with -- prefix)
-            railway_flags_with_prefix = set(CANONICAL_COMMAND_MAPPINGS[railway_key]['allowed_flags'].keys())
-            
-            # Check if Railway flags exist in executor whitelist
-            executor_missing = railway_flags_with_prefix - executor_allowed_flags
-            if executor_missing:
-                executor_errors.append(
-                    f"❌ {cli_name}: Railway canonical has {executor_missing} but WebCommandExecutor.COMMAND_SCHEMAS doesn't"
-                )
     
     # Print results
-    if errors or executor_errors:
+    if errors:
         print("=" * 80)
         print("❌ CLI ↔ RAILWAY ALIGNMENT ERRORS FOUND")
         print("=" * 80)
         for error in errors:
             print(f"  {error}")
-        for error in executor_errors:
-            print(f"  {error}")
-        print("\nFIX: Update CLI, Railway canonical mappings, AND WebCommandExecutor.COMMAND_SCHEMAS")
+        print("\nFIX: Update CLI and Railway canonical mappings")
+        print("(WebCommandExecutor schema is auto-generated)")
         print("See: CLI_WEB_ALIGNMENT_CHECKLIST.md")
         return False
     
@@ -111,13 +91,77 @@ def check_cli_railway_alignment():
     print(f"Checked {len(cli_to_railway)} commands")
     print("All flags properly aligned!\n")
     
-    if executor_allowed_flags is not None:
-        print("✅ WebCommandExecutor whitelist also verified")
-    else:
-        print("⚠️  WebCommandExecutor check skipped (module not loaded)")
-    print()
-    
     return True
+
+
+def check_executor_generation():
+    """Verify that WebCommandExecutor schema auto-generation works."""
+    print("=" * 80)
+    print("ℹ️  WEBCOMMANDEXECUTOR AUTO-GENERATION CHECK")
+    print("=" * 80)
+    
+    try:
+        from src.cli.schema import generate_executor_schema
+        schema = generate_executor_schema()
+        
+        # Verify structure
+        python_schema = schema.get('python')
+        assert python_schema is not None, "Missing 'python' key in generated schema"
+        assert 'allowed_flags' in python_schema, "Missing 'allowed_flags' in generated schema"
+        assert 'flag_schemas' in python_schema, "Missing 'flag_schemas' in generated schema"
+        assert 'allowed_modules' in python_schema, "Missing 'allowed_modules' in generated schema"
+        
+        # Verify it's not empty
+        allowed_flags = python_schema['allowed_flags']
+        assert len(allowed_flags) > 0, "Generated schema has no flags"
+        
+        # Verify allowed_modules matches canonical set
+        allowed_modules = python_schema['allowed_modules']
+        assert set(allowed_modules) == set(DEFAULT_ALLOWED_MODULES), (
+            f"allowed_modules mismatch: expected {DEFAULT_ALLOWED_MODULES}, got {allowed_modules}"
+        )
+        
+        # Verify allowed_flags behaves like a set for membership checks
+        allowed_flag_set = set(allowed_flags)
+        assert len(allowed_flag_set) == len(allowed_flags), "allowed_flags must contain unique entries"
+        
+        # Verify flag schemas align with WebCommandExecutor expectations
+        supported_types = {'enum', 'int', 'date', 'string'}
+        for flag_name, schema_entry in python_schema['flag_schemas'].items():
+            flag_type = schema_entry.get('type')
+            assert flag_type in supported_types, (
+                f"Flag '{flag_name}' has unsupported schema type '{flag_type}'"
+            )
+            
+            requires_value = schema_entry.get('requires_value')
+            assert isinstance(requires_value, bool), (
+                f"Flag '{flag_name}' missing boolean 'requires_value'"
+            )
+            
+            if flag_type == 'enum':
+                values = schema_entry.get('values')
+                assert isinstance(values, (list, tuple)) and values, (
+                    f"Flag '{flag_name}' enum values must be a non-empty list/tuple"
+                )
+            elif flag_type == 'int':
+                for bound_key in ('min', 'max'):
+                    if bound_key in schema_entry:
+                        assert isinstance(schema_entry[bound_key], int), (
+                            f"Flag '{flag_name}' {bound_key} must be int"
+                        )
+            elif flag_type == 'date':
+                # No additional structure, but keep branch for symmetry
+                pass
+        
+        print(f"  ✅ Generated schema with {len(allowed_flags)} flags")
+        print(f"  ✅ Generated {len(python_schema['flag_schemas'])} flag validation schemas")
+        print(f"  ✅ allowed_modules exactly matches {DEFAULT_ALLOWED_MODULES}")
+        print()
+        return True
+    except Exception as e:
+        print(f"  ❌ Schema generation failed: {e}")
+        print()
+        return False
 
 
 def check_frontend_consistency():
@@ -161,11 +205,14 @@ def main():
     # Check CLI ↔ Railway alignment
     railway_ok = check_cli_railway_alignment()
     
+    # Check WebCommandExecutor auto-generation
+    executor_ok = check_executor_generation()
+    
     # Check Frontend consistency
     check_frontend_consistency()
     
     # Exit code
-    if railway_ok:
+    if railway_ok and executor_ok:
         print("✅ All checks passed! Safe to commit.")
         return 0
     else:
@@ -176,7 +223,3 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
-
-
-
-
