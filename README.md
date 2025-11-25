@@ -278,48 +278,34 @@ The tool automatically generates professional Gamma presentations with:
 - **Proper markdown structure** optimized for Gamma
 - **Interactive elements** and professional styling
 
-## 🖥️ **Web User Interfaces**
+## 🖥️ **Web User Interface**
 
-The tool provides **two complementary web interfaces**:
+Everything now runs from **one FastAPI service** (`deploy/railway_web.py`), powered by the modular routers in `deploy/web/`.
 
-### **1. Main Analysis UI** (`deploy/railway_web.py`)
-- **Purpose**: Run new analyses and configure parameters
-- **Port**: 3000 (or `PORT` env var in production)
+### **Unified Analysis UI**
+- **Purpose**: Run new analyses, monitor streaming output, browse files, trigger background jobs, and jump into the historical timeline.
 - **Features**:
-  - Interactive form for selecting analysis types
-  - Real-time streaming of analysis output
-  - AI model selection (GPT-4o or Claude)
-  - Test mode and sample mode options
-  - File downloads and Gamma presentation access
-- **Access**: 
-  - Local: `python deploy/railway_web.py` → http://localhost:3000
-  - Production: Your main Railway deployment URL
-- **Navigation**: Click "📊 View Historical Analysis" button to access historical timeline
-
-### **2. Historical Timeline UI** (`railway_web.py`)
-- **Purpose**: View and compare past analysis snapshots
-- **Port**: 8000 (or `PORT` env var)
-- **Features**:
-  - Timeline view of weekly/monthly/quarterly snapshots
-  - Trend charts and volume comparisons
-  - Review management (mark snapshots as reviewed)
-  - Side-by-side period comparisons
+  - Interactive config form for CLI-equivalent analyses
+  - Real-time SSE console with keepalive + resume support
+  - AI model selection, sample/test mode toggles, digest mode, troubleshooting flags
+  - Files tab with live output discovery + ZIP downloads
+  - Links to Gamma decks, download logs, Slack notify button
 - **Access**:
-  - Local: `python railway_web.py` → http://localhost:8000
-  - Production: Set `HISTORICAL_UI_URL` env var in main UI
-- **Navigation**: Click "← Back to Main UI" to return to analysis interface
+  - Local: `python deploy/railway_web.py` → `http://localhost:8000`
+  - Production: Railway deployment URL defined in `railway.toml`
+- **Navigation**: Click "📊 View Historical Analysis" to open `/history` without leaving the service
 
-### **Connecting the Two UIs**
-
-**For Local Development:**
-1. Run both servers simultaneously on different ports
-2. Main UI automatically links to http://localhost:8000 for historical view
-
-**For Production (Railway):**
-1. Deploy main analysis UI as primary service
-2. Deploy historical timeline UI as a separate service (optional)
-3. Set `HISTORICAL_UI_URL` environment variable in main UI to point to timeline service
-4. Example: `HISTORICAL_UI_URL=https://your-historical-ui.up.railway.app`
+### **Historical Timeline (Same Service)**
+- **Purpose**: Explore weekly/monthly/quarterly snapshots, compare periods, and mark reviews.
+- **URL:** `GET /history` (plus `/analysis/view/{id}` and `/analysis/compare/{current}/{prior}`)
+- **Features**:
+  - Timeline with review status indicators
+  - Topic trend charts (Chart.js) when ≥4 snapshots
+  - Snapshot detail + period comparison HTML views
+  - Review management with bearer token auth
+- **Access**:
+  - Local/prod: same host as the main UI (`/history`)
+  - No more dual deployments or `HISTORICAL_UI_URL`
 
 ---
 
@@ -341,22 +327,13 @@ The Historical Timeline UI provides a visual interface for exploring historical 
 
 ### **Accessing the UI**
 
-**Local Development:**
-```bash
-python railway_web.py
-# Visit http://localhost:8000
-```
-
-**Railway Deployment:**
-```bash
-# Deployed automatically to Railway
-# Visit your Railway app URL
-```
+**Local Development:** `python deploy/railway_web.py` then visit `http://localhost:8000/history`  
+**Railway Deployment:** Same base URL as the chat UI—just append `/history`
 
 ### **API Endpoints**
 
 **Public Endpoints (No Auth Required):**
-- `GET /` - Timeline UI
+- `GET /history` - Timeline UI
 - `GET /api/snapshots/list` - List all snapshots
 - `GET /api/snapshots/{id}` - Get single snapshot
 - `GET /api/snapshots/timeseries` - Get time-series data for charts
@@ -372,7 +349,7 @@ python railway_web.py
 
 ### **Authentication**
 
-Set the `EXECUTION_API_TOKEN` environment variable to enable authentication for review endpoints:
+Set the `EXECUTION_API_TOKEN` environment variable to enable authentication for review endpoints **and** secure `/execute*`/`/outputs/*` routes:
 
 ```bash
 export EXECUTION_API_TOKEN="your-secret-token"

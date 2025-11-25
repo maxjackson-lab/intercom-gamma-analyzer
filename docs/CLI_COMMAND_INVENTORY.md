@@ -218,3 +218,18 @@ Use this inventory as the authoritative list when moving code so that we can tra
   - `src/cli/chat_commands.py`
   - `src/cli/legacy_category_commands.py`
 - **Target achieved:** ✅ `src/main.py` < 1,500 lines (actual: ~1,466)
+
+### Phase 2: Web Server Consolidation ✅ COMPLETE
+- **Goal:** Replace the legacy dual FastAPI servers (`railway_web.py` in repo root + `deploy/railway_web.py`) with a single modular application under `deploy/web/`.
+- **Entry Point:** `deploy/railway_web.py` is now a 25-line thin wrapper that imports `create_app()` from `deploy/web/app_factory.py` and boots Uvicorn with Railway’s env vars (`HOST`, `PORT`, `LOG_LEVEL`).
+- **Modules Added (6 total):**
+  - `deploy/web/app_factory.py` – central FastAPI factory, lifecycle events, shared middleware/static mounting, service initialization (ChatInterface, WebCommandExecutor, ExecutionStateManager, DuckDB/Historical service) and Slack notification endpoint.
+  - `deploy/web/routes_timeline.py` – `/history`, `/analysis/*`, and `/api/snapshots/*` routes with DuckDB + HistoricalSnapshotService dependencies and review token validation.
+  - `deploy/web/routes_execution.py` – `/execute*` SSE streaming endpoints, background execution helpers, rate limiting, directory helpers, and status polling logic.
+  - `deploy/web/routes_chat.py` – `/chat`, `/api/commands`, `/api/filters`, `/api/stats` powered by ChatInterface with graceful fallback when heavy deps are unavailable.
+  - `deploy/web/routes_files.py` – `/files`, `/outputs/*`, `/api/browse-files`, ZIP download helpers, and secure output serving with path traversal protection.
+  - `deploy/web/templates.py` – shared HTML render helpers for chat UI, files browser, timeline, snapshot detail, and comparison views.
+- **Impact:** The primary deployment server shrank from 2,546 lines to 25 lines (99% reduction). Timeline server (`railway_web.py` in repo root) was removed entirely after migrating its routes/templates into the shared modules. 25+ routes now live in focused routers, eliminating duplicate `/`, `/health`, and static mounting logic.
+- **Deprecated Endpoints:** The legacy `/download?file=<path>` endpoint from the removed root-level `railway_web.py` has been replaced by `/outputs/<path>`. A compatibility route in `routes_files.py` provides 301 redirects for backward compatibility, but clients should migrate to `/outputs/<path>` directly.
+- **Railway Alignment:** `railway.toml` already points to `python deploy/railway_web.py`; health checks remain `/health`. Background SSE settings (keepalive, timeouts) + EXECUTION_API_TOKEN gate are now centralized in `routes_execution`.
+- **Phase 3 Readiness:** With the web layer modularized, we can auto-generate WebCommandExecutor schemas and keep CLI/Web/Railway flag alignment scripts focused on the single FastAPI entry point.

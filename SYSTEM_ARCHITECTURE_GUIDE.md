@@ -550,6 +550,43 @@ class AgentContext:
 
 ---
 
+## Web Interface Architecture
+
+### Single FastAPI Application
+- **App Factory:** `deploy/web/app_factory.py` builds the FastAPI instance, mounts `/static`, registers shared middleware, and wires startup/shutdown hooks. It initializes the ChatInterface (when heavy deps are installed), DuckDB/HistoricalSnapshot services, `WebCommandExecutor`, `ExecutionStateManager`, and the APScheduler cleanup task.  
+- **Entry Point:** `deploy/railway_web.py` is now a thin Railway-friendly wrapper that imports `create_app()` and runs Uvicorn with `HOST`, `PORT`, and `LOG_LEVEL`. Historical `/`, `/health`, `/download`, and static logic lives in shared modules instead of duplicated servers.
+- **Resilience:** Slack completion notifications, health checks, and background job state are centralized via `app.state`, so SSE streams and REST polling observe the same execution metadata.
+
+### Route Organization
+| Module | Routes | Purpose |
+|--------|--------|---------|
+| `deploy/web/routes_timeline.py` | `/history`, `/analysis/*`, `/api/snapshots/*` | Historical timeline UI, snapshot detail/compare, review endpoints (token protected). |
+| `deploy/web/routes_execution.py` | `/execute`, `/execute/*` | SSE streaming, background execution start/cancel, status polling, job listings, rate limiting, filesystem helpers. |
+| `deploy/web/routes_chat.py` | `/chat`, `/api/commands`, `/api/filters`, `/api/stats` | Natural-language command translation, CLI schema exposure, filter metadata, performance stats (graceful fallback when chat deps missing). |
+| `deploy/web/routes_files.py` | `/files`, `/outputs/*`, `/api/browse-files`, `/api/download-*`, `/download` (deprecated) | File browser HTML, secure output serving, ZIP downloads (single folder or filtered set), output listing APIs. Legacy `/download?file=...` redirects to `/outputs/...`. |
+| `deploy/web/templates.py` | (utility) | Shared HTML render helpers for chat UI, files browser, timeline landing page, snapshot detail, and comparison views with versioned static assets. |
+
+### Deprecated Routes
+
+| Route | Replacement | Notes |
+|-------|-------------|-------|
+| `/download?file=<path>` | `/outputs/<path>` | Legacy endpoint from the removed root-level `railway_web.py`. Returns 301 redirect to `/outputs/<path>`. Clients should migrate to the new endpoint directly. Compatibility route added in `routes_files.py` for backward compatibility. |
+
+### Service Initialization & Background Execution
+- **Execution Services:** The factory instantiates a shared `WebCommandExecutor` + `ExecutionStateManager`. Background runs use `EXECUTION_OUTPUT_DIR` to stream logs and persist `.log` files even if SSE clients disconnect.
+- **Historical Services:** DuckDB storage + `HistoricalSnapshotService` initialize once and are injected via `app.state`, so `/history` routes reuse the same connection.
+- **Cleanup Scheduler:** When APScheduler is available, a 2 AM cron job prunes executions/files per `AUDIT_RETENTION_DAYS` + `AUDIT_MAX_COUNT`.
+
+### SSE & REST Control Plane
+- **SSE Configuration:** `/execute` streams honor `SSE_KEEPALIVE_INTERVAL`, `MAX_SSE_DURATION`, and `MAX_EXECUTION_DURATION`. Keepalives emit status updates before first output to keep Railway’s proxy alive. Disconnects no longer kill jobs—they simply exit the stream.
+- **REST Endpoints:** `/execute/start`, `/execute/cancel/{id}`, `/execute/status/{id}`, and `/execute/list` expose the same state machine used by the web UI, keeping CLI, SSE, and API consumers in sync.
+
+### Static Assets & Templates
+- **Static Mount:** `app_factory` mounts `/static` once so chat, files, and timeline share CSS/JS bundles (`static/app.js`, `static/file_browser.js`, `static/timeline.js`). Cache busting uses `{APP_VERSION}-{GIT_COMMIT}` query params.
+- **HTML Rendering:** Timeline, chat landing page, files browser, and snapshot HTML moved into `deploy/web/templates.py`, eliminating inline duplication and keeping branding consistent.
+
+---
+
 ## Key Design Decisions
 
 ### 1. **ELT vs ETL**

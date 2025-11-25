@@ -41,7 +41,8 @@ async function downloadFile(filename) {
     }
     
     try {
-        const response = await fetch(`/download?file=${encodeURIComponent(filename)}`);
+        // Use the new /outputs/{path} endpoint directly (replaces deprecated /download?file=)
+        const response = await fetch(`/outputs/${encodeURIComponent(filename)}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -75,7 +76,8 @@ async function viewJsonFile(filename) {
     }
     
     try {
-        const response = await fetch(`/download?file=${encodeURIComponent(filename)}`);
+        // Use the new /outputs/{path} endpoint directly (replaces deprecated /download?file=)
+        const response = await fetch(`/outputs/${encodeURIComponent(filename)}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

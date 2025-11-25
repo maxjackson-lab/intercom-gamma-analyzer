@@ -409,18 +409,34 @@ def test_download_file_success(client, tmp_path):
 
 
 def test_download_file_not_found(client):
-    """Test 404 when file doesn't exist."""
-    response = client.get("/download?file=nonexistent.txt")
+    """Test 404 when file doesn't exist via new /outputs endpoint."""
+    # The legacy /download endpoint now redirects to /outputs
+    # Test the new endpoint directly
+    response = client.get("/outputs/nonexistent.txt")
     
     assert response.status_code == 404
 
 
+def test_download_legacy_redirect(client):
+    """Test legacy /download endpoint returns 301 redirect to /outputs."""
+    response = client.get("/download?file=test.txt", follow_redirects=False)
+    
+    # Legacy endpoint should redirect to new /outputs path
+    assert response.status_code == 301
+    assert "/outputs/test.txt" in response.headers.get("location", "")
+
+
 def test_download_file_security_validation(client):
     """Test security check prevents directory traversal."""
+    # Test via legacy endpoint (should be caught before redirect)
     response = client.get("/download?file=../../etc/passwd")
     
-    # Should be rejected by security check
-    assert response.status_code in [403, 404]
+    # Should be rejected by security check with 403
+    assert response.status_code == 403
+    
+    # Also test the new endpoint directly
+    response = client.get("/outputs/../../etc/passwd")
+    assert response.status_code == 400  # Invalid path
 
 
 # ============================================

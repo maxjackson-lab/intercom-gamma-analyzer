@@ -138,6 +138,56 @@ python src/main.py generate-gamma --input-file analysis_results.json
 python src/main.py export-data --format excel --output-dir exports/
 ```
 
+## 🌐 Web Interface Architecture
+
+- **Single FastAPI App:** `deploy/web/app_factory.py` powers the chat UI, job runner, files browser, and historical timeline. Railway boots it via `python deploy/railway_web.py`.
+- **Run Locally:**
+  ```bash
+  # Activate your virtualenv first
+  python deploy/railway_web.py
+  # Visit http://localhost:8000
+  # Routes:
+  #   /            -> Chat UI + execution console
+  #   /files       -> Output file browser + ZIP downloads
+  #   /history     -> Historical timeline + snapshot drill-down
+  #   /execute/*   -> SSE + REST execution APIs
+  #   /outputs/*   -> Direct file downloads (token gated)
+  ```
+- **Shared State:** Startup hooks initialize ChatInterface (when deps available), WebCommandExecutor, ExecutionStateManager, DuckDB storage, and HistoricalSnapshotService once. All routers share `app.state`, so `/history`, `/chat`, and `/execute` reference the same execution/job data.
+- **Authentication:** The web server implements a **read/write security model**:
+  
+  **🔒 Protected Routes (require `EXECUTION_API_TOKEN`):**
+  | Route | Method | Purpose |
+  |-------|--------|---------|
+  | `/execute/start` | POST | Start new command execution |
+  | `/execute/cancel/{id}` | POST | Cancel running execution |
+  | `/api/snapshots/{id}/review` | POST | Mark snapshot as reviewed |
+  
+  **🔓 Public Read-Only Routes (no auth required):**
+  | Route | Method | Purpose |
+  |-------|--------|---------|
+  | `/execute/status/{id}` | GET | Check execution status |
+  | `/execute/list` | GET | List recent executions |
+  | `/execute` | GET | SSE stream (starts unauthenticated) |
+  | `/outputs/*` | GET | Download output files |
+  | `/api/browse-files` | GET | Browse available files |
+  | `/api/download-zip` | GET | Download files as ZIP |
+  | `/api/download-folder-zip` | GET | Download folder as ZIP |
+  | `/api/snapshots/list` | GET | List historical snapshots |
+  | `/api/snapshots/{id}` | GET | Get snapshot details |
+  
+  **Configuration:**
+  - Set `EXECUTION_API_TOKEN` in production to protect write operations
+  - If unset, server runs in "development mode" (logs a warning, allows all operations)
+  - Token is passed via `Authorization: Bearer <token>` header
+  
+  **Security Rationale:**
+  - Read-only endpoints are intentionally unauthenticated for easy status checking and file access
+  - Write operations (start/cancel/review) require authentication to prevent abuse
+  - Rate limiting (100 req/min per IP) applies to all endpoints regardless of auth
+- **Background Jobs:** SSE streams send keepalives based on `SSE_KEEPALIVE_INTERVAL`, and jobs keep running even if the browser disconnects. Resume progress via `/execute/status/{execution_id}` or the Files tab. Tune timeouts with `MAX_SSE_DURATION` / `MAX_EXECUTION_DURATION`.
+- **Notifications:** Configure `SLACK_WEBHOOK_URL` to receive completion alerts via `/api/notify-completion`.
+
 ## 🔧 Technical Requirements
 
 ### **System Requirements**
@@ -180,7 +230,7 @@ railway variables set INTERCOM_ACCESS_TOKEN=your_token
 railway variables set OPENAI_API_KEY=your_key
 railway variables set ANTHROPIC_API_KEY=your_key  # optional
 
-# Deploy
+# Deploy (startCommand default = python deploy/railway_web.py)
 railway up
 ```
 
