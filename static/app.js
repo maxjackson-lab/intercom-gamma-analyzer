@@ -430,8 +430,6 @@ async function runAnalysis() {
             } else if (analysisType.includes('escalated')) {
                 args.push('--vendor', 'escalated');
             }
-
-            }
             
         } else if (analysisType.startsWith('agent-coaching-')) {
             args.push('agent-coaching-report');
@@ -525,10 +523,6 @@ async function runAnalysis() {
                 analysisType.startsWith('analyze-') ||
                 analysisType === 'tech-analysis'
             ) {
-                args.push('--filter-category', taxonomyFilter);
-                console.log('Applied taxonomy filter:', taxonomyFilter);
-            }
-
                 args.push('--filter-category', taxonomyFilter);
                 console.log('Applied taxonomy filter:', taxonomyFilter);
             }
