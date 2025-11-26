@@ -1,0 +1,1000 @@
+[2025-11-25T20:16:14.533371+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.597510+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.597587+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.597991+00:00] Tokens: 453 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.598292+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.598583+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.598663+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T20:16:14.598731+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.599116+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.599255+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:14.599694+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T20:16:14.599910+00:00] Supporting Data:
+[2025-11-25T20:16:14.600009+00:00]   llm_result: Billing
+[2025-11-25T20:16:14.600172+00:00]   sdk_hint: Billing
+[2025-11-25T20:16:14.600442+00:00]   agreed_with_sdk: True
+[2025-11-25T20:16:14.600680+00:00]   keywords_hint: ['chargeback', 'billing']
+[2025-11-25T20:16:14.600875+00:00]   confidence: 0.95
+[2025-11-25T20:16:14.601334+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:14.601547+00:00]   LLM confirmed SDK hint
+[2025-11-25T20:16:14.603202+00:00] ================================================================================
+[2025-11-25T20:16:14.603283+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.603374+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.603670+00:00] ================================================================================
+[2025-11-25T20:16:14.603810+00:00] Context:
+[2025-11-25T20:16:14.604018+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.604202+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.604478+00:00]   keywords_matched: ['billing']
+[2025-11-25T20:16:14.604870+00:00]   text_length: 1689
+[2025-11-25T20:16:14.605010+00:00]   client_type: openai
+[2025-11-25T20:16:14.605070+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.605211+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.607760+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.607907+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.607988+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.608065+00:00] │ ⚠️ HINT: Keywords matched: billing                                            │
+[2025-11-25T20:16:14.608137+00:00] │                                                                              │
+[2025-11-25T20:16:14.608209+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.608284+00:00] │ we have a receipt for gamma for $180.00 from our out on leave avp. can you   │
+[2025-11-25T20:16:14.608386+00:00] │ tell me what this is about? invoice e9bbeb28-002 receipt 2457-7896 linda     │
+[2025-11-25T20:16:14.608462+00:00] │ rettig senior director for college programs trio student support services    │
+[2025-11-25T20:16:14.608536+00:00] │ grand valley state university 200 lubbers student services center 1 campus   │
+[2025-11-25T20:16:14.608609+00:00] │ dr. allendale, mi 49401 office: 616-331-5430 | fax: 616-331-5440             │
+[2025-11-25T20:16:14.608681+00:00] │ [EMAIL_REDACTED] the content of this email is confidential and intended     │
+[2025-11-25T20:16:14.608754+00:00] │ only for the recipient(s) specified. if you received this message by         │
+[2025-11-25T20:16:14.608845+00:00] │ mistake, please reply so the sender can correct the error, and then delete   │
+[2025-11-25T20:16:14.608924+00:00] │ this email immediately. do not forward it to a third party without the       │
+[2025-11-25T20:16:14.608996+00:00] │ written consent of the sender. hi linda, the $180 charge is likely for a     │
+[2025-11-25T20:16:14.609068+00:00] │ gamma subscription. our billing uses per-member pricing, so costs depend on  │
+[2025-11-25T20:16:14.609141+00:00] │ your plan type and number of users in the workspace. to view complete        │
+[2025-11-25T20:16:14.609213+00:00] │ invoice details for e9bbeb28-002: go to settings & members from the left     │
+[2025-11-25T20:16:14.609284+00:00] │ menu click billing > manage subscription in the stripe dashboard, scroll to  │
+[2025-11-25T20:16:14.609362+00:00] │ find your invoice history and click on the specific invoice the invoice will │
+[2025-11-25T20:16:14.609433+00:00] │ show the exact plan, billing period, and number of users charged. since i    │
+[2025-11-25T20:16:14.609542+00:00] │ cannot access specific account details or invoice information, you'll need   │
+[2025-11-25T20:16:14.610432+00:00] │ to check the billing dashboard to see what subscription tier and user count  │
+[2025-11-25T20:16:14.610628+00:00] │ generated the $180 charge. were you able to locate the invoice details, or   │
+[2025-11-25T20:16:14.610712+00:00] │ would you like me to escalate this to a human agent who can access your      │
+[2025-11-25T20:16:14.610781+00:00] │ specific account information? thi                                            │
+[2025-11-25T20:16:14.610853+00:00] │                                                                              │
+[2025-11-25T20:16:14.610927+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.610998+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.611088+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.611164+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.611236+00:00] │                                                                              │
+[2025-11-25T20:16:14.611329+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.611411+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.639201+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.639905+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.640471+00:00] Tokens: 452 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.640848+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.641393+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.641565+00:00] │ Billing (confidence: 1.0)                                                    │
+[2025-11-25T20:16:14.641772+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.641983+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.642086+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:14.642352+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T20:16:14.642534+00:00] Supporting Data:
+[2025-11-25T20:16:14.642698+00:00]   llm_result: Billing
+[2025-11-25T20:16:14.642849+00:00]   sdk_hint: Billing
+[2025-11-25T20:16:14.643065+00:00]   agreed_with_sdk: True
+[2025-11-25T20:16:14.643311+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:14.643518+00:00]   confidence: 1.0
+[2025-11-25T20:16:14.644161+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:14.644411+00:00]   LLM confirmed SDK hint
+[2025-11-25T20:16:14.645808+00:00] ================================================================================
+[2025-11-25T20:16:14.645901+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.646393+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.646600+00:00] ================================================================================
+[2025-11-25T20:16:14.646704+00:00] Context:
+[2025-11-25T20:16:14.646927+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.647071+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.647283+00:00]   keywords_matched: ['billing']
+[2025-11-25T20:16:14.647408+00:00]   text_length: 1170
+[2025-11-25T20:16:14.647548+00:00]   client_type: openai
+[2025-11-25T20:16:14.647709+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.647870+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.649907+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.650017+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.650090+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.650166+00:00] │ ⚠️ HINT: Keywords matched: billing                                            │
+[2025-11-25T20:16:14.650230+00:00] │                                                                              │
+[2025-11-25T20:16:14.650299+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.650400+00:00] │ hello how can i cancel my plan for recurring annually to cancel your         │
+[2025-11-25T20:16:14.650473+00:00] │ recurring annual plan, follow these steps: go to the gamma home screen and   │
+[2025-11-25T20:16:14.650543+00:00] │ select settings & members from the left-hand panel. open the billing tab and │
+[2025-11-25T20:16:14.650615+00:00] │ find the manage subscription section. click manage subscription or manage    │
+[2025-11-25T20:16:14.650681+00:00] │ subscription in stripe to access your billing portal. in the billing portal, │
+[2025-11-25T20:16:14.650752+00:00] │ select cancel subscription and confirm the cancellation. your subscription   │
+[2025-11-25T20:16:14.650825+00:00] │ will remain active until the end of your current billing period. canceling   │
+[2025-11-25T20:16:14.650887+00:00] │ your subscription is different from deleting your account—your content will  │
+[2025-11-25T20:16:14.650955+00:00] │ remain accessible, but paid features will be disabled after your plan ends.  │
+[2025-11-25T20:16:14.651019+00:00] │ refunds are only available within the first 3 days of subscribing and        │
+[2025-11-25T20:16:14.651088+00:00] │ require contacting a human agent for review . sources:how do i manage or     │
+[2025-11-25T20:16:14.651154+00:00] │ cancel my gamma subscription?upgrading your gamma subscription is that what  │
+[2025-11-25T20:16:14.651216+00:00] │ you were looking for? if you need any more help with canceling your annual   │
+[2025-11-25T20:16:14.651280+00:00] │ plan or have other questions, i’m here to assist. would you like to provide  │
+[2025-11-25T20:16:14.651345+00:00] │ more details about what you’re trying to resolve? help support sal           │
+[2025-11-25T20:16:14.651452+00:00] │ understand how they’re doing:                                                │
+[2025-11-25T20:16:14.651530+00:00] │                                                                              │
+[2025-11-25T20:16:14.651594+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.651659+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.651727+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.651789+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.651855+00:00] │                                                                              │
+[2025-11-25T20:16:14.651920+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.651985+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.673124+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.673279+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.673396+00:00] Tokens: 389 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.673890+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.674204+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.674320+00:00] │ User Feedback/Confusion (confidence: 0.85)                                   │
+[2025-11-25T20:16:14.674440+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.674514+00:00] 2025-11-25 20:16:14 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'User Feedback/Confusion' → 'Feedback' (fuzzy match)
+[2025-11-25T20:16:14.674693+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.674878+00:00] Decision: Classified as 'Feedback'
+[2025-11-25T20:16:14.675146+00:00] Rationale: LLM analyzed text context. SDK hint: Feature Request. Corrected SDK
+[2025-11-25T20:16:14.675325+00:00] Supporting Data:
+[2025-11-25T20:16:14.675492+00:00]   llm_result: Feedback
+[2025-11-25T20:16:14.675956+00:00]   sdk_hint: Feature Request
+[2025-11-25T20:16:14.676171+00:00]   agreed_with_sdk: False
+[2025-11-25T20:16:14.676246+00:00]   keywords_hint: None
+[2025-11-25T20:16:14.676286+00:00]   confidence: 0.85
+[2025-11-25T20:16:14.676737+00:00] ❌ FAILED SDK Hint Validation
+[2025-11-25T20:16:14.676959+00:00]   LLM corrected SDK hint
+[2025-11-25T20:16:14.679415+00:00] ================================================================================
+[2025-11-25T20:16:14.679553+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.679737+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.679891+00:00] ================================================================================
+[2025-11-25T20:16:14.680003+00:00] Context:
+[2025-11-25T20:16:14.680178+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.680523+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.680733+00:00]   keywords_matched: None
+[2025-11-25T20:16:14.680937+00:00]   text_length: 3982
+[2025-11-25T20:16:14.681135+00:00]   client_type: openai
+[2025-11-25T20:16:14.681319+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.681482+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.684465+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.684661+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.684737+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.684800+00:00] │                                                                              │
+[2025-11-25T20:16:14.684868+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.684947+00:00] │ imagem de fundo do cartão desbotada faded card background image –––          │
+[2025-11-25T20:16:14.685015+00:00] │ translated by lokalise messages​ this conversation language is portuguese.    │
+[2025-11-25T20:16:14.685111+00:00] │ create a note starting with ! to respond in a customer's language or try     │
+[2025-11-25T20:16:14.685250+00:00] │ !help para ajustar uma imagem de fundo desbotada no cartão, você pode        │
+[2025-11-25T20:16:14.685616+00:00] │ modificar as configurações de sobreposição: 1. clique no canto superior      │
+[2025-11-25T20:16:14.686159+00:00] │ esquerdo do cartão e selecione estilo do cartão 2. em imagem de destaque,    │
+[2025-11-25T20:16:14.686252+00:00] │ escolha fundo 3. ajuste a intensidade da sobreposição de 0% a 100% para      │
+[2025-11-25T20:16:14.686338+00:00] │ controlar quanto da imagem de fundo aparece 4. selecione entre os estilos de │
+[2025-11-25T20:16:14.686411+00:00] │ sobreposição: fosco, desbotado ou transparente dica: use sobreposições mais  │
+[2025-11-25T20:16:14.686496+00:00] │ escuras com texto claro para melhor legibilidade no celular. se o problema   │
+[2025-11-25T20:16:14.686575+00:00] │ persistir durante apresentações, verifique se mostrar fundos dos cartões     │
+[2025-11-25T20:16:14.686811+00:00] │ está ativado em configuração da página. sources:how do i style cards and     │
+[2025-11-25T20:16:14.686868+00:00] │ adjust layout settings in my gamma?how do i control card sizes and adjust    │
+[2025-11-25T20:16:14.686935+00:00] │ page setups? era isso que você precisava? imagem de fundo distorcida e sem   │
+[2025-11-25T20:16:14.687280+00:00] │ qualidade distorted and poor quality background image ––– translated by      │
+[2025-11-25T20:16:14.687446+00:00] │ lokalise messages para corrigir imagens de fundo distorcidas e com baixa     │
+[2025-11-25T20:16:14.687549+00:00] │ qualidade, você pode usar algumas opções: para imagens geradas por ia: 1.    │
+[2025-11-25T20:16:14.687647+00:00] │ clique na imagem para selecioná-la 2. clique em "pedir à ia" ou clique com o │
+[2025-11-25T20:16:14.687753+00:00] │ botão direito na imagem 3. digite instruções como "corrigir distorções" ou   │
+[2025-11-25T20:16:14.687831+00:00] │ "melhorar clareza" para imagens carregadas: 1. use a ferramenta de corte -   │
+[2025-11-25T20:16:14.687921+00:00] │ clique na imagem e selecion                                                  │
+[2025-11-25T20:16:14.688002+00:00] │                                                                              │
+[2025-11-25T20:16:14.688104+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.688249+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.688368+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.688442+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.688504+00:00] │                                                                              │
+[2025-11-25T20:16:14.688581+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.688631+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.750445+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.750562+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.751154+00:00] Tokens: 465 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.751451+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.751957+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.752068+00:00] │ Billing (confidence: 1.0)                                                    │
+[2025-11-25T20:16:14.752138+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.752584+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.752916+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:14.753264+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T20:16:14.753524+00:00] Supporting Data:
+[2025-11-25T20:16:14.753621+00:00]   llm_result: Billing
+[2025-11-25T20:16:14.753962+00:00]   sdk_hint: Billing
+[2025-11-25T20:16:14.754187+00:00]   agreed_with_sdk: True
+[2025-11-25T20:16:14.754462+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:14.754625+00:00]   confidence: 1.0
+[2025-11-25T20:16:14.755327+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:14.755476+00:00]   LLM confirmed SDK hint
+[2025-11-25T20:16:14.756858+00:00] ================================================================================
+[2025-11-25T20:16:14.756952+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.757141+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.757462+00:00] ================================================================================
+[2025-11-25T20:16:14.757575+00:00] Context:
+[2025-11-25T20:16:14.757744+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.757893+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.758136+00:00]   keywords_matched: ['collaboration']
+[2025-11-25T20:16:14.758321+00:00]   text_length: 1130
+[2025-11-25T20:16:14.758491+00:00]   client_type: openai
+[2025-11-25T20:16:14.758618+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.758823+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.762014+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.762164+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.762246+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.762321+00:00] │ ⚠️ HINT: Keywords matched: collaboration                                      │
+[2025-11-25T20:16:14.762397+00:00] │                                                                              │
+[2025-11-25T20:16:14.762473+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.762546+00:00] │ how do i remove "made wiht gamme" from my presentations to remove the "made  │
+[2025-11-25T20:16:14.762617+00:00] │ with gamma" badge, you'll need a paid plan (plus, pro, or ultra). once       │
+[2025-11-25T20:16:14.762688+00:00] │ you're on a paid plan: open your presentation go to share > advanced         │
+[2025-11-25T20:16:14.762760+00:00] │ settings toggle on hide 'made by gamma' refresh and re-share or re-export    │
+[2025-11-25T20:16:14.762830+00:00] │ important: if your presentation was originally created on a free account,    │
+[2025-11-25T20:16:14.762899+00:00] │ the badge stays attached even after upgrading. in that case, you'll need to  │
+[2025-11-25T20:16:14.763124+00:00] │ duplicate it to your paid workspace: open a blank project in your paid       │
+[2025-11-25T20:16:14.763211+00:00] │ workspace copy all cards from the old presentation export or share the new   │
+[2025-11-25T20:16:14.763285+00:00] │ version for exports specifically, just re-export after confirming your paid  │
+[2025-11-25T20:16:14.763356+00:00] │ plan is active—older exports will still have the watermark. sources:how do   │
+[2025-11-25T20:16:14.763425+00:00] │ collaboration and sharing settings work in gamma?what’s the easiest way to   │
+[2025-11-25T20:16:14.763515+00:00] │ export my gamma? is that what you were looking for? if you still need help   │
+[2025-11-25T20:16:14.763587+00:00] │ with removing the "made with gamma" badge or have any other questions, i’m   │
+[2025-11-25T20:16:14.763652+00:00] │ here to assist. would you like to provide more details about what you’re     │
+[2025-11-25T20:16:14.763716+00:00] │ trying to achieve? help support sal understand how they’re doing:            │
+[2025-11-25T20:16:14.763781+00:00] │                                                                              │
+[2025-11-25T20:16:14.763843+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.763909+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.763970+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.764035+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.764098+00:00] │                                                                              │
+[2025-11-25T20:16:14.764174+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.764250+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.772333+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.772467+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.772930+00:00] Tokens: 461 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.773480+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.773630+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.773719+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T20:16:14.773776+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.775034+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.775158+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:14.775256+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T20:16:14.775347+00:00] Supporting Data:
+[2025-11-25T20:16:14.775406+00:00]   llm_result: Billing
+[2025-11-25T20:16:14.775513+00:00]   sdk_hint: Billing
+[2025-11-25T20:16:14.775576+00:00]   agreed_with_sdk: True
+[2025-11-25T20:16:14.775637+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:14.775715+00:00]   confidence: 0.95
+[2025-11-25T20:16:14.776169+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:14.776532+00:00]   LLM confirmed SDK hint
+[2025-11-25T20:16:14.777280+00:00] ================================================================================
+[2025-11-25T20:16:14.777412+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.777785+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.778004+00:00] ================================================================================
+[2025-11-25T20:16:14.778119+00:00] Context:
+[2025-11-25T20:16:14.778226+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.778418+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.778664+00:00]   keywords_matched: None
+[2025-11-25T20:16:14.778752+00:00]   text_length: 639
+[2025-11-25T20:16:14.778828+00:00]   client_type: openai
+[2025-11-25T20:16:14.778904+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.779063+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.780898+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.781029+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.781119+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.781204+00:00] │                                                                              │
+[2025-11-25T20:16:14.781285+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.781398+00:00] │ may i please have a promo code to upgrade to gamma pro? we’re not offering   │
+[2025-11-25T20:16:14.781485+00:00] │ promo codes or discounted subscription prices for gamma pro right now. if    │
+[2025-11-25T20:16:14.781560+00:00] │ you’re looking to save, you might want to check out our plus plan, which is  │
+[2025-11-25T20:16:14.781638+00:00] │ half the price of pro. you can also earn extra credits by sharing your       │
+[2025-11-25T20:16:14.781762+00:00] │ referral link with friends—each signup gets you more credits. is that what   │
+[2025-11-25T20:16:14.781853+00:00] │ you were looking for? if you need any more help with upgrading or            │
+[2025-11-25T20:16:14.781948+00:00] │ understanding our plans, i’m here to assist. would you like to share more    │
+[2025-11-25T20:16:14.782031+00:00] │ about what you’re trying to achieve with gamma pro? help support sal         │
+[2025-11-25T20:16:14.782111+00:00] │ understand how they’re doing:                                                │
+[2025-11-25T20:16:14.782188+00:00] │                                                                              │
+[2025-11-25T20:16:14.782260+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.782338+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.782420+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.782502+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.782583+00:00] │                                                                              │
+[2025-11-25T20:16:14.782666+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.782747+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.827928+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.828054+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.828562+00:00] Tokens: 426 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.828757+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.829876+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.830026+00:00] │ billing (confidence: 0.95)                                                   │
+[2025-11-25T20:16:14.830107+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.830192+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:14.830266+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:14.830332+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:14.830559+00:00] Supporting Data:
+[2025-11-25T20:16:14.830663+00:00]   llm_result: Billing
+[2025-11-25T20:16:14.830856+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.831047+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:14.831281+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:14.831471+00:00]   confidence: 0.95
+[2025-11-25T20:16:14.831953+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:14.832224+00:00]   No SDK hint to validate
+[2025-11-25T20:16:14.833634+00:00] ================================================================================
+[2025-11-25T20:16:14.833880+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T20:16:14.834205+00:00] Time: 12:16:14PM
+[2025-11-25T20:16:14.834830+00:00] ================================================================================
+[2025-11-25T20:16:14.834988+00:00] Context:
+[2025-11-25T20:16:14.835074+00:00]   method: llm_smart_structured
+[2025-11-25T20:16:14.835263+00:00]   sdk_hint: None
+[2025-11-25T20:16:14.835610+00:00]   keywords_matched: None
+[2025-11-25T20:16:14.836016+00:00]   text_length: 1031
+[2025-11-25T20:16:14.836128+00:00]   client_type: openai
+[2025-11-25T20:16:14.836274+00:00]   model: gpt-4o-mini
+[2025-11-25T20:16:14.836677+00:00]   structured_outputs: True
+[2025-11-25T20:16:14.838537+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:14.838671+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T20:16:14.838907+00:00] │ topic category.                                                              │
+[2025-11-25T20:16:14.838993+00:00] │                                                                              │
+[2025-11-25T20:16:14.839118+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T20:16:14.839246+00:00] │ how can i move a card from one gamma to another? to move a card from one     │
+[2025-11-25T20:16:14.839314+00:00] │ gamma to another, use the copy and paste method: open the gamma containing   │
+[2025-11-25T20:16:14.839391+00:00] │ the card you want to move. in the filmstrip (left side), right-click the     │
+[2025-11-25T20:16:14.839465+00:00] │ card and select copy, or use cmd + c (mac) / ctrl + c (windows). open the    │
+[2025-11-25T20:16:14.839537+00:00] │ destination gamma. right-click in the filmstrip and select paste, or use cmd │
+[2025-11-25T20:16:14.839810+00:00] │ + v (mac) / ctrl + v (windows). you can also select and copy multiple cards  │
+[2025-11-25T20:16:14.839912+00:00] │ at once by holding shift or using cmd + a / ctrl + a to select all cards     │
+[2025-11-25T20:16:14.839994+00:00] │ before copying. all content and formatting will be retained, but the pasted  │
+[2025-11-25T20:16:14.840071+00:00] │ cards will inherit the theme of the new gamma. sources:how does the          │
+[2025-11-25T20:16:14.840238+00:00] │ filmstrip in gamma work?how do i copy a card from one gamma to another? is   │
+[2025-11-25T20:16:14.840409+00:00] │ that what you were looking for? if you need any more help with moving cards  │
+[2025-11-25T20:16:14.840534+00:00] │ between gammas, please let me know. would you like to share more about what  │
+[2025-11-25T20:16:14.840682+00:00] │ you're trying to accomplish or any difficulties you're facing? help support  │
+[2025-11-25T20:16:14.840771+00:00] │ sal understand how they’re doing:                                            │
+[2025-11-25T20:16:14.840849+00:00] │                                                                              │
+[2025-11-25T20:16:14.840922+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T20:16:14.840999+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T20:16:14.841067+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T20:16:14.841138+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T20:16:14.841203+00:00] │                                                                              │
+[2025-11-25T20:16:14.841279+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T20:16:14.841353+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.848038+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.848134+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:14.848308+00:00] Tokens: 424 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T20:16:14.848482+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:14.848844+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:14.848939+00:00] │ Affiliate Program (confidence: 0.9)                                          │
+[2025-11-25T20:16:14.849049+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:14.849165+00:00] 2025-11-25 20:16:14 - agents.TopicDetectionAgent - WARNING -    ❌ Could not normalize 'Affiliate Program' to any valid topic
+[2025-11-25T20:16:14.849264+00:00] 2025-11-25 20:16:14 - agents.TopicDetectionAgent - WARNING - LLM returned invalid topic: Affiliate Program (could not normalize)
+[2025-11-25T20:16:14.849389+00:00] 2025-11-25 20:16:14 - agents.TopicDetectionAgent - WARNING - LLM classification failed for 215471844042070, falling back to keywords
+[2025-11-25T20:16:15.290085+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.290190+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.290737+00:00] Tokens: 334 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.290860+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.291085+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.291142+00:00] │ App Connectivity Issues (confidence: 0.95)                                   │
+[2025-11-25T20:16:15.291194+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.291300+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'App Connectivity Issues' → 'Product Question' (semantic: issue)
+[2025-11-25T20:16:15.291862+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.291952+00:00] Decision: Classified as 'Product Question'
+[2025-11-25T20:16:15.292128+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.292396+00:00] Supporting Data:
+[2025-11-25T20:16:15.292571+00:00]   llm_result: Product Question
+[2025-11-25T20:16:15.292710+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.292917+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.293131+00:00]   keywords_hint: None
+[2025-11-25T20:16:15.293194+00:00]   confidence: 0.95
+[2025-11-25T20:16:15.293573+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.293843+00:00]   No SDK hint to validate
+[2025-11-25T20:16:15.358090+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.358241+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.358590+00:00] Tokens: 335 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.359675+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.360123+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.360254+00:00] │ billing (confidence: 1.0)                                                    │
+[2025-11-25T20:16:15.360373+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.360522+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.360618+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:15.360963+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.361094+00:00] Supporting Data:
+[2025-11-25T20:16:15.361158+00:00]   llm_result: Billing
+[2025-11-25T20:16:15.361354+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.361466+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.361855+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:15.362085+00:00]   confidence: 1.0
+[2025-11-25T20:16:15.362598+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.362741+00:00]   No SDK hint to validate
+[2025-11-25T20:16:15.474937+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.475017+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.475294+00:00] Tokens: 344 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.475532+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.475858+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.475925+00:00] │ Moving Cards Between Gammas (confidence: 0.95)                               │
+[2025-11-25T20:16:15.475980+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.476139+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - WARNING -    ❌ Could not normalize 'Moving Cards Between Gammas' to any valid topic
+[2025-11-25T20:16:15.476235+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - WARNING - LLM returned invalid topic: Moving Cards Between Gammas (could not normalize)
+[2025-11-25T20:16:15.476609+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - WARNING - LLM classification failed for 215471846174612, falling back to keywords
+[2025-11-25T20:16:15.491817+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - INFO - Progress: 50/50 conversations processed
+[2025-11-25T20:16:15.496528+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.496647+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.497090+00:00] Tokens: 242 (~$0.0005) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.497358+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.497977+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.498112+00:00] │ Subscription Inquiry (confidence: 0.9)                                       │
+[2025-11-25T20:16:15.498268+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.498375+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'Subscription Inquiry' → 'Billing' (semantic: subscription)
+[2025-11-25T20:16:15.498789+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.499087+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:15.499239+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.499762+00:00] Supporting Data:
+[2025-11-25T20:16:15.499847+00:00]   llm_result: Billing
+[2025-11-25T20:16:15.499911+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.500203+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.500430+00:00]   keywords_hint: None
+[2025-11-25T20:16:15.500577+00:00]   confidence: 0.9
+[2025-11-25T20:16:15.501108+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.501464+00:00]   No SDK hint to validate
+[2025-11-25T20:16:15.604847+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.604973+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.605046+00:00] Tokens: 351 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.605232+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.605364+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.605446+00:00] │ collaboration (confidence: 0.9)                                              │
+[2025-11-25T20:16:15.605527+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.605645+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'collaboration' → 'Workspace' (semantic: collaboration)
+[2025-11-25T20:16:15.610968+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.611251+00:00] Decision: Classified as 'Workspace'
+[2025-11-25T20:16:15.611345+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.611470+00:00] Supporting Data:
+[2025-11-25T20:16:15.611549+00:00]   llm_result: Workspace
+[2025-11-25T20:16:15.611600+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.611648+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.611707+00:00]   keywords_hint: ['collaboration']
+[2025-11-25T20:16:15.611757+00:00]   confidence: 0.9
+[2025-11-25T20:16:15.611846+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.611904+00:00]   No SDK hint to validate
+[2025-11-25T20:16:15.612002+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.612127+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.612199+00:00] Tokens: 430 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.612288+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.612425+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.612477+00:00] │ Billing (confidence: 1.0)                                                    │
+[2025-11-25T20:16:15.612546+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.612650+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.612692+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:15.612941+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T20:16:15.613433+00:00] Supporting Data:
+[2025-11-25T20:16:15.613537+00:00]   llm_result: Billing
+[2025-11-25T20:16:15.614298+00:00]   sdk_hint: Billing
+[2025-11-25T20:16:15.614405+00:00]   agreed_with_sdk: True
+[2025-11-25T20:16:15.614715+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:15.615026+00:00]   confidence: 1.0
+[2025-11-25T20:16:15.615794+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.616075+00:00]   LLM confirmed SDK hint
+[2025-11-25T20:16:15.632275+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.632395+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.633064+00:00] Tokens: 443 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.633379+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.633743+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.633844+00:00] │ Image Background Issues (confidence: 0.95)                                   │
+[2025-11-25T20:16:15.633938+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.634038+00:00] 2025-11-25 20:16:15 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'Image Background Issues' → 'Product Question' (semantic: image)
+[2025-11-25T20:16:15.634869+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.634978+00:00] Decision: Classified as 'Product Question'
+[2025-11-25T20:16:15.635459+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.635670+00:00] Supporting Data:
+[2025-11-25T20:16:15.635783+00:00]   llm_result: Product Question
+[2025-11-25T20:16:15.635922+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.636290+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.636488+00:00]   keywords_hint: None
+[2025-11-25T20:16:15.636584+00:00]   confidence: 0.95
+[2025-11-25T20:16:15.636968+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.637282+00:00]   No SDK hint to validate
+[2025-11-25T20:16:15.671297+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.671426+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:15.671830+00:00] Tokens: 441 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T20:16:15.672124+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:15.673384+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:15.673518+00:00] │ billing (confidence: 1.0)                                                    │
+[2025-11-25T20:16:15.673611+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:15.674299+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:15.674780+00:00] Decision: Classified as 'Billing'
+[2025-11-25T20:16:15.674896+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:15.675117+00:00] Supporting Data:
+[2025-11-25T20:16:15.675252+00:00]   llm_result: Billing
+[2025-11-25T20:16:15.675638+00:00]   sdk_hint: None
+[2025-11-25T20:16:15.675756+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:15.676024+00:00]   keywords_hint: ['billing']
+[2025-11-25T20:16:15.676443+00:00]   confidence: 1.0
+[2025-11-25T20:16:15.677302+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:15.677395+00:00]   No SDK hint to validate
+[2025-11-25T20:16:16.017790+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:16.017998+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:16.018137+00:00] Tokens: 423 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T20:16:16.018383+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:16.018855+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:16.018937+00:00] │ collaboration (confidence: 0.9)                                              │
+[2025-11-25T20:16:16.019020+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:16.019106+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'collaboration' → 'Workspace' (semantic: collaboration)
+[2025-11-25T20:16:16.019523+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T20:16:16.019697+00:00] Decision: Classified as 'Workspace'
+[2025-11-25T20:16:16.020079+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T20:16:16.020267+00:00] Supporting Data:
+[2025-11-25T20:16:16.020492+00:00]   llm_result: Workspace
+[2025-11-25T20:16:16.020788+00:00]   sdk_hint: None
+[2025-11-25T20:16:16.020923+00:00]   agreed_with_sdk: None
+[2025-11-25T20:16:16.021282+00:00]   keywords_hint: ['collaboration', 'billing']
+[2025-11-25T20:16:16.021474+00:00]   confidence: 0.9
+[2025-11-25T20:16:16.022114+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T20:16:16.022308+00:00]   No SDK hint to validate
+[2025-11-25T20:16:16.025157+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - ✅ Chunk 1/1 complete (50/50 total)
+[2025-11-25T20:16:16.025485+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - 🎯 All 50 conversations processed in 1 chunks
+[2025-11-25T20:16:16.026254+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - 📊 HYBRID Topic Detection Breakdown (incl. LLM):
+[2025-11-25T20:16:16.026391+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Billing: 29 total | LLM-Smart: 29 (100.0%)
+[2025-11-25T20:16:16.026506+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Product Question: 7 total | LLM-Smart: 4 (57.1%) | Hybrid: 1 (14.3%) | Keyword: 2 (28.6%)
+[2025-11-25T20:16:16.026598+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Bug: 4 total | LLM-Smart: 4 (100.0%)
+[2025-11-25T20:16:16.026844+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Workspace: 3 total | LLM-Smart: 3 (100.0%)
+[2025-11-25T20:16:16.026990+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Unknown: 3 total | LLM-Smart: 3 (100.0%)
+[2025-11-25T20:16:16.027083+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Chargeback: 2 total | LLM-Smart: 2 (100.0%)
+[2025-11-25T20:16:16.027171+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Feedback: 1 total | LLM-Smart: 1 (100.0%)
+[2025-11-25T20:16:16.027263+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Partnerships: 1 total | Keyword: 1 (100.0%)
+[2025-11-25T20:16:16.027374+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - ✅ Topic distribution validated (percentages sum to 100%)
+[2025-11-25T20:16:16.027482+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - LLM topic discovery disabled (using full taxonomy instead)
+[2025-11-25T20:16:16.027540+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Completed in 4.94s
+[2025-11-25T20:16:16.027610+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Topics detected: 8
+[2025-11-25T20:16:16.027679+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Coverage: 100.0%
+[2025-11-25T20:16:16.027790+00:00] 2025-11-25 20:16:16 - agents.TopicDetectionAgent - INFO -    Top topics: [('Billing', 29), ('Product Question', 7), ('Bug', 4), ('Workspace', 3), ('Unknown', 3)]
+[2025-11-25T20:16:16.027875+00:00] ✅ Topics detected: ['Billing', 'Bug', 'Chargeback', 'Workspace', 'Unknown']...
+[2025-11-25T20:16:16.027983+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Agent SubTopicDetectionAgent initialized with tools: False
+[2025-11-25T20:16:16.028060+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.028138+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.028208+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.028277+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.099936+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Built normalization maps for 13 categories
+[2025-11-25T20:16:16.100047+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - SubcategoryMapper initialized with Hilary's taxonomy
+[2025-11-25T20:16:16.100151+00:00] 2025-11-25 20:16:16 - src.agents.subtopic_detection_agent - INFO - 🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED (default for accuracy)
+[2025-11-25T20:16:16.100217+00:00] 2025-11-25 20:16:16 - src.agents.subtopic_detection_agent - INFO - SubTopicDetectionAgent initialized with SubcategoryMapper
+[2025-11-25T20:16:16.100275+00:00] 2025-11-25 20:16:16 - agents.ExampleExtractionAgent - INFO - Agent ExampleExtractionAgent initialized with tools: False
+[2025-11-25T20:16:16.101024+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.101195+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.101288+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.101372+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.108735+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.108911+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.109011+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.109119+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.117902+00:00] 2025-11-25 20:16:16 - agents.FinPerformanceAgent - INFO - Agent FinPerformanceAgent initialized with tools: False
+[2025-11-25T20:16:16.118034+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.118096+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.118150+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.118226+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.130712+00:00] 2025-11-25 20:16:16 - src.services.fin_escalation_analyzer - INFO - FinEscalationAnalyzer initialized
+[2025-11-25T20:16:16.130852+00:00] 2025-11-25 20:16:16 - agents.CorrelationAgent - INFO - Agent CorrelationAgent initialized with tools: False
+[2025-11-25T20:16:16.130968+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.131058+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.131127+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.131206+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.139525+00:00] 2025-11-25 20:16:16 - agents.QualityInsightsAgent - INFO - Agent QualityInsightsAgent initialized with tools: False
+[2025-11-25T20:16:16.139652+00:00] 2025-11-25 20:16:16 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T20:16:16.139726+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T20:16:16.139802+00:00] 2025-11-25 20:16:16 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T20:16:16.139904+00:00] 2025-11-25 20:16:16 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T20:16:16.148460+00:00] 2025-11-25 20:16:16 - agents.ChurnRiskAgent - INFO - Agent ChurnRiskAgent initialized with tools: False
+[2025-11-25T20:16:16.148872+00:00] 2025-11-25 20:16:16 - agents.ConfidenceMetaAgent - INFO - Agent ConfidenceMetaAgent initialized with tools: False
+[2025-11-25T20:16:16.149725+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:16.149824+00:00] Testing: SubTopicDetectionAgent
+[2025-11-25T20:16:16.149920+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:16.150336+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Billing (29 conversations)
+[2025-11-25T20:16:16.150454+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Billing using SubcategoryMapper...
+[2025-11-25T20:16:16.150662+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Billing: Mapped 65 raw → 3 canonical subcategories
+[2025-11-25T20:16:16.150769+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Billing: Found 3 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.155044+00:00] ================================================================================
+[2025-11-25T20:16:16.155145+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T20:16:16.155317+00:00] Time: 12:16:16PM
+[2025-11-25T20:16:16.155626+00:00] ================================================================================
+[2025-11-25T20:16:16.155736+00:00] Context:
+[2025-11-25T20:16:16.155886+00:00]   tier1: Billing
+[2025-11-25T20:16:16.155997+00:00]   tier2: Refund
+[2025-11-25T20:16:16.156218+00:00]   sample_count: 5
+[2025-11-25T20:16:16.159020+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:16.159164+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T20:16:16.159249+00:00] │                                                                              │
+[2025-11-25T20:16:16.159327+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T20:16:16.159399+00:00] │ TIER 2 SUBCATEGORY: Refund                                                   │
+[2025-11-25T20:16:16.159469+00:00] │                                                                              │
+[2025-11-25T20:16:16.159544+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T20:16:16.159613+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T20:16:16.159686+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T20:16:16.159794+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T20:16:16.159889+00:00] │ 2. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T20:16:16.159994+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T20:16:16.160085+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T20:16:16.160160+00:00] │ 3. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T20:16:16.160251+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T20:16:16.160362+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T20:16:16.160640+00:00] │ 4. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T20:16:16.160734+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T20:16:16.160812+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T20:16:16.160884+00:00] │ 5. I am testing out your product and did not mean to do annua subscription.  │
+[2025-11-25T20:16:16.161507+00:00] │ Can you please refund me and I can sign up again?My invoice is attached      │
+[2025-11-25T20:16:16.161643+00:00] │ below. Thank you. I've chosen 'Billing' for 'Reason for                      │
+[2025-11-25T20:16:16.161768+00:00] │                                                                              │
+[2025-11-25T20:16:16.161849+00:00] │ TASK: Are these conversations truly about "Refund"?                          │
+[2025-11-25T20:16:16.161920+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T20:16:16.161990+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T20:16:16.162058+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T20:16:16.162472+00:00] │                                                                              │
+[2025-11-25T20:16:16.162557+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T20:16:16.162628+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:16.162705+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Bug (4 conversations)
+[2025-11-25T20:16:16.162793+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Bug using SubcategoryMapper...
+[2025-11-25T20:16:16.162885+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Bug: Mapped 9 raw → 1 canonical subcategories
+[2025-11-25T20:16:16.162996+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Bug: Found 1 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.165673+00:00] ================================================================================
+[2025-11-25T20:16:16.165798+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T20:16:16.165875+00:00] Time: 12:16:16PM
+[2025-11-25T20:16:16.165936+00:00] ================================================================================
+[2025-11-25T20:16:16.165987+00:00] Context:
+[2025-11-25T20:16:16.166023+00:00]   tier1: Bug
+[2025-11-25T20:16:16.166056+00:00]   tier2: Font
+[2025-11-25T20:16:16.166092+00:00]   sample_count: 4
+[2025-11-25T20:16:16.167974+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:16.168086+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T20:16:16.168162+00:00] │                                                                              │
+[2025-11-25T20:16:16.168228+00:00] │ TIER 1 TOPIC: Bug                                                            │
+[2025-11-25T20:16:16.168314+00:00] │ TIER 2 SUBCATEGORY: Font                                                     │
+[2025-11-25T20:16:16.168381+00:00] │                                                                              │
+[2025-11-25T20:16:16.168431+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T20:16:16.168499+00:00] │ 1. Recently i am facing difficulties in creating presentations through       │
+[2025-11-25T20:16:16.168569+00:00] │ uploading word file document through the website, can you please help me to  │
+[2025-11-25T20:16:16.168646+00:00] │ overcome this and enjoy Gamma like before Here are some                      │
+[2025-11-25T20:16:16.168715+00:00] │ 2. al pubiblicar el sitio se me deshabilitan los enlaces en los botones when │
+[2025-11-25T20:16:16.168771+00:00] │ I publish the site, the links in the buttons are disabled ––– Translated by  │
+[2025-11-25T20:16:16.168862+00:00] │ Lokalise Messages​ This conversation language is S                            │
+[2025-11-25T20:16:16.168928+00:00] │ 3. Boa noite Goodnight ––– Translated by Lokalise Messages​ This conversation │
+[2025-11-25T20:16:16.169006+00:00] │ language is Portuguese. Create a note starting with ! to respond in a        │
+[2025-11-25T20:16:16.169074+00:00] │ customer's language or try !help Boa noite! Como posso                       │
+[2025-11-25T20:16:16.169134+00:00] │ 4. when you export to ppt, the text separates each bullet point into         │
+[2025-11-25T20:16:16.169213+00:00] │ separate text boxes, can I avoid that? When you export your Gamma to         │
+[2025-11-25T20:16:16.169316+00:00] │ PowerPoint (PPTX), you can access the export feature by clicking             │
+[2025-11-25T20:16:16.169370+00:00] │                                                                              │
+[2025-11-25T20:16:16.169422+00:00] │ TASK: Are these conversations truly about "Font"?                            │
+[2025-11-25T20:16:16.169479+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T20:16:16.169564+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T20:16:16.169649+00:00] │ - If NO, suggest a better subcategory name from the Bug taxonomy             │
+[2025-11-25T20:16:16.169788+00:00] │                                                                              │
+[2025-11-25T20:16:16.169890+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T20:16:16.169961+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:16.170023+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Chargeback (2 conversations)
+[2025-11-25T20:16:16.170099+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Chargeback using SubcategoryMapper...
+[2025-11-25T20:16:16.170175+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Chargeback: Mapped 4 raw → 0 canonical subcategories
+[2025-11-25T20:16:16.170271+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Chargeback: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.170368+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Workspace (3 conversations)
+[2025-11-25T20:16:16.170448+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Workspace using SubcategoryMapper...
+[2025-11-25T20:16:16.170533+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Workspace: Mapped 5 raw → 0 canonical subcategories
+[2025-11-25T20:16:16.170631+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Workspace: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.170712+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Unknown (3 conversations)
+[2025-11-25T20:16:16.170773+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Unknown using SubcategoryMapper...
+[2025-11-25T20:16:16.170831+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Unknown: Mapped 2 raw → 0 canonical subcategories
+[2025-11-25T20:16:16.170897+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Unknown: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.170981+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Product Question (7 conversations)
+[2025-11-25T20:16:16.171057+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Product Question using SubcategoryMapper...
+[2025-11-25T20:16:16.171116+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Product Question: Mapped 10 raw → 0 canonical subcategories
+[2025-11-25T20:16:16.171231+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Product Question: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.171314+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Feedback (1 conversations)
+[2025-11-25T20:16:16.171398+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Feedback using SubcategoryMapper...
+[2025-11-25T20:16:16.171506+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Feedback: Mapped 0 raw → 0 canonical subcategories
+[2025-11-25T20:16:16.171590+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Feedback: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.171656+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Partnerships (1 conversations)
+[2025-11-25T20:16:16.171717+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Partnerships using SubcategoryMapper...
+[2025-11-25T20:16:16.171775+00:00] 2025-11-25 20:16:16 - src.utils.subcategory_mapper - INFO - Partnerships: Mapped 1 raw → 1 canonical subcategories
+[2025-11-25T20:16:16.171854+00:00] 2025-11-25 20:16:16 - agents.SubTopicDetectionAgent - INFO -    ✅ Partnerships: Found 1 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T20:16:16.171924+00:00] ================================================================================
+[2025-11-25T20:16:16.171971+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T20:16:16.172021+00:00] Time: 12:16:16PM
+[2025-11-25T20:16:16.172090+00:00] ================================================================================
+[2025-11-25T20:16:16.172176+00:00] Context:
+[2025-11-25T20:16:16.172213+00:00]   tier1: Partnerships
+[2025-11-25T20:16:16.172245+00:00]   tier2: Affiliate
+[2025-11-25T20:16:16.172277+00:00]   sample_count: 1
+[2025-11-25T20:16:16.173370+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:16.173460+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T20:16:16.173529+00:00] │                                                                              │
+[2025-11-25T20:16:16.173590+00:00] │ TIER 1 TOPIC: Partnerships                                                   │
+[2025-11-25T20:16:16.173639+00:00] │ TIER 2 SUBCATEGORY: Affiliate                                                │
+[2025-11-25T20:16:16.173687+00:00] │                                                                              │
+[2025-11-25T20:16:16.173778+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T20:16:16.173843+00:00] │ 1. is there a way to share a gamm doc as a template so someone will be       │
+[2025-11-25T20:16:16.173904+00:00] │ prompted to create a free account to access a document that they can then    │
+[2025-11-25T20:16:16.173972+00:00] │ add to their own account and edit, or even like an entire                    │
+[2025-11-25T20:16:16.174024+00:00] │                                                                              │
+[2025-11-25T20:16:16.174078+00:00] │ TASK: Are these conversations truly about "Affiliate"?                       │
+[2025-11-25T20:16:16.174150+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T20:16:16.174215+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T20:16:16.174269+00:00] │ - If NO, suggest a better subcategory name from the Partnerships taxonomy    │
+[2025-11-25T20:16:16.174332+00:00] │                                                                              │
+[2025-11-25T20:16:16.174405+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T20:16:16.174462+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:17.260774+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.260939+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:17.261066+00:00] Tokens: 376 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T20:16:17.261399+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.262286+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:17.262509+00:00] │ 1. YES                                                                       │
+[2025-11-25T20:16:17.262594+00:00] │ 2. NO: Referral issue, suggest "Referral Program"                            │
+[2025-11-25T20:16:17.262712+00:00] │ 3. NO: Inquiry about charges, suggest "Payment Inquiry"                      │
+[2025-11-25T20:16:17.262800+00:00] │ 4. NO: General assistance request, suggest "General Inquiry"                 │
+[2025-11-25T20:16:17.262888+00:00] │ 5. YES                                                                       │
+[2025-11-25T20:16:17.263217+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:17.263337+00:00] 2025-11-25 20:16:17 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Refund: 1. YES
+[2025-11-25T20:16:17.263416+00:00] 2. NO: Referral issue, suggest "Referral Program"
+[2025-11-25T20:16:17.263490+00:00] 3. NO: Inquiry about charges, suggest "Payment Inquiry"
+[2025-11-25T20:16:17.263592+00:00] 4. NO: General assistance request, suggest "General Inquiry"
+[2025-11-25T20:16:17.263655+00:00] 5. YES
+[2025-11-25T20:16:17.263707+00:00] ❌ FAILED Tier 2: Refund
+[2025-11-25T20:16:17.263785+00:00]   LLM flagged as potentially incorrect: 1. YES
+[2025-11-25T20:16:17.263849+00:00] 2. NO: Referral issue, suggest "Referral Program"
+[2025-11-25T20:16:17.263906+00:00] 3. NO: Inquiry about charges, suggest "Payment Inquiry"
+[2025-11-25T20:16:17.263955+00:00] 4. NO: General assistance request, suggest "General Inquiry"
+[2025-11-25T20:16:17.263989+00:00] 5. YES
+[2025-11-25T20:16:17.268931+00:00] ================================================================================
+[2025-11-25T20:16:17.269054+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T20:16:17.269133+00:00] Time: 12:16:17PM
+[2025-11-25T20:16:17.269825+00:00] ================================================================================
+[2025-11-25T20:16:17.270061+00:00] Context:
+[2025-11-25T20:16:17.270208+00:00]   tier1: Billing
+[2025-11-25T20:16:17.270290+00:00]   tier2: Subscription
+[2025-11-25T20:16:17.270345+00:00]   sample_count: 5
+[2025-11-25T20:16:17.272445+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:17.272699+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T20:16:17.272793+00:00] │                                                                              │
+[2025-11-25T20:16:17.272878+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T20:16:17.272958+00:00] │ TIER 2 SUBCATEGORY: Subscription                                             │
+[2025-11-25T20:16:17.273035+00:00] │                                                                              │
+[2025-11-25T20:16:17.273107+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T20:16:17.273181+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T20:16:17.273267+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T20:16:17.273349+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T20:16:17.273423+00:00] │ 2. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T20:16:17.273492+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T20:16:17.273560+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T20:16:17.273631+00:00] │ 3. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T20:16:17.273745+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T20:16:17.274059+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T20:16:17.274403+00:00] │ 4. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T20:16:17.274505+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T20:16:17.274584+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T20:16:17.274660+00:00] │ 5. I am testing out your product and did not mean to do annua subscription.  │
+[2025-11-25T20:16:17.274741+00:00] │ Can you please refund me and I can sign up again?My invoice is attached      │
+[2025-11-25T20:16:17.274833+00:00] │ below. Thank you. I've chosen 'Billing' for 'Reason for                      │
+[2025-11-25T20:16:17.274906+00:00] │                                                                              │
+[2025-11-25T20:16:17.274980+00:00] │ TASK: Are these conversations truly about "Subscription"?                    │
+[2025-11-25T20:16:17.275057+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T20:16:17.275108+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T20:16:17.275156+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T20:16:17.275204+00:00] │                                                                              │
+[2025-11-25T20:16:17.275253+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T20:16:17.275299+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:17.448541+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.448686+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:17.448785+00:00] Tokens: 179 (~$0.0004) | Model: gpt-4o-mini
+[2025-11-25T20:16:17.449100+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.449666+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:17.449814+00:00] │ NO: The conversation is about sharing a document and creating accounts,      │
+[2025-11-25T20:16:17.450048+00:00] │ which does not relate to affiliate partnerships. A better subcategory name   │
+[2025-11-25T20:16:17.450126+00:00] │ could be "Document Sharing" or "Collaboration Tools."                        │
+[2025-11-25T20:16:17.450205+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:17.450415+00:00] 2025-11-25 20:16:17 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Affiliate: NO: The conversation is about sharing a document and creating accounts, which does not relate to affiliate partnerships. A better subcategory name could be "Document Sharing" or "Collaboration Tools."
+[2025-11-25T20:16:17.450500+00:00] ❌ FAILED Tier 2: Affiliate
+[2025-11-25T20:16:17.451170+00:00]   LLM flagged as potentially incorrect: NO: The conversation is about sharing a
+[2025-11-25T20:16:17.451254+00:00] document and creating accounts, which does not relate to affiliate partnerships.
+[2025-11-25T20:16:17.451325+00:00] A better subcategory name could be "Document Sharing" or "Collaboration Tools."
+[2025-11-25T20:16:17.738214+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.738380+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:17.738466+00:00] Tokens: 313 (~$0.0006) | Model: gpt-4o-mini
+[2025-11-25T20:16:17.738553+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:17.738657+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:17.738733+00:00] │ NO: The conversations do not specifically address issues related to font.    │
+[2025-11-25T20:16:17.738805+00:00] │ They discuss problems with document uploads, disabled links, and text        │
+[2025-11-25T20:16:17.738882+00:00] │ formatting in PowerPoint exports. A better subcategory name could be         │
+[2025-11-25T20:16:17.738976+00:00] │ "Document Formatting" or "Export Issues."                                    │
+[2025-11-25T20:16:17.739050+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:17.739218+00:00] 2025-11-25 20:16:17 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Font: NO: The conversations do not specifically address issues related to font. They discuss problems with document uploads, disabled links, and text formatting in PowerPoint exports. A better subcategory name could be "Document Formatting" or "Export Issues."
+[2025-11-25T20:16:17.739268+00:00] ❌ FAILED Tier 2: Font
+[2025-11-25T20:16:17.740350+00:00]   LLM flagged as potentially incorrect: NO: The conversations do not
+[2025-11-25T20:16:17.740456+00:00] specifically address issues related to font. They discuss problems with document
+[2025-11-25T20:16:17.740532+00:00] uploads, disabled links, and text formatting in PowerPoint exports. A better
+[2025-11-25T20:16:17.740593+00:00] subcategory name could be "Document Formatting" or "Export Issues."
+[2025-11-25T20:16:18.543988+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:18.544148+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:18.544677+00:00] Tokens: 390 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T20:16:18.544995+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:18.545799+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:18.545906+00:00] │ 1. YES                                                                       │
+[2025-11-25T20:16:18.546076+00:00] │ 2. NO: Referral issues are not directly related to subscriptions; a better   │
+[2025-11-25T20:16:18.546291+00:00] │ subcategory name could be "Referral Program."                                │
+[2025-11-25T20:16:18.546421+00:00] │ 3. YES                                                                       │
+[2025-11-25T20:16:18.546536+00:00] │ 4. NO: This conversation does not pertain to subscriptions; a better         │
+[2025-11-25T20:16:18.546622+00:00] │ subcategory name could be "General Inquiry."                                 │
+[2025-11-25T20:16:18.546730+00:00] │ 5. YES                                                                       │
+[2025-11-25T20:16:18.546813+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:18.546910+00:00] 2025-11-25 20:16:18 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Subscription: 1. YES
+[2025-11-25T20:16:18.547002+00:00] 2. NO: Referral issues are not directly related to subscriptions; a better subcategory name could be "Referral Program."
+[2025-11-25T20:16:18.547051+00:00] 3. YES
+[2025-11-25T20:16:18.547135+00:00] 4. NO: This conversation does not pertain to subscriptions; a better subcategory name could be "General Inquiry."
+[2025-11-25T20:16:18.547182+00:00] 5. YES
+[2025-11-25T20:16:18.547241+00:00] ❌ FAILED Tier 2: Subscription
+[2025-11-25T20:16:18.548043+00:00]   LLM flagged as potentially incorrect: 1. YES
+[2025-11-25T20:16:18.548408+00:00] 2. NO: Referral issues are not directly related to subscriptions; a better
+[2025-11-25T20:16:18.548541+00:00] subcategory name could be "Referral Program."
+[2025-11-25T20:16:18.548593+00:00] 3. YES
+[2025-11-25T20:16:18.548667+00:00] 4. NO: This conversation does not pertain to subscriptions; a better subcategory
+[2025-11-25T20:16:18.548720+00:00] name could be "General Inquiry."
+[2025-11-25T20:16:18.548763+00:00] 5. YES
+[2025-11-25T20:16:18.552106+00:00] ================================================================================
+[2025-11-25T20:16:18.552244+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T20:16:18.552472+00:00] Time: 12:16:18PM
+[2025-11-25T20:16:18.552791+00:00] ================================================================================
+[2025-11-25T20:16:18.552896+00:00] Context:
+[2025-11-25T20:16:18.553140+00:00]   tier1: Billing
+[2025-11-25T20:16:18.553202+00:00]   tier2: Discount
+[2025-11-25T20:16:18.553320+00:00]   sample_count: 5
+[2025-11-25T20:16:18.555649+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T20:16:18.555764+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T20:16:18.555836+00:00] │                                                                              │
+[2025-11-25T20:16:18.555908+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T20:16:18.555972+00:00] │ TIER 2 SUBCATEGORY: Discount                                                 │
+[2025-11-25T20:16:18.556029+00:00] │                                                                              │
+[2025-11-25T20:16:18.556086+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T20:16:18.556135+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T20:16:18.556183+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T20:16:18.556245+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T20:16:18.556408+00:00] │ 2. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T20:16:18.556486+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T20:16:18.556552+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T20:16:18.556602+00:00] │ 3. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T20:16:18.556651+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T20:16:18.556698+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T20:16:18.556746+00:00] │ 4. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T20:16:18.556793+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T20:16:18.556839+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T20:16:18.556903+00:00] │ 5. I am testing out your product and did not mean to do annua subscription.  │
+[2025-11-25T20:16:18.556955+00:00] │ Can you please refund me and I can sign up again?My invoice is attached      │
+[2025-11-25T20:16:18.557001+00:00] │ below. Thank you. I've chosen 'Billing' for 'Reason for                      │
+[2025-11-25T20:16:18.557058+00:00] │                                                                              │
+[2025-11-25T20:16:18.557123+00:00] │ TASK: Are these conversations truly about "Discount"?                        │
+[2025-11-25T20:16:18.557175+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T20:16:18.557229+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T20:16:18.557293+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T20:16:18.557348+00:00] │                                                                              │
+[2025-11-25T20:16:18.557395+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T20:16:18.557453+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:19.854517+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.854619+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T20:16:19.854724+00:00] Tokens: 363 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T20:16:19.855058+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.855525+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T20:16:19.855590+00:00] │ NO: The conversations primarily discuss issues related to charges,           │
+[2025-11-25T20:16:19.855645+00:00] │ cancellations, and refunds rather than discounts. A better subcategory name  │
+[2025-11-25T20:16:19.855709+00:00] │ could be "Charges and Refunds."                                              │
+[2025-11-25T20:16:19.855758+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T20:16:19.855857+00:00] 2025-11-25 20:16:19 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Discount: NO: The conversations primarily discuss issues related to charges, cancellations, and refunds rather than discounts. A better subcategory name could be "Charges and Refunds."
+[2025-11-25T20:16:19.856107+00:00] ❌ FAILED Tier 2: Discount
+[2025-11-25T20:16:19.858045+00:00]   LLM flagged as potentially incorrect: NO: The conversations primarily discuss
+[2025-11-25T20:16:19.858262+00:00] issues related to charges, cancellations, and refunds rather than discounts. A
+[2025-11-25T20:16:19.858344+00:00] better subcategory name could be "Charges and Refunds."
+[2025-11-25T20:16:19.858415+00:00] 2025-11-25 20:16:19 - agents.SubTopicDetectionAgent - INFO - SubTopicDetectionAgent: Completed in 3.71s
+[2025-11-25T20:16:19.858495+00:00] 2025-11-25 20:16:19 - agents.SubTopicDetectionAgent - INFO -    Tier 1 topics processed: 8
+[2025-11-25T20:16:19.858569+00:00] 2025-11-25 20:16:19 - agents.SubTopicDetectionAgent - INFO -    Coverage: 100.0% (50/50)
+[2025-11-25T20:16:19.858650+00:00] 2025-11-25 20:16:19 - agents.SubTopicDetectionAgent - INFO -    Total token count: 0
+[2025-11-25T20:16:19.858745+00:00] ✅ SubTopicDetectionAgent succeeded in 3.7s
+[2025-11-25T20:16:19.859348+00:00] 💥 SubTopicDetectionAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.859475+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.859779+00:00] Testing: ExampleExtractionAgent
+[2025-11-25T20:16:19.860068+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.860271+00:00] 2025-11-25 20:16:19 - agents.ExampleExtractionAgent - ERROR - ExampleExtractionAgent error: topic_conversations not provided
+[2025-11-25T20:16:19.860914+00:00] ❌ ExampleExtractionAgent failed: topic_conversations not provided
+[2025-11-25T20:16:19.861293+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.861824+00:00] Testing: FinPerformanceAgent
+[2025-11-25T20:16:19.862104+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.862303+00:00] 2025-11-25 20:16:19 - src.agents.fin_performance_agent - ERROR - FinPerformanceAgent error: No Fin conversations provided (expected 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T20:16:19.862937+00:00] ❌ FinPerformanceAgent failed: No Fin conversations provided (expected
+[2025-11-25T20:16:19.863050+00:00] 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T20:16:19.863545+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.863739+00:00] Testing: CorrelationAgent
+[2025-11-25T20:16:19.864115+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.864485+00:00] ❌ CorrelationAgent failed: None
+[2025-11-25T20:16:19.864917+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.865114+00:00] Testing: QualityInsightsAgent
+[2025-11-25T20:16:19.865432+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.865569+00:00] 2025-11-25 20:16:19 - src.agents.quality_insights_agent - INFO - Analyzing quality metrics across 50 conversations
+[2025-11-25T20:16:19.870428+00:00] 2025-11-25 20:16:19 - src.agents.quality_insights_agent - WARNING - Volume anomaly detection failed: unsupported operand type(s) for +: 'dict' and 'dict'
+[2025-11-25T20:16:19.871192+00:00] 2025-11-25 20:16:19 - src.agents.quality_insights_agent - WARNING - CSAT outlier detection failed: '<' not supported between instances of 'dict' and 'dict'
+[2025-11-25T20:16:19.871287+00:00] 2025-11-25 20:16:19 - src.agents.quality_insights_agent - WARNING - LLM enrichment failed: 'type'
+[2025-11-25T20:16:19.871385+00:00] ✅ QualityInsightsAgent succeeded in 0.0s
+[2025-11-25T20:16:19.872110+00:00] 💥 QualityInsightsAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.872391+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.872606+00:00] Testing: ChurnRiskAgent
+[2025-11-25T20:16:19.872914+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.873013+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - INFO - Scanning 50 conversations for churn signals
+[2025-11-25T20:16:19.875158+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.875985+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.876287+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877054+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877187+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877302+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877399+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877605+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.877959+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.878519+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.878955+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.879108+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.879366+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.879589+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.880181+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.880435+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881149+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881303+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881459+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881627+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881803+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.881937+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.882700+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.884941+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.885176+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.885328+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.885523+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.885690+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.885883+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886000+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886123+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886231+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886345+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886458+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886572+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886670+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886812+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886904+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.886994+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.887169+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.887331+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.887448+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.887538+00:00] 2025-11-25 20:16:19 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.888192+00:00] ✅ ChurnRiskAgent succeeded in 0.0s
+[2025-11-25T20:16:19.888689+00:00] 💥 ChurnRiskAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.888898+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.889186+00:00] Testing: ConfidenceMetaAgent
+[2025-11-25T20:16:19.889498+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T20:16:19.889627+00:00] 2025-11-25 20:16:19 - src.agents.confidence_meta_agent - WARNING - SegmentationAgent results not available for meta-analysis
+[2025-11-25T20:16:19.890107+00:00] 2025-11-25 20:16:19 - src.agents.confidence_meta_agent - INFO - Performing meta-analysis on 1 agents
+[2025-11-25T20:16:19.890256+00:00] 2025-11-25 20:16:19 - src.agents.confidence_meta_agent - WARNING - Limitations identification failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T20:16:19.890809+00:00] ✅ ConfidenceMetaAgent succeeded in 0.0s
+[2025-11-25T20:16:19.891481+00:00] 💥 ConfidenceMetaAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.891645+00:00] ================================================================================
+[2025-11-25T20:16:19.892094+00:00] ✅ AGENT TESTING COMPLETE
+[2025-11-25T20:16:19.892823+00:00] ================================================================================
+[2025-11-25T20:16:19.892962+00:00] Results: 0/7 agents passed
+[2025-11-25T20:16:19.893338+00:00]    💥 SubTopicDetectionAgent: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.893637+00:00]    ⚠️  ExampleExtractionAgent: topic_conversations not provided
+[2025-11-25T20:16:19.894330+00:00]    ⚠️  FinPerformanceAgent: No Fin conversations provided (expected
+[2025-11-25T20:16:19.894494+00:00] 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T20:16:19.894570+00:00]    ⚠️  CorrelationAgent: None
+[2025-11-25T20:16:19.894812+00:00]    💥 QualityInsightsAgent: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.895214+00:00]    💥 ChurnRiskAgent: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.895411+00:00]    💥 ConfidenceMetaAgent: 'str' object has no attribute 'value'
+[2025-11-25T20:16:19.896407+00:00] ✅ Agent testing complete!
+[2025-11-25T20:16:19.905284+00:00] 2025-11-25 20:16:19 - src.utils.agent_thinking_logger - INFO - Exported 410 events to /mnt/persistent/outputs/executions/sample-mode_Last-Week_nov-25-12-14pm/agent_thinking_Nov-25-2025_12-14PM.observability.json
+[2025-11-25T20:16:19.906088+00:00] 📊 Observability data exported (full thinking):
+[2025-11-25T20:16:19.906249+00:00] agent_thinking_Nov-25-2025_12-14PM.observability.json
+[2025-11-25T20:16:19.906331+00:00] Run: python scripts/analyze_observability.py
+[2025-11-25T20:16:19.906435+00:00] agent_thinking_Nov-25-2025_12-14PM.observability.json
+[2025-11-25T20:16:19.906530+00:00] This shows LLM failures, patterns, and agent performance
+[2025-11-25T20:16:19.906890+00:00] 🧠 Agent thinking log was captured during analysis
+[2025-11-25T20:16:19.907001+00:00] Check files for agent_thinking_*.log and *.observability.json
+[2025-11-25T20:16:19.907367+00:00] ✅ Sample mode complete!
+[2025-11-25T20:16:19.907486+00:00] Analyzed 50 conversations
+[2025-11-25T20:16:19.907729+00:00] Key Findings:
+[2025-11-25T20:16:19.907923+00:00]   Sal conversations: 50 (100.0%)
+[2025-11-25T20:16:19.908128+00:00]   Human admin: 0 (0.0%)
+[2025-11-25T20:16:19.908409+00:00]   With custom_attributes: 50 (100.0%)
+[2025-11-25T20:16:20.902960+00:00] [STATUS] [EXEC] Command completed successfully | Exit code: 0 | Duration: 117.06s | Output: 16627 lines

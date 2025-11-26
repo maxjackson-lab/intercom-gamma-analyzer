@@ -1,0 +1,31 @@
+{
+  "execution_id": "79d22360-7ea8-4863-b791-0911b689a231",
+  "command": "python",
+  "args": [
+    "src/main.py",
+    "sample-mode",
+    "--time-period",
+    "week",
+    "--save-to-file",
+    "--test-llm",
+    "--schema-mode",
+    "standard",
+    "--ai-model",
+    "openai",
+    "--test-all-agents",
+    "--show-agent-thinking",
+    "--llm-topic-detection"
+  ],
+  "status": "completed",
+  "start_time": "2025-11-13T20:26:23.868330",
+  "end_time": "2025-11-13T20:32:57.076240",
+  "error_message": null,
+  "return_code": 0,
+  "queue_position": null,
+  "gamma_metadata": null,
+  "audit_files": [],
+  "output_files": [
+    "sample-mode_Last-Week_nov-13-8-26pm"
+  ],
+  "output_count": 1000
+}

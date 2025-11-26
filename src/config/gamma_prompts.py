@@ -2,6 +2,7 @@
 Gamma presentation prompt templates for different styles and audiences.
 """
 
+import json
 from typing import Dict, List, Any, Optional
 
 
@@ -28,11 +29,20 @@ class GammaPrompts:
         - Clear action items
         """
         
+        top_category = {'name': 'N/A', 'count': 0, 'percentage': 0.0}
+        if top_issues:
+            first_issue = top_issues[0]
+            top_category = {
+                'name': first_issue.get('name', 'N/A'),
+                'count': first_issue.get('count', 0),
+                'percentage': float(first_issue.get('percentage', 0.0))
+            }
+
         # Build executive summary with insights focus
         executive_summary = f"""We analyzed {conversation_count:,} customer conversations from {start_date} to {end_date} and identified critical patterns requiring immediate executive attention.
 
 **Key Business Insights:**
-• **Volume Pattern:** {len(top_issues)} primary issue categories are driving support volume, with the top category representing {top_issues[0]['percentage']:.1f}% of all conversations
+• **Volume Pattern:** {len(top_issues)} primary issue categories are driving support volume, with **{top_category['name']}** representing {top_category['percentage']:.1f}% of all conversations
 • **Sentiment Trend:** Customer satisfaction shows {key_metrics.get('sentiment_trend', 'mixed results')} - this indicates {'positive momentum' if 'positive' in str(key_metrics.get('sentiment_trend', '')).lower() else 'areas needing attention'}
 • **Escalation Insight:** {key_metrics.get('escalation_rate', 15.2):.1f}% of conversations require escalation, suggesting {'efficient frontline resolution' if key_metrics.get('escalation_rate', 15.2) < 20 else 'potential training or process gaps'}
 • **Business Impact:** Estimated cost impact of ${key_metrics.get('estimated_cost_impact', 'TBD')} - this represents {'manageable operational cost' if 'TBD' in str(key_metrics.get('estimated_cost_impact', 'TBD')) else 'significant financial opportunity'}"""
@@ -47,9 +57,15 @@ class GammaPrompts:
 [View conversation]({customer_quotes[0]['intercom_url']})
 
 **What This Tells Us:** This quote represents a common theme across {len(customer_quotes)} key customer interactions. The underlying pattern suggests {'customers are experiencing' if 'problem' in customer_quotes[0]['quote'].lower() or 'issue' in customer_quotes[0]['quote'].lower() else 'customers are expressing'} {'frustration with' if 'frustrat' in customer_quotes[0]['quote'].lower() else 'satisfaction with'} {'product functionality' if 'product' in customer_quotes[0]['quote'].lower() else 'service quality'}. This insight points to {'immediate product improvements needed' if 'problem' in customer_quotes[0]['quote'].lower() else 'successful customer experience delivery'}."""
+        else:
+            customer_voice = (
+                "**Customer Voice:** Representative customer quotes will be included when available "
+                "from the analysis.\n\n"
+                "Note: Quote extraction is in progress. Future presentations will include direct "
+                "customer feedback."
+            )
         
         # Build insights-focused analysis
-        top_category = top_issues[0] if top_issues else {'name': 'N/A', 'count': 0, 'percentage': 0}
         metrics_table = f"""**Support Volume Insights:**
 
 **Primary Focus Area:** {top_category['name']} represents {top_category['percentage']:.1f}% of all support volume ({top_category['count']} conversations). This concentration suggests {'a systemic issue requiring immediate attention' if top_category['percentage'] > 30 else 'a manageable distribution of support topics'}.
@@ -206,8 +222,11 @@ Create an executive briefing presentation that tells the story of what our custo
         
         # Build customer quotes section
         customer_quotes_section = "**Customer Voice - Key Feedback:**\n\n"
-        for i, quote in enumerate(customer_quotes[:4], 1):
-            customer_quotes_section += f"""**Quote {i}:**
+        if not customer_quotes:
+            customer_quotes_section += "Customer quotes will be extracted from conversation data in future analysis runs.\n\n"
+        else:
+            for i, quote in enumerate(customer_quotes[:4], 1):
+                customer_quotes_section += f"""**Quote {i}:**
 "{quote['quote']}"
 *{quote['customer_name']} - {quote['context']}*
 [View conversation]({quote['intercom_url']})
@@ -423,8 +442,14 @@ Create an executive briefing presentation that tells the story of what our custo
         
         # Build customer voice examples
         customer_voice_training = "**Real Customer Examples:**\n\n"
-        for i, quote in enumerate(customer_quotes[:4], 1):
-            customer_voice_training += f"""**Example {i}:**
+        if not customer_quotes:
+            customer_voice_training += (
+                "Customer conversation examples will be extracted from actual support interactions "
+                "to provide practical training scenarios."
+            )
+        else:
+            for i, quote in enumerate(customer_quotes[:4], 1):
+                customer_voice_training += f"""**Example {i}:**
 **Customer:** "{quote['quote']}"
 **Context:** {quote['context']}
 **Resolution:** {quote.get('resolution', 'Issue resolved through step-by-step guidance')}
@@ -660,7 +685,10 @@ Practice: Show empathy, escalate appropriately, ensure follow-up"""
         return default_counts.get(style, 12)
     
     @staticmethod
-    def get_additional_instructions_for_style(style: str) -> str:
+    def get_additional_instructions_for_style(
+        style: str,
+        chart_data: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Get style-specific additional instructions for Gamma."""
         instructions = {
             "executive": """Create an executive briefing that feels like a trusted advisor sharing insights, not a formal corporate presentation.
@@ -703,7 +731,13 @@ AVOID:
 - Only use conversation links that are explicitly provided in the input data
 - NEVER bury links in paragraphs - they must stand out
 
-GOAL: Create a presentation that executives will actually want to read and that drives meaningful action.""",
+GOAL: Create a presentation that executives will actually want to read and that drives meaningful action.
+
+QUALITY ASSESSMENT CRITERIA:
+- Narrative Flow: Tell a coherent story with smooth transitions and a clear beginning, middle, and end.
+- Insight Depth: Deliver actionable, specific insights that go beyond surface-level summaries.
+- Data Grounding: Back every claim with provided analysis outputs—never invent statistics or links.
+- Executive Appeal: Maintain a concise, high-impact tone that highlights strategic implications.""",
             "detailed": """Create a comprehensive operational analysis that helps teams understand what's really happening with customer support.
 
 TONE & APPROACH:
@@ -733,7 +767,13 @@ INTERCOM LINKS - CRITICAL FORMATTING:
 - Add visual indicators (→, 🔗, 📎) to make links stand out
 - Ensure links are blue/underlined in the final presentation
 
-IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.""",
+IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.
+
+QUALITY ASSESSMENT CRITERIA:
+- Narrative Flow: Sequence findings logically so operational teams can follow the investigation.
+- Insight Depth: Provide granular metrics, trend analysis, and concrete examples for every claim.
+- Data Grounding: Cite the exact figures, timeframes, or conversations from the supplied analysis.
+- Executive Appeal: Translate operational detail into business impact so leaders understand the stakes.""",
             "training": """Create an engaging learning experience that helps support teams improve their skills and understanding.
 
 TONE & APPROACH:
@@ -763,9 +803,76 @@ INTERCOM LINKS - CRITICAL FORMATTING:
 - Add visual indicators (→, 🔗, 📎) to make links stand out
 - Ensure links are blue/underlined in the final presentation
 
-IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs."""
+IMPORTANT: Only use conversation links that are explicitly provided in the input data - do not invent or create fake Intercom URLs.
+
+QUALITY ASSESSMENT CRITERIA:
+- Narrative Flow: Organize modules so each learning concept builds naturally on the previous one.
+- Insight Depth: Explain the "why" behind best practices with concrete, data-backed scenarios.
+- Data Grounding: Base every example, quote, or metric on the provided analysis—no hypotheticals.
+- Executive Appeal: Connect improved training to measurable outcomes (CSAT, efficiency, retention)."""
         }
-        return instructions.get(style, "Create a professional presentation with clear structure and engaging visuals.")
+        base_instructions = instructions.get(style, "Create a professional presentation with clear structure and engaging visuals.")
+
+        if not chart_data:
+            return base_instructions
+
+        chart_instructions = GammaPrompts._build_chart_instructions(chart_data)
+        if not chart_instructions:
+            return base_instructions
+
+        combined = f"{base_instructions}\n\n{chart_instructions}"
+        if len(combined) <= 2000:
+            return combined
+
+        buffer = 2000 - len(base_instructions) - 50
+        if buffer <= 100:
+            return base_instructions
+
+        truncated_chart = chart_instructions[:buffer].rstrip()
+        return f"{base_instructions}\n\n{truncated_chart}..."
+
+    @staticmethod
+    def _build_chart_instructions(chart_data: Dict[str, Any]) -> str:
+        """Build dynamic chart instructions from structured data."""
+        if not chart_data:
+            return ""
+
+        instructions = [
+            "DATA VISUALIZATION INSTRUCTIONS:",
+            "Use the following data to create dynamic charts. Do NOT hardcode axes or styling—let the data drive the visualization.\n"
+        ]
+
+        category_chart = chart_data.get('category_chart')
+        if isinstance(category_chart, dict):
+            instructions.append(
+                "CHART 1 - {title}:\nType: {chart_type}\nData: {data}\nDynamically plot this data with appropriate axes and labels. Choose colors that fit the presentation theme.\n".format(
+                    title=category_chart.get('title', 'Support Volume by Category'),
+                    chart_type=category_chart.get('type', 'bar'),
+                    data=json.dumps({
+                        'labels': category_chart.get('labels', []),
+                        'values': category_chart.get('values', [])
+                    })
+                )
+            )
+
+        sentiment_chart = chart_data.get('sentiment_chart')
+        if isinstance(sentiment_chart, dict):
+            instructions.append(
+                "CHART 2 - {title}:\nType: {chart_type}\nData: {data}\nDynamically plot this data with appropriate labels and percentages. Use colors that reinforce sentiment (e.g., green for positive).\n".format(
+                    title=sentiment_chart.get('title', 'Sentiment Distribution'),
+                    chart_type=sentiment_chart.get('type', 'pie'),
+                    data=json.dumps({
+                        'labels': sentiment_chart.get('labels', []),
+                        'values': sentiment_chart.get('values', [])
+                    })
+                )
+            )
+
+        if len(instructions) == 2:
+            return ""
+
+        instructions.append("IMPORTANT: Generate these charts dynamically based on the provided data. Do not invent numbers or use fixed styling.")
+        return "\n".join(instructions)
 
 
 

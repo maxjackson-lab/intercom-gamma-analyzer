@@ -251,6 +251,7 @@ class GammaGenerator:
         title: Optional[str] = None,
         num_cards: Optional[int] = None,
         theme_name: Optional[str] = None,
+        additional_instructions: Optional[str] = None,
         export_format: Optional[str] = None,
         output_dir: Optional[Path] = None
     ) -> Dict[str, Any]:
@@ -282,7 +283,9 @@ class GammaGenerator:
             input_length=len(input_text),
             num_cards=num_cards if num_cards is not None else "auto",
             theme=theme_name,
-            export_format=export_format
+            export_format=export_format,
+            has_additional_instructions=bool(additional_instructions),
+            instructions_length=len(additional_instructions) if additional_instructions else 0
         )
 
         start_time = time.time()
@@ -314,6 +317,12 @@ class GammaGenerator:
                     num_cards = 25
                 self.logger.info(f"Auto-calculated slide count: {num_cards}")
             
+            if additional_instructions and len(additional_instructions) > 1800:
+                self.logger.warning(
+                    "gamma_markdown_generation_instructions_near_limit",
+                    instructions_length=len(additional_instructions)
+                )
+
             # Generate presentation with markdown preservation
             generation_id = await self.client.generate_presentation(
                 input_text=input_text,
@@ -322,7 +331,8 @@ class GammaGenerator:
                 text_mode="preserve",  # Preserve markdown formatting
                 card_split="inputTextBreaks",  # Use --- for slide breaks
                 theme_name=theme_name,
-                export_as=export_format
+                export_as=export_format,
+                additional_instructions=additional_instructions
             )
             
             # Poll for completion
@@ -355,7 +365,8 @@ class GammaGenerator:
                 generation_id=generation_id,
                 gamma_url=result.get('gammaUrl'),
                 credits_used=result.get('credits', {}).get('deducted', 0),
-                total_time_seconds=elapsed
+                total_time_seconds=elapsed,
+                had_additional_instructions=bool(additional_instructions)
             )
             
             return response

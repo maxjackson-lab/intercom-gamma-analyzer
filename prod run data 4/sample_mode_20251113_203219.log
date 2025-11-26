@@ -1,0 +1,2512 @@
+
+================================================================================
+📊 FIELD COVERAGE ANALYSIS
+================================================================================
+
+                    Field Coverage                    
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+┃ Field                 ┃ Present ┃ Missing ┃ %      ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+│ id                    │ 200     │ 0       │ 100.0% │
+│ created_at            │ 200     │ 0       │ 100.0% │
+│ updated_at            │ 200     │ 0       │ 100.0% │
+│ state                 │ 200     │ 0       │ 100.0% │
+│ priority              │ 200     │ 0       │ 100.0% │
+│ ai_agent_participated │ 200     │ 0       │ 100.0% │
+│ ai_agent              │ 200     │ 0       │ 100.0% │
+│ custom_attributes     │ 200     │ 0       │ 100.0% │
+│ tags                  │ 200     │ 0       │ 100.0% │
+│ topics                │ 200     │ 0       │ 100.0% │
+│ conversation_parts    │ 200     │ 0       │ 100.0% │
+│ source                │ 200     │ 0       │ 100.0% │
+│ statistics            │ 200     │ 0       │ 100.0% │
+│ contacts              │ 200     │ 0       │ 100.0% │
+│ admin_assignee_id     │ 197     │ 3       │ 98.5%  │
+│ conversation_rating   │ 178     │ 22      │ 89.0%  │
+│ tier                  │ 0       │ 200     │ 0.0%   │
+│ assignee              │ 0       │ 200     │ 0.0%   │
+└───────────────────────┴─────────┴─────────┴────────┘
+
+================================================================================
+🔍 CUSTOM ATTRIBUTES DEEP DIVE
+================================================================================
+
+Total conversations with custom_attributes: 200 (100.0%)
+Unique attribute keys: 26
+
+                         Custom Attribute Keys (Top 20)                         
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Key                          ┃ Count ┃ %      ┃ Sample Values                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Has attachments              │ 200   │ 100.0% │ True, False                  │
+│ Imported via standalone      │ 200   │ 100.0% │ False                        │
+│ Auto-translated              │ 200   │ 100.0% │ False, True                  │
+│ Fin AI Agent: Preview        │ 200   │ 100.0% │ False                        │
+│ Copilot used                 │ 200   │ 100.0% │ False, True                  │
+│ Language                     │ 194   │ 97.0%  │ English, Brazilian           │
+│                              │       │        │ Portuguese, Korean           │
+│ Fin AI Agent resolution      │ 189   │ 94.5%  │ Routed to team, Assumed      │
+│ state                        │       │        │ Resolution, Confirmed        │
+│                              │       │        │ Resolution                   │
+│ CX Score rating              │ 147   │ 73.5%  │ 1, 2, 4                      │
+│ CX Score explanation         │ 147   │ 73.5%  │ The customer experienced     │
+│                              │       │        │ stron, The customer          │
+│                              │       │        │ encountered a pub, The       │
+│                              │       │        │ customer experienced recur   │
+│ Reason for contact           │ 117   │ 58.5%  │ Unknown/Unresponsive,        │
+│                              │       │        │ Product Question, Billing    │
+│ Billing                      │ 72    │ 36.0%  │ Refund, Subscription ,       │
+│                              │       │        │ Per-member billing           │
+│ Refund                       │ 48    │ 24.0%  │ Given , Denied               │
+│ Given Reason                 │ 42    │ 21.0%  │ Reason unknown, Confused     │
+│                              │       │        │ annual with monthly,         │
+│                              │       │        │ Subscribed by mistake        │
+│ Subscription                 │ 21    │ 10.5%  │ Manage, Cancel, Educator     │
+│                              │       │        │ discount                     │
+│ Bug                          │ 13    │ 6.5%   │ Cards, Account, AI images    │
+│ Product Question             │ 11    │ 5.5%   │ Workspace, Sites, Embeds     │
+│ Fin AI Agent: Fin workflow   │ 8     │ 4.0%   │ True                         │
+│ used                         │       │        │                              │
+│ Invoice                      │ 5     │ 2.5%   │ Update invoice               │
+│ User Sentiment               │ 3     │ 1.5%   │ Yellow                       │
+│ Workspace                    │ 3     │ 1.5%   │ Manage members               │
+└──────────────────────────────┴───────┴────────┴──────────────────────────────┘
+
+================================================================================
+📈 CONVERSATION STATISTICS (All 50)
+================================================================================
+
+State Distribution:
+  closed: 196 (98.0%)
+  open: 3 (1.5%)
+  snoozed: 1 (0.5%)
+
+Text Length (source.body only):
+  Min: 662 chars
+  Avg: 4532 chars
+  Max: 24687 chars
+
+Conversation Parts Count:
+  Min: 9
+  Avg: 36.3
+  Max: 130
+
+AI Agent (Fin) Participation:
+  Participated: 200/200 (100.0%)
+
+AI Resolution States:
+  routed_to_team: 105
+  assumed_resolution: 81
+  unknown: 11
+  confirmed_resolution: 3
+
+================================================================================
+👤 AGENT ATTRIBUTION ANALYSIS
+================================================================================
+
+                            Agent Attribution                             
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Agent Type           ┃ Count ┃ %      ┃ Note                           ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Support Sal (Fin AI) │ 200   │ 100.0% │ ✅ Should be ~75% if fix works │
+│ Human Admin          │ 0     │ 0.0%   │ ✅ Should be ~25%              │
+│ Bot (No Sal)         │ 0     │ 0.0%   │ Old Fin format                 │
+│ No Admin Response    │ 0     │ 0.0%   │ User-only messages             │
+└──────────────────────┴───────┴────────┴────────────────────────────────┘
+
+Sample Sal Conversation:
+  Name: Kael
+  Email: ebenitez@boldrimpact.com
+  Type: admin
+
+================================================================================
+🎯 TOPIC DETECTION SUMMARY (All 50)
+Keyword matching across all conversations
+================================================================================
+
+      Topic Detection (Production Agent - Shows ALL Matches)      
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Topic                ┃ Matched ┃ %     ┃ Top Keywords          ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Billing              │ 98      │ 49.0% │ (none)                │
+│ Bug                  │ 38      │ 19.0% │ (none)                │
+│ Account              │ 26      │ 13.0% │ (none)                │
+│ Workspace            │ 25      │ 12.5% │ (none)                │
+│ Promotions           │ 4       │ 2.0%  │ (none)                │
+│ Unknown/unresponsive │ 4       │ 2.0%  │ (none)                │
+│ Privacy              │ 3       │ 1.5%  │ (none)                │
+│ Chargeback           │ 2       │ 1.0%  │ (none)                │
+│ Unknown/No Match     │ 0       │ 0.0%  │ (no keywords matched) │
+└──────────────────────┴─────────┴───────┴───────────────────────┘
+
+================================================================================
+📋 ALL 50 CONVERSATIONS (Quick Overview)
+================================================================================
+
+┏┳━━━━━━━━━━━━┳━━━━┳━┳┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃┃ ID         ┃ S… ┃ ┃┃ Reason for Contact ┃ Text Preview                      ┃
+┡╇━━━━━━━━━━━━╇━━━━╇━╇╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+││ 471650058… │ c… │ ││ Unknown/Unresponsi │ I have been having a completely   │
+││            │    │ ││ ve                 │ unacceptable experience with...   │
+││ 471650812… │ c… │ ││ Unknown/Unresponsi │ hello Hello! How can I assist you │
+││            │    │ ││ ve                 │ today? i can not able to p...     │
+││ 471652015… │ c… │ ││ Product Question   │ Hoje pela manhã a plataforma      │
+││            │    │ ││                    │ estava funcional novamente,       │
+││            │    │ ││                    │ uti...                            │
+││ 471651769… │ c… │ ││ Unknown/Unresponsi │ Boa noite Good night –––          │
+││            │    │ ││ ve                 │ Translated by Lokalise Messages​   │
+││            │    │ ││                    │ Th...                             │
+││ 471650451… │ c… │ ││ Unknown/Unresponsi │ Where can I find my analytics for │
+││            │    │ ││ ve                 │ my published site​ Gamma s...      │
+││ 471651595… │ c… │ ││ Billing            │ 환불을 원합니다 i want a refund   │
+││            │    │ ││                    │ ––– Translated by Lokalise        │
+││            │    │ ││                    │ Messages...                       │
+││ 471652098… │ c… │ ││ Unknown/Unresponsi │ I am unable to download my        │
+││            │    │ ││ ve                 │ presentation into powerpoint or   │
+││            │    │ ││                    │ g...                              │
+││ 471651354… │ c… │ ││ Billing            │ Dear Support Team, I would like   │
+││            │    │ ││                    │ to cancel my subscription. I...   │
+││ 471650444… │ c… │ ││ Billing            │ hi I wanted to buy subscription   │
+││            │    │ ││                    │ for 1 month but accidently i...   │
+││ 471650566… │ c… │ ││ Billing            │ Hello I was charged 180 for gamma │
+││            │    │ ││                    │ but I canceled my subscrip...     │
+││ 471651072… │ c… │ ││ Bug                │ How do I control card sizes and   │
+││            │    │ ││                    │ adjust page setups? How to a...   │
+││ 471651545… │ c… │ ││ Billing            │ Asunto: Seguimiento sobre         │
+││            │    │ ││                    │ devolución de dinero bloqueado    │
+││            │    │ ││                    │ Est...                            │
+││ 471651993… │ c… │ ││ Bug                │ Sou assinante Gamma, mas não      │
+││            │    │ ││                    │ estou conseguindo acessar o       │
+││            │    │ ││                    │ sit...                            │
+││ 471650754… │ c… │ ││ Product Question   │ Neither of my sites are           │
+││            │    │ ││                    │ publishing. When i go to either   │
+││            │    │ ││                    │ doma...                           │
+││ 471651960… │ c… │ ││ Billing            │ 실수로 3000크레딧을               │
+││            │    │ ││                    │ 구매해버렸는데 카드로 자동결제가  │
+││            │    │ ││                    │ 되었습니다. 구매를 취소할 수      │
+││            │    │ ││                    │ 있을까요? i acci...               │
+││ 471652055… │ c… │ ││ Billing            │ Refund please Here is Gamma's     │
+││            │    │ ││                    │ refund policy​​Annual PlanWith...   │
+││ 471651464… │ c… │ ││ Billing            │ Oi queria saber se posso ter      │
+││            │    │ ││                    │ reembolso se eu cancelar          │
+││            │    │ ││                    │ depois...                         │
+││ 471651463… │ c… │ ││ Billing            │ Hello Gamma.app Team, I recently  │
+││            │    │ ││                    │ subscribed to your platform...    │
+││ 471651525… │ c… │ ││ Billing            │ Asunto: Seguimiento sobre         │
+││            │    │ ││                    │ devolución de dinero bloqueado    │
+││            │    │ ││                    │ Est...                            │
+││ 471651403… │ c… │ ││ Billing            │ Cancel subsription To manage your │
+││            │    │ ││                    │ billing info, you can use ...     │
+││ 471650351… │ c… │ ││ Billing            │ Dobrý den, omylem jsem nechal     │
+││            │    │ ││                    │ zapnuté automatické prodlužová... │
+││ 471651425… │ c… │ ││ Billing            │ Refund Here is Gamma's refund     │
+││            │    │ ││                    │ policy​​Annual PlanWithin the ...   │
+││ 471650184… │ c… │ ││ Product Question   │ I just created a landing page,    │
+││            │    │ ││                    │ and I'll like to integrate it...  │
+││ 471651022… │ c… │ ││ Billing            │ how do I cancel my membership​ To  │
+││            │    │ ││                    │ manage your billing info, ...     │
+││ 471650449… │ c… │ ││ Billing            │ Estimados por favor si ayuda para │
+││            │    │ ││                    │ cancelar la suscripción de...     │
+││ 471650320… │ c… │ ││ Billing            │ Hello,I accidentally subscribed   │
+││            │    │ ││                    │ today (November 6th) to the ...   │
+││ 471650355… │ c… │ ││ Billing            │ do you've discounts for students  │
+││            │    │ ││                    │ or teachers ? Currently, we...    │
+││ 471650186… │ c… │ ││ Billing            │ give me my money back Here is     │
+││            │    │ ││                    │ Gamma's refund policy​​Annual ...   │
+││ 471651486… │ c… │ ││ Bug                │ how do I get a photo to be        │
+││            │    │ ││                    │ formatted to fit To format a      │
+││            │    │ ││                    │ phot...                           │
+││ 471650811… │ c… │ ││ -                  │ comment enregistre la             │
+││            │    │ ││                    │ presentation ppt how to save a    │
+││            │    │ ││                    │ ppt pre...                        │
+││ 471652039… │ c… │ ││ -                  │ How do I use toggles, nested      │
+││            │    │ ││                    │ cards, and footnotes              │
+││            │    │ ││                    │ effectivel...                     │
+││ 471651760… │ c… │ ││ -                  │ Hello, I’m interested in creating │
+││            │    │ ││                    │ or generating the followin...     │
+││ 471651690… │ c… │ ││ -                  │ Would you please cancel the       │
+││            │    │ ││                    │ account and refund the money? I   │
+││            │    │ ││                    │ ...                               │
+││ 471651496… │ c… │ ││ -                  │ Sehr geehrte Damen und            │
+││            │    │ ││                    │ Herrn.Hiermit kündige ich mein    │
+││            │    │ ││                    │ Abo zu...                         │
+││ 471651425… │ c… │ ││ -                  │ Hello, I have activated my        │
+││            │    │ ││                    │ subscription but would like to    │
+││            │    │ ││                    │ ha...                             │
+││ 471652090… │ c… │ ││ -                  │ 有料をやめたい I want to stop     │
+││            │    │ ││                    │ paying. ––– Translated by         │
+││            │    │ ││                    │ Lokalise Me...                    │
+││ 471652070… │ c… │ ││ -                  │ Cancelar​ The conversation         │
+││            │    │ ││                    │ language could not be detected.   │
+││            │    │ ││                    │ I...                              │
+││ 471652045… │ c… │ ││ -                  │ Hello I have a Gamma paid         │
+││            │    │ ││                    │ subscription on my iPhone, and I  │
+││            │    │ ││                    │ h...                              │
+││ 471652005… │ c… │ ││ -                  │ Como exporto do celular para      │
+││            │    │ ││                    │ pasta How do I export from        │
+││            │    │ ││                    │ mobi...                           │
+││ 471651004… │ c… │ ││ -                  │ Por este medio les pido que me    │
+││            │    │ ││                    │ confirmen la cancelación de g...  │
+││ 471651005… │ c… │ ││ -                  │ hi dear i wanna cancel to pay     │
+││            │    │ ││                    │ monthy please i couldn’t find ... │
+││ 471651999… │ c… │ ││ -                  │ Cancelar conta Cancel account ––– │
+││            │    │ ││                    │ Translated by Lokalise Mes...     │
+││ 471651946… │ c… │ ││ -                  │ no puedo agregar una imagen me    │
+││            │    │ ││                    │ sale error i can't add an ima...  │
+││ 471651984… │ c… │ ││ -                  │ Hi the linkedin widget is not     │
+││            │    │ ││                    │ very helpful as i cannot put i... │
+││ 471651966… │ c… │ ││ -                  │ Turkceye cevir Translate to       │
+││            │    │ ││                    │ Turkish ––– Translated by         │
+││            │    │ ││                    │ Lokali...                         │
+││ 471651951… │ c… │ ││ -                  │ My presentations keep coming up   │
+││            │    │ ││                    │ as needing to be duplicated ...   │
+││ 471650777… │ c… │ ││ -                  │ HelloNonits bot correct since I   │
+││            │    │ ││                    │ have shared i formazion it s...   │
+││ 471651968… │ c… │ ││ -                  │ How can I create a new            │
+││            │    │ ││                    │ presentation and upload a file To │
+││            │    │ ││                    │ cre...                            │
+││ 471651969… │ c… │ ││ -                  │ How to hook up gamma on Google tv │
+││            │    │ ││                    │ To display your Gamma on G...     │
+││ 471651960… │ c… │ ││ -                  │ no puedo hacer mi pago i cannot   │
+││            │    │ ││                    │ make my payment ––– Translat...   │
+││ 471651879… │ c… │ ││ -                  │ １年経過後の更新は自動継続になり  │
+││            │    │ ││                    │ ますか？ Will renewal after one   │
+││            │    │ ││                    │ year be automati...               │
+││ 471651939… │ c… │ ││ -                  │ what. size is the logo There are  │
+││            │    │ ││                    │ different logo size recomme...    │
+││ 471651905… │ c… │ ││ -                  │ Howdo I change my email?          │
+││            │    │ ││                    │ Normally, if you're on a free     │
+││            │    │ ││                    │ plan ...                          │
+││ 471651859… │ c… │ ││ -                  │ كيف يمكنني اضافة تسجيل صوتي في    │
+││            │    │ ││                    │ العرض التقديمي how do I add a...  │
+││ 471651872… │ c… │ ││ -                  │ where can I find your TOS? I’m    │
+││            │    │ ││                    │ sorry, but I couldn’t find an...  │
+││ 471651853… │ c… │ ││ -                  │ Gostaria de alterar o meu email.  │
+││            │    │ ││                    │ I'd like to change my email...    │
+││ 471651856… │ c… │ ││ -                  │ como puedo cambiar mi clave, how  │
+││            │    │ ││                    │ can I change my password, –...    │
+││ 471650656… │ c… │ ││ -                  │ How can I generate a chart in     │
+││            │    │ ││                    │ Gamma? How to add and customis... │
+││ 471650418… │ c… │ ││ -                  │ Merci. Tout est rentré dans       │
+││            │    │ ││                    │ l’ordre. J’ai renouveau accès à   │
+││            │    │ ││                    │ ...                               │
+││ 471650732… │ c… │ ││ -                  │ Estimado equipo gamma Por favor   │
+││            │    │ ││                    │ acaban de realizarme el cobr...   │
+││ 471651667… │ c… │ ││ -                  │ オートチャージの設定はどこですか  │
+││            │    │ ││                    │ ？ Where is the auto-charge       │
+││            │    │ ││                    │ setting? ––– Tran...              │
+││ 471651653… │ c… │ ││ -                  │ How do I undo something I did You │
+││            │    │ ││                    │ can undo actions in Gamma ...     │
+││ 471651636… │ c… │ ││ -                  │ I've just upgraded to pro but it  │
+││            │    │ ││                    │ won't let me add a logo and...    │
+││ 471651598… │ c… │ ││ -                  │ Ich bearbeite gerade eine         │
+││            │    │ ││                    │ Präsentation und bekomme die      │
+││            │    │ ││                    │ Meldu...                          │
+││ 471651593… │ c… │ ││ -                  │ I just subscribed to be able to   │
+││            │    │ ││                    │ upload my presentation and f...   │
+││ 471651578… │ c… │ ││ -                  │ طريقة توقف الاشتراك how to stop   │
+││            │    │ ││                    │ subscribing ––– Translated b...   │
+││ 471651543… │ c… │ ││ -                  │ Two questions: I would like for   │
+││            │    │ ││                    │ another teacher (or maybe tw...   │
+││ 471651181… │ c… │ ││ -                  │ 年払いの引き落としはありましたが  │
+││            │    │ ││                    │ 契約は解除になってますか？そのま  │
+││            │    │ ││                    │ ま年契約は可能でしょうか？ I have │
+││            │    │ ││                    │ receive...                        │
+││ 471651561… │ c… │ ││ -                  │ oi hi ––– Translated by Lokalise  │
+││            │    │ ││                    │ Messages​ This conversation...     │
+││ 471651563… │ c… │ ││ -                  │ can you import several            │
+││            │    │ ││                    │ presentations into one Yes, you   │
+││            │    │ ││                    │ can c...                          │
+││ 471651552… │ c… │ ││ -                  │ Хочу удалить аккаунт, как это     │
+││            │    │ ││                    │ можно сделать? I want to delet... │
+││ 471651525… │ c… │ ││ -                  │ how do i extend the slides past   │
+││            │    │ ││                    │ 10 slides You can add unlimi...   │
+││ 471651414… │ c… │ ││ -                  │ why is my Html code not working   │
+││            │    │ ││                    │ in the code insert? HTML cod...   │
+││ 471651497… │ c… │ ││ -                  │ i have always loved gamma but im  │
+││            │    │ ││                    │ so dissapointed how the ima...    │
+││ 471651483… │ c… │ ││ -                  │ tienen una app de escritorio? do  │
+││            │    │ ││                    │ you have a desktop app? –––...    │
+││ 471651444… │ c… │ ││ -                  │ Hola buenas tardes...tendrán un   │
+││            │    │ ││                    │ cupón de descuento mensual? ...   │
+││ 471651375… │ c… │ ││ -                  │ НЕ можу експортувати у пдф. Пише  │
+││            │    │ ││                    │ помилку завантаження I can'...    │
+││ 471651448… │ c… │ ││ -                  │ cancel my subscription To manage  │
+││            │    │ ││                    │ your billing info, you can ...    │
+││ 471651388… │ c… │ ││ -                  │ How do I get a copy of my payment │
+││            │    │ ││                    │ receipt? To get a copy of ...     │
+││ 471651376… │ c… │ ││ -                  │ cómo puedo copiar un módulo en    │
+││            │    │ ││                    │ otro documento de gamma? how ...  │
+││ 471651239… │ c… │ ││ -                  │ I would like to cancel my         │
+││            │    │ ││                    │ membership ​ To manage your        │
+││            │    │ ││                    │ billin...                         │
+││ 471651260… │ c… │ ││ -                  │ pudo aser que me agas un proyecto │
+││            │    │ ││                    │ could you do a project for...     │
+││ 471651241… │ c… │ ││ -                  │ ho pubblicato il sito-landing     │
+││            │    │ ││                    │ page ma non lo carica online. ... │
+││ 471650562… │ c… │ ││ -                  │ I have a 3 column layout, with    │
+││            │    │ ││                    │ images in each column. How do...  │
+││ 471650922… │ c… │ ││ -                  │ можно ли сгнирировать презентацию │
+││            │    │ ││                    │ отправив просто текс is it...     │
+││ 471650867… │ c… │ ││ -                  │ io non voglio nessun abbonamento  │
+││            │    │ ││                    │ i don't want any subscripti...    │
+││ 471650890… │ c… │ ││ -                  │ ¿Cómo hago para que un módulo se  │
+││            │    │ ││                    │ mueva así completo como est...    │
+││ 471650879… │ c… │ ││ -                  │ как сохранить презентацию how to  │
+││            │    │ ││                    │ save a presentation ––– Tra...    │
+││ 471650868… │ c… │ ││ -                  │ wenn ich kündigen möchte was muss │
+││            │    │ ││                    │ ich tun if I want to cance...     │
+││ 471650829… │ c… │ ││ -                  │ are there limits to how many      │
+││            │    │ ││                    │ pages i can have in my            │
+││            │    │ ││                    │ document...                       │
+││ 471650665… │ c… │ ││ -                  │ como faco para criara um site?    │
+││            │    │ ││                    │ how do i create a website? ––...  │
+││ 471650566… │ c… │ ││ -                  │ cuando exporto a pdf las imagenes │
+││            │    │ ││                    │ quedan muy pixeladas, se p...     │
+││ 471650476… │ c… │ ││ -                  │ サブスクリプションをやめる Stop   │
+││            │    │ ││                    │ Subscription ––– Translated by    │
+││            │    │ ││                    │ Lokalise M...                     │
+││ 471650447… │ c… │ ││ -                  │ Desejo excluir minha conta I want │
+││            │    │ ││                    │ to delete my account ––– T...     │
+││ 471650316… │ c… │ ││ -                  │ estoy haciendo una presentación   │
+││            │    │ ││                    │ sobre varios documentos, sol...   │
+││ 471650422… │ c… │ ││ -                  │ Si accedo a algún plan de pago,   │
+││            │    │ ││                    │ me podéis generar factura co...   │
+││ 471650328… │ c… │ ││ -                  │ Como faço para criar um vídeo     │
+││            │    │ ││                    │ através de um prompt? Eu posso... │
+││ 471650337… │ c… │ ││ -                  │ Come faccio ad eliminare          │
+││            │    │ ││                    │ l’account How do I delete the     │
+││            │    │ ││                    │ accou...                          │
+││ 471650294… │ c… │ ││ -                  │ Olá, quero cancelar Hello, I want │
+││            │    │ ││                    │ to cancel ––– Translated b...     │
+││ 471650277… │ c… │ ││ -                  │ nao lembro minha senha i can't    │
+││            │    │ ││                    │ remember my password ––– Tran...  │
+││ 471650248… │ c… │ ││ -                  │ OláPor gentileza, gostaria de     │
+││            │    │ ││                    │ verificar em relação ao credit... │
+││ 471650250… │ c… │ ││ -                  │ How do i host a URL image?> To    │
+││            │    │ ││                    │ host a URL image in Gamma, yo...  │
+││ 471650212… │ c… │ ││ -                  │ повернутись до розробленогого     │
+││            │    │ ││                    │ плану презентації return to th... │
+││ 471650190… │ c… │ ││ -                  │ perchè non scrive in italiano why │
+││            │    │ ││                    │ he doesn't write in Italia...     │
+││ 471650150… │ c… │ ││ -                  │ Error message I see you're        │
+││            │    │ ││                    │ encountering an "Unexpected       │
+││            │    │ ││                    │ conte...                          │
+││ 471650064… │ c… │ ││ -                  │ Hola, como enuentro la clave de   │
+││            │    │ ││                    │ mi cuenta Hello, how do I fi...   │
+││ 471655415… │ c… │ ││ Product Question   │ met moi en relation avec un       │
+││            │    │ ││                    │ epersonne humaine put me in       │
+││            │    │ ││                    │ touc...                           │
+││ 471658486… │ o… │ ││ Billing            │ beste, ik zie dat jullie 10 euro  │
+││            │    │ ││                    │ van mijn rekening gehaald h...    │
+││ 471663621… │ c… │ ││ Billing            │ wir hatten einen Thread, wegen    │
+││            │    │ ││                    │ der doppelten Abbuchung für G...  │
+││ 471661563… │ c… │ ││ Unknown/Unresponsi │ my website isnt showing up        │
+││            │    │ ││ ve                 │ correctly , beofre the website i  │
+││            │    │ ││                    │ ...                               │
+││ 471658376… │ o… │ ││ Bug                │ Its been almost 24 hours and      │
+││            │    │ ││                    │ Google tag manager is still       │
+││            │    │ ││                    │ not...                            │
+││ 471662597… │ c… │ ││ Unknown/Unresponsi │ ho bisogno di parlare con un      │
+││            │    │ ││ ve                 │ umano i need to talk to a         │
+││            │    │ ││                    │ human...                          │
+││ 471664046… │ c… │ ││ Unknown/Unresponsi │ o upload não está funcionando the │
+││            │    │ ││ ve                 │ upload is not working ––– ...     │
+││ 471664842… │ c… │ ││ Unknown/Unresponsi │ agent Would you like me to        │
+││            │    │ ││ ve                 │ connect you with a human agent?   │
+││            │    │ ││                    │ O...                              │
+││ 471665069… │ c… │ ││ Unknown/Unresponsi │ Доброго времени суток. Сломался   │
+││            │    │ ││ ve                 │ экспорт в pptx - после экспо...   │
+││ 471660982… │ c… │ ││ Billing            │ How do I manage or cancel my      │
+││            │    │ ││                    │ Gamma subscription? To manage     │
+││            │    │ ││                    │ o...                              │
+││ 471653381… │ c… │ ││ -                  │ Kann man Webseiten auch           │
+││            │    │ ││                    │ multilingual erstellen? Is it     │
+││            │    │ ││                    │ possib...                         │
+││ 471667538… │ c… │ ││ Unknown/Unresponsi │ falar com atendente talk to an    │
+││            │    │ ││ ve                 │ attendant ––– Translated by L...  │
+││ 471667786… │ c… │ ││ Bug                │ NÃO ESTOU CONSEGUINDO PUBLICAR    │
+││            │    │ ││                    │ ESSA PAGINA POR FAVOR PODE ME...  │
+││ 471662227… │ s… │ ││ Billing            │ the currency while doing upgrade  │
+││            │    │ ││                    │ is showing GBP while it sho...    │
+││ 471663089… │ c… │ ││ Abuse              │ pode me ajudar , estou tentando   │
+││            │    │ ││                    │ publicar um site e não consi...   │
+││ 471668344… │ c… │ ││ Unknown/Unresponsi │ My email account seems to be      │
+││            │    │ ││ ve                 │ compromised and I may not be      │
+││            │    │ ││                    │ ab...                             │
+││ 471658999… │ c… │ ││ Bug                │ Preciso continuar gerando as      │
+││            │    │ ││                    │ imagens dos slides porem esta     │
+││            │    │ ││                    │ a...                              │
+││ 471664361… │ c… │ ││ Bug                │ I'd like a refund for the credits │
+││            │    │ ││                    │ used on this deck. the out...     │
+││ 471656577… │ c… │ ││ Product Question   │ Hola buenos dias, hoy estuve      │
+││            │    │ ││                    │ necesitado de hacer una           │
+││            │    │ ││                    │ present...                        │
+││ 471658676… │ c… │ ││ Billing            │ Hi – I may have inadvertently     │
+││            │    │ ││                    │ signed up for two accounts via... │
+││ 471656228… │ c… │ ││ Bug                │ Fichero adjunto no lo he podido   │
+││            │    │ ││                    │ utilizar en Gamma, por que d...   │
+││ 471656063… │ c… │ ││ Bug                │ Algumas apresentações sumiram, o  │
+││            │    │ ││                    │ que pode ter acontecido? So...    │
+││ 471656165… │ c… │ ││ Billing            │ die 94€ wurden von meinem Konto   │
+││            │    │ ││                    │ abgebucht, wann bekomme ich ...   │
+││ 471660887… │ c… │ ││ Bug                │ Hello - I think my gamma is       │
+││            │    │ ││                    │ getting stuck importing old       │
+││            │    │ ││                    │ inst...                           │
+││ 471652839… │ c… │ ││ Unknown/Unresponsi │ Hello,I noticed a charge from     │
+││            │    │ ││ ve                 │ GAMMA.APP on our corporate cre... │
+││ 471652401… │ o… │ ││ Bug                │ não está gerando a apresentação   │
+││            │    │ ││                    │ is not generating the presen...   │
+││ 471652674… │ c… │ ││ Account            │ how can I disable the other       │
+││            │    │ ││                    │ account? To remove another user   │
+││            │    │ ││                    │ ...                               │
+││ 471654804… │ c… │ ││ Billing            │ So did you fix it? Where's my     │
+││            │    │ ││                    │ invoice? Please pass this to a... │
+││ 471658232… │ c… │ ││ Billing            │ Hat sich die Bankverbindung bei   │
+││            │    │ ││                    │ Gamma geändert Has Gamma's b...   │
+││ 471660735… │ c… │ ││ Billing            │ Good morning. I need to contact   │
+││            │    │ ││                    │ customer support about billi...   │
+││ 471668578… │ c… │ ││ Abuse              │ NAO ESTOU CONSEGUINDO ATUALIZAR   │
+││            │    │ ││                    │ MINH APAGINA RECÉM CRIADA, A...   │
+││ 471655149… │ c… │ ││ Product Question   │ Salve The conversation language   │
+││            │    │ ││                    │ could not be detected. In or...   │
+││ 471660409… │ c… │ ││ Unknown/Unresponsi │ speak with human Would you like   │
+││            │    │ ││ ve                 │ me to connect you with a hum...   │
+││ 471656128… │ c… │ ││ Unknown/Unresponsi │ This space is full of potential I │
+││            │    │ ││ ve                 │ am getting this error for ...     │
+││ 471654482… │ c… │ ││ Billing            │ 환불 신청을 하였는데 결제가 청구  │
+││            │    │ ││                    │ 되었습니다. i applied for a       │
+││            │    │ ││                    │ refund, but the pa...             │
+││ 471654039… │ c… │ ││ Unknown/Unresponsi │ Не знаю I don't know –––          │
+││            │    │ ││ ve                 │ Translated by Lokalise Messages​   │
+││            │    │ ││                    │ Th...                             │
+││ 471656041… │ c… │ ││ Unknown/Unresponsi │ Hi!! Something is wrong with my   │
+││            │    │ ││ ve                 │ gamma site and I can’t get m...   │
+││ 471658311… │ c… │ ││ Billing            │ I wnat to talk to a person Would  │
+││            │    │ ││                    │ you like me to connect you ...    │
+││ 471667260… │ c… │ ││ Billing            │ Можно ли отменить подписку и      │
+││            │    │ ││                    │ вернуть деньги? Can I cancel      │
+││            │    │ ││                    │ my...                             │
+││ 471660476… │ c… │ ││ Billing            │ Me gustaría solucionar el tema de │
+││            │    │ ││                    │ que me quieren cobrar la s...     │
+││ 471660815… │ c… │ ││ Billing            │ i need a human help with cancel   │
+││            │    │ ││                    │ my subscription To manage yo...   │
+││ 471661753… │ c… │ ││ Billing            │ I did a payment and the invoice   │
+││            │    │ ││                    │ came with my data, but I nee...   │
+││ 471656444… │ c… │ ││ Billing            │ i have upgrade with you and i     │
+││            │    │ ││                    │ paid the amount but still i ca... │
+││ 471667091… │ c… │ ││ Unknown/Unresponsi │ help I'm here to help! You can    │
+││            │    │ ││ ve                 │ ask me about: • Account & bil...  │
+││ 471659728… │ c… │ ││ Account            │ Hallo Gamma-Team, ich kann mich   │
+││            │    │ ││                    │ momentan nicht in mein Konto...   │
+││ 471663445… │ c… │ ││ -                  │ Hey I need all my slides in a     │
+││            │    │ ││                    │ 16:9 format. I can't seem to g... │
+││ 471656283… │ c… │ ││ Product Question   │ Hi, great product but website     │
+││            │    │ ││                    │ images do not show in Albania.... │
+││ 471661973… │ c… │ ││ Billing            │ Hello, good morning, I would like │
+││            │    │ ││                    │ to know why they wanted to...     │
+││ 471662446… │ c… │ ││ Unknown/Unresponsi │ I have said this needs to be      │
+││            │    │ ││ ve                 │ traditional presentation size     │
+││            │    │ ││                    │ a...                              │
+││ 471653767… │ c… │ ││ Unknown/Unresponsi │ Hello, I cancelled this           │
+││            │    │ ││ ve                 │ subscription months ago. Could    │
+││            │    │ ││                    │ you p...                          │
+││ 471657261… │ c… │ ││ Billing            │ 결제를 취소 요청합니다. 2025년    │
+││            │    │ ││                    │ 11월 7일 (금) 오후 8:37, Gamma    │
+││            │    │ ││                    │ <invoice+state...                 │
+││ 471658657… │ c… │ ││ Billing            │ ich bin sehr uzufrieden mit gamma │
+││            │    │ ││                    │ und ich möchte mein geld z...     │
+││ 471655981… │ c… │ ││ -                  │ 既存のパワーポイントをインポート  │
+││            │    │ ││                    │ してそれをブラッシュアップするこ  │
+││            │    │ ││                    │ とはできますか Can I import an    │
+││            │    │ ││                    │ exis...                           │
+││ 471655080… │ c… │ ││ Workspace          │ I am an admin of the workplace    │
+││            │    │ ││                    │ and i want to remove another ...  │
+││ 471654037… │ c… │ ││ Billing            │ Yo no hice ningún pago, como      │
+││            │    │ ││                    │ puedo solucionar eso??? I did     │
+││            │    │ ││                    │ n...                              │
+││ 471653099… │ c… │ ││ Billing            │ 결재내역 확인방법 how to check    │
+││            │    │ ││                    │ your payment history –––          │
+││            │    │ ││                    │ Translated b...                   │
+││ 471657046… │ c… │ ││ -                  │ 실수로 1년 결제를 했는데 한달     │
+││            │    │ ││                    │ 결제로 변경하고 차액 환불         │
+││            │    │ ││                    │ 가능한가요 i accidentally paid    │
+││            │    │ ││                    │ f...                              │
+││ 471655577… │ c… │ ││ -                  │ Wenn ich die Präsentation         │
+││            │    │ ││                    │ exportiere ist die Schriftgrösse  │
+││            │    │ ││                    │ m...                              │
+││ 471654068… │ c… │ ││ Billing            │ Hello,My son has mafe a mitaken   │
+││            │    │ ││                    │ auto debit of Rs 11400. We h...   │
+││ 471654389… │ c… │ ││ Bug                │ Subject: Urgent PPT Support       │
+││            │    │ ││                    │ Required"The presentation I'm     │
+││            │    │ ││                    │ tr...                             │
+││ 471668049… │ c… │ ││ Privacy & Security │ I dont understand why all my      │
+││            │    │ ││                    │ gammas, or most of them where     │
+││            │    │ ││                    │ t...                              │
+││ 471654529… │ c… │ ││ Product Question   │ hi i need to talk to sombody      │
+││            │    │ ││                    │ about invoices You can find       │
+││            │    │ ││                    │ and...                            │
+││ 471668575… │ c… │ ││ Billing            │ can you share where I can find    │
+││            │    │ ││                    │ more information on copyright...  │
+││ 471668771… │ c… │ ││ Billing            │ Quiero reclamar que me cobraron   │
+││            │    │ ││                    │ otro mes y yo no lo solicite...   │
+││ 471668051… │ c… │ ││ -                  │ 有料から無料に戻したいので、設定  │
+││            │    │ ││                    │ 変更の仕方を教えてください I want │
+││            │    │ ││                    │ to change it back from ...        │
+││ 471652418… │ c… │ ││ Billing            │ SHOW ME HOW TO CANCEL MY          │
+││            │    │ ││                    │ SUBSCRIPTION FOR NEXT YEAR To     │
+││            │    │ ││                    │ manag...                          │
+││ 471661005… │ c… │ ││ Billing            │ Invoice details To access your    │
+││            │    │ ││                    │ invoice details, go to Settin...  │
+││ 471652395… │ c… │ ││ Billing            │ Hi, Gamma, I just got this a      │
+││            │    │ ││                    │ couple of hours ago and wanted    │
+││            │    │ ││                    │ ...                               │
+││ 471659898… │ c… │ ││ Billing            │ 월간 구독 하려고 했는데 실수로    │
+││            │    │ ││                    │ 연간구독 했어요... ㅜㅜ i tried   │
+││            │    │ ││                    │ to subscribe monthl...            │
+││ 471659930… │ c… │ ││ Billing            │ Hi Gamma AI team, My name is      │
+││            │    │ ││                    │ Mikel Blazquez, and I had a       │
+││            │    │ ││                    │ mon...                            │
+││ 471666400… │ c… │ ││ Billing            │ Problema de facturación Billing   │
+││            │    │ ││                    │ problem ––– Translated by Lo...   │
+││ 471654952… │ c… │ ││ Bug                │ hey am am unable to reach to my   │
+││            │    │ ││                    │ site that i created with gam...   │
+││ 471655283… │ c… │ ││ Bug                │ It appears that the cropping      │
+││            │    │ ││                    │ feature has broken. When I        │
+││            │    │ ││                    │ sele...                           │
+││ 471655540… │ c… │ ││ Billing            │ Hello team Hello! How can I       │
+││            │    │ ││                    │ assist you today? I Need Your     │
+││            │    │ ││                    │ he...                             │
+││ 471653962… │ c… │ ││ Billing            │ 請求書の宛先を個人ではなく、法人  │
+││            │    │ ││                    │ 向けに変更したいのですが、どのよ  │
+││            │    │ ││                    │ うな手続きが必要ですか？ I would  │
+││            │    │ ││                    │ like to...                        │
+││ 471657334… │ c… │ ││ Billing            │ per favore rimborsatemi please    │
+││            │    │ ││                    │ reimburse me ––– Translated b...  │
+││ 471657099… │ c… │ ││ Billing            │ Dear Sir or Madam, Recently, I    │
+││            │    │ ││                    │ subscribed to one of your pla...  │
+││ 471657349… │ c… │ ││ Billing            │ Eu havia iniciado uma conversa    │
+││            │    │ ││                    │ com um atendente para me auxi...  │
+││ 471660937… │ c… │ ││ Billing            │ Dear Gamma Team, I thought I had  │
+││            │    │ ││                    │ purchased a one-month subsc...    │
+││ 471655561… │ c… │ ││ Billing            │ Здравствуйте! У меня с карты      │
+││            │    │ ││                    │ списывается ежемесячно плата      │
+││            │    │ ││                    │ за...                             │
+││ 471656014… │ c… │ ││ Product Question   │ Clean history? If you want to     │
+││            │    │ ││                    │ clear your version history, yo... │
+││ 471656546… │ c… │ ││ Billing            │ Hola 👋Mi suscripción a Gamma la  │
+││            │    │ ││                    │ he renovado hoy, pero no voy...   │
+││ 471657378… │ c… │ ││ Billing            │ refund Here is Gamma's refund     │
+││            │    │ ││                    │ policy​​Annual PlanWithin the ...   │
+││ 471667789… │ c… │ ││ Billing            │ Vorrei rimborso dell'abbonamento. │
+││            │    │ ││                    │ sono entro i 7 giorni dall...     │
+││ 471656780… │ c… │ ││ Billing            │ I was unaware this was renewing   │
+││            │    │ ││                    │ on subscription I have now c...   │
+││ 471653001… │ c… │ ││ Billing            │ Hi The conversation language      │
+││            │    │ ││                    │ could not be detected. In         │
+││            │    │ ││                    │ order...                          │
+││ 471664757… │ c… │ ││ Billing            │ I forgot to unsubscribe my        │
+││            │    │ ││                    │ account from Pro. I only          │
+││            │    │ ││                    │ subscrib...                       │
+││ 471652950… │ c… │ ││ Promotions         │ I need your help I'm here to      │
+││            │    │ ││                    │ help! What specific issue or      │
+││            │    │ ││                    │ qu...                             │
+││ 471657186… │ c… │ ││ Billing            │ i renewed my subscription by      │
+││            │    │ ││                    │ accident. any chance that i       │
+││            │    │ ││                    │ can...                            │
+││ 471656676… │ c… │ ││ Billing            │ Hi my subscription has just       │
+││            │    │ ││                    │ renewed but I need to cancel.     │
+││            │    │ ││                    │ Ca...                             │
+││ 471657225… │ c… │ ││ Billing            │ Preciso do reembolso e estou      │
+││            │    │ ││                    │ dentro do prazo I need a          │
+││            │    │ ││                    │ refund...                         │
+││ 471668223… │ c… │ ││ Billing            │ 領収書の宛名を変えたい I want to  │
+││            │    │ ││                    │ change the address on the         │
+││            │    │ ││                    │ receipt. –––...                   │
+││ 471656250… │ c… │ ││ Product Question   │ est-ce qu'on peut mettre un mot   │
+││            │    │ ││                    │ de passe pour accèder à un s...   │
+││ 471656347… │ c… │ ││ Billing            │ 캔슬 구독 결제 cancel             │
+││            │    │ ││                    │ subscription payment –––          │
+││            │    │ ││                    │ Translated by Lokal...            │
+└┴────────────┴────┴─┴┴────────────────────┴───────────────────────────────────┘
+
+================================================================================
+🔍 TOPIC HIERARCHY & DOUBLE-COUNTING DEBUG
+Detecting if conversations are being assigned to multiple topics
+================================================================================
+
+Double-Counting Detection:
+  Single topic: 200 (100.0%) ✅ No double-counting
+  Multi-topic: 0 (0.0%) ⚠️  Double-counted!
+  No topic: 0 (0.0%) ❌ Unclassified
+
+Hierarchical Structure in custom_attributes:
+Shows Billing > Refund > Given type nested attributes
+
+ID: ...471651595742
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  (All keys: Has attachments, Imported via standalone, Auto-translated, Fin AI 
+Agent: Preview, Copilot used...)
+
+ID: ...471651354109
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Denied
+  (All keys: Has attachments, Imported via standalone, Auto-translated, Fin AI 
+Agent: Preview, Copilot used...)
+
+ID: ...471650444709
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  (All keys: Has attachments, Imported via standalone, Auto-translated, Fin AI 
+Agent: Preview, Copilot used...)
+
+ID: ...471650566486
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  (All keys: Has attachments, Imported via standalone, Auto-translated, Fin AI 
+Agent: Preview, Copilot used...)
+
+ID: ...471651072794
+  Reason for contact: Bug
+  Bug: Cards
+  (All keys: Has attachments, Imported via standalone, Auto-translated, Fin AI 
+Agent: Preview, Copilot used...)
+
+
+Current Topic Distribution:
+  Billing: 99 (49.5%) - keyword
+  Bug: 37 (18.5%) - keyword
+  Account: 27 (13.5%) - keyword
+  Workspace: 24 (12.0%) - keyword
+  Promotions: 4 (2.0%) - keyword
+  Unknown/unresponsive: 4 (2.0%) - keyword
+  Privacy: 3 (1.5%) - keyword
+  Chargeback: 2 (1.0%) - keyword
+
+
+================================================================================
+📝 ULTRA-DETAILED CONVERSATION SAMPLES (First 10)
+Showing ALL raw Intercom data for debugging
+================================================================================
+
+
+================================================================================
+CONVERSATION #1: 215471650058309
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471650058309
+  type: conversation
+  created_at: 2025-11-06 20:27:45+00:00 (2025-11-06 20:27:45+00:00)
+  updated_at: 2025-11-12 02:04:27+00:00 (2025-11-12 02:04:27+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8826983
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 5, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=7721533', 'title': 'How do credits 
+work in Gamma?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=7727763', 'title': 'How do I create a 
+new presentation, document, or webpage in Gamma?', 'locale': 'en'}, 
+{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=7971530', 'title': 'Can I edit my 
+content using AI?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11888054', 'title': 'What makes a good
+AI image prompt?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=13075362', 'title': 'Prompting Tips: 
+How to Generate Better AI Images', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: True
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Unknown/Unresponsive
+  CX Score rating: 1
+  CX Score explanation: The customer experienced strong negative sentiment due 
+to the AI Agent feature failing to deliver the requested flywheel diagram, 
+resulting in high effort and frustration. Both the AI Agent and teammate 
+responses failed to resolve the issue, leaving the customer dissatisfied.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - accessing presentation (type: topic)
+  - refund (type: topic)
+  - credits (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 41
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 20:27:45 (1762460865)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 20:27:46 (1762460866)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 20:27:46 (1762460866)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 20:27:50 (1762460870)
+    Body: ...
+
+  Part 5:
+    Type: user
+    Name: Wayne Morris
+    Email: wayne@sherpaconsulting.xyz
+    ID: 68b0601b9cbeb85a1e8de27a
+    Created: 2025-11-06 20:27:56 (1762460876)
+    Body: <p>From your AI: I completely understand your frustration and anger. 
+This has been an absolutely terrible experience, and you have every right to be 
+u...
+
+  ... and 36 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 1
+  time_to_admin_reply: 878
+  time_to_first_close: 350143
+  time_to_last_close: 350143
+  median_time_to_reply: 964
+  first_contact_reply_at: 1762460865
+  first_assignment_at: 1762460866
+  first_admin_reply_at: 1762461743
+  first_close_at: 1762811248
+  last_assignment_at: 1762489113
+  last_assignment_admin_reply_at: 1762490278
+  last_contact_reply_at: 1762489112
+  last_admin_reply_at: 1762811242
+  last_close_at: 1762811248
+  last_closed_by_id: 8826983
+  count_reopens: 0
+  count_assignments: 5
+  count_conversation_parts: 42
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 797.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 797}]
+  handling_time: 150131
+
+⭐ CONVERSATION RATING:
+  rating: 3
+  created_at: 1762897651
+  contact: {'type': 'contact', 'id': '68b0601b9cbeb85a1e8de27a', 'external_id': 
+'vox3ci4frncct57'}
+  teammate: {'type': 'admin', 'id': '8826983'}
+  updated_at: 1762913066
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 68b0601b9cbeb85a1e8de27a
+    Email: wayne@sherpaconsulting.xyz
+    Role: user
+    Custom Attributes: ['jobFunction', 'stripe_account_balance', 
+'stripe_card_brand', 'stripe_card_expires_at', 'stripe_deleted']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250324206
+  Author Type: user
+  Author ID: 68b0601b9cbeb85a1e8de27a
+  Body: <p>I have been having a completely unacceptable experience with the AI 
+agent feature when trying to polish my presentations.  I have spent 45 minutes 
+...
+
+📝 EXTRACTED TEXT:
+  Length: 8049 chars
+  First 300 chars: I have been having a completely unacceptable experience with 
+the AI agent feature when trying to polish my presentations. I have spent 45 
+minutes trying to get the feature to do basic things (e.g., create a fly wheel 
+diagram with 6 segments total, each time it modifies the image there are 8 
+segments...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund']
+  ✅ Account: ['account', 'email']
+  ✅ Bug: ['bug', 'not working']
+  ✅ Product Question: ['how do', 'how to', 'can i', 'question']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+CONVERSATION #2: 215471650812437
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471650812437
+  type: conversation
+  created_at: 2025-11-06 21:36:11+00:00 (2025-11-06 21:36:11+00:00)
+  updated_at: 2025-11-11 21:45:12+00:00 (2025-11-11 21:45:12+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8826983
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 6, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=8442877', 'title': 'How do I create & 
+publish a site in Gamma?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11840410', 'title': 'Introduction to 
+the Gamma Dashboard', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11840477', 'title': 'How can I contact
+Gamma support or provide feedback?', 'locale': 'en'}, {'content_type': 
+'article', 'url': '/fin-ai-agent/content?content=article&id=11888512', 'title': 
+'Can I publish or disable my Gamma site?', 'locale': 'en'}, {'content_type': 
+'article', 'url': '/fin-ai-agent/content?content=article&id=11888988', 'title': 
+'How can I add users to my workspace?', 'locale': 'en'}, {'content_type': 
+'article', 'url': '/fin-ai-agent/content?content=article&id=12618872', 'title': 
+'What options does Gamma offer for teams and business?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Unknown/Unresponsive
+  User Sentiment: Yellow
+  CX Score rating: 2
+  CX Score explanation: The customer encountered a publishing error and was 
+blocked from human support due to being on a free plan. The AI Agent provided 
+instructions but could not resolve the issue. The teammate requested more 
+information but the customer did not provide it, and the issue remained 
+unresolved.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - publish (type: topic)
+  - publish (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 53
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:36:12 (1762464972)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:36:12 (1762464972)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:36:16 (1762464976)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:36:17 (1762464977)
+    Body: <p>Hello! How can I assist you today?</p>...
+
+  Part 5:
+    Type: user
+    Name: Ritik Goyal
+    Email: ritikgoyalp@gmail.com
+    ID: 690cf91728a2045a3886075e
+    Created: 2025-11-06 21:36:19 (1762464979)
+    Body: <p>i can not able to pulish my site</p>...
+
+  ... and 48 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 1
+  time_to_admin_reply: 1132
+  time_to_first_close: 345898
+  time_to_last_close: 345898
+  median_time_to_reply: 198
+  first_contact_reply_at: 1762464971
+  first_assignment_at: 1762464972
+  first_admin_reply_at: 1762466103
+  first_close_at: 1762811109
+  last_assignment_at: 1762465928
+  last_assignment_admin_reply_at: 1762466103
+  last_contact_reply_at: 1762467955
+  last_admin_reply_at: 1762811102
+  last_close_at: 1762811109
+  last_closed_by_id: 8826983
+  count_reopens: 0
+  count_assignments: 3
+  count_conversation_parts: 54
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 176.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 176}]
+  handling_time: 170699
+
+⭐ CONVERSATION RATING:
+  created_at: 1762897512
+  contact: {'type': 'contact', 'id': '690cf91728a2045a3886075e', 'external_id': 
+'qg3dut8iahqgdu3'}
+  teammate: {'type': 'admin', 'id': '8826983'}
+  updated_at: 1762897512
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 690cf91728a2045a3886075e
+    Email: ritikgoyalp@gmail.com
+    Role: user
+    Custom Attributes: ['jobFunction']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250448231
+  Author Type: user
+  Author ID: 690cf91728a2045a3886075e
+  Body: <p>hello</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 5488 chars
+  First 300 chars: hello Hello! How can I assist you today? i can not able to 
+pulish my site Here's how to publish your site in Gamma: To publish all changes:
+Click the Publish button at the top of your site This will make your changes 
+live across all pages and settings To publish a single page: Open the Pages 
+panel C...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'subscription']
+  ✅ Account: ['account', 'email']
+  ✅ Bug: ['bug', 'error']
+  ✅ Product Question: ['how do', 'how to', 'can i', 'question']
+  ✅ Workspace: ['workspace', 'team', 'member', 'invite']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, source, state, 
+statistics, tags, team_assignee_id, teammates, topics, type, updated_at
+
+
+
+================================================================================
+CONVERSATION #3: 215471652015528
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471652015528
+  type: conversation
+  created_at: 2025-11-06 23:43:12+00:00 (2025-11-06 23:43:12+00:00)
+  updated_at: 2025-11-11 13:38:35+00:00 (2025-11-11 13:38:35+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8014578
+  team_assignee_id: 7711311
+  title: Re: Plataforma offline
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Email
+    last_answer_type: custom_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 0, 
+'content_sources': []}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: Brazilian Portuguese
+  Fin AI Agent: Fin workflow used: True
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Product Question
+  Product Question: Workspace
+  CX Score rating: 4
+  CX Score explanation: The customer experienced recurring platform access 
+issues and freezing during presentation creation, expressing frustration. The AI
+Agent escalated to teammates who provided effective troubleshooting and 
+follow-up, leading to resolution.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - slides (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 77
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:43:12 (1762472592)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:43:12 (1762472592)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:43:13 (1762472593)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:43:14 (1762472594)
+    Body: <p>This morning the platform was working again, I used it normally. 
+Now at night the same problem has arisen, it won't access.<br>​</p>
+<p><i>––– Tran...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:43:17 (1762472597)
+    Body: ...
+
+  ... and 72 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 446
+  time_to_first_close: 145203
+  time_to_last_close: 309030
+  median_time_to_reply: 412
+  first_contact_reply_at: 1762472592
+  first_assignment_at: 1762472592
+  first_admin_reply_at: 1762473038
+  first_close_at: 1762617915
+  last_assignment_at: 1762609167
+  last_assignment_admin_reply_at: 1762617902
+  last_contact_reply_at: 1762781593
+  last_admin_reply_at: 1762781858
+  last_close_at: 1762781862
+  last_closed_by_id: 8014578
+  count_reopens: 1
+  count_assignments: 7
+  count_conversation_parts: 78
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 260.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 260}]
+  handling_time: 76721
+
+⭐ CONVERSATION RATING:
+  created_at: 1762868315
+  contact: {'type': 'contact', 'id': '6706f7cef26e9dc3d091314a', 'external_id': 
+'ercvjjz0zspisdc'}
+  teammate: {'type': 'admin', 'id': '8014578'}
+  updated_at: 1762868315
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 6706f7cef26e9dc3d091314a
+    Email: rodrigo@vendee.com.br
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'Stripe Payments', 'Stripe 
+Customer', 'article_id', 'jobFunction']
+
+📨 SOURCE MESSAGE:
+  Type: email
+  ID: 3250633196
+  Author Type: user
+  Author ID: 6706f7cef26e9dc3d091314a
+  Body: <div dir="ltr"><div dir="ltr"><div style='font-family:"trebuchet 
+ms",sans-serif'>Hoje pela manhã a plataforma estava funcional novamente, 
+utilizei nor...
+
+📝 EXTRACTED TEXT:
+  Length: 10479 chars
+  First 300 chars: Hoje pela manhã a plataforma estava funcional novamente, 
+utilizei normal. Agora a noite deu o mesmo problema, não acessa. This morning 
+the platform was working again, I used it normally. Now at night the same 
+problem has arisen, it won't access.​ ––– Translated by Lokalise Messages​ This 
+conversatio...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing']
+  ✅ Account: ['email']
+  ✅ Bug: ['bug', 'error', 'not working']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, title, topics, 
+type, updated_at
+
+
+
+================================================================================
+CONVERSATION #4: 215471651769834
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471651769834
+  type: conversation
+  created_at: 2025-11-06 23:08:32+00:00 (2025-11-06 23:08:32+00:00)
+  updated_at: 2025-11-10 00:15:40+00:00 (2025-11-10 00:15:40+00:00)
+  state: closed
+  priority: not_priority
+  read: False
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8323510
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 6, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=7721533', 'title': 'How do credits 
+work in Gamma?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=8023289', 'title': 'Upgrading your 
+Gamma subscription', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11889023', 'title': 'How do I sign in 
+to my Gamma account?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11889035', 'title': 'Can I use Google 
+Authentication to log in?', 'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=13030286', 'title': 'Can I switch from
+Google Auth to an email address and password?', 'locale': 'en'}, 
+{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=13898182', 'title': 'How do I purchase
+more credits?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: Brazilian Portuguese
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Unknown/Unresponsive
+  User Sentiment: Yellow
+  CX Score rating: 3
+  CX Score explanation: The customer inquired about account credits and password
+creation, received detailed answers from the AI Agent but requested human 
+support multiple times. The teammate engaged but did not resolve the issue 
+before closing the conversation.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  (empty)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 72
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:08:32 (1762470512)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:08:33 (1762470513)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:08:34 (1762470514)
+    Body: <p>Good night</p>
+<p><i>––– Translated by <a 
+href="https://lokalise.com/product/support-ticket-translation" rel="nofollow 
+noopener noreferrer" target=...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:08:36 (1762470516)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:08:38 (1762470518)
+    Body: <p>Boa noite! Como posso ajudar você hoje?</p>...
+
+  ... and 67 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 1391
+  time_to_first_close: 176706
+  time_to_last_close: 176706
+  median_time_to_reply: 1057
+  first_contact_reply_at: 1762470512
+  first_assignment_at: 1762470512
+  first_admin_reply_at: 1762471903
+  first_close_at: 1762647338
+  last_assignment_at: 1762470977
+  last_assignment_admin_reply_at: 1762471903
+  last_contact_reply_at: 1762472466
+  last_admin_reply_at: 1762647293
+  last_close_at: 1762647338
+  last_closed_by_id: 8323510
+  count_reopens: 0
+  count_assignments: 3
+  count_conversation_parts: 73
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 927.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 927}]
+  handling_time: 2956
+
+⭐ CONVERSATION RATING:
+  created_at: 1762733740
+  contact: {'type': 'contact', 'id': '68c4d06253307afb515343c7', 'external_id': 
+'xolbqxew6y98hnn'}
+  teammate: {'type': 'admin', 'id': '8323510'}
+  updated_at: 1762733740
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 68c4d06253307afb515343c7
+    Email: enfermeiraclyntia@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'Stripe Payments', 'Stripe 
+Customer', 'article_id', 'jobFunction']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250590511
+  Author Type: user
+  Author ID: 68c4d06253307afb515343c7
+  Body: <p>Boa noite</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 8774 chars
+  First 300 chars: Boa noite Good night ––– Translated by Lokalise Messages​ This
+conversation language is Portuguese. Create a note starting with ! to respond in
+a customer's language or try !help Boa noite! Como posso ajudar você hoje? 
+Fazendo o upgrade para a versão pro, os créditos (que estão em 84 agora) passam 
+p...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'payment', 'subscription']
+  ✅ Account: ['account', 'login', 'password', 'email']
+  ✅ Product Question: ['how do', 'how to', 'can i']
+  ✅ Workspace: ['workspace', 'member']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, source, state, 
+statistics, tags, team_assignee_id, teammates, topics, type, updated_at
+
+
+
+================================================================================
+CONVERSATION #5: 215471650451056
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471650451056
+  type: conversation
+  created_at: 2025-11-06 21:06:59+00:00 (2025-11-06 21:06:59+00:00)
+  updated_at: 2025-11-09 22:46:05+00:00 (2025-11-09 22:46:05+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8323510
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 2, 
+'content_sources': [{'content_type': 'content_snippet', 'url': 
+'/fin-ai-agent/content?content=content_snippet&id=1768985', 'title': 'Where can 
+I find the analytics on my Gamma dashboard with my top-tier Gamma account?', 
+'locale': 'en'}, {'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=11888411', 'title': 'How do I set up &
+customize a site in Gamma?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Unknown/Unresponsive
+  CX Score rating: 1
+  CX Score explanation: The customer was frustrated by the removal of built-in 
+analytics after upgrading and the inability to speak to a human. The AI Agent 
+provided alternative solutions but failed to resolve the issue, leading to 
+escalation to a teammate who also did not resolve the problem.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - publish (type: topic)
+  - publish (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 40
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:59 (1762463219)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:59 (1762463219)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:07:00 (1762463220)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:07:05 (1762463225)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:07:11 (1762463231)
+    Body: <p>Gamma sites do not offer analytics at this time.</p>
+<p>However, you can set up external analytics for your site by adding <a 
+class="inline-source-...
+
+  ... and 35 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 2726
+  time_to_first_close: 178623
+  time_to_last_close: 178623
+  median_time_to_reply: 2128
+  first_contact_reply_at: 1762463219
+  first_assignment_at: 1762463219
+  first_admin_reply_at: 1762465945
+  first_close_at: 1762641962
+  last_assignment_at: 1762463828
+  last_assignment_admin_reply_at: 1762465945
+  last_contact_reply_at: 1762463817
+  last_admin_reply_at: 1762641956
+  last_close_at: 1762641962
+  last_closed_by_id: 8323510
+  count_reopens: 0
+  count_assignments: 3
+  count_conversation_parts: 41
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 2118.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 2118}]
+  handling_time: 5288
+
+⭐ CONVERSATION RATING:
+  created_at: 1762728365
+  contact: {'type': 'contact', 'id': '6894992e5617f489833d0506', 'external_id': 
+'yuh25hiu3jcmbf7'}
+  teammate: {'type': 'admin', 'id': '8323510'}
+  updated_at: 1762728365
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 6894992e5617f489833d0506
+    Email: kimberly.coleman75@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'Stripe Payments', 'Stripe 
+Customer', 'article_id', 'jobFunction']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250397020
+  Author Type: user
+  Author ID: 6894992e5617f489833d0506
+  Body: <p>Where can I find my analytics for my published site<br>​</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 4822 chars
+  First 300 chars: Where can I find my analytics for my published site​ Gamma 
+sites do not offer analytics at this time. However, you can set up external 
+analytics for your site by adding Google Tag Manager in your Site Settings. To 
+do this: 1. Open your published gamma site 2. Click the three-dot menu (…) in 
+the top-...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund', 'payment', 'subscription']
+  ✅ Account: ['email']
+  ✅ Bug: ['bug']
+  ✅ Product Question: ['how do', 'can i']
+  ✅ Agent/Buddy: ['ai assistant']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+CONVERSATION #6: 215471651595742
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471651595742
+  type: conversation
+  created_at: 2025-11-06 22:48:43+00:00 (2025-11-06 22:48:43+00:00)
+  updated_at: 2025-11-09 08:41:00+00:00 (2025-11-09 08:41:00+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8826983
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 3, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=8623422', 'title': 'How do I manage or
+cancel my Gamma subscription?', 'locale': 'en'}, {'content_type': 'article', 
+'url': '/fin-ai-agent/content?content=article&id=11889589', 'title': 'What is 
+Gamma’s refund policy and how do I request a refund?', 'locale': 'en'}, 
+{'content_type': 'content_snippet', 'url': 
+'/fin-ai-agent/content?content=content_snippet&id=252530', 'title': 'How can I 
+know if a refund is going to be issued?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Fin AI Agent resolution state: Routed to team
+  Language: Korean
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  CX Score rating: 4
+  CX Score explanation: The customer requested a refund due to an unintentional 
+renewal and was initially denied based on policy but appreciated the teammate's 
+exception and subscription cancellation, showing positive sentiment towards the 
+product.
+  Given Reason: Reason unknown
+
+🔖 TAGS:
+  - Refund - Requests
+
+📑 TOPICS:
+  - refund (type: topic)
+  - notes (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 63
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:48:43 (1762469323)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:48:43 (1762469323)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:48:44 (1762469324)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:48:46 (1762469326)
+    Body: <p>i want a refund</p>
+<p><i>––– Translated by <a 
+href="https://lokalise.com/product/support-ticket-translation" rel="nofollow 
+noopener noreferrer" ta...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:48:47 (1762469327)
+    Body: ...
+
+  ... and 58 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 1067
+  time_to_first_close: 1092
+  time_to_last_close: 14426
+  median_time_to_reply: 6560
+  first_contact_reply_at: 1762469323
+  first_assignment_at: 1762469323
+  first_admin_reply_at: 1762470390
+  first_close_at: 1762470415
+  last_assignment_at: 1762470659
+  last_assignment_admin_reply_at: 1762483658
+  last_contact_reply_at: 1762470659
+  last_admin_reply_at: 1762483658
+  last_close_at: 1762483749
+  last_closed_by_id: 8826983
+  count_reopens: 1
+  count_assignments: 5
+  count_conversation_parts: 64
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 1025.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 1025}]
+  handling_time: 5180
+
+⭐ CONVERSATION RATING:
+  rating: 5
+  remark: Thank you very much sir!
+  created_at: 1762570151
+  contact: {'type': 'contact', 'id': '68d0b039e6aef2e6db3f73f5', 'external_id': 
+'5ad51ugkqj6v2z7'}
+  teammate: {'type': 'admin', 'id': '8826983'}
+  updated_at: 1762677660
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 68d0b039e6aef2e6db3f73f5
+    Email: hyunsick99@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Payments', 'article_id', 'jobFunction', 
+'stripe_account_balance', 'stripe_card_brand']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250563669
+  Author Type: user
+  Author ID: 68d0b039e6aef2e6db3f73f5
+  Body: <p>환불을 원합니다</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 6110 chars
+  First 300 chars: 환불을 원합니다 i want a refund ––– Translated by Lokalise 
+Messages​ This conversation language is Korean. Create a note starting with ! to
+respond in a customer's language or try !help 환불을 도와드리겠습니다. 저희 환불
+정책에 따르면 유료 플랜 구독 후 첫 7일 이내에만 전액 환불이 가능합니다. 환불을 
+받으려면 반드시 고객 지원팀에 직접 연락해야 하며, 구독을 취소하더라도 자동으로 
+환불되지 않습니다...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund', 'payment', 'subscription']
+  ✅ Account: ['account', 'email']
+  ✅ Product Question: ['how do']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+CONVERSATION #7: 215471652098811
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471652098811
+  type: conversation
+  created_at: 2025-11-06 23:58:45+00:00 (2025-11-06 23:58:45+00:00)
+  updated_at: 2025-11-09 06:44:51+00:00 (2025-11-09 06:44:51+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 8323510
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 1, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=7959568', 'title': 'What’s the easiest
+way to export my Gamma?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Unknown/Unresponsive
+  CX Score rating: 4
+  CX Score explanation: The customer experienced difficulty exporting their 
+presentation and expressed frustration with the AI Agent's troubleshooting. 
+After escalating to a human teammate, the customer resolved the issue by 
+breaking up the file, with the teammate providing helpful follow-up support.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - export ppt (type: topic)
+  - download presentation (type: topic)
+  - powerpoint (type: topic)
+  - ppt (type: topic)
+  - slides (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 36
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:58:45 (1762473525)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:58:46 (1762473526)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:58:46 (1762473526)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:58:50 (1762473530)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 23:58:56 (1762473536)
+    Body: <p>To export your presentation to PowerPoint or Google Slides:</p>
+<p><b>For PowerPoint:</b></p>
+<ol>
+<li>Click <b>Share</b> at the top right, then se...
+
+  ... and 31 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 1
+  time_to_admin_reply: 370
+  time_to_first_close: 96004
+  time_to_last_close: 96004
+  median_time_to_reply: 215
+  first_contact_reply_at: 1762473525
+  first_assignment_at: 1762473526
+  first_admin_reply_at: 1762473895
+  first_close_at: 1762569589
+  last_assignment_at: 1762473692
+  last_assignment_admin_reply_at: 1762473895
+  last_contact_reply_at: 1762569365
+  last_admin_reply_at: 1762569582
+  last_close_at: 1762569589
+  last_closed_by_id: 8323510
+  count_reopens: 0
+  count_assignments: 3
+  count_conversation_parts: 37
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 204.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 204}]
+  handling_time: 639
+
+⭐ CONVERSATION RATING:
+  created_at: 1762655991
+  contact: {'type': 'contact', 'id': '67b5df36058e84ec84a1216a', 'external_id': 
+'m18qki37vugldkl'}
+  teammate: {'type': 'admin', 'id': '8323510'}
+  updated_at: 1762655991
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 67b5df36058e84ec84a1216a
+    Email: kwaku101@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'Stripe Payments', 'Stripe 
+Customer', 'jobFunction', 'stripe_account_balance']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250651158
+  Author Type: user
+  Author ID: 67b5df36058e84ec84a1216a
+  Body: <p>I am unable to download my presentation into powerpoint or google 
+slides</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 4045 chars
+  First 300 chars: I am unable to download my presentation into powerpoint or 
+google slides To export your presentation to PowerPoint or Google Slides: For 
+PowerPoint: Click Share at the top right, then select Export Choose PowerPoint 
+(PPTX) format Your file will download automatically and you'll receive an email 
+copy...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing']
+  ✅ Account: ['email']
+  ✅ Bug: ['bug', 'error', 'not working']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+CONVERSATION #8: 215471651354109
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471651354109
+  type: conversation
+  created_at: 2025-11-06 22:15:22+00:00 (2025-11-06 22:15:22+00:00)
+  updated_at: 2025-11-08 23:15:37+00:00 (2025-11-08 23:15:37+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 9109337
+  team_assignee_id: 7711311
+  title: Request for subscription cancellation
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Email
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 3, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=8623422', 'title': 'How do I manage or
+cancel my Gamma subscription?', 'locale': 'en'}, {'content_type': 'article', 
+'url': '/fin-ai-agent/content?content=article&id=11889589', 'title': 'What is 
+Gamma’s refund policy and how do I request a refund?', 'locale': 'en'}, 
+{'content_type': 'content_snippet', 'url': 
+'/fin-ai-agent/content?content=content_snippet&id=252530', 'title': 'How can I 
+know if a refund is going to be issued?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Denied
+  CX Score rating: 4
+  CX Score explanation: The customer requested subscription cancellation and a 
+refund due to being charged for an annual plan instead of monthly. The AI Agent 
+provided instructions but the customer asked for human help. The teammate 
+clarified the refund policy and updated the subscription cancellation, resolving
+the issue despite the refund denial.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - refund (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 27
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:15:23 (1762467323)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:15:23 (1762467323)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:15:24 (1762467324)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:15:28 (1762467328)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 22:15:47 (1762467347)
+    Body: ...
+
+  ... and 22 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 87004
+  time_to_first_close: 7224
+  time_to_last_close: 87012
+  median_time_to_reply: 724
+  first_contact_reply_at: 1762467323
+  first_assignment_at: 1762467323
+  first_admin_reply_at: 1762554387
+  first_close_at: 1762474547
+  last_assignment_at: 1762553695
+  last_assignment_admin_reply_at: 1762554387
+  last_contact_reply_at: 1762553663
+  last_admin_reply_at: 1762554387
+  last_close_at: 1762554395
+  last_closed_by_id: 9109337
+  count_reopens: 1
+  count_assignments: 3
+  count_conversation_parts: 28
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 692.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 692}]
+  handling_time: 700
+
+⭐ CONVERSATION RATING:
+  created_at: 1762640799
+  contact: {'type': 'contact', 'id': '68bd62cfe9d6d848f9063e4b', 'external_id': 
+'ef3gcy61zrjoimg'}
+  teammate: {'type': 'admin', 'id': '9109337'}
+  updated_at: 1762640799
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 68bd62cfe9d6d848f9063e4b
+    Email: giselatrifas27@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'jobFunction', 
+'stripe_account_balance', 'stripe_card_brand', 'stripe_card_expires_at']
+
+📨 SOURCE MESSAGE:
+  Type: email
+  ID: 3250513514
+  Author Type: user
+  Author ID: 68bd62cfe9d6d848f9063e4b
+  Body: <div dir="auto">
+<div><br></div>
+<div dir="auto">Dear Support Team,</div>
+<div dir="auto"><br></div>
+<div dir="auto">I would like to cancel my subscri...
+
+📝 EXTRACTED TEXT:
+  Length: 5993 chars
+  First 300 chars: Dear Support Team, I would like to cancel my subscription. I 
+initially subscribed for school purposes, but that has now ended. I believed I 
+was signing up for a monthly plan, however, I was charged for an annual 
+subscription instead. I kindly request a refund for the unused period, as I no 
+longer ne...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund', 'subscription']
+  ✅ Account: ['account', 'email']
+  ✅ Bug: ['error']
+  ✅ Product Question: ['how do']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, title, topics, 
+type, updated_at
+
+
+
+================================================================================
+CONVERSATION #9: 215471650444709
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471650444709
+  type: conversation
+  created_at: 2025-11-06 21:06:13+00:00 (2025-11-06 21:06:13+00:00)
+  updated_at: 2025-11-08 22:33:02+00:00 (2025-11-08 22:33:02+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 9109328
+  team_assignee_id: 8276677
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: custom_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 1, 
+'content_sources': [{'content_type': 'custom_answer', 'url': 
+'/fin-ai-agent/custom-answers/2165088', 'title': 'Switch to Monthly', 'locale': 
+'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  Given Reason: Confused annual with monthly
+  Subscription: Manage
+  CX Score rating: 4
+  CX Score explanation: The customer accidentally purchased an annual 
+subscription instead of monthly and sought help. The AI Agent provided 
+instructions but the customer requested a human. The teammate gave detailed 
+refund and subscription change options, but the customer did not respond 
+further.
+
+🔖 TAGS:
+  - Refund - Requests
+
+📑 TOPICS:
+  - translate presentation (type: topic)
+  - refund (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 46
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:13 (1762463173)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:13 (1762463173)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:14 (1762463174)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:18 (1762463178)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:06:19 (1762463179)
+    Body: ...
+
+  ... and 41 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 366
+  time_to_first_close: 398
+  time_to_last_close: 91547
+  median_time_to_reply: 169
+  first_contact_reply_at: 1762463173
+  first_assignment_at: 1762463173
+  first_admin_reply_at: 1762463539
+  first_close_at: 1762463571
+  last_assignment_at: 1762463384
+  last_assignment_admin_reply_at: 1762463539
+  last_contact_reply_at: 1762463370
+  last_admin_reply_at: 1762554772
+  last_close_at: 1762554780
+  last_closed_by_id: 9109328
+  count_reopens: 1
+  count_assignments: 5
+  count_conversation_parts: 47
+  assigned_team_first_response_time: [{'team_id': 8276677, 'team_name': 
+'Refunds', 'response_time': 156.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 8276677, 
+'team_name': 'Refunds', 'response_time': 156}]
+  handling_time: 31156
+
+⭐ CONVERSATION RATING:
+  created_at: 1762549973
+  contact: {'type': 'contact', 'id': '68950145de777947169a01fa', 'external_id': 
+'t872tqf4wqe2blq'}
+  teammate: {'type': 'admin', 'id': '9109328'}
+  updated_at: 1762549973
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 68950145de777947169a01fa
+    Email: shiva.rezvaniii@gmail.com
+    Role: user
+    Custom Attributes: ['Stripe Subscriptions', 'Stripe Payments', 'Stripe 
+Customer', 'jobFunction', 'stripe_account_balance']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250395633
+  Author Type: user
+  Author ID: 68950145de777947169a01fa
+  Body: <p>hi I wanted to buy subscription for 1 month but accidently i bought 
+for a year help me</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 5080 chars
+  First 300 chars: hi I wanted to buy subscription for 1 month but accidently i 
+bought for a year help me It sounds like you signed up for an annual plan when 
+you intended to sign up for a monthly one. We can get this sorted out! ﻿Here’s 
+what you'll need to do: ﻿​﻿ Go to Settings & Members in your account. Click on 
+Ma...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund', 'payment', 'subscription']
+  ✅ Account: ['account', 'email']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+CONVERSATION #10: 215471650566486
+================================================================================
+
+📋 TOP-LEVEL FIELDS (ALL):
+  id: 215471650566486
+  type: conversation
+  created_at: 2025-11-06 21:14:18+00:00 (2025-11-06 21:14:18+00:00)
+  updated_at: 2025-11-08 16:43:56+00:00 (2025-11-08 16:43:56+00:00)
+  state: closed
+  priority: not_priority
+  read: True
+  waiting_since: (none)
+  snoozed_until: (none)
+  open: False
+  admin_assignee_id: 9109353
+  team_assignee_id: 7711311
+
+🤖 AI AGENT DATA:
+  ai_agent_participated: True
+  ai_agent object: EXISTS
+    source_type: workflow
+    source_title: Fin Over Messenger
+    last_answer_type: ai_answer
+    resolution_state: routed_to_team
+    content_sources: {'type': 'content_source.list', 'total_count': 3, 
+'content_sources': [{'content_type': 'article', 'url': 
+'/fin-ai-agent/content?content=article&id=8623422', 'title': 'How do I manage or
+cancel my Gamma subscription?', 'locale': 'en'}, {'content_type': 'article', 
+'url': '/fin-ai-agent/content?content=article&id=11889589', 'title': 'What is 
+Gamma’s refund policy and how do I request a refund?', 'locale': 'en'}, 
+{'content_type': 'content_snippet', 'url': 
+'/fin-ai-agent/content?content=content_snippet&id=252530', 'title': 'How can I 
+know if a refund is going to be issued?', 'locale': 'en'}]}
+
+🏷️  CUSTOM ATTRIBUTES:
+  Has attachments: False
+  Imported via standalone: False
+  Auto-translated: False
+  Fin AI Agent: Preview: False
+  Copilot used: False
+  Language: English
+  Fin AI Agent resolution state: Routed to team
+  Reason for contact: Billing
+  Billing: Refund
+  Refund: Given 
+  Given Reason: Subscribed by mistake
+  CX Score rating: 5
+  CX Score explanation: The customer was charged after canceling a subscription 
+and sought a refund. The AI Agent efficiently routed the customer to a human 
+teammate who processed the refund, resulting in a positive customer sentiment.
+
+🔖 TAGS:
+  (empty)
+
+📑 TOPICS:
+  - refund (type: topic)
+
+👤 ASSIGNEE:
+  (none)
+
+💬 CONVERSATION PARTS:
+  Total parts: 37
+
+  Part 1:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:14:18 (1762463658)
+    Body: ...
+
+  Part 2:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:14:18 (1762463658)
+    Body: ...
+
+  Part 3:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:14:19 (1762463659)
+    Body: ...
+
+  Part 4:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:14:23 (1762463663)
+    Body: ...
+
+  Part 5:
+    Type: bot
+    Name: Support Sal
+    Email: operator+ihnzqaok@intercom.io
+    ID: 5643511
+    Created: 2025-11-06 21:14:38 (1762463678)
+    Body: <p>I understand you were charged $180 and are looking for a refund 
+after canceling within 7 days. You're correct that we offer <a 
+class="inline-source...
+
+  ... and 32 more parts
+
+📊 STATISTICS:
+  type: conversation_statistics
+  time_to_assignment: 0
+  time_to_admin_reply: 1250
+  time_to_first_close: 1257
+  time_to_last_close: 20198
+  median_time_to_reply: 341
+  first_contact_reply_at: 1762463658
+  first_assignment_at: 1762463658
+  first_admin_reply_at: 1762464908
+  first_close_at: 1762464915
+  last_assignment_at: 1762463757
+  last_assignment_admin_reply_at: 1762464908
+  last_contact_reply_at: 1762464929
+  last_admin_reply_at: 1762464908
+  last_close_at: 1762483856
+  last_closed_by_id: 9109353
+  count_reopens: 1
+  count_assignments: 3
+  count_conversation_parts: 38
+  assigned_team_first_response_time: [{'team_id': 7711311, 'team_name': 'Paid 
+Support', 'response_time': 1151.0}]
+  assigned_team_first_response_time_in_office_hours: [{'team_id': 7711311, 
+'team_name': 'Paid Support', 'response_time': 1151}]
+  handling_time: 20085
+
+⭐ CONVERSATION RATING:
+  created_at: 1762570259
+  contact: {'type': 'contact', 'id': '6723de5bde037ac78b08866a', 'external_id': 
+'jmdx85emwuqpvf3'}
+  teammate: {'type': 'admin', 'id': '9109353'}
+  updated_at: 1762570259
+
+👥 CONTACTS:
+  Contact 1:
+    ID: 6723de5bde037ac78b08866a
+    Email: jessica_jimenez25@yahoo.com
+    Role: user
+    Custom Attributes: ['Stripe Payments', 'jobFunction', 
+'stripe_account_balance', 'stripe_card_brand', 'stripe_card_expires_at']
+
+📨 SOURCE MESSAGE:
+  Type: conversation
+  ID: 3250409961
+  Author Type: user
+  Author ID: 6723de5bde037ac78b08866a
+  Body: <p>Hello I was charged 180 for gamma but I canceled my subscription. It 
+said I would receive money back if I canceled within 7 days</p>...
+
+📝 EXTRACTED TEXT:
+  Length: 3504 chars
+  First 300 chars: Hello I was charged 180 for gamma but I canceled my 
+subscription. It said I would receive money back if I canceled within 7 days I 
+understand you were charged $180 and are looking for a refund after canceling 
+within 7 days. You're correct that we offer refunds within the first 7 days of 
+subscribing,...
+
+🔍 KEYWORD DETECTION TEST (Word Boundaries):
+  ✅ Billing: ['billing', 'refund', 'subscription']
+  ✅ Account: ['account', 'email']
+  ✅ Product Question: ['how do']
+  ✅ Workspace: ['team']
+
+🔑 ALL RAW KEYS IN CONVERSATION OBJECT:
+  admin_assignee_id, ai_agent, ai_agent_participated, contacts, 
+conversation_parts, conversation_rating, created_at, custom_attributes, 
+first_contact_reply, id, linked_objects, open, priority, read, sla_applied, 
+source, state, statistics, tags, team_assignee_id, teammates, topics, type, 
+updated_at
+
+
+
+================================================================================
+✅ SAMPLE MODE COMPLETE
+================================================================================
+
+All detailed analysis is shown above in this console.
+No need to check JSON files - everything you need is here! 👆
+

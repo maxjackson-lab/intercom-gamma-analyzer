@@ -1,0 +1,320 @@
+{
+  "start_time": "2025-11-25T20:30:16.741518",
+  "end_time": "2025-11-25T21:42:30.975893",
+  "total_duration_seconds": 4334.234376,
+  "steps": [
+    {
+      "timestamp": "2025-11-25T20:30:16.741572",
+      "elapsed_seconds": 5.4e-05,
+      "phase": "Initialization",
+      "action": "Started Voice of Customer Analysis",
+      "details": {
+        "start_date": "2025-11-17",
+        "end_date": "2025-11-24",
+        "test_mode": false,
+        "generate_gamma": true
+      }
+    },
+    {
+      "timestamp": "2025-11-25T20:30:16.742992",
+      "elapsed_seconds": 0.001474,
+      "phase": "Data Fetching",
+      "action": "Started fetching conversations from Intercom API",
+      "details": {
+        "start_date": "2025-11-17",
+        "end_date": "2025-11-24",
+        "api": "Intercom Conversations Search API"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:26:27.759980",
+      "elapsed_seconds": 3371.018462,
+      "phase": "Data Fetching",
+      "action": "Fetched 7007 conversations",
+      "details": {
+        "count": 7007,
+        "method": "ChunkedFetcher",
+        "chunking_strategy": "Daily chunks with preprocessing"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:26:28.037634",
+      "elapsed_seconds": 3371.296116,
+      "phase": "Phase 1: Segmentation",
+      "action": "Starting customer tier classification",
+      "details": {
+        "agent": "SegmentationAgent",
+        "total_conversations": 7007,
+        "method": "Tier-first classification (Free/Paid/Unknown)"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:26:38.865099",
+      "elapsed_seconds": 3382.123581,
+      "phase": "Phase 1: Segmentation",
+      "action": "Completed customer tier classification",
+      "details": {
+        "paid_conversations": 3156,
+        "free_conversations": 3851,
+        "paid_fin_resolved": 2186,
+        "paid_human_handled": 970,
+        "execution_time_seconds": 2.843704
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:26:38.865306",
+      "elapsed_seconds": 3382.123788,
+      "phase": "Phase 2: Topic Detection",
+      "action": "Starting AI-based topic classification",
+      "details": {
+        "agent": "TopicDetectionAgent",
+        "conversations_to_classify": 7007,
+        "taxonomy_categories": 12,
+        "method": "AI classification with keyword fallback"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:40:42.186852",
+      "elapsed_seconds": 4225.445334,
+      "phase": "Phase 2: Topic Detection",
+      "action": "Completed topic classification - 13 topics detected",
+      "details": {
+        "topics_detected": 13,
+        "conversations_classified": 7007,
+        "top_topics": [
+          [
+            "Billing",
+            3463
+          ],
+          [
+            "Product Question",
+            2041
+          ],
+          [
+            "Account",
+            609
+          ],
+          [
+            "Bug",
+            321
+          ],
+          [
+            "Workspace",
+            285
+          ]
+        ],
+        "execution_time_seconds": 843.208178
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:25.419815",
+      "elapsed_seconds": 4268.678297,
+      "phase": "Phase 4: Fin Analysis",
+      "action": "Starting Fin AI performance evaluation on 6037 conversations",
+      "details": {
+        "free_tier_conversations": 3851,
+        "paid_tier_conversations": 2186,
+        "total_fin_conversations": 6037
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:25.456763",
+      "elapsed_seconds": 4268.715245,
+      "phase": "FIN Performance Analysis",
+      "action": "Starting FIN performance evaluation",
+      "details": {
+        "total_conversations": 6037,
+        "free_tier": 3851,
+        "paid_tier": 2186
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:39.968922",
+      "elapsed_seconds": 4283.227404,
+      "phase": "FIN Performance Analysis",
+      "action": "Data quality assessment: CSAT coverage poor",
+      "details": {
+        "overall_csat_coverage_pct": "4.0%",
+        "free_tier_csat_coverage_pct": "4.5%",
+        "paid_tier_csat_coverage_pct": "3.1%",
+        "eligible_for_rating": 2113,
+        "actually_rated": 240
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:39.968989",
+      "elapsed_seconds": 4283.227471,
+      "phase": "FIN Performance Analysis",
+      "action": "Performance concerns identified: 1 issues",
+      "details": {
+        "issues": [
+          "High knowledge gap rate in free tier (39.6%)"
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:47.025142",
+      "elapsed_seconds": 4290.283624,
+      "phase": "FIN Performance Analysis",
+      "action": "Completed FIN analysis in 21.57s",
+      "details": {
+        "execution_time_seconds": 21.568434,
+        "free_tier_resolution": "60.9%",
+        "paid_tier_resolution": "97.0%",
+        "total_knowledge_gaps": 1662,
+        "topics_analyzed": 14
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:47.037468",
+      "elapsed_seconds": 4290.29595,
+      "phase": "Phase 4: Fin Analysis",
+      "action": "Completed Fin AI performance evaluation in 21.6s",
+      "details": {
+        "execution_time_seconds": 21.616982,
+        "total_analyzed": 6037,
+        "free_tier_resolution_rate": 0.609,
+        "paid_tier_resolution_rate": 0.97,
+        "success": true,
+        "payload_validation": "passed"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:51.554862",
+      "elapsed_seconds": 4294.813344,
+      "phase": "Phase 4.5: Analytical Insights",
+      "action": "Starting pattern detection and quality analysis",
+      "details": {
+        "agents": [
+          "CorrelationAgent",
+          "QualityInsightsAgent",
+          "ChurnRiskAgent",
+          "ConfidenceMetaAgent"
+        ],
+        "total_conversations": 7007
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:57.575691",
+      "elapsed_seconds": 4300.834173,
+      "phase": "Phase 4.5: Analytical Insights",
+      "action": "Completed analytical insights in 6.0s",
+      "details": {
+        "execution_time_seconds": 6.020703,
+        "correlations_found": 1,
+        "churn_signals": 104,
+        "anomalies_detected": 5,
+        "overall_confidence": 0.66
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:57.576125",
+      "elapsed_seconds": 4300.834607,
+      "phase": "Phase 5: Trend Analysis",
+      "action": "Starting historical trend analysis",
+      "details": {
+        "current_week": "2025-W46",
+        "topics_to_analyze": 13
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:57.615838",
+      "elapsed_seconds": 4300.87432,
+      "phase": "Phase 5: Trend Analysis",
+      "action": "Completed trend analysis in 0.0s",
+      "details": {
+        "execution_time_seconds": 0.039376,
+        "trends_identified": 13,
+        "success": true,
+        "payload_validation": "failed"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:57.618999",
+      "elapsed_seconds": 4300.877481,
+      "phase": "Phase 6: Output Formatting",
+      "action": "Starting final output formatting",
+      "details": {
+        "agents_completed": 13,
+        "topics_processed": 13
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:42:30.038298",
+      "elapsed_seconds": 4333.29678,
+      "phase": "Phase 6: Output Formatting",
+      "action": "Completed output formatting in 32.4s",
+      "details": {
+        "execution_time_seconds": 32.419206,
+        "success": true
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:42:30.059019",
+      "elapsed_seconds": 4333.317501,
+      "phase": "Phase 6.5: Snapshot Auto-Save",
+      "action": "Saved analysis snapshot: weekly_20251125",
+      "details": {
+        "snapshot_id": "weekly_20251125",
+        "analysis_type": "weekly"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:42:30.975317",
+      "elapsed_seconds": 4334.233799,
+      "phase": "Output Generation",
+      "action": "Saved analysis report",
+      "details": {
+        "file": "/mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/narrative_v2_2025-W46_20251125_214230.md",
+        "format": "markdown"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "timestamp": "2025-11-25T21:26:27.760269",
+      "question": "What time period does this analysis cover?",
+      "answer": "weekly (Week of Nov 17, 2025)",
+      "reasoning": "Based on date range 2025-11-17 to 2025-11-24",
+      "supporting_data": {
+        "period_type": "weekly",
+        "period_label": "Week of Nov 17, 2025"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:26:38.865192",
+      "question": "How were conversations segmented by tier?",
+      "answer": "Tier-first classification using custom_attributes['tier'] field",
+      "reasoning": "Free tier customers can only interact with Fin AI. Paid tier can escalate to humans.",
+      "supporting_data": {
+        "free_tier_count": 3851,
+        "paid_tier_count": 3156,
+        "free_percentage": "55.0%",
+        "paid_percentage": "45.0%"
+      }
+    },
+    {
+      "timestamp": "2025-11-25T21:41:25.456841",
+      "question": "What resolution definition should be used for Fin AI?",
+      "answer": "Using strict resolution criteria: no admin response + (closed OR \u22642 user responses) + no bad rating",
+      "reasoning": "This ensures we only count true Fin resolutions where customer was satisfied and didn't need human help",
+      "supporting_data": {
+        "criteria": [
+          "No admin response (Fin handled alone)",
+          "Either closed OR \u22642 user responses",
+          "No bad rating (rating \u22653 or None)"
+        ]
+      }
+    }
+  ],
+  "warnings": [],
+  "data_quality_checks": [
+    {
+      "timestamp": "2025-11-25T21:41:39.968839",
+      "check_name": "CSAT Coverage",
+      "passed": "4.0% of conversations have CSAT ratings",
+      "details": "poor"
+    }
+  ],
+  "tool_calls": []
+}

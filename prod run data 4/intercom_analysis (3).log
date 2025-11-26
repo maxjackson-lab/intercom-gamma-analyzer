@@ -1,0 +1,457 @@
+2025-11-13 20:26:28 - src.services.chunked_fetcher - INFO - Initialized ChunkedFetcher with max_days_per_chunk=1, preprocessing=disabled, no artificial timeouts (runs until complete like pre-SDK version)
+2025-11-13 20:26:28 - src.services.chunked_fetcher - INFO - Fetching conversations from 2025-11-06 to 2025-11-13 (8 days)
+2025-11-13 20:26:28 - src.services.chunked_fetcher - INFO - Using CHUNKED mode (8 days > 3) - daily chunks with progress updates
+2025-11-13 20:26:28 - src.services.chunked_fetcher - INFO - Fetching daily chunks: 2025-11-06 to 2025-11-13
+2025-11-13 20:26:28 - src.services.chunked_fetcher - INFO - Processing chunk: 2025-11-06 to 2025-11-06
+2025-11-13 20:26:28 - src.services.intercom_sdk_service - INFO - Fetching conversations from 2025-11-06 20:26:28.138088 to 2025-11-06 23:59:59.999999
+2025-11-13 20:26:38 - src.services.intercom_sdk_service - INFO - Fetched 50 conversations
+2025-11-13 20:26:51 - src.services.intercom_sdk_service - INFO - Fetched 100 conversations
+2025-11-13 20:26:52 - src.services.intercom_sdk_service - INFO - Fetched 106 conversations from SDK
+2025-11-13 20:26:52 - src.services.intercom_sdk_service - INFO - Enriching 106 conversations (concurrency=5, delay=200ms)
+2025-11-13 20:27:23 - src.services.intercom_sdk_service - INFO - ENRICHMENT_METRICS: attempted=106, successful=106, failed_contact=0, failed_segments=0, failed_conversation_parts=0, skipped=0, success_rate=100.0%, conversation_parts_success_rate=100.0%
+2025-11-13 20:27:23 - src.services.chunked_fetcher - INFO - Chunk actual dates: 2025-11-06 to 2025-11-06
+2025-11-13 20:27:23 - src.services.chunked_fetcher - INFO - Chunk completed: 106 conversations (total: 106)
+2025-11-13 20:27:24 - src.services.chunked_fetcher - INFO - Processing chunk: 2025-11-07 to 2025-11-07
+2025-11-13 20:27:24 - src.services.intercom_sdk_service - INFO - Fetching conversations from 2025-11-07 00:00:00 to 2025-11-07 23:59:59.999999
+2025-11-13 20:27:40 - src.services.intercom_sdk_service - INFO - Fetched 50 conversations
+2025-11-13 20:27:51 - src.services.intercom_sdk_service - INFO - Fetched 100 conversations
+2025-11-13 20:28:00 - src.services.intercom_sdk_service - INFO - Fetched 150 conversations
+2025-11-13 20:28:14 - src.services.intercom_sdk_service - INFO - Fetched 200 conversations
+2025-11-13 20:28:26 - src.services.intercom_sdk_service - WARNING - Emergency brake hit — fetched 200 conversations (cap=200).
+2025-11-13 20:28:26 - src.services.intercom_sdk_service - INFO - Fetched 200 conversations from SDK
+2025-11-13 20:28:26 - src.services.intercom_sdk_service - INFO - Enriching 200 conversations (concurrency=5, delay=200ms)
+2025-11-13 20:29:30 - src.services.intercom_sdk_service - INFO - ENRICHMENT_METRICS: attempted=200, successful=200, failed_contact=0, failed_segments=0, failed_conversation_parts=0, skipped=0, success_rate=100.0%, conversation_parts_success_rate=100.0%
+2025-11-13 20:29:30 - src.services.chunked_fetcher - INFO - Chunk actual dates: 2025-11-07 to 2025-11-07
+2025-11-13 20:29:30 - src.services.chunked_fetcher - WARNING - ChunkedFetcher cap reached — returning first 200 conversations.
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO - Agent TopicDetectionAgent initialized with tools: False
+2025-11-13 20:29:32 - src.config.modes - INFO - Loaded analysis mode config from /app/config/analysis_modes.yaml
+2025-11-13 20:29:32 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:29:32 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:29:32 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:29:32 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO - Built 13 topics from TaxonomyManager with subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Abuse: 29 keywords, 9 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Account: 40 keywords, 12 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Agent/Buddy: 34 keywords, 6 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Billing: 85 keywords, 29 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Bug: 76 keywords, 25 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Chargeback: 5 keywords, 1 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Feedback: 11 keywords, 4 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Partnerships: 9 keywords, 3 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Privacy: 11 keywords, 4 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Product Question: 31 keywords, 11 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Promotions: 5 keywords, 1 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Unknown: 4 keywords, 1 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO -    Workspace: 9 keywords, 2 subcategories
+2025-11-13 20:29:32 - agents.TopicDetectionAgent - INFO - 🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO - Agent TopicDetectionAgent initialized with tools: False
+2025-11-13 20:32:02 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO - Built 13 topics from TaxonomyManager with subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Abuse: 29 keywords, 9 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Account: 40 keywords, 12 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Agent/Buddy: 34 keywords, 6 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Billing: 85 keywords, 29 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Bug: 76 keywords, 25 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Chargeback: 5 keywords, 1 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Feedback: 11 keywords, 4 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Partnerships: 9 keywords, 3 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Privacy: 11 keywords, 4 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Product Question: 31 keywords, 11 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Promotions: 5 keywords, 1 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Unknown: 4 keywords, 1 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO -    Workspace: 9 keywords, 2 subcategories
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO - 🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)
+2025-11-13 20:32:02 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Detecting topics for 200 conversations
+2025-11-13 20:32:04 - agents.TopicDetectionAgent - INFO - Progress: 25/200 conversations processed
+2025-11-13 20:32:05 - agents.TopicDetectionAgent - INFO - Progress: 50/200 conversations processed
+2025-11-13 20:32:08 - agents.TopicDetectionAgent - INFO - Progress: 75/200 conversations processed
+2025-11-13 20:32:10 - agents.TopicDetectionAgent - INFO - Progress: 100/200 conversations processed
+2025-11-13 20:32:11 - agents.TopicDetectionAgent - INFO - Progress: 125/200 conversations processed
+2025-11-13 20:32:14 - agents.TopicDetectionAgent - INFO - Progress: 150/200 conversations processed
+2025-11-13 20:32:15 - agents.TopicDetectionAgent - INFO - Progress: 175/200 conversations processed
+2025-11-13 20:32:17 - agents.TopicDetectionAgent - INFO - Progress: 200/200 conversations processed
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO - 📊 HYBRID Topic Detection Breakdown:
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Billing: 99 total | Hybrid: 0 (0.0%) | Keyword: 99 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Bug: 37 total | Hybrid: 0 (0.0%) | Keyword: 37 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Account: 27 total | Hybrid: 0 (0.0%) | Keyword: 27 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Workspace: 24 total | Hybrid: 0 (0.0%) | Keyword: 24 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Promotions: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Unknown/unresponsive: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Privacy: 3 total | Hybrid: 0 (0.0%) | Keyword: 3 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Chargeback: 2 total | Hybrid: 0 (0.0%) | Keyword: 2 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO - LLM topic discovery disabled (using full taxonomy instead)
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Completed in 16.40s
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Topics detected: 8
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Coverage: 100.0%
+2025-11-13 20:32:18 - agents.TopicDetectionAgent - INFO -    Top topics: [('Billing', 99), ('Bug', 37), ('Account', 27), ('Workspace', 24), ('Promotions', 4)]
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO - Agent TopicDetectionAgent initialized with tools: False
+2025-11-13 20:32:19 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:19 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:19 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:19 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO - Built 13 topics from TaxonomyManager with subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Abuse: 29 keywords, 9 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Account: 40 keywords, 12 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Agent/Buddy: 34 keywords, 6 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Billing: 85 keywords, 29 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Bug: 76 keywords, 25 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Chargeback: 5 keywords, 1 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Feedback: 11 keywords, 4 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Partnerships: 9 keywords, 3 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Privacy: 11 keywords, 4 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Product Question: 31 keywords, 11 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Promotions: 5 keywords, 1 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Unknown: 4 keywords, 1 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO -    Workspace: 9 keywords, 2 subcategories
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO - 🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)
+2025-11-13 20:32:19 - agents.TopicSentimentAgent - INFO - Agent TopicSentimentAgent initialized with tools: False
+2025-11-13 20:32:19 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:19 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:19 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:19 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:19 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Detecting topics for 200 conversations
+2025-11-13 20:32:21 - agents.TopicDetectionAgent - INFO - Progress: 25/200 conversations processed
+2025-11-13 20:32:24 - agents.TopicDetectionAgent - INFO - Progress: 50/200 conversations processed
+2025-11-13 20:32:25 - agents.TopicDetectionAgent - INFO - Progress: 75/200 conversations processed
+2025-11-13 20:32:28 - agents.TopicDetectionAgent - INFO - Progress: 100/200 conversations processed
+2025-11-13 20:32:29 - agents.TopicDetectionAgent - INFO - Progress: 125/200 conversations processed
+2025-11-13 20:32:31 - agents.TopicDetectionAgent - INFO - Progress: 150/200 conversations processed
+2025-11-13 20:32:34 - agents.TopicDetectionAgent - INFO - Progress: 175/200 conversations processed
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO - Progress: 200/200 conversations processed
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO - 📊 HYBRID Topic Detection Breakdown:
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Billing: 99 total | Hybrid: 0 (0.0%) | Keyword: 99 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Bug: 38 total | Hybrid: 0 (0.0%) | Keyword: 38 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Account: 26 total | Hybrid: 0 (0.0%) | Keyword: 26 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Workspace: 24 total | Hybrid: 0 (0.0%) | Keyword: 24 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Promotions: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Unknown/unresponsive: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Privacy: 3 total | Hybrid: 0 (0.0%) | Keyword: 3 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Chargeback: 2 total | Hybrid: 0 (0.0%) | Keyword: 2 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO - LLM topic discovery disabled (using full taxonomy instead)
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Completed in 17.27s
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Topics detected: 8
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Coverage: 100.0%
+2025-11-13 20:32:36 - agents.TopicDetectionAgent - INFO -    Top topics: [('Billing', 99), ('Bug', 38), ('Account', 26), ('Workspace', 24), ('Promotions', 4)]
+2025-11-13 20:32:36 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Analyzing sentiment for 'Billing' (99 conversations)
+2025-11-13 20:32:36 - agents.TopicSentimentAgent - INFO -    🤖 Using LLM analysis for deep sentiment understanding
+2025-11-13 20:32:36 - src.services.openai_client - INFO - Generating AI analysis
+2025-11-13 20:32:38 - src.services.openai_client - INFO - AI analysis generated successfully
+2025-11-13 20:32:38 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Generated insight for 'Billing' via llm
+2025-11-13 20:32:38 - agents.TopicSentimentAgent - INFO -    Insight: I cannot verify this information as the provided dataset does not include any sample conversations for analysis.
+2025-11-13 20:32:38 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Analyzing sentiment for 'Privacy' (3 conversations)
+2025-11-13 20:32:38 - agents.TopicSentimentAgent - INFO -    🤖 Using LLM analysis for deep sentiment understanding
+2025-11-13 20:32:38 - src.services.openai_client - INFO - Generating AI analysis
+2025-11-13 20:32:39 - src.services.openai_client - INFO - AI analysis generated successfully
+2025-11-13 20:32:39 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Generated insight for 'Privacy' via llm
+2025-11-13 20:32:39 - agents.TopicSentimentAgent - INFO -    Insight: I cannot verify this information because the provided dataset does not include any sample conversations for analysis.
+2025-11-13 20:32:39 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Analyzing sentiment for 'Chargeback' (2 conversations)
+2025-11-13 20:32:39 - agents.TopicSentimentAgent - INFO -    🤖 Using LLM analysis for deep sentiment understanding
+2025-11-13 20:32:39 - src.services.openai_client - INFO - Generating AI analysis
+2025-11-13 20:32:40 - src.services.openai_client - INFO - AI analysis generated successfully
+2025-11-13 20:32:40 - agents.TopicSentimentAgent - INFO - TopicSentimentAgent: Generated insight for 'Chargeback' via llm
+2025-11-13 20:32:40 - agents.TopicSentimentAgent - INFO -    Insight: I cannot verify this information as the provided dataset does not include any sample conversations for analysis.
+2025-11-13 20:32:40 - agents.TopicDetectionAgent - INFO - Agent TopicDetectionAgent initialized with tools: False
+2025-11-13 20:32:40 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:40 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:40 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:40 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO - Built 13 topics from TaxonomyManager with subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Abuse: 29 keywords, 9 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Account: 40 keywords, 12 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Agent/Buddy: 34 keywords, 6 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Billing: 85 keywords, 29 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Bug: 76 keywords, 25 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Chargeback: 5 keywords, 1 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Feedback: 11 keywords, 4 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Partnerships: 9 keywords, 3 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Privacy: 11 keywords, 4 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Product Question: 31 keywords, 11 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Promotions: 5 keywords, 1 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Unknown: 4 keywords, 1 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO -    Workspace: 9 keywords, 2 subcategories
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO - 🤖 TopicDetectionAgent: LLM-FIRST mode enabled (uses LLM for every conversation)
+2025-11-13 20:32:41 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Detecting topics for 200 conversations
+2025-11-13 20:32:43 - agents.TopicDetectionAgent - INFO - Progress: 25/200 conversations processed
+2025-11-13 20:32:45 - agents.TopicDetectionAgent - INFO - Progress: 50/200 conversations processed
+2025-11-13 20:32:46 - agents.TopicDetectionAgent - INFO - Progress: 75/200 conversations processed
+2025-11-13 20:32:48 - agents.TopicDetectionAgent - INFO - Progress: 100/200 conversations processed
+2025-11-13 20:32:50 - agents.TopicDetectionAgent - INFO - Progress: 125/200 conversations processed
+2025-11-13 20:32:52 - agents.TopicDetectionAgent - INFO - Progress: 150/200 conversations processed
+2025-11-13 20:32:53 - agents.TopicDetectionAgent - INFO - Progress: 175/200 conversations processed
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO - Progress: 200/200 conversations processed
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO - 📊 HYBRID Topic Detection Breakdown:
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Billing: 99 total | Hybrid: 0 (0.0%) | Keyword: 99 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Bug: 38 total | Hybrid: 0 (0.0%) | Keyword: 38 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Account: 25 total | Hybrid: 0 (0.0%) | Keyword: 25 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Workspace: 25 total | Hybrid: 0 (0.0%) | Keyword: 25 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Promotions: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Unknown/unresponsive: 4 total | Hybrid: 0 (0.0%) | Keyword: 4 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Privacy: 3 total | Hybrid: 0 (0.0%) | Keyword: 3 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Chargeback: 2 total | Hybrid: 0 (0.0%) | Keyword: 2 (100.0%) | SDK-only: 0 (0.0%)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO - LLM topic discovery disabled (using full taxonomy instead)
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Completed in 14.92s
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Topics detected: 8
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Coverage: 100.0%
+2025-11-13 20:32:55 - agents.TopicDetectionAgent - INFO -    Top topics: [('Billing', 99), ('Bug', 38), ('Account', 25), ('Workspace', 25), ('Promotions', 4)]
+2025-11-13 20:32:55 - agents.SubTopicDetectionAgent - INFO - Agent SubTopicDetectionAgent initialized with tools: False
+2025-11-13 20:32:55 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:55 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:55 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:55 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Built normalization maps for 13 categories
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - SubcategoryMapper initialized with Hilary's taxonomy
+2025-11-13 20:32:56 - src.agents.subtopic_detection_agent - INFO - SubTopicDetectionAgent initialized with SubcategoryMapper
+2025-11-13 20:32:56 - agents.ExampleExtractionAgent - INFO - Agent ExampleExtractionAgent initialized with tools: False
+2025-11-13 20:32:56 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:56 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:56 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - agents.FinPerformanceAgent - INFO - Agent FinPerformanceAgent initialized with tools: False
+2025-11-13 20:32:56 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:56 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - src.services.fin_escalation_analyzer - INFO - FinEscalationAnalyzer initialized
+2025-11-13 20:32:56 - agents.CorrelationAgent - INFO - Agent CorrelationAgent initialized with tools: False
+2025-11-13 20:32:56 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:56 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - agents.QualityInsightsAgent - INFO - Agent QualityInsightsAgent initialized with tools: False
+2025-11-13 20:32:56 - src.config.modes - INFO - Using AI model from environment: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+2025-11-13 20:32:56 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+2025-11-13 20:32:56 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+2025-11-13 20:32:56 - agents.ChurnRiskAgent - INFO - Agent ChurnRiskAgent initialized with tools: False
+2025-11-13 20:32:56 - agents.ConfidenceMetaAgent - INFO - Agent ConfidenceMetaAgent initialized with tools: False
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Billing (99 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Billing using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Billing: Mapped 236 raw → 4 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Billing: Found 4 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Account (25 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Account using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Account: Mapped 32 raw → 1 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Account: Found 1 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Bug (38 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Bug using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Bug: Mapped 48 raw → 1 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Bug: Found 1 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Workspace (25 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Workspace using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Workspace: Mapped 12 raw → 0 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Workspace: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Promotions (4 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Promotions using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Promotions: Mapped 4 raw → 1 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Promotions: Found 1 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Privacy (3 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Privacy using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Privacy: Mapped 2 raw → 0 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Privacy: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Unknown/unresponsive (4 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Unknown/unresponsive using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Unknown/unresponsive: Mapped 4 raw → 0 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Unknown/unresponsive: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Chargeback (2 conversations)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Chargeback using SubcategoryMapper...
+2025-11-13 20:32:56 - src.utils.subcategory_mapper - INFO - Chargeback: Mapped 5 raw → 0 canonical subcategories
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    ✅ Chargeback: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO - SubTopicDetectionAgent: Completed in 0.00s
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    Tier 1 topics processed: 8
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    Coverage: 100.0% (200/200)
+2025-11-13 20:32:56 - agents.SubTopicDetectionAgent - INFO -    Total token count: 0
+2025-11-13 20:32:56 - agents.ExampleExtractionAgent - ERROR - ExampleExtractionAgent error: topic_conversations not provided
+2025-11-13 20:32:56 - src.agents.fin_performance_agent - ERROR - FinPerformanceAgent error: No Fin conversations provided (expected 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+2025-11-13 20:32:56 - src.agents.quality_insights_agent - INFO - Analyzing quality metrics across 200 conversations
+2025-11-13 20:32:56 - src.agents.quality_insights_agent - WARNING - Volume anomaly detection failed: unsupported operand type(s) for +: 'dict' and 'dict'
+2025-11-13 20:32:56 - src.agents.quality_insights_agent - WARNING - CSAT outlier detection failed: '<' not supported between instances of 'dict' and 'dict'
+2025-11-13 20:32:56 - src.agents.quality_insights_agent - WARNING - LLM enrichment failed: 'type'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - INFO - Scanning 200 conversations for churn signals
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+2025-11-13 20:32:56 - src.agents.confidence_meta_agent - WARNING - SegmentationAgent results not available for meta-analysis
+2025-11-13 20:32:56 - src.agents.confidence_meta_agent - INFO - Performing meta-analysis on 1 agents
+2025-11-13 20:32:56 - src.agents.confidence_meta_agent - WARNING - Limitations identification failed: '<' not supported between instances of 'dict' and 'int'

@@ -8,29 +8,55 @@ Responsibilities:
 - Ensure insights over lists format
 """
 
+import asyncio
 import logging
 import json
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.services.gamma_generator import GammaGenerator
 from src.config.gamma_prompts import GammaPrompts
 from src.config.settings import settings
+from src.services.presentation_builder import PresentationBuilder
+from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
 
 logger = logging.getLogger(__name__)
 
 
 class PresentationAgent(BaseAgent):
-    """Agent specialized in presentation generation"""
+    """
+    Agent specialized in presentation generation.
+
+    Note:
+        `result_data['presentation_quality']` is a structured dictionary that
+        contains per-dimension scoring plus qualitative feedback. Downstream
+        consumers must no longer expect a scalar quality score.
+    """
     
-    def __init__(self):
+    def __init__(self, ai_client: Optional[Any] = None):
         super().__init__(
             name="PresentationAgent",
             model="gpt-4o",
             temperature=0.7  # Creative but controlled
         )
         self.gamma_generator = GammaGenerator()
+        self.presentation_builder = PresentationBuilder()
+        self.ai_client = ai_client or get_ai_client()
+
+        from src.services.claude_client import ClaudeClient
+
+        if isinstance(self.ai_client, ClaudeClient):
+            self.client_type = "claude"
+            self.quality_model = settings.anthropic_model
+        else:
+            self.client_type = "openai"
+            self.quality_model = settings.openai_model
+
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)
+        self.llm_timeout = getattr(settings, "presentation_quality_timeout", settings.llm_timeout_default)
+        self.quality_assessment_temperature = 0.2
     
     def get_agent_specific_instructions(self) -> str:
         """Presentation agent specific instructions"""
@@ -149,13 +175,15 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
     
     async def execute(self, context: AgentContext) -> AgentResult:
         """
-        Execute presentation generation.
+        Execute presentation generation and quality assessment.
         
         Args:
             context: AgentContext with all previous agent results
             
         Returns:
-            AgentResult with Gamma presentation
+            AgentResult with Gamma presentation content, Gamma metadata, and a
+            structured `presentation_quality` dict containing the per-dimension
+            quality assessment scores plus qualitative feedback fields.
         """
         start_time = datetime.now()
         
@@ -172,6 +200,16 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             presentation_style = context.metadata.get('gamma_style', 'executive')
             if hasattr(settings, 'default_gamma_style'):
                 presentation_style = context.metadata.get('gamma_style', settings.default_gamma_style)
+
+            chart_data = self._extract_chart_data(context)
+            if chart_data:
+                self.logger.info(
+                    "PresentationAgent: Prepared chart data for Gamma instructions",
+                    has_category_chart='category_chart' in chart_data,
+                    has_sentiment_chart='sentiment_chart' in chart_data
+                )
+            else:
+                self.logger.info("PresentationAgent: No chart data available for presentation")
             
             # Use existing Gamma prompt builder with insights
             prompt = GammaPrompts.build_executive_presentation_prompt(
@@ -183,21 +221,32 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
                 customer_quotes=self._extract_customer_quotes(context),
                 recommendations=insight_data.get('recommendations', [])
             )
+
+            additional_instructions = GammaPrompts.get_additional_instructions_for_style(
+                presentation_style,
+                chart_data=chart_data
+            )
             
             # Generate Gamma presentation using markdown method
             # The prompt is already formatted markdown, so use generate_from_markdown
             gamma_result = await self.gamma_generator.generate_from_markdown(
                 input_text=prompt,
-                theme_name="Night Sky"  # Professional dark theme (automatically resolved to themeId)
+                theme_name="Night Sky",  # Professional dark theme (automatically resolved to themeId)
+                additional_instructions=additional_instructions
             )
-            
-            # Prepare result
+
+            presentation_quality = await self._assess_presentation_quality(prompt, context)
+
+            # Prepare result (presentation_quality includes scores for
+            # overall_score, narrative_flow_score, insight_depth_score,
+            # data_grounding_score, executive_appeal_score plus strengths,
+            # weaknesses, and improvement_suggestions)
             result_data = {
                 'presentation_content': prompt,
                 'gamma_url': gamma_result.get('gamma_url'),
                 'gamma_status': 'completed' if gamma_result.get('gamma_url') else 'pending',
                 'generation_id': gamma_result.get('generation_id'),
-                'presentation_quality': self._assess_presentation_quality(prompt),
+                'presentation_quality': presentation_quality,
                 'hallucination_check': self._check_for_hallucinations(prompt)
             }
             
@@ -209,8 +258,25 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             
             # Identify limitations
             limitations = []
-            if result_data['hallucination_check']['potential_issues'] > 0:
-                limitations.append(f"{result_data['hallucination_check']['potential_issues']} potential hallucination indicators found")
+            hallucination_issues = result_data['hallucination_check']['potential_issues']
+            if hallucination_issues > 0:
+                limitations.append(f"{hallucination_issues} potential hallucination indicators found")
+
+            assessment_status = presentation_quality.get('assessment_status')
+            if assessment_status != "ok":
+                limitations.append(
+                    "Presentation quality assessment unavailable; fallback scores used"
+                )
+            else:
+                quality_score = presentation_quality.get('overall_score')
+                if quality_score is not None and quality_score < 0.7:
+                    suggestions = presentation_quality.get('improvement_suggestions') or []
+                    if suggestions:
+                        limitations.extend(
+                            [f"Quality improvement: {suggestion}" for suggestion in suggestions[:3]]
+                        )
+                    else:
+                        limitations.append("Presentation quality assessment flagged low confidence (<0.70)")
             
             # Calculate execution time
             execution_time = (datetime.now() - start_time).total_seconds()
@@ -278,32 +344,266 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             'average_confidence': sentiment_results.get('average_confidence', 0),
             'total_analyzed': sentiment_results.get('total_analyzed', 0)
         }
+
+    def _extract_chart_data(self, context: AgentContext) -> Optional[Dict[str, Any]]:
+        """Extract and format chart data for Gamma additional instructions."""
+        try:
+            category_results = context.previous_results.get('CategoryAgent', {}).get('data', {}) or {}
+            sentiment_results = context.previous_results.get('SentimentAgent', {}).get('data', {}) or {}
+
+            category_distribution = category_results.get('category_distribution')
+            if not isinstance(category_distribution, dict):
+                category_distribution = {}
+
+            sentiment_distribution = sentiment_results.get('sentiment_distribution')
+            if not isinstance(sentiment_distribution, dict):
+                sentiment_distribution = {}
+
+            chart_data: Dict[str, Any] = {}
+
+            if category_distribution:
+                sorted_categories = sorted(
+                    category_distribution.items(),
+                    key=lambda item: item[1],
+                    reverse=True
+                )
+                category_labels = [str(name) for name, _ in sorted_categories]
+                category_values = [int(value) for _, value in sorted_categories]
+
+                if category_labels and any(value > 0 for value in category_values):
+                    chart_data['category_chart'] = {
+                        'type': 'bar',
+                        'title': 'Support Volume by Category',
+                        'labels': category_labels,
+                        'values': category_values
+                    }
+
+            if sentiment_distribution:
+                sorted_sentiment = sorted(sentiment_distribution.items(), key=lambda item: item[0])
+                sentiment_labels = [str(name) for name, _ in sorted_sentiment]
+                sentiment_values = [int(value) for _, value in sorted_sentiment]
+
+                if sentiment_labels and any(value > 0 for value in sentiment_values):
+                    chart_data['sentiment_chart'] = {
+                        'type': 'pie',
+                        'title': 'Sentiment Distribution',
+                        'labels': sentiment_labels,
+                        'values': sentiment_values
+                    }
+
+            return chart_data or None
+
+        except Exception as exc:
+            self.logger.warning("PresentationAgent: Failed to extract chart data: %s", exc, exc_info=True)
+            return None
     
     def _extract_customer_quotes(self, context: AgentContext) -> List[Dict]:
-        """Extract representative customer quotes"""
-        # Placeholder - would extract actual quotes from conversations
-        return [{
-            'quote': 'Representative quote would be extracted from actual conversation data',
-            'customer_name': 'Customer ID from data',
-            'intercom_url': 'Only if explicitly provided in data'
-        }]
+        """Extract representative customer quotes using stratified sampling."""
+        conversations = context.conversations or []
+        if not conversations:
+            self.logger.warning("PresentationAgent: No conversations available for quote extraction")
+            return []
+        
+        category_results = context.previous_results.get('CategoryAgent', {}).get('data', {}) or {}
+        
+        try:
+            quotes = self.presentation_builder.extract_customer_quotes(
+                conversations=conversations,
+                category_results=category_results if category_results else None,
+                max_quotes_per_category=3,
+                min_quotes_per_category=1
+            )
+        except Exception as exc:
+            self.logger.warning("PresentationAgent: Quote extraction failed: %s", exc)
+            return []
+        
+        if not quotes:
+            self.logger.warning("PresentationAgent: Quote extraction produced no results")
+            return []
+        
+        self.logger.info("PresentationAgent: Extracted %d customer quotes", len(quotes))
+        return quotes
     
-    def _assess_presentation_quality(self, content: str) -> float:
-        """Assess quality of generated presentation"""
-        quality = 1.0
+    async def _assess_presentation_quality(
+        self,
+        content: str,
+        context: AgentContext
+    ) -> Dict[str, Any]:
+        """Assess presentation quality using LLM-derived evaluation."""
+        if not self.ai_client:
+            return self._quality_assessment_fallback(
+                "Quality assessment skipped: no AI client configured."
+            )
         
-        # Deduct for list-heavy content (we want narrative)
-        bullet_count = content.count('\n- ') + content.count('\n• ')
-        if bullet_count > 20:
-            quality -= 0.2
+        prompt = self._build_quality_assessment_prompt(content, context)
         
-        # Deduct for missing key sections
-        if 'executive summary' not in content.lower():
-            quality -= 0.2
-        if 'recommendation' not in content.lower():
-            quality -= 0.2
+        try:
+            async with self.llm_semaphore:
+                system_instructions = self.get_agent_specific_instructions()
+                max_quality_tokens = 1200
+                if self.client_type == "claude":
+                    response = await asyncio.wait_for(
+                        self.ai_client.client.messages.create(
+                            model=self.quality_model,
+                            max_tokens=max_quality_tokens,
+                            temperature=self.quality_assessment_temperature,
+                            system=system_instructions,
+                            messages=[{"role": "user", "content": prompt}]
+                        ),
+                        timeout=self.llm_timeout
+                    )
+                    response_text = response.content[0].text if response and response.content else ""
+                else:
+                    response = await asyncio.wait_for(
+                        self.ai_client.client.chat.completions.create(
+                            model=self.quality_model,
+                            messages=[
+                                {"role": "system", "content": system_instructions},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=self.quality_assessment_temperature,
+                            max_tokens=max_quality_tokens
+                        ),
+                        timeout=self.llm_timeout
+                    )
+                    response_text = (
+                        response.choices[0].message.content
+                        if response and getattr(response, "choices", None)
+                        else ""
+                    )
+            
+            if not response_text:
+                return self._quality_assessment_fallback(
+                    "Quality assessment returned an empty response."
+                )
+            
+            return self._parse_quality_assessment_response(response_text)
         
-        return max(0.0, quality)
+        except asyncio.TimeoutError:
+            self.logger.warning(
+                "PresentationAgent: Quality assessment timed out after %ss",
+                self.llm_timeout
+            )
+            return self._quality_assessment_fallback(
+                "Quality assessment timed out; please review manually."
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "PresentationAgent: Quality assessment failed: %s",
+                exc,
+                exc_info=True
+            )
+            return self._quality_assessment_fallback(
+                f"Quality assessment unavailable: {exc}"
+            )
+    
+    def _build_quality_assessment_prompt(self, content: str, context: AgentContext) -> str:
+        """Build prompt instructing the LLM to evaluate presentation quality."""
+        conversations = len(context.conversations) if context.conversations else 0
+        gamma_style = (context.metadata or {}).get('gamma_style', 'executive')
+        truncated_content = content[:2000]
+        agent_instructions = self.get_agent_specific_instructions().strip()
+        
+        return f"""You are auditing a Gamma presentation created for Intercom analysis.
+
+ANALYSIS CONTEXT:
+- Analysis ID: {context.analysis_id}
+- Analysis Type: {context.analysis_type}
+- Date Range: {context.start_date.strftime('%Y-%m-%d')} to {context.end_date.strftime('%Y-%m-%d')}
+- Conversations Reviewed: {conversations}
+- Presentation Style: {gamma_style}
+
+AGENT INSTRUCTIONS (for reference, do NOT repeat verbatim):
+{agent_instructions}
+
+EVALUATION CRITERIA:
+1. Narrative Flow – Coherent storytelling with smooth transitions.
+2. Insight Depth – Specific, actionable insights grounded in the data.
+3. Data Grounding – Every claim backed by provided analysis (no hallucinations).
+4. Executive Appeal – Tone that resonates with C-level leaders and emphasizes business impact.
+
+TASK:
+Review the presentation excerpt below and score each dimension from 0 to 1 (higher is better). Provide structured feedback.
+
+Return JSON ONLY in this shape:
+{{
+  "overall_score": float,
+  "narrative_flow_score": float,
+  "insight_depth_score": float,
+  "data_grounding_score": float,
+  "executive_appeal_score": float,
+  "strengths": ["string"],
+  "weaknesses": ["string"],
+  "improvement_suggestions": ["string"]
+}}
+
+PRESENTATION CONTENT (truncated to 2000 characters):
+<<<CONTENT_START>>>
+{truncated_content}
+<<<CONTENT_END>>>"""
+    
+    def _parse_quality_assessment_response(self, response_text: str) -> Dict[str, Any]:
+        """Parse structured response from the LLM quality assessment."""
+        try:
+            json_match = re.search(r'\{.*?\}', response_text, re.DOTALL)
+            raw_json = json_match.group(0) if json_match else response_text
+            try:
+                data = json.loads(raw_json)
+            except json.JSONDecodeError:
+                data = json.loads(response_text)
+        except Exception as exc:
+            self.logger.warning(
+                "PresentationAgent: Failed to parse quality assessment response: %s",
+                exc
+            )
+            return self._quality_assessment_fallback(
+                "Quality assessment parsing failed; manual review recommended."
+            )
+        
+        return {
+            'overall_score': self._clamp_score(data.get('overall_score')),
+            'narrative_flow_score': self._clamp_score(data.get('narrative_flow_score')),
+            'insight_depth_score': self._clamp_score(data.get('insight_depth_score')),
+            'data_grounding_score': self._clamp_score(data.get('data_grounding_score')),
+            'executive_appeal_score': self._clamp_score(data.get('executive_appeal_score')),
+            'strengths': self._normalize_string_list(data.get('strengths')),
+            'weaknesses': self._normalize_string_list(data.get('weaknesses')),
+            'improvement_suggestions': self._normalize_string_list(data.get('improvement_suggestions')),
+            'assessment_status': 'ok'
+        }
+    
+    def _quality_assessment_fallback(self, message: str) -> Dict[str, Any]:
+        """Return default quality assessment structure when LLM evaluation fails."""
+        fallback = {
+            'overall_score': 0.5,
+            'narrative_flow_score': 0.5,
+            'insight_depth_score': 0.5,
+            'data_grounding_score': 0.5,
+            'executive_appeal_score': 0.5,
+            'strengths': [],
+            'weaknesses': [],
+            'improvement_suggestions': [],
+            'assessment_status': 'fallback'
+        }
+        if message:
+            fallback['improvement_suggestions'] = [message]
+        return fallback
+    
+    def _clamp_score(self, value: Any) -> float:
+        """Ensure scores stay within [0, 1]."""
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(1.0, score))
+    
+    def _normalize_string_list(self, value: Any) -> List[str]:
+        """Normalize string or list inputs into a clean list of strings."""
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+        if isinstance(value, str) and value.strip():
+            return [value.strip()]
+        return []
     
     def _check_for_hallucinations(self, content: str) -> Dict[str, Any]:
         """Check for potential hallucination indicators"""

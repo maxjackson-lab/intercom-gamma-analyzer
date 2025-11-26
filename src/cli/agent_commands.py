@@ -546,6 +546,7 @@ async def run_agent_performance_analysis(
                     title=f"{agent_name} Performance Analysis - {start_date.strftime('%b %Y')}",
                     num_cards=num_cards,
                     theme_name=None,
+                    additional_instructions=None,
                     export_format=None,
                     output_dir=output_dir
                 )
@@ -742,6 +743,7 @@ async def run_agent_coaching_report(
                     title=f"{vendor_name} Coaching Report - {start_date.strftime('%b %Y')}",
                     num_cards=min(10 + len(result.data.get('agents', [])), 25),
                     theme_name=None,
+                    additional_instructions=None,
                     export_format=None,
                     output_dir=output_dir
                 )

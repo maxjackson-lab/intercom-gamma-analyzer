@@ -1,0 +1,1000 @@
+[2025-11-25T19:28:01.409700+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:01.410012+00:00]   confidence: 0.95
+[2025-11-25T19:28:01.410670+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:01.410775+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:01.412586+00:00] ================================================================================
+[2025-11-25T19:28:01.412938+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T19:28:01.413155+00:00] Time: 11:28:01AM
+[2025-11-25T19:28:01.413361+00:00] ================================================================================
+[2025-11-25T19:28:01.413489+00:00] Context:
+[2025-11-25T19:28:01.413661+00:00]   method: llm_smart_structured
+[2025-11-25T19:28:01.413816+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.414062+00:00]   keywords_matched: None
+[2025-11-25T19:28:01.414331+00:00]   text_length: 1718
+[2025-11-25T19:28:01.414584+00:00]   client_type: openai
+[2025-11-25T19:28:01.414699+00:00]   model: gpt-4o-mini
+[2025-11-25T19:28:01.414854+00:00]   structured_outputs: True
+[2025-11-25T19:28:01.418390+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:01.418531+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T19:28:01.418612+00:00] │ topic category.                                                              │
+[2025-11-25T19:28:01.418708+00:00] │                                                                              │
+[2025-11-25T19:28:01.418787+00:00] │ ⚠️ HINT (may be incorrect): Intercom tagged this as 'Billing'                 │
+[2025-11-25T19:28:01.418861+00:00] │                                                                              │
+[2025-11-25T19:28:01.418932+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T19:28:01.419005+00:00] │ how to process refund here is gamma's refund policy​​annual planwithin the     │
+[2025-11-25T19:28:01.419077+00:00] │ first 7 days of subscribing to plus or pro annual plans, you will receive a  │
+[2025-11-25T19:28:01.419146+00:00] │ full refund upon cancellation. no refunds are provided for cancellations     │
+[2025-11-25T19:28:01.419215+00:00] │ after the initial 7 days of subscribing to annual plans.​​monthly planwithin   │
+[2025-11-25T19:28:01.419283+00:00] │ the first 7 days of subscribing to plus or pro monthly plans, you will       │
+[2025-11-25T19:28:01.419364+00:00] │ receive a full refund upon cancellation. no refunds are provided for         │
+[2025-11-25T19:28:01.419433+00:00] │ cancellations after the initial 7 days of subscribing to monthly plans. if   │
+[2025-11-25T19:28:01.419501+00:00] │ you qualify, one of our customer support folks will be happy to assist you   │
+[2025-11-25T19:28:01.419578+00:00] │ with a refund. let's get you in touch with a gamma human who can help. 🧑‍🚀  │
+[2025-11-25T19:28:01.419647+00:00] │ please share:​the reason for your cancellation/refund request​the email        │
+[2025-11-25T19:28:01.419714+00:00] │ address associated with your gamma workspace. the reason for your            │
+[2025-11-25T19:28:01.419780+00:00] │ cancellation/refund request: i don't like gamma, sorry. it is too            │
+[2025-11-25T19:28:01.419879+00:00] │ complicated for me. i tried the pro monthly in the hopes that it might spark │
+[2025-11-25T19:28:01.419951+00:00] │ something but it really is just too complex for me, i ended up not using it  │
+[2025-11-25T19:28:01.420024+00:00] │ for too long, then i thought i already cancelled but maybe it did not go     │
+[2025-11-25T19:28:01.420153+00:00] │ through because i was billed again. hopefully this will be processed​the      │
+[2025-11-25T19:28:01.420220+00:00] │ email address associated with your gamma workspace: [EMAIL_REDACTED] │
+[2025-11-25T19:28:01.420288+00:00] │ the team will get back to you on this. gamma typically replies in 2d. hi     │
+[2025-11-25T19:28:01.420398+00:00] │ there, ​﻿﻿your current subscription has been canceled effective immediately,    │
+[2025-11-25T19:28:01.420490+00:00] │ and i've processed the refund for you. just a heads up, it might take around │
+[2025-11-25T19:28:01.420649+00:00] │ 5–10 business days for the                                                   │
+[2025-11-25T19:28:01.420735+00:00] │                                                                              │
+[2025-11-25T19:28:01.420804+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T19:28:01.420872+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T19:28:01.420946+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T19:28:01.421017+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T19:28:01.421082+00:00] │                                                                              │
+[2025-11-25T19:28:01.421147+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T19:28:01.421212+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.634186+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.634321+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:01.634625+00:00] Tokens: 453 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:01.635184+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.635570+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:01.635656+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:01.635748+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.636236+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:01.636364+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:01.636645+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:01.636850+00:00] Supporting Data:
+[2025-11-25T19:28:01.637106+00:00]   llm_result: Billing
+[2025-11-25T19:28:01.637295+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.637733+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:01.637849+00:00]   keywords_hint: ['chargeback', 'billing']
+[2025-11-25T19:28:01.638360+00:00]   confidence: 0.95
+[2025-11-25T19:28:01.638611+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:01.638826+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:01.642601+00:00] ================================================================================
+[2025-11-25T19:28:01.642715+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T19:28:01.642777+00:00] Time: 11:28:01AM
+[2025-11-25T19:28:01.642987+00:00] ================================================================================
+[2025-11-25T19:28:01.643681+00:00] Context:
+[2025-11-25T19:28:01.643767+00:00]   method: llm_smart_structured
+[2025-11-25T19:28:01.643999+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.644321+00:00]   keywords_matched: ['billing']
+[2025-11-25T19:28:01.644691+00:00]   text_length: 4411
+[2025-11-25T19:28:01.644823+00:00]   client_type: openai
+[2025-11-25T19:28:01.644899+00:00]   model: gpt-4o-mini
+[2025-11-25T19:28:01.645042+00:00]   structured_outputs: True
+[2025-11-25T19:28:01.648849+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:01.649006+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T19:28:01.649096+00:00] │ topic category.                                                              │
+[2025-11-25T19:28:01.649204+00:00] │                                                                              │
+[2025-11-25T19:28:01.649295+00:00] │ ⚠️ HINT (may be incorrect): Intercom tagged this as 'Billing'                 │
+[2025-11-25T19:28:01.649356+00:00] │ ⚠️ HINT: Keywords matched: billing                                            │
+[2025-11-25T19:28:01.649423+00:00] │                                                                              │
+[2025-11-25T19:28:01.649493+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T19:28:01.649574+00:00] │ hello, i selected the monthly option and was charged anually?? please fix    │
+[2025-11-25T19:28:01.649646+00:00] │ this. i never asked for this. thank you,x it sounds like you signed up for   │
+[2025-11-25T19:28:01.649716+00:00] │ an annual plan when you intended to sign up for a monthly one. we can get    │
+[2025-11-25T19:28:01.649778+00:00] │ this sorted out! ﻿here’s what you'll need to do: ﻿​﻿ go to settings & members in │
+[2025-11-25T19:28:01.649853+00:00] │ your account. click on manage subscription in stripe. look for the plan      │
+[2025-11-25T19:28:01.649926+00:00] │ options and switch from annual to monthly. once you’ve done that, it’ll      │
+[2025-11-25T19:28:01.649984+00:00] │ create a balance in your favor, and that’s the amount we can refund to you.  │
+[2025-11-25T19:28:01.650032+00:00] │ just let me know when you've updated your subscription following the above   │
+[2025-11-25T19:28:01.650129+00:00] │ steps! i've chosen 'billing' for 'reason for contact'.the customer is        │
+[2025-11-25T19:28:01.650199+00:00] │ concerned about being charged annually instead of monthly, which is a        │
+[2025-11-25T19:28:01.650267+00:00] │ billing discrepancy related to their subscription plan. the support response │
+[2025-11-25T19:28:01.650325+00:00] │ also focuses on managing the subscription and refunding the balance, which   │
+[2025-11-25T19:28:01.650391+00:00] │ falls under billing issues. i've chosen 'refund' for 'billing'.the customer  │
+[2025-11-25T19:28:01.650461+00:00] │ is complaining about being charged annually instead of monthly and is        │
+[2025-11-25T19:28:01.650531+00:00] │ requesting a fix, which implies they want a refund for the incorrect charge. │
+[2025-11-25T19:28:01.650599+00:00] │ the support agent's response also focuses on changing the subscription plan  │
+[2025-11-25T19:28:01.650665+00:00] │ and mentions a refund balance. although subscription management is involved, │
+[2025-11-25T19:28:01.650729+00:00] │ the primary issue is the refund for the incorrect charge. let's get you in   │
+[2025-11-25T19:28:01.650805+00:00] │ touch with a gamma human who can help. 🧑‍🚀 first, please share a link to    │
+[2025-11-25T19:28:01.650874+00:00] │ your affected gamma(s), as well as a link to your website if you're having   │
+[2025-11-25T19:28:01.650945+00:00] │ issues wit                                                                   │
+[2025-11-25T19:28:01.651012+00:00] │                                                                              │
+[2025-11-25T19:28:01.651076+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T19:28:01.651204+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T19:28:01.651305+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T19:28:01.651378+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T19:28:01.651445+00:00] │                                                                              │
+[2025-11-25T19:28:01.651514+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T19:28:01.651741+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.700177+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.700341+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:01.700705+00:00] Tokens: 465 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:01.700832+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.701303+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:01.701400+00:00] │ Refund (confidence: 0.95)                                                    │
+[2025-11-25T19:28:01.701489+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.701591+00:00] 2025-11-25 19:28:01 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'Refund' → 'Billing' (semantic: refund)
+[2025-11-25T19:28:01.702626+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:01.702944+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:01.703104+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:01.703209+00:00] Supporting Data:
+[2025-11-25T19:28:01.703447+00:00]   llm_result: Billing
+[2025-11-25T19:28:01.703504+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.703586+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:01.703645+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:01.703754+00:00]   confidence: 0.95
+[2025-11-25T19:28:01.704411+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:01.704613+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:01.706495+00:00] ================================================================================
+[2025-11-25T19:28:01.706594+00:00] 🤖 TopicDetectionAgent: PROMPT
+[2025-11-25T19:28:01.706650+00:00] Time: 11:28:01AM
+[2025-11-25T19:28:01.706870+00:00] ================================================================================
+[2025-11-25T19:28:01.707078+00:00] Context:
+[2025-11-25T19:28:01.707418+00:00]   method: llm_smart_structured
+[2025-11-25T19:28:01.707552+00:00]   sdk_hint: None
+[2025-11-25T19:28:01.707661+00:00]   keywords_matched: ['billing']
+[2025-11-25T19:28:01.707881+00:00]   text_length: 2118
+[2025-11-25T19:28:01.708015+00:00]   client_type: openai
+[2025-11-25T19:28:01.708285+00:00]   model: gpt-4o-mini
+[2025-11-25T19:28:01.708465+00:00]   structured_outputs: True
+[2025-11-25T19:28:01.711305+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:01.711459+00:00] │ Analyze this customer support conversation and classify it into the PRIMARY  │
+[2025-11-25T19:28:01.711560+00:00] │ topic category.                                                              │
+[2025-11-25T19:28:01.711817+00:00] │ ⚠️ HINT: Keywords matched: billing                                            │
+[2025-11-25T19:28:01.711905+00:00] │                                                                              │
+[2025-11-25T19:28:01.711986+00:00] │ CONVERSATION TEXT:                                                           │
+[2025-11-25T19:28:01.712110+00:00] │ hola, me podrias ayudar en la forma o pasos a seguir para cancelar el plan   │
+[2025-11-25T19:28:01.712205+00:00] │ hello, could you help me on how to cancel the plan? ––– translated by        │
+[2025-11-25T19:28:01.712312+00:00] │ lokalise messages​ this conversation language is spanish. create a note       │
+[2025-11-25T19:28:01.712538+00:00] │ starting with ! to respond in a customer's language or try !help ¡por        │
+[2025-11-25T19:28:01.712675+00:00] │ supuesto! te ayudo con los pasos para cancelar tu suscripción: pasos para    │
+[2025-11-25T19:28:01.712808+00:00] │ cancelar: ve a configuración y miembros en el panel izquierdo selecciona la  │
+[2025-11-25T19:28:01.712908+00:00] │ pestaña facturación haz clic en cancelar suscripción confirma la cancelación │
+[2025-11-25T19:28:01.712988+00:00] │ en stripe importante: tu suscripción seguirá activa hasta que termine el     │
+[2025-11-25T19:28:01.713091+00:00] │ período actual de facturación. para evitar renovaciones, cancela al menos 30 │
+[2025-11-25T19:28:01.713186+00:00] │ días antes de la fecha de renovación. sobre reembolsos: solo están           │
+[2025-11-25T19:28:01.713264+00:00] │ disponibles dentro de los primeros 3 días de suscripción y debes contactar a │
+[2025-11-25T19:28:01.713336+00:00] │ nuestro equipo humano para solicitarlo. source:how do i manage or cancel my  │
+[2025-11-25T19:28:01.713476+00:00] │ gamma subscription? ¿te fue útil esta información? si no aparece la pestaña  │
+[2025-11-25T19:28:01.713551+00:00] │ de facturación por donde mas lo puedo cancelar ? if the billing tab does not │
+[2025-11-25T19:28:01.713625+00:00] │ appear, where else can i cancel it? ––– translated by lokalise messages ?    │
+[2025-11-25T19:28:01.713700+00:00] │ ––– translated by lokalise messages si no ves la pestaña de facturación, hay │
+[2025-11-25T19:28:01.713806+00:00] │ algunas alternativas: método alternativo: ve a la pantalla principal de      │
+[2025-11-25T19:28:01.713890+00:00] │ gamma haz clic en el menú desplegable en la esquina superior izquierda       │
+[2025-11-25T19:28:01.713993+00:00] │ selecciona "settings & members" busca directamente las opciones "manage      │
+[2025-11-25T19:28:01.714122+00:00] │ subscription" o "cancel subscription" posible causa: solo los                │
+[2025-11-25T19:28:01.714256+00:00] │ administradores del workspace puede                                          │
+[2025-11-25T19:28:01.714346+00:00] │                                                                              │
+[2025-11-25T19:28:01.714423+00:00] │ GUIDELINES:                                                                  │
+[2025-11-25T19:28:01.714518+00:00] │ 1. Identify the customer's MAIN issue/question from the conversation         │
+[2025-11-25T19:28:01.714593+00:00] │ 2. Ignore the hints if they don't match actual content                       │
+[2025-11-25T19:28:01.714650+00:00] │ 3. If unclear/unresponsive, choose "Unknown/unresponsive"                    │
+[2025-11-25T19:28:01.714699+00:00] │                                                                              │
+[2025-11-25T19:28:01.714749+00:00] │ Return JSON with 'topic' and 'confidence' (0.0-1.0).                         │
+[2025-11-25T19:28:01.714800+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.806539+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.806692+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:01.807890+00:00] Tokens: 389 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T19:28:01.808532+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.809513+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:01.809714+00:00] │ User Feedback/Confusion (confidence: 0.9)                                    │
+[2025-11-25T19:28:01.809813+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.809964+00:00] 2025-11-25 19:28:01 - agents.TopicDetectionAgent - INFO -    🔄 Normalized 'User Feedback/Confusion' → 'Feedback' (fuzzy match)
+[2025-11-25T19:28:01.811041+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:01.811849+00:00] Decision: Classified as 'Feedback'
+[2025-11-25T19:28:01.812260+00:00] Rationale: LLM analyzed text context. SDK hint: Feature Request. Corrected SDK
+[2025-11-25T19:28:01.814028+00:00] Supporting Data:
+[2025-11-25T19:28:01.814127+00:00]   llm_result: Feedback
+[2025-11-25T19:28:01.814200+00:00]   sdk_hint: Feature Request
+[2025-11-25T19:28:01.814254+00:00]   agreed_with_sdk: False
+[2025-11-25T19:28:01.815565+00:00]   keywords_hint: None
+[2025-11-25T19:28:01.816494+00:00]   confidence: 0.9
+[2025-11-25T19:28:01.817053+00:00] ❌ FAILED SDK Hint Validation
+[2025-11-25T19:28:01.817417+00:00]   LLM corrected SDK hint
+[2025-11-25T19:28:01.953665+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.953827+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:01.953915+00:00] Tokens: 448 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:01.954029+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.954572+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:01.954691+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:01.954781+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.955112+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:01.956072+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:01.956703+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:01.956837+00:00] Supporting Data:
+[2025-11-25T19:28:01.956896+00:00]   llm_result: Billing
+[2025-11-25T19:28:01.956944+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.956996+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:01.957642+00:00]   keywords_hint: ['unauthorized', 'billing']
+[2025-11-25T19:28:01.957735+00:00]   confidence: 0.95
+[2025-11-25T19:28:01.958042+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:01.958167+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:01.984448+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.984576+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:01.985340+00:00] Tokens: 461 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:01.985722+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:01.986179+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:01.986278+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:01.986375+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:01.987032+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:01.987156+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:01.987236+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:01.987640+00:00] Supporting Data:
+[2025-11-25T19:28:01.987702+00:00]   llm_result: Billing
+[2025-11-25T19:28:01.988186+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:01.988598+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:01.988723+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:01.988799+00:00]   confidence: 0.95
+[2025-11-25T19:28:01.988887+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:01.988941+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.088423+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.088553+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.088633+00:00] Tokens: 445 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.089846+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.090051+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.090242+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.090333+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.091095+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.091177+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.092008+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.092143+00:00] Supporting Data:
+[2025-11-25T19:28:02.092199+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.094199+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.094406+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.094461+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:02.094502+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.094564+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.094604+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.158011+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.158636+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.159766+00:00] Tokens: 461 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.160194+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.160893+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.160994+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.161084+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.161688+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.162066+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.162713+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.162930+00:00] Supporting Data:
+[2025-11-25T19:28:02.163497+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.163560+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.163632+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.163913+00:00]   keywords_hint: ['chargeback', 'billing']
+[2025-11-25T19:28:02.164037+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.164597+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.165094+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.239964+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.240061+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.240164+00:00] Tokens: 415 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.240247+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.240673+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.240776+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.240865+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.241223+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.241479+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.241838+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.242169+00:00] Supporting Data:
+[2025-11-25T19:28:02.242261+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.242424+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.242649+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.242907+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:02.243008+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.243483+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.243665+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.255251+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.255550+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.255788+00:00] Tokens: 443 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.256172+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.256831+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.256952+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.257041+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.257418+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.257632+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.258708+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.258976+00:00] Supporting Data:
+[2025-11-25T19:28:02.259070+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.259331+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.259443+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.259614+00:00]   keywords_hint: None
+[2025-11-25T19:28:02.259782+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.260278+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.260524+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.303384+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.303778+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.303847+00:00] Tokens: 443 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.304186+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.304487+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.304587+00:00] │ Billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.304666+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.305128+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.305303+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.305698+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.305874+00:00] Supporting Data:
+[2025-11-25T19:28:02.305975+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.306183+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.306341+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.306668+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:02.306861+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.307484+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.307732+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.422029+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.422206+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.422960+00:00] Tokens: 426 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.423077+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.423238+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.423323+00:00] │ billing (confidence: 0.95)                                                   │
+[2025-11-25T19:28:02.423411+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.423713+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.423883+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.424211+00:00] Rationale: LLM analyzed text context. SDK hint: none. No SDK hint
+[2025-11-25T19:28:02.424641+00:00] Supporting Data:
+[2025-11-25T19:28:02.424732+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.424901+00:00]   sdk_hint: None
+[2025-11-25T19:28:02.425103+00:00]   agreed_with_sdk: None
+[2025-11-25T19:28:02.425369+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:02.425544+00:00]   confidence: 0.95
+[2025-11-25T19:28:02.426037+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.426276+00:00]   No SDK hint to validate
+[2025-11-25T19:28:02.427741+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - Progress: 50/50 conversations processed
+[2025-11-25T19:28:02.512105+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.512201+00:00] 🤖 TopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:02.513021+00:00] Tokens: 452 (~$0.0009) | Model: gpt-4o-mini
+[2025-11-25T19:28:02.513427+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.513992+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:02.514249+00:00] │ Billing (confidence: 1.0)                                                    │
+[2025-11-25T19:28:02.514378+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.514544+00:00] 💭 TopicDetectionAgent: REASONING
+[2025-11-25T19:28:02.514781+00:00] Decision: Classified as 'Billing'
+[2025-11-25T19:28:02.515362+00:00] Rationale: LLM analyzed text context. SDK hint: Billing. Agreed with SDK
+[2025-11-25T19:28:02.515673+00:00] Supporting Data:
+[2025-11-25T19:28:02.515732+00:00]   llm_result: Billing
+[2025-11-25T19:28:02.515840+00:00]   sdk_hint: Billing
+[2025-11-25T19:28:02.516144+00:00]   agreed_with_sdk: True
+[2025-11-25T19:28:02.516450+00:00]   keywords_hint: ['billing']
+[2025-11-25T19:28:02.516717+00:00]   confidence: 1.0
+[2025-11-25T19:28:02.517393+00:00] ✅ PASSED SDK Hint Validation
+[2025-11-25T19:28:02.517773+00:00]   LLM confirmed SDK hint
+[2025-11-25T19:28:02.518772+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - ✅ Chunk 1/1 complete (50/50 total)
+[2025-11-25T19:28:02.520077+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - 🎯 All 50 conversations processed in 1 chunks
+[2025-11-25T19:28:02.520835+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - 📊 HYBRID Topic Detection Breakdown (incl. LLM):
+[2025-11-25T19:28:02.520998+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Billing: 32 total | LLM-Smart: 32 (100.0%)
+[2025-11-25T19:28:02.521493+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Bug: 6 total | LLM-Smart: 5 (83.3%) | Hybrid: 1 (16.7%)
+[2025-11-25T19:28:02.521625+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Product Question: 4 total | LLM-Smart: 2 (50.0%) | Hybrid: 1 (25.0%) | Keyword: 1 (25.0%)
+[2025-11-25T19:28:02.521749+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Unknown: 3 total | LLM-Smart: 3 (100.0%)
+[2025-11-25T19:28:02.522144+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Chargeback: 2 total | LLM-Smart: 2 (100.0%)
+[2025-11-25T19:28:02.522419+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Account: 1 total | LLM-Smart: 1 (100.0%)
+[2025-11-25T19:28:02.522623+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Workspace: 1 total | LLM-Smart: 1 (100.0%)
+[2025-11-25T19:28:02.522831+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Feedback: 1 total | LLM-Smart: 1 (100.0%)
+[2025-11-25T19:28:02.522932+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - ✅ Topic distribution validated (percentages sum to 100%)
+[2025-11-25T19:28:02.523037+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - LLM topic discovery disabled (using full taxonomy instead)
+[2025-11-25T19:28:02.523124+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO - TopicDetectionAgent: Completed in 4.53s
+[2025-11-25T19:28:02.523197+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Topics detected: 8
+[2025-11-25T19:28:02.523259+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Coverage: 100.0%
+[2025-11-25T19:28:02.523339+00:00] 2025-11-25 19:28:02 - agents.TopicDetectionAgent - INFO -    Top topics: [('Billing', 32), ('Bug', 6), ('Product Question', 4), ('Unknown', 3), ('Chargeback', 2)]
+[2025-11-25T19:28:02.523423+00:00] ✅ Topics detected: ['Billing', 'Account', 'Bug', 'Chargeback', 'Workspace']...
+[2025-11-25T19:28:02.523540+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Agent SubTopicDetectionAgent initialized with tools: False
+[2025-11-25T19:28:02.523617+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.523709+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.523775+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.523879+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.624067+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Built normalization maps for 13 categories
+[2025-11-25T19:28:02.624288+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - SubcategoryMapper initialized with Hilary's taxonomy
+[2025-11-25T19:28:02.624456+00:00] 2025-11-25 19:28:02 - src.agents.subtopic_detection_agent - INFO - 🤖 SubTopicDetectionAgent: Tier 2 LLM validation ENABLED (default for accuracy)
+[2025-11-25T19:28:02.624562+00:00] 2025-11-25 19:28:02 - src.agents.subtopic_detection_agent - INFO - SubTopicDetectionAgent initialized with SubcategoryMapper
+[2025-11-25T19:28:02.624657+00:00] 2025-11-25 19:28:02 - agents.ExampleExtractionAgent - INFO - Agent ExampleExtractionAgent initialized with tools: False
+[2025-11-25T19:28:02.624803+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.624896+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.624960+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.625015+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.638481+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.638689+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.638771+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.638854+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.653080+00:00] 2025-11-25 19:28:02 - agents.FinPerformanceAgent - INFO - Agent FinPerformanceAgent initialized with tools: False
+[2025-11-25T19:28:02.653226+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.653305+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.653373+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.653444+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.674297+00:00] 2025-11-25 19:28:02 - src.services.fin_escalation_analyzer - INFO - FinEscalationAnalyzer initialized
+[2025-11-25T19:28:02.674571+00:00] 2025-11-25 19:28:02 - agents.CorrelationAgent - INFO - Agent CorrelationAgent initialized with tools: False
+[2025-11-25T19:28:02.674658+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.674799+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.674880+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.674961+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.689607+00:00] 2025-11-25 19:28:02 - agents.QualityInsightsAgent - INFO - Agent QualityInsightsAgent initialized with tools: False
+[2025-11-25T19:28:02.689746+00:00] 2025-11-25 19:28:02 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T19:28:02.689825+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T19:28:02.689883+00:00] 2025-11-25 19:28:02 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T19:28:02.689949+00:00] 2025-11-25 19:28:02 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T19:28:02.701359+00:00] 2025-11-25 19:28:02 - agents.ChurnRiskAgent - INFO - Agent ChurnRiskAgent initialized with tools: False
+[2025-11-25T19:28:02.702355+00:00] 2025-11-25 19:28:02 - agents.ConfidenceMetaAgent - INFO - Agent ConfidenceMetaAgent initialized with tools: False
+[2025-11-25T19:28:02.702967+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.703151+00:00] Testing: SubTopicDetectionAgent
+[2025-11-25T19:28:02.703615+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:02.703946+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Billing (32 conversations)
+[2025-11-25T19:28:02.704063+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Billing using SubcategoryMapper...
+[2025-11-25T19:28:02.704317+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Billing: Mapped 82 raw → 3 canonical subcategories
+[2025-11-25T19:28:02.704447+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Billing: Found 3 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.710462+00:00] ================================================================================
+[2025-11-25T19:28:02.710618+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:02.712155+00:00] Time: 11:28:02AM
+[2025-11-25T19:28:02.712832+00:00] ================================================================================
+[2025-11-25T19:28:02.712939+00:00] Context:
+[2025-11-25T19:28:02.713275+00:00]   tier1: Billing
+[2025-11-25T19:28:02.713511+00:00]   tier2: Refund
+[2025-11-25T19:28:02.713757+00:00]   sample_count: 5
+[2025-11-25T19:28:02.716642+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:02.716783+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:02.716874+00:00] │                                                                              │
+[2025-11-25T19:28:02.716953+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T19:28:02.717030+00:00] │ TIER 2 SUBCATEGORY: Refund                                                   │
+[2025-11-25T19:28:02.717101+00:00] │                                                                              │
+[2025-11-25T19:28:02.717236+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:02.717291+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T19:28:02.717339+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T19:28:02.717391+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T19:28:02.717441+00:00] │ 2. Sehr geehrtes Gamma-Team,ich habe heute festgestellt, dass von meinem     │
+[2025-11-25T19:28:02.717489+00:00] │ Konto eine doppelte Abbuchung vorgenommen wurde. Eine vorherige Information  │
+[2025-11-25T19:28:02.717535+00:00] │ über die bevorstehende Abbuchung habe ich von Ihrem Se                       │
+[2025-11-25T19:28:02.717583+00:00] │ 3. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T19:28:02.717632+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T19:28:02.717723+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T19:28:02.717802+00:00] │ 4. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T19:28:02.717879+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T19:28:02.717939+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T19:28:02.717998+00:00] │ 5. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T19:28:02.718048+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T19:28:02.718148+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T19:28:02.718213+00:00] │                                                                              │
+[2025-11-25T19:28:02.718262+00:00] │ TASK: Are these conversations truly about "Refund"?                          │
+[2025-11-25T19:28:02.718309+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:02.718356+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:02.718403+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T19:28:02.718449+00:00] │                                                                              │
+[2025-11-25T19:28:02.718494+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:02.718543+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.718601+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Account (1 conversations)
+[2025-11-25T19:28:02.718723+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Account using SubcategoryMapper...
+[2025-11-25T19:28:02.718792+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Account: Mapped 4 raw → 2 canonical subcategories
+[2025-11-25T19:28:02.718884+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Account: Found 2 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.719648+00:00] ================================================================================
+[2025-11-25T19:28:02.719797+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:02.720035+00:00] Time: 11:28:02AM
+[2025-11-25T19:28:02.720476+00:00] ================================================================================
+[2025-11-25T19:28:02.720631+00:00] Context:
+[2025-11-25T19:28:02.720714+00:00]   tier1: Account
+[2025-11-25T19:28:02.720830+00:00]   tier2: Credits
+[2025-11-25T19:28:02.721262+00:00]   sample_count: 1
+[2025-11-25T19:28:02.722964+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:02.723081+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:02.723153+00:00] │                                                                              │
+[2025-11-25T19:28:02.723207+00:00] │ TIER 1 TOPIC: Account                                                        │
+[2025-11-25T19:28:02.723255+00:00] │ TIER 2 SUBCATEGORY: Credits                                                  │
+[2025-11-25T19:28:02.723305+00:00] │                                                                              │
+[2025-11-25T19:28:02.723353+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:02.723424+00:00] │ 1. I have had Gamma for a number of months now, today with he cloud fare     │
+[2025-11-25T19:28:02.723478+00:00] │ issue, it log me out and now it didn't log me back in the normal way it used │
+[2025-11-25T19:28:02.723526+00:00] │ to, it had me sign in with google and now all my prev                        │
+[2025-11-25T19:28:02.723573+00:00] │                                                                              │
+[2025-11-25T19:28:02.723620+00:00] │ TASK: Are these conversations truly about "Credits"?                         │
+[2025-11-25T19:28:02.723665+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:02.723710+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:02.723757+00:00] │ - If NO, suggest a better subcategory name from the Account taxonomy         │
+[2025-11-25T19:28:02.723802+00:00] │                                                                              │
+[2025-11-25T19:28:02.723848+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:02.723912+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.724997+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Bug (6 conversations)
+[2025-11-25T19:28:02.726098+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Bug using SubcategoryMapper...
+[2025-11-25T19:28:02.726271+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Bug: Mapped 17 raw → 3 canonical subcategories
+[2025-11-25T19:28:02.726398+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Bug: Found 3 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.733853+00:00] ================================================================================
+[2025-11-25T19:28:02.733988+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:02.734063+00:00] Time: 11:28:02AM
+[2025-11-25T19:28:02.734526+00:00] ================================================================================
+[2025-11-25T19:28:02.734615+00:00] Context:
+[2025-11-25T19:28:02.734740+00:00]   tier1: Bug
+[2025-11-25T19:28:02.734906+00:00]   tier2: Export
+[2025-11-25T19:28:02.735124+00:00]   sample_count: 5
+[2025-11-25T19:28:02.737965+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:02.738105+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:02.738187+00:00] │                                                                              │
+[2025-11-25T19:28:02.738261+00:00] │ TIER 1 TOPIC: Bug                                                            │
+[2025-11-25T19:28:02.738330+00:00] │ TIER 2 SUBCATEGORY: Export                                                   │
+[2025-11-25T19:28:02.738381+00:00] │                                                                              │
+[2025-11-25T19:28:02.738430+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:02.738490+00:00] │ 1. Hi Arick! 👋​ First off, I apologize for the delay in getting back to you. │
+[2025-11-25T19:28:02.738563+00:00] │ Thank you so much for the incredibly detailed context and for sharing your   │
+[2025-11-25T19:28:02.738631+00:00] │ vision for what you're building with NIC MAP Deal I                          │
+[2025-11-25T19:28:02.738680+00:00] │ 2. Recently i am facing difficulties in creating presentations through       │
+[2025-11-25T19:28:02.738726+00:00] │ uploading word file document through the website, can you please help me to  │
+[2025-11-25T19:28:02.738772+00:00] │ overcome this and enjoy Gamma like before Here are some                      │
+[2025-11-25T19:28:02.738819+00:00] │ 3. al pubiblicar el sitio se me deshabilitan los enlaces en los botones when │
+[2025-11-25T19:28:02.738870+00:00] │ I publish the site, the links in the buttons are disabled ––– Translated by  │
+[2025-11-25T19:28:02.738926+00:00] │ Lokalise Messages​ This conversation language is S                            │
+[2025-11-25T19:28:02.739001+00:00] │ 4. Olá. Eu criei dois e-books com o mesmo tema. Só que com formatação        │
+[2025-11-25T19:28:02.739075+00:00] │ difrente e salvei. Está aparecendo apenas um deles. Pode me ajudar? Hi, I've │
+[2025-11-25T19:28:02.739140+00:00] │ created two e-books with the same theme. But with differ                     │
+[2025-11-25T19:28:02.739214+00:00] │ 5. Boa noite Goodnight ––– Translated by Lokalise Messages​ This conversation │
+[2025-11-25T19:28:02.739300+00:00] │ language is Portuguese. Create a note starting with ! to respond in a        │
+[2025-11-25T19:28:02.739371+00:00] │ customer's language or try !help Boa noite! Como posso                       │
+[2025-11-25T19:28:02.739434+00:00] │                                                                              │
+[2025-11-25T19:28:02.739500+00:00] │ TASK: Are these conversations truly about "Export"?                          │
+[2025-11-25T19:28:02.739571+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:02.739637+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:02.739705+00:00] │ - If NO, suggest a better subcategory name from the Bug taxonomy             │
+[2025-11-25T19:28:02.739768+00:00] │                                                                              │
+[2025-11-25T19:28:02.739850+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:02.739962+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:02.740050+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Chargeback (2 conversations)
+[2025-11-25T19:28:02.740267+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Chargeback using SubcategoryMapper...
+[2025-11-25T19:28:02.740533+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Chargeback: Mapped 4 raw → 0 canonical subcategories
+[2025-11-25T19:28:02.740778+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Chargeback: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.740916+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Workspace (1 conversations)
+[2025-11-25T19:28:02.741068+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Workspace using SubcategoryMapper...
+[2025-11-25T19:28:02.741172+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Workspace: Mapped 5 raw → 0 canonical subcategories
+[2025-11-25T19:28:02.741286+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Workspace: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.741464+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Unknown (3 conversations)
+[2025-11-25T19:28:02.741550+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Unknown using SubcategoryMapper...
+[2025-11-25T19:28:02.741631+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Unknown: Mapped 2 raw → 0 canonical subcategories
+[2025-11-25T19:28:02.741767+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Unknown: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.741851+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Product Question (4 conversations)
+[2025-11-25T19:28:02.741937+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Product Question using SubcategoryMapper...
+[2025-11-25T19:28:02.742041+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Product Question: Mapped 10 raw → 0 canonical subcategories
+[2025-11-25T19:28:02.742154+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Product Question: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:02.742237+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Processing Tier 1 topic: Feedback (1 conversations)
+[2025-11-25T19:28:02.742328+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO - Extracting CLEAN Tier 2 subcategories for Feedback using SubcategoryMapper...
+[2025-11-25T19:28:02.742428+00:00] 2025-11-25 19:28:02 - src.utils.subcategory_mapper - INFO - Feedback: Mapped 0 raw → 0 canonical subcategories
+[2025-11-25T19:28:02.742533+00:00] 2025-11-25 19:28:02 - agents.SubTopicDetectionAgent - INFO -    ✅ Feedback: Found 0 CLEAN subcategories (filtered and deduplicated from unknown raw items)
+[2025-11-25T19:28:03.621762+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:03.621837+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:03.622008+00:00] Tokens: 178 (~$0.0004) | Model: gpt-4o-mini
+[2025-11-25T19:28:03.622309+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:03.622879+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:03.623048+00:00] │ NO: The conversation is about a login issue and not related to credits. A    │
+[2025-11-25T19:28:03.623125+00:00] │ better subcategory name could be "Login Issues" or "Access Problems."        │
+[2025-11-25T19:28:03.623185+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:03.623305+00:00] 2025-11-25 19:28:03 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Credits: NO: The conversation is about a login issue and not related to credits. A better subcategory name could be "Login Issues" or "Access Problems."
+[2025-11-25T19:28:03.623374+00:00] ❌ FAILED Tier 2: Credits
+[2025-11-25T19:28:03.623895+00:00]   LLM flagged as potentially incorrect: NO: The conversation is about a login
+[2025-11-25T19:28:03.623995+00:00] issue and not related to credits. A better subcategory name could be "Login
+[2025-11-25T19:28:03.624103+00:00] Issues" or "Access Problems."
+[2025-11-25T19:28:03.625370+00:00] ================================================================================
+[2025-11-25T19:28:03.625455+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:03.625633+00:00] Time: 11:28:03AM
+[2025-11-25T19:28:03.626006+00:00] ================================================================================
+[2025-11-25T19:28:03.626177+00:00] Context:
+[2025-11-25T19:28:03.626295+00:00]   tier1: Account
+[2025-11-25T19:28:03.626473+00:00]   tier2: Password Reset
+[2025-11-25T19:28:03.626723+00:00]   sample_count: 1
+[2025-11-25T19:28:03.627980+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:03.628068+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:03.628121+00:00] │                                                                              │
+[2025-11-25T19:28:03.628171+00:00] │ TIER 1 TOPIC: Account                                                        │
+[2025-11-25T19:28:03.628220+00:00] │ TIER 2 SUBCATEGORY: Password Reset                                           │
+[2025-11-25T19:28:03.628266+00:00] │                                                                              │
+[2025-11-25T19:28:03.628352+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:03.628432+00:00] │ 1. I have had Gamma for a number of months now, today with he cloud fare     │
+[2025-11-25T19:28:03.628508+00:00] │ issue, it log me out and now it didn't log me back in the normal way it used │
+[2025-11-25T19:28:03.628561+00:00] │ to, it had me sign in with google and now all my prev                        │
+[2025-11-25T19:28:03.628607+00:00] │                                                                              │
+[2025-11-25T19:28:03.628654+00:00] │ TASK: Are these conversations truly about "Password Reset"?                  │
+[2025-11-25T19:28:03.628706+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:03.628775+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:03.628824+00:00] │ - If NO, suggest a better subcategory name from the Account taxonomy         │
+[2025-11-25T19:28:03.628870+00:00] │                                                                              │
+[2025-11-25T19:28:03.628916+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:03.628965+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:04.349399+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.349540+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:04.349912+00:00] Tokens: 393 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T19:28:04.351830+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.352142+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:04.352235+00:00] │ 1. YES                                                                       │
+[2025-11-25T19:28:04.352387+00:00] │ 2. YES                                                                       │
+[2025-11-25T19:28:04.352535+00:00] │ 3. NO: This conversation is about referral credits, not refunds. A better    │
+[2025-11-25T19:28:04.352630+00:00] │ subcategory name could be "Referral Credits."                                │
+[2025-11-25T19:28:04.352714+00:00] │ 4. YES                                                                       │
+[2025-11-25T19:28:04.352800+00:00] │ 5. NO: This conversation does not provide enough context to determine if     │
+[2025-11-25T19:28:04.352965+00:00] │ it's about refunds. A better subcategory name could be "General Inquiry."    │
+[2025-11-25T19:28:04.353095+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:04.353198+00:00] 2025-11-25 19:28:04 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Refund: 1. YES
+[2025-11-25T19:28:04.353362+00:00] 2. YES
+[2025-11-25T19:28:04.353486+00:00] 3. NO: This conversation is about referral credits, not refunds. A better subcategory name could be "Referral Credits."
+[2025-11-25T19:28:04.353625+00:00] 4. YES
+[2025-11-25T19:28:04.353733+00:00] 5. NO: This conversation does not provide enough context to determine if it's about refunds. A better subcategory name could be "General Inquiry."
+[2025-11-25T19:28:04.353866+00:00] ❌ FAILED Tier 2: Refund
+[2025-11-25T19:28:04.353961+00:00]   LLM flagged as potentially incorrect: 1. YES
+[2025-11-25T19:28:04.354019+00:00] 2. YES
+[2025-11-25T19:28:04.354385+00:00] 3. NO: This conversation is about referral credits, not refunds. A better
+[2025-11-25T19:28:04.354553+00:00] subcategory name could be "Referral Credits."
+[2025-11-25T19:28:04.354619+00:00] 4. YES
+[2025-11-25T19:28:04.354719+00:00] 5. NO: This conversation does not provide enough context to determine if it's
+[2025-11-25T19:28:04.354823+00:00] about refunds. A better subcategory name could be "General Inquiry."
+[2025-11-25T19:28:04.356973+00:00] ================================================================================
+[2025-11-25T19:28:04.357077+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:04.357415+00:00] Time: 11:28:04AM
+[2025-11-25T19:28:04.357558+00:00] ================================================================================
+[2025-11-25T19:28:04.357652+00:00] Context:
+[2025-11-25T19:28:04.357855+00:00]   tier1: Billing
+[2025-11-25T19:28:04.358008+00:00]   tier2: Subscription
+[2025-11-25T19:28:04.358375+00:00]   sample_count: 5
+[2025-11-25T19:28:04.361005+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:04.361126+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:04.361203+00:00] │                                                                              │
+[2025-11-25T19:28:04.361274+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T19:28:04.361546+00:00] │ TIER 2 SUBCATEGORY: Subscription                                             │
+[2025-11-25T19:28:04.361624+00:00] │                                                                              │
+[2025-11-25T19:28:04.361694+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:04.361765+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T19:28:04.361833+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T19:28:04.361898+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T19:28:04.361965+00:00] │ 2. Sehr geehrtes Gamma-Team,ich habe heute festgestellt, dass von meinem     │
+[2025-11-25T19:28:04.362035+00:00] │ Konto eine doppelte Abbuchung vorgenommen wurde. Eine vorherige Information  │
+[2025-11-25T19:28:04.362159+00:00] │ über die bevorstehende Abbuchung habe ich von Ihrem Se                       │
+[2025-11-25T19:28:04.362235+00:00] │ 3. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T19:28:04.362306+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T19:28:04.362430+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T19:28:04.362525+00:00] │ 4. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T19:28:04.362591+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T19:28:04.362645+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T19:28:04.362712+00:00] │ 5. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T19:28:04.362781+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T19:28:04.362979+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T19:28:04.363033+00:00] │                                                                              │
+[2025-11-25T19:28:04.363082+00:00] │ TASK: Are these conversations truly about "Subscription"?                    │
+[2025-11-25T19:28:04.363132+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:04.363181+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:04.363228+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T19:28:04.363274+00:00] │                                                                              │
+[2025-11-25T19:28:04.363338+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:04.363407+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:04.579104+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.579225+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:04.579588+00:00] Tokens: 189 (~$0.0004) | Model: gpt-4o-mini
+[2025-11-25T19:28:04.579956+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.580903+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:04.580999+00:00] │ NO: The conversation does not specifically mention a password reset issue;   │
+[2025-11-25T19:28:04.581073+00:00] │ it discusses a login problem related to being logged out and signing in with │
+[2025-11-25T19:28:04.581137+00:00] │ Google. A better subcategory name could be "Login Issues."                   │
+[2025-11-25T19:28:04.581225+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:04.581351+00:00] 2025-11-25 19:28:04 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Password Reset: NO: The conversation does not specifically mention a password reset issue; it discusses a login problem related to being logged out and signing in with Google. A better subcategory name could be "Login Issues."
+[2025-11-25T19:28:04.581423+00:00] ❌ FAILED Tier 2: Password Reset
+[2025-11-25T19:28:04.582187+00:00]   LLM flagged as potentially incorrect: NO: The conversation does not
+[2025-11-25T19:28:04.582249+00:00] specifically mention a password reset issue; it discusses a login problem
+[2025-11-25T19:28:04.582300+00:00] related to being logged out and signing in with Google. A better subcategory
+[2025-11-25T19:28:04.582376+00:00] name could be "Login Issues."
+[2025-11-25T19:28:04.913225+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.913339+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:04.913740+00:00] Tokens: 388 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T19:28:04.914186+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:04.914913+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:04.915045+00:00] │ NO: The conversations do not specifically address issues related to the      │
+[2025-11-25T19:28:04.915139+00:00] │ "Export" subcategory. They discuss difficulties with presentations, e-books, │
+[2025-11-25T19:28:04.915235+00:00] │ and links in buttons, which are more aligned with issues related to "Import" │
+[2025-11-25T19:28:04.915315+00:00] │ or "Publishing" rather than exporting. A better subcategory name could be    │
+[2025-11-25T19:28:04.915413+00:00] │ "Import" or "Publishing Issues."                                             │
+[2025-11-25T19:28:04.915471+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:04.915640+00:00] 2025-11-25 19:28:04 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Export: NO: The conversations do not specifically address issues related to the "Export" subcategory. They discuss difficulties with presentations, e-books, and links in buttons, which are more aligned with issues related to "Import" or "Publishing" rather than exporting. A better subcategory name could be "Import" or "Publishing Issues."
+[2025-11-25T19:28:04.915729+00:00] ❌ FAILED Tier 2: Export
+[2025-11-25T19:28:04.916439+00:00]   LLM flagged as potentially incorrect: NO: The conversations do not
+[2025-11-25T19:28:04.916550+00:00] specifically address issues related to the "Export" subcategory. They discuss
+[2025-11-25T19:28:04.916622+00:00] difficulties with presentations, e-books, and links in buttons, which are more
+[2025-11-25T19:28:04.916688+00:00] aligned with issues related to "Import" or "Publishing" rather than exporting. A
+[2025-11-25T19:28:04.916736+00:00] better subcategory name could be "Import" or "Publishing Issues."
+[2025-11-25T19:28:04.922920+00:00] ================================================================================
+[2025-11-25T19:28:04.923045+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:04.923188+00:00] Time: 11:28:04AM
+[2025-11-25T19:28:04.923553+00:00] ================================================================================
+[2025-11-25T19:28:04.923672+00:00] Context:
+[2025-11-25T19:28:04.923751+00:00]   tier1: Bug
+[2025-11-25T19:28:04.923926+00:00]   tier2: API
+[2025-11-25T19:28:04.924246+00:00]   sample_count: 5
+[2025-11-25T19:28:04.926570+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:04.926723+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:04.926810+00:00] │                                                                              │
+[2025-11-25T19:28:04.926893+00:00] │ TIER 1 TOPIC: Bug                                                            │
+[2025-11-25T19:28:04.926949+00:00] │ TIER 2 SUBCATEGORY: API                                                      │
+[2025-11-25T19:28:04.927017+00:00] │                                                                              │
+[2025-11-25T19:28:04.927172+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:04.927266+00:00] │ 1. Hi Arick! 👋​ First off, I apologize for the delay in getting back to you. │
+[2025-11-25T19:28:04.927349+00:00] │ Thank you so much for the incredibly detailed context and for sharing your   │
+[2025-11-25T19:28:04.927419+00:00] │ vision for what you're building with NIC MAP Deal I                          │
+[2025-11-25T19:28:04.927493+00:00] │ 2. Recently i am facing difficulties in creating presentations through       │
+[2025-11-25T19:28:04.927550+00:00] │ uploading word file document through the website, can you please help me to  │
+[2025-11-25T19:28:04.927623+00:00] │ overcome this and enjoy Gamma like before Here are some                      │
+[2025-11-25T19:28:04.927690+00:00] │ 3. al pubiblicar el sitio se me deshabilitan los enlaces en los botones when │
+[2025-11-25T19:28:04.927755+00:00] │ I publish the site, the links in the buttons are disabled ––– Translated by  │
+[2025-11-25T19:28:04.927825+00:00] │ Lokalise Messages​ This conversation language is S                            │
+[2025-11-25T19:28:04.927932+00:00] │ 4. Olá. Eu criei dois e-books com o mesmo tema. Só que com formatação        │
+[2025-11-25T19:28:04.928006+00:00] │ difrente e salvei. Está aparecendo apenas um deles. Pode me ajudar? Hi, I've │
+[2025-11-25T19:28:04.928083+00:00] │ created two e-books with the same theme. But with differ                     │
+[2025-11-25T19:28:04.928363+00:00] │ 5. Boa noite Goodnight ––– Translated by Lokalise Messages​ This conversation │
+[2025-11-25T19:28:04.928482+00:00] │ language is Portuguese. Create a note starting with ! to respond in a        │
+[2025-11-25T19:28:04.928559+00:00] │ customer's language or try !help Boa noite! Como posso                       │
+[2025-11-25T19:28:04.928627+00:00] │                                                                              │
+[2025-11-25T19:28:04.928695+00:00] │ TASK: Are these conversations truly about "API"?                             │
+[2025-11-25T19:28:04.928794+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:04.928885+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:04.928972+00:00] │ - If NO, suggest a better subcategory name from the Bug taxonomy             │
+[2025-11-25T19:28:04.929154+00:00] │                                                                              │
+[2025-11-25T19:28:04.929247+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:04.929331+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.090993+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.091123+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:06.091902+00:00] Tokens: 367 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T19:28:06.092163+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.093461+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:06.093574+00:00] │ NO: The conversations do not discuss API-related issues; they focus on       │
+[2025-11-25T19:28:06.093650+00:00] │ problems with document uploads, e-book visibility, and site publishing. A    │
+[2025-11-25T19:28:06.093730+00:00] │ better subcategory name could be "Website Functionality" or "Document Upload │
+[2025-11-25T19:28:06.093800+00:00] │ Issues."                                                                     │
+[2025-11-25T19:28:06.093872+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.094038+00:00] 2025-11-25 19:28:06 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for API: NO: The conversations do not discuss API-related issues; they focus on problems with document uploads, e-book visibility, and site publishing. A better subcategory name could be "Website Functionality" or "Document Upload Issues."
+[2025-11-25T19:28:06.094160+00:00] ❌ FAILED Tier 2: API
+[2025-11-25T19:28:06.094901+00:00]   LLM flagged as potentially incorrect: NO: The conversations do not discuss
+[2025-11-25T19:28:06.095022+00:00] API-related issues; they focus on problems with document uploads, e-book
+[2025-11-25T19:28:06.095105+00:00] visibility, and site publishing. A better subcategory name could be "Website
+[2025-11-25T19:28:06.095152+00:00] Functionality" or "Document Upload Issues."
+[2025-11-25T19:28:06.101929+00:00] ================================================================================
+[2025-11-25T19:28:06.102042+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:06.102292+00:00] Time: 11:28:06AM
+[2025-11-25T19:28:06.102584+00:00] ================================================================================
+[2025-11-25T19:28:06.102718+00:00] Context:
+[2025-11-25T19:28:06.102894+00:00]   tier1: Bug
+[2025-11-25T19:28:06.103103+00:00]   tier2: Font
+[2025-11-25T19:28:06.103257+00:00]   sample_count: 5
+[2025-11-25T19:28:06.105692+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:06.105806+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:06.105882+00:00] │                                                                              │
+[2025-11-25T19:28:06.105954+00:00] │ TIER 1 TOPIC: Bug                                                            │
+[2025-11-25T19:28:06.106022+00:00] │ TIER 2 SUBCATEGORY: Font                                                     │
+[2025-11-25T19:28:06.106112+00:00] │                                                                              │
+[2025-11-25T19:28:06.106186+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:06.106274+00:00] │ 1. Hi Arick! 👋​ First off, I apologize for the delay in getting back to you. │
+[2025-11-25T19:28:06.106347+00:00] │ Thank you so much for the incredibly detailed context and for sharing your   │
+[2025-11-25T19:28:06.106432+00:00] │ vision for what you're building with NIC MAP Deal I                          │
+[2025-11-25T19:28:06.106502+00:00] │ 2. Recently i am facing difficulties in creating presentations through       │
+[2025-11-25T19:28:06.106569+00:00] │ uploading word file document through the website, can you please help me to  │
+[2025-11-25T19:28:06.106635+00:00] │ overcome this and enjoy Gamma like before Here are some                      │
+[2025-11-25T19:28:06.106704+00:00] │ 3. al pubiblicar el sitio se me deshabilitan los enlaces en los botones when │
+[2025-11-25T19:28:06.106777+00:00] │ I publish the site, the links in the buttons are disabled ––– Translated by  │
+[2025-11-25T19:28:06.106841+00:00] │ Lokalise Messages​ This conversation language is S                            │
+[2025-11-25T19:28:06.106909+00:00] │ 4. Olá. Eu criei dois e-books com o mesmo tema. Só que com formatação        │
+[2025-11-25T19:28:06.107868+00:00] │ difrente e salvei. Está aparecendo apenas um deles. Pode me ajudar? Hi, I've │
+[2025-11-25T19:28:06.108032+00:00] │ created two e-books with the same theme. But with differ                     │
+[2025-11-25T19:28:06.108118+00:00] │ 5. Boa noite Goodnight ––– Translated by Lokalise Messages​ This conversation │
+[2025-11-25T19:28:06.108194+00:00] │ language is Portuguese. Create a note starting with ! to respond in a        │
+[2025-11-25T19:28:06.108269+00:00] │ customer's language or try !help Boa noite! Como posso                       │
+[2025-11-25T19:28:06.108371+00:00] │                                                                              │
+[2025-11-25T19:28:06.108448+00:00] │ TASK: Are these conversations truly about "Font"?                            │
+[2025-11-25T19:28:06.108515+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:06.108581+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:06.108651+00:00] │ - If NO, suggest a better subcategory name from the Bug taxonomy             │
+[2025-11-25T19:28:06.108715+00:00] │                                                                              │
+[2025-11-25T19:28:06.108779+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:06.108844+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.112494+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.112613+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:06.113011+00:00] Tokens: 407 (~$0.0008) | Model: gpt-4o-mini
+[2025-11-25T19:28:06.113398+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.114513+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:06.114730+00:00] │ 1. YES                                                                       │
+[2025-11-25T19:28:06.114810+00:00] │ 2. YES                                                                       │
+[2025-11-25T19:28:06.114887+00:00] │ 3. NO: This conversation is about referral credits, which may fit better     │
+[2025-11-25T19:28:06.115098+00:00] │ under "Promotions" or "Referral Program" rather than "Subscription."         │
+[2025-11-25T19:28:06.115178+00:00] │ 4. YES                                                                       │
+[2025-11-25T19:28:06.115252+00:00] │ 5. NO: This conversation does not provide enough context about               │
+[2025-11-25T19:28:06.115324+00:00] │ subscriptions; it seems more like a general inquiry. A better subcategory    │
+[2025-11-25T19:28:06.115399+00:00] │ name could be "General Inquiry" or "Account Issues."                         │
+[2025-11-25T19:28:06.115478+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.115563+00:00] 2025-11-25 19:28:06 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Subscription: 1. YES
+[2025-11-25T19:28:06.115614+00:00] 2. YES
+[2025-11-25T19:28:06.115705+00:00] 3. NO: This conversation is about referral credits, which may fit better under "Promotions" or "Referral Program" rather than "Subscription."
+[2025-11-25T19:28:06.115755+00:00] 4. YES
+[2025-11-25T19:28:06.115915+00:00] 5. NO: This conversation does not provide enough context about subscriptions; it seems more like a general inquiry. A better subcategory name could be "General Inquiry" or "Account Issues."
+[2025-11-25T19:28:06.115979+00:00] ❌ FAILED Tier 2: Subscription
+[2025-11-25T19:28:06.116043+00:00]   LLM flagged as potentially incorrect: 1. YES
+[2025-11-25T19:28:06.116090+00:00] 2. YES
+[2025-11-25T19:28:06.116160+00:00] 3. NO: This conversation is about referral credits, which may fit better under
+[2025-11-25T19:28:06.116220+00:00] "Promotions" or "Referral Program" rather than "Subscription."
+[2025-11-25T19:28:06.116265+00:00] 4. YES
+[2025-11-25T19:28:06.116380+00:00] 5. NO: This conversation does not provide enough context about subscriptions; it
+[2025-11-25T19:28:06.116466+00:00] seems more like a general inquiry. A better subcategory name could be "General
+[2025-11-25T19:28:06.116522+00:00] Inquiry" or "Account Issues."
+[2025-11-25T19:28:06.121813+00:00] ================================================================================
+[2025-11-25T19:28:06.121961+00:00] 🤖 SubTopicDetectionAgent: PROMPT
+[2025-11-25T19:28:06.122045+00:00] Time: 11:28:06AM
+[2025-11-25T19:28:06.122360+00:00] ================================================================================
+[2025-11-25T19:28:06.122513+00:00] Context:
+[2025-11-25T19:28:06.122972+00:00]   tier1: Billing
+[2025-11-25T19:28:06.123103+00:00]   tier2: Discount
+[2025-11-25T19:28:06.123384+00:00]   sample_count: 5
+[2025-11-25T19:28:06.126510+00:00] ╭─────────────────────────────────── Prompt ───────────────────────────────────╮
+[2025-11-25T19:28:06.126653+00:00] │ You are validating customer support subcategory classifications.             │
+[2025-11-25T19:28:06.126715+00:00] │                                                                              │
+[2025-11-25T19:28:06.126766+00:00] │ TIER 1 TOPIC: Billing                                                        │
+[2025-11-25T19:28:06.126819+00:00] │ TIER 2 SUBCATEGORY: Discount                                                 │
+[2025-11-25T19:28:06.126870+00:00] │                                                                              │
+[2025-11-25T19:28:06.126934+00:00] │ SAMPLE CONVERSATIONS:                                                        │
+[2025-11-25T19:28:06.127003+00:00] │ 1. Cancelei a assinatura e não está constando, tenho uma cobrança no meu     │
+[2025-11-25T19:28:06.127053+00:00] │ cartão. Quem pode resolver? I canceled my subscription and it's not showing, │
+[2025-11-25T19:28:06.127102+00:00] │ I've been charged on my card. Who can sort it out? ––                        │
+[2025-11-25T19:28:06.127159+00:00] │ 2. Sehr geehrtes Gamma-Team,ich habe heute festgestellt, dass von meinem     │
+[2025-11-25T19:28:06.127208+00:00] │ Konto eine doppelte Abbuchung vorgenommen wurde. Eine vorherige Information  │
+[2025-11-25T19:28:06.127255+00:00] │ über die bevorstehende Abbuchung habe ich von Ihrem Se                       │
+[2025-11-25T19:28:06.127308+00:00] │ 3. I refered someone to use Gamma, they used my link. They recieved their    │
+[2025-11-25T19:28:06.127362+00:00] │ extra credits but I didn't. If you are a free Gamma user, you can earn more  │
+[2025-11-25T19:28:06.127411+00:00] │ credits by simply sharing your unique referral link w                        │
+[2025-11-25T19:28:06.127459+00:00] │ 4. Hello,Thank you for your reply.I am being charged $10 monthly for         │
+[2025-11-25T19:28:06.127509+00:00] │ “Gamma.A” through Stripe using my card ending in 9236. However, I cannot     │
+[2025-11-25T19:28:06.127559+00:00] │ identify which email or workspace this payment is linked to.C                │
+[2025-11-25T19:28:06.127609+00:00] │ 5. Hola Hello ––– Translated by Lokalise Messages​ This conversation language │
+[2025-11-25T19:28:06.127657+00:00] │ is Spanish. Create a note starting with ! to respond in a customer's         │
+[2025-11-25T19:28:06.127712+00:00] │ language or try !help Hola, ¿en qué puedo ayudarte hoy?                      │
+[2025-11-25T19:28:06.127760+00:00] │                                                                              │
+[2025-11-25T19:28:06.127807+00:00] │ TASK: Are these conversations truly about "Discount"?                        │
+[2025-11-25T19:28:06.127855+00:00] │ - Answer YES if subcategory matches the conversations                        │
+[2025-11-25T19:28:06.127904+00:00] │ - Answer NO if subcategory seems wrong                                       │
+[2025-11-25T19:28:06.127953+00:00] │ - If NO, suggest a better subcategory name from the Billing taxonomy         │
+[2025-11-25T19:28:06.128002+00:00] │                                                                              │
+[2025-11-25T19:28:06.128048+00:00] │ Respond with: YES or NO:                                                     │
+[2025-11-25T19:28:06.128095+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.986980+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.987096+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:06.987417+00:00] Tokens: 367 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T19:28:06.987745+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:06.988356+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:06.988456+00:00] │ NO: The conversations do not specifically address issues related to font.    │
+[2025-11-25T19:28:06.988538+00:00] │ They are more focused on document uploading, publishing issues, and e-book   │
+[2025-11-25T19:28:06.988637+00:00] │ formatting. A better subcategory name could be "Document Formatting" or      │
+[2025-11-25T19:28:06.988717+00:00] │ "Publishing Issues."                                                         │
+[2025-11-25T19:28:06.988793+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:06.988966+00:00] 2025-11-25 19:28:06 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Font: NO: The conversations do not specifically address issues related to font. They are more focused on document uploading, publishing issues, and e-book formatting. A better subcategory name could be "Document Formatting" or "Publishing Issues."
+[2025-11-25T19:28:06.989045+00:00] ❌ FAILED Tier 2: Font
+[2025-11-25T19:28:06.989524+00:00]   LLM flagged as potentially incorrect: NO: The conversations do not
+[2025-11-25T19:28:06.989605+00:00] specifically address issues related to font. They are more focused on document
+[2025-11-25T19:28:06.989677+00:00] uploading, publishing issues, and e-book formatting. A better subcategory name
+[2025-11-25T19:28:06.989738+00:00] could be "Document Formatting" or "Publishing Issues."
+[2025-11-25T19:28:07.249280+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.249387+00:00] 🤖 SubTopicDetectionAgent: LLM RESPONSE
+[2025-11-25T19:28:07.250324+00:00] Tokens: 372 (~$0.0007) | Model: gpt-4o-mini
+[2025-11-25T19:28:07.250478+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.251451+00:00] ╭────────────────────────────────── Response ──────────────────────────────────╮
+[2025-11-25T19:28:07.251602+00:00] │ NO: The conversations primarily focus on issues related to billing, such as  │
+[2025-11-25T19:28:07.251688+00:00] │ charges, cancellations, and account identification, rather than discounts. A │
+[2025-11-25T19:28:07.251771+00:00] │ better subcategory name could be "Billing Issues" or "Charge Discrepancies." │
+[2025-11-25T19:28:07.251853+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T19:28:07.251984+00:00] 2025-11-25 19:28:07 - agents.SubTopicDetectionAgent - WARNING -    ⚠️ LLM validation failed for Discount: NO: The conversations primarily focus on issues related to billing, such as charges, cancellations, and account identification, rather than discounts. A better subcategory name could be "Billing Issues" or "Charge Discrepancies."
+[2025-11-25T19:28:07.252025+00:00] ❌ FAILED Tier 2: Discount
+[2025-11-25T19:28:07.252398+00:00]   LLM flagged as potentially incorrect: NO: The conversations primarily focus on
+[2025-11-25T19:28:07.252508+00:00] issues related to billing, such as charges, cancellations, and account
+[2025-11-25T19:28:07.252583+00:00] identification, rather than discounts. A better subcategory name could be
+[2025-11-25T19:28:07.252641+00:00] "Billing Issues" or "Charge Discrepancies."
+[2025-11-25T19:28:07.252878+00:00] 2025-11-25 19:28:07 - agents.SubTopicDetectionAgent - INFO - SubTopicDetectionAgent: Completed in 4.55s
+[2025-11-25T19:28:07.252991+00:00] 2025-11-25 19:28:07 - agents.SubTopicDetectionAgent - INFO -    Tier 1 topics processed: 8
+[2025-11-25T19:28:07.253069+00:00] 2025-11-25 19:28:07 - agents.SubTopicDetectionAgent - INFO -    Coverage: 100.0% (50/50)
+[2025-11-25T19:28:07.253143+00:00] 2025-11-25 19:28:07 - agents.SubTopicDetectionAgent - INFO -    Total token count: 0
+[2025-11-25T19:28:07.253576+00:00] ✅ SubTopicDetectionAgent succeeded in 4.5s
+[2025-11-25T19:28:07.254280+00:00] 💥 SubTopicDetectionAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.254672+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.254979+00:00] Testing: ExampleExtractionAgent
+[2025-11-25T19:28:07.255298+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.255451+00:00] 2025-11-25 19:28:07 - agents.ExampleExtractionAgent - ERROR - ExampleExtractionAgent error: topic_conversations not provided
+[2025-11-25T19:28:07.256236+00:00] ❌ ExampleExtractionAgent failed: topic_conversations not provided
+[2025-11-25T19:28:07.256682+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.256778+00:00] Testing: FinPerformanceAgent
+[2025-11-25T19:28:07.257130+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.257273+00:00] 2025-11-25 19:28:07 - src.agents.fin_performance_agent - ERROR - FinPerformanceAgent error: No Fin conversations provided (expected 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T19:28:07.258226+00:00] ❌ FinPerformanceAgent failed: No Fin conversations provided (expected
+[2025-11-25T19:28:07.258400+00:00] 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T19:28:07.258497+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.258576+00:00] Testing: CorrelationAgent
+[2025-11-25T19:28:07.258861+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.259346+00:00] ❌ CorrelationAgent failed: None
+[2025-11-25T19:28:07.259679+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.259834+00:00] Testing: QualityInsightsAgent
+[2025-11-25T19:28:07.260203+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.260397+00:00] 2025-11-25 19:28:07 - src.agents.quality_insights_agent - INFO - Analyzing quality metrics across 50 conversations
+[2025-11-25T19:28:07.261027+00:00] 2025-11-25 19:28:07 - src.agents.quality_insights_agent - WARNING - Volume anomaly detection failed: unsupported operand type(s) for +: 'dict' and 'dict'
+[2025-11-25T19:28:07.261368+00:00] 2025-11-25 19:28:07 - src.agents.quality_insights_agent - WARNING - CSAT outlier detection failed: '<' not supported between instances of 'dict' and 'dict'
+[2025-11-25T19:28:07.261462+00:00] 2025-11-25 19:28:07 - src.agents.quality_insights_agent - WARNING - LLM enrichment failed: 'type'
+[2025-11-25T19:28:07.261910+00:00] ✅ QualityInsightsAgent succeeded in 0.0s
+[2025-11-25T19:28:07.262557+00:00] 💥 QualityInsightsAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.262738+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.262849+00:00] Testing: ChurnRiskAgent
+[2025-11-25T19:28:07.263139+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.263277+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - INFO - Scanning 50 conversations for churn signals
+[2025-11-25T19:28:07.264813+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.267098+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.267259+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.267411+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269009+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269333+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269494+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269590+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269684+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.269782+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.270213+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.270369+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.270767+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.271189+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.271491+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.271871+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.272329+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.272751+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.273176+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.273988+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.274240+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.274380+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.274494+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.274583+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.274947+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.275085+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277277+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277515+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277600+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277695+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277778+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.277880+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278194+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278342+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278453+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278552+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278626+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278718+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278836+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.278908+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.279387+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.279496+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.279655+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.279799+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.279884+00:00] 2025-11-25 19:28:07 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.280891+00:00] ✅ ChurnRiskAgent succeeded in 0.0s
+[2025-11-25T19:28:07.281505+00:00] 💥 ChurnRiskAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.282095+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.282366+00:00] Testing: ConfidenceMetaAgent
+[2025-11-25T19:28:07.282703+00:00] ────────────────────────────────────────────────────────────────────────────────
+[2025-11-25T19:28:07.282915+00:00] 2025-11-25 19:28:07 - src.agents.confidence_meta_agent - WARNING - SegmentationAgent results not available for meta-analysis
+[2025-11-25T19:28:07.282995+00:00] 2025-11-25 19:28:07 - src.agents.confidence_meta_agent - INFO - Performing meta-analysis on 1 agents
+[2025-11-25T19:28:07.283106+00:00] 2025-11-25 19:28:07 - src.agents.confidence_meta_agent - WARNING - Limitations identification failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T19:28:07.283592+00:00] ✅ ConfidenceMetaAgent succeeded in 0.0s
+[2025-11-25T19:28:07.284201+00:00] 💥 ConfidenceMetaAgent crashed: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.284516+00:00] ================================================================================
+[2025-11-25T19:28:07.285056+00:00] ✅ AGENT TESTING COMPLETE
+[2025-11-25T19:28:07.285176+00:00] ================================================================================
+[2025-11-25T19:28:07.285585+00:00] Results: 0/7 agents passed
+[2025-11-25T19:28:07.286002+00:00]    💥 SubTopicDetectionAgent: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.286344+00:00]    ⚠️  ExampleExtractionAgent: topic_conversations not provided
+[2025-11-25T19:28:07.286948+00:00]    ⚠️  FinPerformanceAgent: No Fin conversations provided (expected
+[2025-11-25T19:28:07.287041+00:00] 'fin_conversations' or 'free_fin_conversations'/'paid_fin_conversations')
+[2025-11-25T19:28:07.287585+00:00]    ⚠️  CorrelationAgent: None
+[2025-11-25T19:28:07.287681+00:00]    💥 QualityInsightsAgent: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.287802+00:00]    💥 ChurnRiskAgent: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.288240+00:00]    💥 ConfidenceMetaAgent: 'str' object has no attribute 'value'
+[2025-11-25T19:28:07.289240+00:00] ✅ Agent testing complete!
+[2025-11-25T19:28:07.301731+00:00] 2025-11-25 19:28:07 - src.utils.agent_thinking_logger - INFO - Exported 416 events to /mnt/persistent/outputs/executions/sample-mode_Last-Week_nov-25-11-26am/agent_thinking_Nov-25-2025_11-26AM.observability.json
+[2025-11-25T19:28:07.302504+00:00] 📊 Observability data exported (full thinking):
+[2025-11-25T19:28:07.302567+00:00] agent_thinking_Nov-25-2025_11-26AM.observability.json
+[2025-11-25T19:28:07.302937+00:00] Run: python scripts/analyze_observability.py
+[2025-11-25T19:28:07.303020+00:00] agent_thinking_Nov-25-2025_11-26AM.observability.json
+[2025-11-25T19:28:07.303245+00:00] This shows LLM failures, patterns, and agent performance
+[2025-11-25T19:28:07.303673+00:00] 🧠 Agent thinking log was captured during analysis
+[2025-11-25T19:28:07.304311+00:00] Check files for agent_thinking_*.log and *.observability.json
+[2025-11-25T19:28:07.304487+00:00] ✅ Sample mode complete!
+[2025-11-25T19:28:07.304641+00:00] Analyzed 50 conversations
+[2025-11-25T19:28:07.305025+00:00] Key Findings:
+[2025-11-25T19:28:07.305352+00:00]   Sal conversations: 50 (100.0%)
+[2025-11-25T19:28:07.305529+00:00]   Human admin: 0 (0.0%)
+[2025-11-25T19:28:07.305841+00:00]   With custom_attributes: 50 (100.0%)
+[2025-11-25T19:28:08.364123+00:00] [STATUS] [EXEC] Command completed successfully | Exit code: 0 | Duration: 115.63s | Output: 16170 lines

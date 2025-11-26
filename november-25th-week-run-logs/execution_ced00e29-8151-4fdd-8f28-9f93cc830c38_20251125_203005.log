@@ -1,0 +1,1000 @@
+[2025-11-25T21:41:57.525912+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526009+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526476+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526610+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526692+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526800+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526886+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.526979+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527048+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527459+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527547+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527631+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527705+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527772+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527848+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.527965+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528107+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528183+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528468+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528633+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528760+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.528882+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529001+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529434+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529570+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529706+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529803+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529890+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.529996+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530080+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530165+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530265+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530331+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530415+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530521+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - LLM analysis failed: 'ClaudeClient' object has no attribute 'chat'
+[2025-11-25T21:41:57.530624+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530732+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530825+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530900+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.530975+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.531062+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.531163+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.531226+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.532835+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533024+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533120+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533381+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533504+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533595+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533745+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.533882+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534008+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534155+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534264+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534362+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534446+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534530+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534627+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534715+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.534813+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535153+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535269+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535375+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535477+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535575+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.535663+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536080+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - LLM analysis failed: 'ClaudeClient' object has no attribute 'chat'
+[2025-11-25T21:41:57.536249+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536449+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536564+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536669+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536767+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536871+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.536984+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537090+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537195+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537302+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537392+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537530+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537637+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537740+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537835+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.537929+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538030+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538136+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538229+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538313+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538398+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538498+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538604+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538711+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538819+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.538913+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539009+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539085+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539156+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539215+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539288+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539354+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539430+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539497+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539568+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539630+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539701+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - LLM analysis failed: 'ClaudeClient' object has no attribute 'chat'
+[2025-11-25T21:41:57.539829+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539905+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.539998+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.540085+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.540153+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.540237+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.540785+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.540923+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541017+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541090+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541165+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541253+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541314+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541375+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541460+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.541552+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542025+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542125+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542234+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542309+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542379+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542469+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542550+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542624+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542696+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542769+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542873+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.542971+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543076+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543177+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543281+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543370+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543441+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543500+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543558+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543618+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543675+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543732+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543844+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.543925+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544050+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544168+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544287+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544452+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544549+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544639+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544720+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544788+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544860+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.544939+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.545023+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.545092+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.545169+00:00] 2025-11-25 21:41:57 - src.agents.churn_risk_agent - WARNING - Churn signal detection failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.547659+00:00] 2025-11-25 21:41:57 - src.agents.confidence_meta_agent - INFO - Performing meta-analysis on 5 agents
+[2025-11-25T21:41:57.569720+00:00] 2025-11-25 21:41:57 - src.agents.confidence_meta_agent - WARNING - Limitations identification failed: '<' not supported between instances of 'dict' and 'int'
+[2025-11-25T21:41:57.569946+00:00] 2025-11-25 21:41:57 - src.agents.confidence_meta_agent - WARNING - LLM meta-analysis failed: 'ClaudeClient' object has no attribute 'chat'
+[2025-11-25T21:41:57.572063+00:00] ╭───────────────────────── ✅ CorrelationAgent Result ─────────────────────────╮
+[2025-11-25T21:41:57.572192+00:00] │ Status: Success                                                              │
+[2025-11-25T21:41:57.572249+00:00] │ Confidence: 54.00% (low)                                                     │
+[2025-11-25T21:41:57.572408+00:00] │ Execution Time: 0.09s                                                        │
+[2025-11-25T21:41:57.572502+00:00] │                                                                              │
+[2025-11-25T21:41:57.572574+00:00] │ Limitations:                                                                 │
+[2025-11-25T21:41:57.572640+00:00] │   • Tier data only available for 0% of conversations                         │
+[2025-11-25T21:41:57.572706+00:00] │                                                                              │
+[2025-11-25T21:41:57.572773+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:41:57.572855+00:00] │   • correlations: 1 items                                                    │
+[2025-11-25T21:41:57.572939+00:00] │   • total_correlations_found: 1                                              │
+[2025-11-25T21:41:57.573015+00:00] │   • data_coverage: 3 keys                                                    │
+[2025-11-25T21:41:57.573088+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:41:57.573243+00:00] ╭─────────────────────── ✅ QualityInsightsAgent Result ───────────────────────╮
+[2025-11-25T21:41:57.573308+00:00] │ Status: Success                                                              │
+[2025-11-25T21:41:57.573359+00:00] │ Confidence: 92.00% (high)                                                    │
+[2025-11-25T21:41:57.573409+00:00] │ Execution Time: 0.05s                                                        │
+[2025-11-25T21:41:57.573696+00:00] │                                                                              │
+[2025-11-25T21:41:57.573754+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:41:57.573820+00:00] │   • fcr_by_topic: 0 keys                                                     │
+[2025-11-25T21:41:57.573880+00:00] │   • reopen_patterns: 0 keys                                                  │
+[2025-11-25T21:41:57.573944+00:00] │   • multi_touch_analysis: 0 keys                                             │
+[2025-11-25T21:41:57.574000+00:00] │   • resolution_distribution: 4 keys                                          │
+[2025-11-25T21:41:57.574048+00:00] │   • anomalies: 5 items                                                       │
+[2025-11-25T21:41:57.574117+00:00] │   • exceptional_conversations: 5 items                                       │
+[2025-11-25T21:41:57.574169+00:00] │   • temporal_clustering: 0 items                                             │
+[2025-11-25T21:41:57.574235+00:00] │   • llm_insights: None                                                       │
+[2025-11-25T21:41:57.574297+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:41:57.574466+00:00] ╭────────────────────────── ✅ ChurnRiskAgent Result ──────────────────────────╮
+[2025-11-25T21:41:57.574522+00:00] │ Status: Success                                                              │
+[2025-11-25T21:41:57.574573+00:00] │ Confidence: 70.00% (medium)                                                  │
+[2025-11-25T21:41:57.574623+00:00] │ Execution Time: 1.12s                                                        │
+[2025-11-25T21:41:57.575310+00:00] │                                                                              │
+[2025-11-25T21:41:57.575468+00:00] │ Limitations:                                                                 │
+[2025-11-25T21:41:57.575527+00:00] │   • Tier data only available for 0% of conversations                         │
+[2025-11-25T21:41:57.575576+00:00] │                                                                              │
+[2025-11-25T21:41:57.575694+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:41:57.575753+00:00] │   • high_risk_conversations: 104 items                                       │
+[2025-11-25T21:41:57.575803+00:00] │   • risk_breakdown: 4 keys                                                   │
+[2025-11-25T21:41:57.575852+00:00] │   • signal_distribution: 4 keys                                              │
+[2025-11-25T21:41:57.575923+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:41:57.576040+00:00] ╭─────────────────────── ✅ ConfidenceMetaAgent Result ────────────────────────╮
+[2025-11-25T21:41:57.576127+00:00] │ Status: Success                                                              │
+[2025-11-25T21:41:57.576194+00:00] │ Confidence: 100.00% (high)                                                   │
+[2025-11-25T21:41:57.576248+00:00] │ Execution Time: 0.02s                                                        │
+[2025-11-25T21:41:57.576324+00:00] │                                                                              │
+[2025-11-25T21:41:57.576458+00:00] │ Limitations:                                                                 │
+[2025-11-25T21:41:57.576695+00:00] │   • Meta-analysis reflects current data state only                           │
+[2025-11-25T21:41:57.577025+00:00] │                                                                              │
+[2025-11-25T21:41:57.577110+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:41:57.577181+00:00] │   • confidence_distribution: 3 keys                                          │
+[2025-11-25T21:41:57.577247+00:00] │   • data_quality: 5 keys                                                     │
+[2025-11-25T21:41:57.577297+00:00] │   • limitations: 1 items                                                     │
+[2025-11-25T21:41:57.577345+00:00] │   • what_would_improve_confidence: 1 items                                   │
+[2025-11-25T21:41:57.577408+00:00] │   • overall_data_quality_score: 0.66                                         │
+[2025-11-25T21:41:57.577487+00:00] │   • llm_meta_analysis: None                                                  │
+[2025-11-25T21:41:57.577564+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:41:57.577679+00:00] 2025-11-25 21:41:57 - src.services.audit_trail - INFO - [AUDIT] Phase 4.5: Analytical Insights: Completed analytical insights in 6.0s
+[2025-11-25T21:41:57.577789+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - INFO -    ✅ Analytical insights complete: 1 correlations, 104 churn signals, 5 anomalies
+[2025-11-25T21:41:57.577869+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - INFO - ⏭️  Phase 4.6: Skipping Cross-Platform Correlation (no Canny posts)
+[2025-11-25T21:41:57.577949+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - INFO - 📈 Phase 5: Trend Analysis
+[2025-11-25T21:41:57.578014+00:00] 2025-11-25 21:41:57 - src.services.audit_trail - INFO - [AUDIT] Phase 5: Trend Analysis: Starting historical trend analysis
+[2025-11-25T21:41:57.578070+00:00] 2025-11-25 21:41:57 - agents.TrendAgent - INFO - Agent TrendAgent initialized with tools: False
+[2025-11-25T21:41:57.578121+00:00] 2025-11-25 21:41:57 - src.config.modes - INFO - Using AI model from environment: openai
+[2025-11-25T21:41:57.578169+00:00] 2025-11-25 21:41:57 - src.services.ai_model_factory - INFO - AIModelFactory initialized
+[2025-11-25T21:41:57.578217+00:00] 2025-11-25 21:41:57 - src.utils.ai_client_helper - INFO - Getting AI client: openai
+[2025-11-25T21:41:57.578268+00:00] 2025-11-25 21:41:57 - src.services.ai_model_factory - INFO - Getting AI client for model: openai
+[2025-11-25T21:41:57.587148+00:00] 2025-11-25 21:41:57 - agents.TrendAgent - INFO - TrendAgent: Analyzing trends for week 2025-W46
+[2025-11-25T21:41:57.598088+00:00] 2025-11-25 21:41:57 - agents.TrendAgent - INFO - Generating trend explanations with LLM...
+[2025-11-25T21:41:57.599796+00:00] 2025-11-25 21:41:57 - src.services.historical_snapshot_service - WARNING - Snapshot validation failed for weekly_20251125: 67 validation errors for SnapshotData
+[2025-11-25T21:41:57.599875+00:00] period_start
+[2025-11-25T21:41:57.599998+00:00]   Input should be a valid date [type=date_type, input_value=None, input_type=NoneType]
+[2025-11-25T21:41:57.600060+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/date_type
+[2025-11-25T21:41:57.600109+00:00] period_end
+[2025-11-25T21:41:57.600180+00:00]   Input should be a valid date [type=date_type, input_value=None, input_type=NoneType]
+[2025-11-25T21:41:57.600246+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/date_type
+[2025-11-25T21:41:57.600311+00:00] topic_volumes.Billing
+[2025-11-25T21:41:57.600401+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 3463, 'percent... 0, 'fallback_count': 1}, input_type=dict]
+[2025-11-25T21:41:57.600472+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.600522+00:00] topic_volumes.Workspace
+[2025-11-25T21:41:57.600605+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 285, 'percenta... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.600696+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.600748+00:00] topic_volumes.Product Question
+[2025-11-25T21:41:57.600826+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 2041, 'percent... 0, 'fallback_count': 4}, input_type=dict]
+[2025-11-25T21:41:57.600894+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.600943+00:00] topic_volumes.Unknown
+[2025-11-25T21:41:57.601021+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 95, 'percentag... 0, 'fallback_count': 2}, input_type=dict]
+[2025-11-25T21:41:57.601087+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.601141+00:00] topic_volumes.Bug
+[2025-11-25T21:41:57.601220+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 321, 'percenta... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.601290+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.601340+00:00] topic_volumes.Account
+[2025-11-25T21:41:57.601422+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 609, 'percenta... 0, 'fallback_count': 3}, input_type=dict]
+[2025-11-25T21:41:57.601493+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.601542+00:00] topic_volumes.Abuse
+[2025-11-25T21:41:57.601613+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 9, 'percentage... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.601671+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.601714+00:00] topic_volumes.Partnerships
+[2025-11-25T21:41:57.601786+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 39, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.601869+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.601925+00:00] topic_volumes.Privacy
+[2025-11-25T21:41:57.602010+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 61, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.602080+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.602131+00:00] topic_volumes.Promotions
+[2025-11-25T21:41:57.602205+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 47, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.602265+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.602308+00:00] topic_volumes.Chargeback
+[2025-11-25T21:41:57.602390+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 24, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.602461+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.602515+00:00] topic_volumes.Feedback
+[2025-11-25T21:41:57.602587+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 5, 'percentage... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:41:57.602654+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.602712+00:00] topic_volumes.Unknown/unresponsive
+[2025-11-25T21:41:57.602812+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 8, 'percentage... 0, 'fallback_count': 8}, input_type=dict]
+[2025-11-25T21:41:57.602887+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:41:57.602939+00:00] topic_sentiments.Billing.topic
+[2025-11-25T21:41:57.602999+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Billing', input_type=str]
+[2025-11-25T21:41:57.603049+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.603088+00:00] topic_sentiments.Billing.sentiment_insight
+[2025-11-25T21:41:57.603155+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value="Customers appreciate the...managing subscriptions.", input_type=str]
+[2025-11-25T21:41:57.603202+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.603244+00:00] topic_sentiments.Billing.sample_quotes
+[2025-11-25T21:41:57.603344+00:00]   Input should be a valid number [type=float_type, input_value=['How many custom domains..., אבקש לעדכן'], input_type=list]
+[2025-11-25T21:41:57.603413+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.603458+00:00] topic_sentiments.Billing.method
+[2025-11-25T21:41:57.603534+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.603597+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.603649+00:00] topic_sentiments.Workspace.topic
+[2025-11-25T21:41:57.603726+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Workspace', input_type=str]
+[2025-11-25T21:41:57.603791+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.603847+00:00] topic_sentiments.Workspace.sentiment_insight
+[2025-11-25T21:41:57.603924+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Users appreciate the abi...nd sharing limitations.', input_type=str]
+[2025-11-25T21:41:57.604001+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.604060+00:00] topic_sentiments.Workspace.sample_quotes
+[2025-11-25T21:41:57.604134+00:00]   Input should be a valid number [type=float_type, input_value=['My gamma site once agai..., I just did file lost'], input_type=list]
+[2025-11-25T21:41:57.604191+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.604238+00:00] topic_sentiments.Workspace.method
+[2025-11-25T21:41:57.604337+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.604408+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.604471+00:00] topic_sentiments.Product Question.topic
+[2025-11-25T21:41:57.604559+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Product Question', input_type=str]
+[2025-11-25T21:41:57.604627+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.604681+00:00] topic_sentiments.Product Question.sentiment_insight
+[2025-11-25T21:41:57.604768+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers are frustrated...hem recover their work.', input_type=str]
+[2025-11-25T21:41:57.604841+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.604900+00:00] topic_sentiments.Product Question.sample_quotes
+[2025-11-25T21:41:57.605015+00:00]   Input should be a valid number [type=float_type, input_value=['meine Präsentation ist...d card and sp...', 'hi'], input_type=list]
+[2025-11-25T21:41:57.605091+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.605145+00:00] topic_sentiments.Product Question.method
+[2025-11-25T21:41:57.605222+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.605296+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.605351+00:00] topic_sentiments.Unknown.topic
+[2025-11-25T21:41:57.605432+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Unknown', input_type=str]
+[2025-11-25T21:41:57.605503+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.605560+00:00] topic_sentiments.Unknown.sentiment_insight
+[2025-11-25T21:41:57.605632+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers are frustrated...lve issues effectively.', input_type=str]
+[2025-11-25T21:41:57.605692+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.605747+00:00] topic_sentiments.Unknown.sample_quotes
+[2025-11-25T21:41:57.605824+00:00]   Input should be a valid number [type=float_type, input_value=['estou muito triste eu n... 'human representative'], input_type=list]
+[2025-11-25T21:41:57.605887+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.605939+00:00] topic_sentiments.Unknown.method
+[2025-11-25T21:41:57.606011+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.606079+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.606131+00:00] topic_sentiments.Bug.topic
+[2025-11-25T21:41:57.606210+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Bug', input_type=str]
+[2025-11-25T21:41:57.606272+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.606326+00:00] topic_sentiments.Bug.sentiment_insight
+[2025-11-25T21:41:57.606410+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value="Customers are frustrated... team's responsiveness.", input_type=str]
+[2025-11-25T21:41:57.606473+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.606520+00:00] topic_sentiments.Bug.sample_quotes
+[2025-11-25T21:41:57.606589+00:00]   Input should be a valid number [type=float_type, input_value=['have you seen links in ...куване в Lin...'], input_type=list]
+[2025-11-25T21:41:57.606651+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.606692+00:00] topic_sentiments.Bug.method
+[2025-11-25T21:41:57.606745+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.606803+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.606843+00:00] topic_sentiments.Account.topic
+[2025-11-25T21:41:57.606896+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Account', input_type=str]
+[2025-11-25T21:41:57.606942+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.607029+00:00] topic_sentiments.Account.sentiment_insight
+[2025-11-25T21:41:57.607095+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers appreciate the...es and missing credits.', input_type=str]
+[2025-11-25T21:41:57.607142+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.607191+00:00] topic_sentiments.Account.sample_quotes
+[2025-11-25T21:41:57.607255+00:00]   Input should be a valid number [type=float_type, input_value=['Following the steps to ... without using my F...'], input_type=list]
+[2025-11-25T21:41:57.607315+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.607360+00:00] topic_sentiments.Account.method
+[2025-11-25T21:41:57.607429+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.607493+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.607529+00:00] topic_sentiments.Abuse.topic
+[2025-11-25T21:41:57.607581+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Abuse', input_type=str]
+[2025-11-25T21:41:57.607626+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.607663+00:00] topic_sentiments.Abuse.sentiment_insight
+[2025-11-25T21:41:57.607726+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers are frustrated...buse of their patience.', input_type=str]
+[2025-11-25T21:41:57.607772+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.607809+00:00] topic_sentiments.Abuse.sample_quotes
+[2025-11-25T21:41:57.607871+00:00]   Input should be a valid number [type=float_type, input_value=['why cant i share my gam... 힐러리를 불러!'], input_type=list]
+[2025-11-25T21:41:57.607916+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.607951+00:00] topic_sentiments.Abuse.method
+[2025-11-25T21:41:57.608023+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.608076+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.608150+00:00] topic_sentiments.Partnerships.topic
+[2025-11-25T21:41:57.608231+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Partnerships', input_type=str]
+[2025-11-25T21:41:57.608315+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.608383+00:00] topic_sentiments.Partnerships.sentiment_insight
+[2025-11-25T21:41:57.608475+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Partners are enthusiasti...tnership opportunities.', input_type=str]
+[2025-11-25T21:41:57.608541+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.608591+00:00] topic_sentiments.Partnerships.sample_quotes
+[2025-11-25T21:41:57.608653+00:00]   Input should be a valid number [type=float_type, input_value=['Can I speak with a sale...promoting your prod...'], input_type=list]
+[2025-11-25T21:41:57.608706+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.608750+00:00] topic_sentiments.Partnerships.method
+[2025-11-25T21:41:57.608823+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.608884+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.608935+00:00] topic_sentiments.Privacy.topic
+[2025-11-25T21:41:57.609008+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Privacy', input_type=str]
+[2025-11-25T21:41:57.609069+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.609130+00:00] topic_sentiments.Privacy.sentiment_insight
+[2025-11-25T21:41:57.609217+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers appreciate the...ttings and permissions.', input_type=str]
+[2025-11-25T21:41:57.609282+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.609338+00:00] topic_sentiments.Privacy.sample_quotes
+[2025-11-25T21:41:57.609427+00:00]   Input should be a valid number [type=float_type, input_value=['why cant i share my gam...教えてください'], input_type=list]
+[2025-11-25T21:41:57.609504+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.609561+00:00] topic_sentiments.Privacy.method
+[2025-11-25T21:41:57.609644+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.609705+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.609757+00:00] topic_sentiments.Promotions.topic
+[2025-11-25T21:41:57.609829+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Promotions', input_type=str]
+[2025-11-25T21:41:57.609893+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.609933+00:00] topic_sentiments.Promotions.sentiment_insight
+[2025-11-25T21:41:57.609996+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value="Customers are intrigued ... and licensing details.", input_type=str]
+[2025-11-25T21:41:57.610040+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.610091+00:00] topic_sentiments.Promotions.sample_quotes
+[2025-11-25T21:41:57.610164+00:00]   Input should be a valid number [type=float_type, input_value=['How do I remove the war...e licensing terms f...'], input_type=list]
+[2025-11-25T21:41:57.610227+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.610276+00:00] topic_sentiments.Promotions.method
+[2025-11-25T21:41:57.610403+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.610473+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.610521+00:00] topic_sentiments.Chargeback.topic
+[2025-11-25T21:41:57.610595+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Chargeback', input_type=str]
+[2025-11-25T21:41:57.610658+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.610711+00:00] topic_sentiments.Chargeback.sentiment_insight
+[2025-11-25T21:41:57.610794+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value="Customers are frustrated...d billing transparency.", input_type=str]
+[2025-11-25T21:41:57.610858+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.610915+00:00] topic_sentiments.Chargeback.sample_quotes
+[2025-11-25T21:41:57.610990+00:00]   Input should be a valid number [type=float_type, input_value=['Yes, thank you for the ...mbolso Atenciosamen...'], input_type=list]
+[2025-11-25T21:41:57.611051+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.611100+00:00] topic_sentiments.Chargeback.method
+[2025-11-25T21:41:57.611174+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.611234+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.611281+00:00] topic_sentiments.Feedback.topic
+[2025-11-25T21:41:57.611349+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Feedback', input_type=str]
+[2025-11-25T21:41:57.611413+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.611463+00:00] topic_sentiments.Feedback.sentiment_insight
+[2025-11-25T21:41:57.611546+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value="Customers are impressed ...tions and video export.", input_type=str]
+[2025-11-25T21:41:57.611611+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.611667+00:00] topic_sentiments.Feedback.sample_quotes
+[2025-11-25T21:41:57.611753+00:00]   Input should be a valid number [type=float_type, input_value=['hi, I just did file los...copying the first time'], input_type=list]
+[2025-11-25T21:41:57.611818+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.611871+00:00] topic_sentiments.Feedback.method
+[2025-11-25T21:41:57.611943+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.612023+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.612083+00:00] topic_sentiments.Unknown/unresponsive.topic
+[2025-11-25T21:41:57.612159+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Unknown/unresponsive', input_type=str]
+[2025-11-25T21:41:57.612210+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.612259+00:00] topic_sentiments.Unknown/unresponsive.sentiment_insight
+[2025-11-25T21:41:57.612402+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='Customers appreciate rec...ignored and frustrated.', input_type=str]
+[2025-11-25T21:41:57.612482+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.612524+00:00] topic_sentiments.Unknown/unresponsive.sample_quotes
+[2025-11-25T21:41:57.612580+00:00]   Input should be a valid number [type=float_type, input_value=['', '', ''], input_type=list]
+[2025-11-25T21:41:57.612641+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_type
+[2025-11-25T21:41:57.612694+00:00] topic_sentiments.Unknown/unresponsive.method
+[2025-11-25T21:41:57.612764+00:00]   Input should be a valid number, unable to parse string as a number [type=float_parsing, input_value='llm', input_type=str]
+[2025-11-25T21:41:57.612814+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/float_parsing
+[2025-11-25T21:41:57.614469+00:00] 2025-11-25 21:41:57 - src.services.duckdb_storage - INFO - Successfully stored analysis snapshot: weekly_20251125
+[2025-11-25T21:41:57.614623+00:00] 2025-11-25 21:41:57 - src.services.historical_snapshot_service - INFO - Snapshot weekly_20251125 stored successfully
+[2025-11-25T21:41:57.615407+00:00] 2025-11-25 21:41:57 - agents.TrendAgent - INFO - TrendAgent: Completed in 0.03s
+[2025-11-25T21:41:57.615515+00:00] 2025-11-25 21:41:57 - agents.TrendAgent - INFO -    Historical weeks: 1
+[2025-11-25T21:41:57.616066+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - WARNING - ⚠️ TrendAnalysisPayload validation failed: 3 validation errors for TrendAnalysisPayload
+[2025-11-25T21:41:57.616186+00:00] trends
+[2025-11-25T21:41:57.616334+00:00]   Input should be a valid list [type=list_type, input_value={'Billing': {'volume_chan...etation': 'Increasing'}}, input_type=dict]
+[2025-11-25T21:41:57.616411+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/list_type
+[2025-11-25T21:41:57.616490+00:00] analysis_period
+[2025-11-25T21:41:57.616566+00:00]   Field required [type=missing, input_value={'trends': {'Billing': {'...eek': 'weekly_20251125'}, input_type=dict]
+[2025-11-25T21:41:57.616639+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/missing
+[2025-11-25T21:41:57.616691+00:00] trend_insights
+[2025-11-25T21:41:57.616765+00:00]   Input should be a valid string [type=string_type, input_value={}, input_type=dict]
+[2025-11-25T21:41:57.616834+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/string_type
+[2025-11-25T21:41:57.616911+00:00] 2025-11-25 21:41:57 - src.services.audit_trail - INFO - [AUDIT] Phase 5: Trend Analysis: Completed trend analysis in 0.0s
+[2025-11-25T21:41:57.619032+00:00] ╭──────────────────────────── ✅ TrendAgent Result ────────────────────────────╮
+[2025-11-25T21:41:57.619647+00:00] │ Status: Success                                                              │
+[2025-11-25T21:41:57.619727+00:00] │ Confidence: 25.00% (low)                                                     │
+[2025-11-25T21:41:57.619830+00:00] │ Execution Time: 0.03s                                                        │
+[2025-11-25T21:41:57.619888+00:00] │                                                                              │
+[2025-11-25T21:41:57.619970+00:00] │ Limitations:                                                                 │
+[2025-11-25T21:41:57.620090+00:00] │   • Only 1 weeks of historical data                                          │
+[2025-11-25T21:41:57.620147+00:00] │                                                                              │
+[2025-11-25T21:41:57.620198+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:41:57.620316+00:00] │   • trends: 13 keys                                                          │
+[2025-11-25T21:41:57.620410+00:00] │   • trend_insights: 0 keys                                                   │
+[2025-11-25T21:41:57.620474+00:00] │   • week_id: 2025-W46                                                        │
+[2025-11-25T21:41:57.620621+00:00] │   • historical_weeks_available: 1                                            │
+[2025-11-25T21:41:57.620810+00:00] │   • comparison_week: weekly_20251125                                         │
+[2025-11-25T21:41:57.620900+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:41:57.620981+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - INFO -    ✅ Trend analysis complete
+[2025-11-25T21:41:57.621047+00:00] 2025-11-25 21:41:57 - src.agents.topic_orchestrator - INFO - 📝 Phase 6: Output Formatting
+[2025-11-25T21:41:57.621111+00:00] 2025-11-25 21:41:57 - src.services.audit_trail - INFO - [AUDIT] Phase 6: Output Formatting: Starting final output formatting
+[2025-11-25T21:42:02.832292+00:00] 2025-11-25 21:42:02 - src.services.execution_monitor - INFO - Agent NarrativeFormatterAgent: running - Formatting analysis for Gamma presentation
+[2025-11-25T21:42:02.832485+00:00] 2025-11-25 21:42:02 - src.services.openai_client - INFO - Generating AI analysis
+[2025-11-25T21:42:26.696279+00:00] 2025-11-25 21:42:26 - src.services.openai_client - INFO - AI analysis generated successfully
+[2025-11-25T21:42:26.699717+00:00] ================================================================================
+[2025-11-25T21:42:26.699845+00:00] SegmentationAgent
+[2025-11-25T21:42:26.699932+00:00] ================================================================================
+[2025-11-25T21:42:26.700192+00:00] ✅ Status: Success
+[2025-11-25T21:42:26.700548+00:00] 🎯 Confidence: 0.78
+[2025-11-25T21:42:26.700774+00:00] ⏱️  Duration: 2.84s
+[2025-11-25T21:42:26.701001+00:00] Data:
+[2025-11-25T21:42:27.945278+00:00]   • paid_customer_conversations: [{'id': '215471823233604', 'created_at':
+[2025-11-25T21:42:27.945437+00:00] datetime.datetime(2025, 11, 17, 22, 8, 40, tzinfo=datetime.
+[2025-11-25T21:42:28.586222+00:00]   • paid_fin_resolved_conversations: [{'id': '215471824466712', 'created_at':
+[2025-11-25T21:42:28.586355+00:00] datetime.datetime(2025, 11, 18, 0, 54, 52, tzinfo=datetime.
+[2025-11-25T21:42:29.976942+00:00]   • free_fin_only_conversations: [{'id': '215471815408801', 'created_at':
+[2025-11-25T21:42:29.977139+00:00] datetime.datetime(2025, 11, 17, 16, 57, 19, tzinfo=datetime
+[2025-11-25T21:42:29.977212+00:00]   • unknown_tier: []
+[2025-11-25T21:42:29.977820+00:00]   • agent_distribution: {'fin_only': 2186, 'fin_to_horatio': 682,
+[2025-11-25T21:42:29.978054+00:00] 'fin_to_boldr': 245, 'fin_to_vendor_to_senior': 24, 'fin_t
+[2025-11-25T21:42:29.986717+00:00]   • agent_assignments: {'215471823233604': {'segment': 'paid', 'agent_type':
+[2025-11-25T21:42:29.986852+00:00] 'fin_to_vendor_to_senior', 'vendor': 'horatio'
+[2025-11-25T21:42:29.986979+00:00]   • segmentation_summary: {'paid_count': 3156, 'paid_percentage': 45.0,
+[2025-11-25T21:42:29.987128+00:00] 'free_count': 3851, 'free_percentage': 55.0, 'unknown_
+[2025-11-25T21:42:29.987267+00:00] ================================================================================
+[2025-11-25T21:42:29.987491+00:00] TopicDetectionAgent
+[2025-11-25T21:42:29.988137+00:00] ================================================================================
+[2025-11-25T21:42:29.988277+00:00] ✅ Status: Success
+[2025-11-25T21:42:29.988413+00:00] 🎯 Confidence: 1.00
+[2025-11-25T21:42:29.989439+00:00] ⏱️  Duration: 843.21s
+[2025-11-25T21:42:29.990685+00:00] Topic Distribution:
+[2025-11-25T21:42:29.995986+00:00] ┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┓
+[2025-11-25T21:42:29.996155+00:00] ┃ Topic                ┃ Volume ┃     % ┃ Method    ┃
+[2025-11-25T21:42:29.996272+00:00] ┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━┩
+[2025-11-25T21:42:29.996417+00:00] │ Billing              │   3463 │ 49.4% │ llm_smart │
+[2025-11-25T21:42:29.996653+00:00] │ Product Question     │   2041 │ 29.1% │ llm_smart │
+[2025-11-25T21:42:29.996758+00:00] │ Account              │    609 │  8.7% │ llm_smart │
+[2025-11-25T21:42:29.996825+00:00] │ Bug                  │    321 │  4.6% │ llm_smart │
+[2025-11-25T21:42:29.996888+00:00] │ Workspace            │    285 │  4.1% │ llm_smart │
+[2025-11-25T21:42:29.996952+00:00] │ Unknown              │     95 │  1.4% │ llm_smart │
+[2025-11-25T21:42:29.997036+00:00] │ Privacy              │     61 │  0.9% │ llm_smart │
+[2025-11-25T21:42:29.997101+00:00] │ Promotions           │     47 │  0.7% │ llm_smart │
+[2025-11-25T21:42:29.997185+00:00] │ Partnerships         │     39 │  0.6% │ llm_smart │
+[2025-11-25T21:42:29.997249+00:00] │ Chargeback           │     24 │  0.3% │ llm_smart │
+[2025-11-25T21:42:29.997314+00:00] │ Abuse                │      9 │  0.1% │ llm_smart │
+[2025-11-25T21:42:29.997402+00:00] │ Unknown/unresponsive │      8 │  0.1% │ fallback  │
+[2025-11-25T21:42:29.997472+00:00] │ Feedback             │      5 │  0.1% │ llm_smart │
+[2025-11-25T21:42:29.997530+00:00] └──────────────────────┴────────┴───────┴───────────┘
+[2025-11-25T21:42:29.997827+00:00] 📊 13 topics detected
+[2025-11-25T21:42:29.997941+00:00]    LLM classified: 6039
+[2025-11-25T21:42:29.997984+00:00]    Keyword matched: 913
+[2025-11-25T21:42:29.998085+00:00] ================================================================================
+[2025-11-25T21:42:29.998128+00:00] SubTopicDetectionAgent
+[2025-11-25T21:42:29.998172+00:00] ================================================================================
+[2025-11-25T21:42:29.998236+00:00] ✅ Status: Success
+[2025-11-25T21:42:29.998308+00:00] 🎯 Confidence: 1.00
+[2025-11-25T21:42:29.998368+00:00] ⏱️  Duration: 15.35s
+[2025-11-25T21:42:29.998403+00:00] 🪙 Tokens: 8823
+[2025-11-25T21:42:29.998810+00:00] Sub-Topic Hierarchy (3-Tier):
+[2025-11-25T21:42:29.998956+00:00] Billing
+[2025-11-25T21:42:29.999280+00:00]   Tier 2 (from Intercom SDK):
+[2025-11-25T21:42:29.999619+00:00]     • Refund: 778 (46.8%)
+[2025-11-25T21:42:29.999915+00:00]     • Subscription: 130 (7.8%)
+[2025-11-25T21:42:30.000364+00:00]     • Invoice: 32 (1.9%)
+[2025-11-25T21:42:30.000500+00:00]     • Discount: 24 (1.4%)
+[2025-11-25T21:42:30.000765+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.001094+00:00]     • Plan Change Issues: 13 (0.8%)
+[2025-11-25T21:42:30.001330+00:00]     • Payment Errors: 43 (2.6%)
+[2025-11-25T21:42:30.001683+00:00]     • Account Management: 44 (2.6%)
+[2025-11-25T21:42:30.001943+00:00] Workspace
+[2025-11-25T21:42:30.002265+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.002730+00:00]     • Password Protection: 3 (2.3%)
+[2025-11-25T21:42:30.003173+00:00]     • Domain and Hosting Issues: 42 (31.6%)
+[2025-11-25T21:42:30.003519+00:00]     • Editing and Collaboration: 3 (2.3%)
+[2025-11-25T21:42:30.003892+00:00] Product Question
+[2025-11-25T21:42:30.004172+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.004653+00:00]     • Export and Formatting Issues: 263 (31.4%)
+[2025-11-25T21:42:30.005020+00:00]     • Domain and Website Connection Problems: 178 (21.3%)
+[2025-11-25T21:42:30.005505+00:00]     • Image Licensing and Usage: 2 (0.2%)
+[2025-11-25T21:42:30.005822+00:00] Unknown
+[2025-11-25T21:42:30.006196+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.006574+00:00]     • Request for Human Assistance: 27 (52.9%)
+[2025-11-25T21:42:30.006884+00:00]     • Language-Specific Greetings: 0 (0.0%)
+[2025-11-25T21:42:30.007288+00:00]     • Technical Assistance: 1 (2.0%)
+[2025-11-25T21:42:30.007437+00:00] Bug
+[2025-11-25T21:42:30.007677+00:00]   Tier 2 (from Intercom SDK):
+[2025-11-25T21:42:30.007850+00:00]     • Export: 27 (15.0%)
+[2025-11-25T21:42:30.008064+00:00]     • API: 12 (6.7%)
+[2025-11-25T21:42:30.008333+00:00]     • Font: 9 (5.0%)
+[2025-11-25T21:42:30.008671+00:00]     • Account: 5 (2.8%)
+[2025-11-25T21:42:30.008870+00:00]     • Workspace: 1 (0.6%)
+[2025-11-25T21:42:30.009250+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.009706+00:00]     • Publishing Issues: 43 (23.9%)
+[2025-11-25T21:42:30.009941+00:00]     • LinkedIn Integration: 0 (0.0%)
+[2025-11-25T21:42:30.010224+00:00]     • Image Generation Problems: 10 (5.6%)
+[2025-11-25T21:42:30.010464+00:00] Account
+[2025-11-25T21:42:30.010774+00:00]   Tier 2 (from Intercom SDK):
+[2025-11-25T21:42:30.011063+00:00]     • Password Reset: 15 (6.6%)
+[2025-11-25T21:42:30.011337+00:00]     • Credits: 12 (5.2%)
+[2025-11-25T21:42:30.011625+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.011904+00:00]     • Account Access Issues: 173 (75.5%)
+[2025-11-25T21:42:30.012337+00:00]     • Email Change Requests: 7 (3.1%)
+[2025-11-25T21:42:30.013128+00:00]     • Account Merging or Migration: 16 (7.0%)
+[2025-11-25T21:42:30.013407+00:00] Abuse
+[2025-11-25T21:42:30.013554+00:00] Partnerships
+[2025-11-25T21:42:30.013618+00:00]   Tier 2 (from Intercom SDK):
+[2025-11-25T21:42:30.013894+00:00]     • Affiliate: 8 (50.0%)
+[2025-11-25T21:42:30.014221+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.014598+00:00]     • Reseller Partnerships: 1 (6.2%)
+[2025-11-25T21:42:30.014872+00:00]     • Social Media Collaborations: 7 (43.8%)
+[2025-11-25T21:42:30.015138+00:00]     • Enterprise Licensing: 8 (50.0%)
+[2025-11-25T21:42:30.015397+00:00] Privacy
+[2025-11-25T21:42:30.015619+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.015902+00:00]     • Data Usage for AI Training: 2 (10.0%)
+[2025-11-25T21:42:30.016316+00:00]     • Data Storage Location: 3 (15.0%)
+[2025-11-25T21:42:30.017131+00:00]     • Third-Party Compliance and Certifications: 2 (10.0%)
+[2025-11-25T21:42:30.017230+00:00] Promotions
+[2025-11-25T21:42:30.017340+00:00]   Tier 2 (from Intercom SDK):
+[2025-11-25T21:42:30.017661+00:00]     • Promotion: 7 (43.8%)
+[2025-11-25T21:42:30.017811+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.018284+00:00]     • Referral Code Issues: 2 (12.5%)
+[2025-11-25T21:42:30.018470+00:00]     • Educational Discounts: 3 (18.8%)
+[2025-11-25T21:42:30.018863+00:00]     • Non-Profit and Social Organization Discounts: 2 (12.5%)
+[2025-11-25T21:42:30.019151+00:00] Unknown/unresponsive
+[2025-11-25T21:42:30.019407+00:00] Feedback
+[2025-11-25T21:42:30.019728+00:00]   Tier 3 (LLM discovered):
+[2025-11-25T21:42:30.019964+00:00]     • SEO Optimization: 1 (33.3%)
+[2025-11-25T21:42:30.020388+00:00]     • User Interface Preferences: 1 (33.3%)
+[2025-11-25T21:42:30.020618+00:00] Chargeback
+[2025-11-25T21:42:30.021026+00:00] ================================================================================
+[2025-11-25T21:42:30.021166+00:00] FinPerformanceAgent
+[2025-11-25T21:42:30.021428+00:00] ================================================================================
+[2025-11-25T21:42:30.021627+00:00] ✅ Status: Success
+[2025-11-25T21:42:30.021892+00:00] 🎯 Confidence: 1.00
+[2025-11-25T21:42:30.022186+00:00] ⏱️  Duration: 21.57s
+[2025-11-25T21:42:30.022571+00:00] Fin AI Performance:
+[2025-11-25T21:42:30.022758+00:00] Free Tier:
+[2025-11-25T21:42:30.022962+00:00]   Resolution Rate: 60.9%
+[2025-11-25T21:42:30.023200+00:00]   Knowledge Gaps: 39.6%
+[2025-11-25T21:42:30.023535+00:00] Paid Tier:
+[2025-11-25T21:42:30.023727+00:00]   Resolution Rate: 97.0%
+[2025-11-25T21:42:30.023879+00:00]   Knowledge Gaps: 6.3%
+[2025-11-25T21:42:30.024188+00:00] ================================================================================
+[2025-11-25T21:42:30.024332+00:00] CorrelationAgent
+[2025-11-25T21:42:30.024570+00:00] ================================================================================
+[2025-11-25T21:42:30.024853+00:00] ✅ Status: Success
+[2025-11-25T21:42:30.025163+00:00] 🎯 Confidence: 0.54
+[2025-11-25T21:42:30.025605+00:00] ⏱️  Duration: 0.09s
+[2025-11-25T21:42:30.025922+00:00] Statistical Correlations Found: 1
+[2025-11-25T21:42:30.026315+00:00] • Message Count ↔ Escalation (ratio=0.8x)
+[2025-11-25T21:42:30.026457+00:00]   Strength: 0.78
+[2025-11-25T21:42:30.026856+00:00]   Insight: Escalated conversations average 25.1 messages vs 24.2 for Fin-only
+[2025-11-25T21:42:30.027199+00:00] ================================================================================
+[2025-11-25T21:42:30.027333+00:00] QualityInsightsAgent
+[2025-11-25T21:42:30.027573+00:00] ================================================================================
+[2025-11-25T21:42:30.027842+00:00] ✅ Status: Success
+[2025-11-25T21:42:30.028169+00:00] 🎯 Confidence: 0.92
+[2025-11-25T21:42:30.028467+00:00] ⏱️  Duration: 0.05s
+[2025-11-25T21:42:30.028775+00:00] Quality Insights: 0
+[2025-11-25T21:42:30.029050+00:00] ================================================================================
+[2025-11-25T21:42:30.029224+00:00] Per-Topic Sentiment Analysis
+[2025-11-25T21:42:30.029473+00:00] ================================================================================
+[2025-11-25T21:42:30.029763+00:00] Billing:
+[2025-11-25T21:42:30.030060+00:00]   Customers appreciate the support team's responsiveness, but are frustrated by
+[2025-11-25T21:42:30.030158+00:00] billing errors and difficulties in managing subscriptions.
+[2025-11-25T21:42:30.030391+00:00] Workspace:
+[2025-11-25T21:42:30.030865+00:00]   Users appreciate the ability to recover lost work in the workspace, but are
+[2025-11-25T21:42:30.030961+00:00] frustrated by recurring issues with domain verification and sharing limitations.
+[2025-11-25T21:42:30.031111+00:00] Product Question:
+[2025-11-25T21:42:30.031477+00:00]   Customers are frustrated with disappearing presentations and file losses, but
+[2025-11-25T21:42:30.031573+00:00] appreciate the support that helps them recover their work.
+[2025-11-25T21:42:30.031692+00:00] Unknown:
+[2025-11-25T21:42:30.032182+00:00]   Customers are frustrated by the difficulty in reaching a human representative,
+[2025-11-25T21:42:30.032263+00:00] which is impacting their ability to resolve issues effectively.
+[2025-11-25T21:42:30.032498+00:00] Bug:
+[2025-11-25T21:42:30.032691+00:00]   Customers are frustrated with persistent bugs like non-working links and
+[2025-11-25T21:42:30.032796+00:00] presentation errors, but they appreciate the support team's responsiveness.
+[2025-11-25T21:42:30.034083+00:00] 📋 Debug report saved to:
+[2025-11-25T21:42:30.034181+00:00] /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/ag
+[2025-11-25T21:42:30.034270+00:00] ent_debug_report_2025-W46.txt
+[2025-11-25T21:42:30.034405+00:00] This shows what EACH agent produced before Gamma generation
+[2025-11-25T21:42:30.034553+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO - 📋 Agent debug report saved: /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/agent_debug_report_2025-W46.txt
+[2025-11-25T21:42:30.038534+00:00] 2025-11-25 21:42:30 - src.services.execution_monitor - INFO - Agent NarrativeFormatterAgent: completed - Formatted output ready
+[2025-11-25T21:42:30.038682+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - [AUDIT] Phase 6: Output Formatting: Completed output formatting in 32.4s
+[2025-11-25T21:42:30.044895+00:00] ╭───────────────────── ✅ NarrativeFormatterAgent Result ──────────────────────╮
+[2025-11-25T21:42:30.045075+00:00] │ Status: Success                                                              │
+[2025-11-25T21:42:30.045173+00:00] │ Confidence: 85.00% (high)                                                    │
+[2025-11-25T21:42:30.045234+00:00] │ Execution Time: 0.00s                                                        │
+[2025-11-25T21:42:30.045290+00:00] │                                                                              │
+[2025-11-25T21:42:30.045356+00:00] │ Data Summary:                                                                │
+[2025-11-25T21:42:30.045441+00:00] │   • formatted_output: # Executive Narrative                                  │
+[2025-11-25T21:42:30.045511+00:00] │                                                                              │
+[2025-11-25T21:42:30.045593+00:00] │ This week, customer support handled a total of 7,007 conversations, with a   │
+[2025-11-25T21:42:30.045666+00:00] │ significant focus on billing issues and product questions. The free-tier     │
+[2025-11-25T21:42:30.045717+00:00] │ resolution rate remains a challenge at 60.9%, while the paid-tier boasts a   │
+[2025-11-25T21:42:30.045775+00:00] │ high resolution rate of 97%. Key areas of customer frustration include       │
+[2025-11-25T21:42:30.045911+00:00] │ billing errors, disappearing presentations, and persistent bugs, despite     │
+[2025-11-25T21:42:30.045995+00:00] │ appreciation for the support team's responsiveness.                          │
+[2025-11-25T21:42:30.046067+00:00] │                                                                              │
+[2025-11-25T21:42:30.046134+00:00] │ ## Metrics at a Glance                                                       │
+[2025-11-25T21:42:30.046220+00:00] │                                                                              │
+[2025-11-25T21:42:30.046279+00:00] │ | Metric                        | Value  |                                   │
+[2025-11-25T21:42:30.046494+00:00] │ |-------------------------------|--------|                                   │
+[2025-11-25T21:42:30.046555+00:00] │ | Total Conversations           | 7,007  |                                   │
+[2025-11-25T21:42:30.046605+00:00] │ | Paid Human Workload           | 970    |                                   │
+[2025-11-25T21:42:30.046652+00:00] │ | Free Fin-only Volume          | 3,851  |                                   │
+[2025-11-25T21:42:30.046701+00:00] │ | Topic Count                   | 8      |                                   │
+[2025-11-25T21:42:30.046757+00:00] │ | Fin Free-tier Resolution Rate | 60.9%  |                                   │
+[2025-11-25T21:42:30.046821+00:00] │ | Fin Paid-tier Resolution Rate | 97%    |                                   │
+[2025-11-25T21:42:30.046877+00:00] │                                                                              │
+[2025-11-25T21:42:30.046927+00:00] │ ## Cross-Agent Signals                                                       │
+[2025-11-25T21:42:30.046973+00:00] │                                                                              │
+[2025-11-25T21:42:30.047023+00:00] │ - Message Count ↔ Escalation (ratio=0.8x): Escalated conversations average   │
+[2025-11-25T21:42:30.047089+00:00] │ 25.1 messages vs 24.2 for Fin-only.                                          │
+[2025-11-25T21:42:30.047153+00:00] │ - 104 explicit churn signals detected (see watchlist).                       │
+[2025-11-25T21:42:30.047216+00:00] │                                                                              │
+[2025-11-25T21:42:30.047282+00:00] │ ## BPO Snapshot                                                              │
+[2025-11-25T21:42:30.047351+00:00] │                                                                              │
+[2025-11-25T21:42:30.047454+00:00] │ _Error: agent_assignments metadata missing for BPO analysis_                 │
+[2025-11-25T21:42:30.047522+00:00] │                                                                              │
+[2025-11-25T21:42:30.047588+00:00] │ ## Topic Stories                                                             │
+[2025-11-25T21:42:30.047651+00:00] │                                                                              │
+[2025-11-25T21:42:30.047714+00:00] │ ### Billing                                                                  │
+[2025-11-25T21:42:30.047779+00:00] │                                                                              │
+[2025-11-25T21:42:30.047882+00:00] │ Billing issues dominated the week, accounting for 49.4% of conversations.    │
+[2025-11-25T21:42:30.047953+00:00] │ Customers expressed frustration over billing errors and subscription         │
+[2025-11-25T21:42:30.048099+00:00] │ management difficulties, although they appreciated the support team's        │
+[2025-11-25T21:42:30.048176+00:00] │ responsiveness. The free-tier resolution rate was notably low at 39.5%,      │
+[2025-11-25T21:42:30.048249+00:00] │ while the paid tier achieved a perfect resolution rate. A customer expressed │
+[2025-11-25T21:42:30.048384+00:00] │ their frustration: ["Yesterday, 10 dollars were taken from my account, I     │
+[2025-11-25T21:42:30.048461+00:00] │ canceled the subscription because I don't use this tool. Can I request a     │
+[2025-11-25T21:42:30.048552+00:00] │ refund?"](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069b │
+[2025-11-25T21:42:30.048623+00:00] │ 6c/inbox/inbox/215471903666137) (originally in Polish).                      │
+[2025-11-25T21:42:30.048691+00:00] │                                                                              │
+[2025-11-25T21:42:30.048923+00:00] │ ### Product Question                                                         │
+[2025-11-25T21:42:30.049005+00:00] │                                                                              │
+[2025-11-25T21:42:30.049096+00:00] │ Product-related inquiries made up 29.1% of the conversations, with customers │
+[2025-11-25T21:42:30.049171+00:00] │ frustrated by disappearing presentations and file losses. However, they      │
+[2025-11-25T21:42:30.049238+00:00] │ appreciated the support that helped recover their work. The free-tier        │
+[2025-11-25T21:42:30.049310+00:00] │ resolution rate was high at 95.3%, with the paid tier again achieving 100%.  │
+[2025-11-25T21:42:30.049382+00:00] │ A customer noted: ["I can't upload images into my gamma                      │
+[2025-11-25T21:42:30.049457+00:00] │ board..."](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069 │
+[2025-11-25T21:42:30.049528+00:00] │ b6c/inbox/inbox/215471912469037).                                            │
+[2025-11-25T21:42:30.049593+00:00] │                                                                              │
+[2025-11-25T21:42:30.049658+00:00] │ ### Account                                                                  │
+[2025-11-25T21:42:30.049722+00:00] │                                                                              │
+[2025-11-25T21:42:30.049788+00:00] │ Account management issues accounted for 8.7% of the conversations. Customers │
+[2025-11-25T21:42:30.049855+00:00] │ appreciated the ability to manage their accounts but were frustrated by      │
+[2025-11-25T21:42:30.049913+00:00] │ email change issues and missing credits. The free-tier resolution rate was   │
+[2025-11-25T21:42:30.049962+00:00] │ 90.3%, with the paid tier at 100%. One customer shared: ["Hello, I can't     │
+[2025-11-25T21:42:30.050010+00:00] │ find my account, I am logging in with my                                     │
+[2025-11-25T21:42:30.050059+00:00] │ email..."](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069 │
+[2025-11-25T21:42:30.050107+00:00] │ b6c/inbox/inbox/215471907293314) (originally in Spanish).                    │
+[2025-11-25T21:42:30.050154+00:00] │                                                                              │
+[2025-11-25T21:42:30.050200+00:00] │ ### Bug                                                                      │
+[2025-11-25T21:42:30.050246+00:00] │                                                                              │
+[2025-11-25T21:42:30.050293+00:00] │ Bugs were a concern in 4.6% of conversations, with customers frustrated by   │
+[2025-11-25T21:42:30.050358+00:00] │ non-working links and presentation errors. The free-tier resolution rate was │
+[2025-11-25T21:42:30.050433+00:00] │ 76.8%, while the paid tier achieved 100%. A customer reported: ["my top      │
+[2025-11-25T21:42:30.050504+00:00] │ navigation bar disappeared and it's not coming                               │
+[2025-11-25T21:42:30.051514+00:00] │ back"](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069b6c/ │
+[2025-11-25T21:42:30.051620+00:00] │ inbox/inbox/215471907977444).                                                │
+[2025-11-25T21:42:30.051673+00:00] │                                                                              │
+[2025-11-25T21:42:30.051722+00:00] │ ### Workspace                                                                │
+[2025-11-25T21:42:30.051770+00:00] │                                                                              │
+[2025-11-25T21:42:30.051819+00:00] │ Workspace issues, including domain verification and sharing limitations,     │
+[2025-11-25T21:42:30.051869+00:00] │ accounted for 4.1% of conversations. Users appreciated the ability to        │
+[2025-11-25T21:42:30.051918+00:00] │ recover lost work. The free-tier resolution rate was 93.4%, with the paid    │
+[2025-11-25T21:42:30.051975+00:00] │ tier at 100%. A user expressed: ["Hello. I purchased a domain through Gamma  │
+[2025-11-25T21:42:30.052060+00:00] │ for my                                                                       │
+[2025-11-25T21:42:30.052129+00:00] │ site..."](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069b │
+[2025-11-25T21:42:30.052197+00:00] │ 6c/inbox/inbox/215471858503554).                                             │
+[2025-11-25T21:42:30.052267+00:00] │                                                                              │
+[2025-11-25T21:42:30.052548+00:00] │ ### Unknown                                                                  │
+[2025-11-25T21:42:30.052617+00:00] │                                                                              │
+[2025-11-25T21:42:30.052668+00:00] │ 1.4% of conversations were categorized as unknown, with customers frustrated │
+[2025-11-25T21:42:30.052717+00:00] │ by the difficulty in reaching a human representative. The free-tier          │
+[2025-11-25T21:42:30.052767+00:00] │ resolution rate was low at 31.1%, while the paid tier was at 100%. A         │
+[2025-11-25T21:42:30.052815+00:00] │ customer stated: ["Hey, I would like to talk to a human being. Thank         │
+[2025-11-25T21:42:30.052875+00:00] │ you."](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069b6c/ │
+[2025-11-25T21:42:30.052922+00:00] │ inbox/inbox/215471917989717).                                                │
+[2025-11-25T21:42:30.052967+00:00] │                                                                              │
+[2025-11-25T21:42:30.053053+00:00] │ ### Privacy                                                                  │
+[2025-11-25T21:42:30.053127+00:00] │                                                                              │
+[2025-11-25T21:42:30.053186+00:00] │ Privacy concerns were raised in 0.9% of conversations. Customers appreciated │
+[2025-11-25T21:42:30.053243+00:00] │ security measures but were frustrated by managing privacy settings. The      │
+[2025-11-25T21:42:30.053297+00:00] │ free-tier resolution rate was 76.6%, with the paid tier at 100%. A customer  │
+[2025-11-25T21:42:30.053351+00:00] │ asked: ["How to make the information used here                               │
+[2025-11-25T21:42:30.053400+00:00] │ confidential..."](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f5 │
+[2025-11-25T21:42:30.053455+00:00] │ 3e87069b6c/inbox/inbox/215471889675226) (originally in Spanish).             │
+[2025-11-25T21:42:30.053537+00:00] │                                                                              │
+[2025-11-25T21:42:30.053603+00:00] │ ### Promotions                                                               │
+[2025-11-25T21:42:30.053666+00:00] │                                                                              │
+[2025-11-25T21:42:30.053734+00:00] │ Promotions accounted for 0.7% of conversations, with customers intrigued by  │
+[2025-11-25T21:42:30.053797+00:00] │ offers but frustrated by unclear trial terms. The free-tier resolution rate  │
+[2025-11-25T21:42:30.053856+00:00] │ was 90%, with the paid tier at 100%. A customer inquired: ["Hello! Are you   │
+[2025-11-25T21:42:30.053938+00:00] │ offering any cyber monday or Black Friday sale by any                        │
+[2025-11-25T21:42:30.054009+00:00] │ chance?"](https://app.intercom.com/a/apps/99cd7132_0d87_4553_b1a4_f53e87069b │
+[2025-11-25T21:42:30.054068+00:00] │ 6c/inbox/inbox/215471941920511).                                             │
+[2025-11-25T21:42:30.054136+00:00] │                                                                              │
+[2025-11-25T21:42:30.054203+00:00] │ ## Prioritized Actions                                                       │
+[2025-11-25T21:42:30.054263+00:00] │                                                                              │
+[2025-11-25T21:42:30.054334+00:00] │ 1. Address billing errors and improve subscription management processes.     │
+[2025-11-25T21:42:30.054405+00:00] │ 2. Enhance data recovery processes to prevent file losses and improve        │
+[2025-11-25T21:42:30.054481+00:00] │ customer satisfaction.                                                       │
+[2025-11-25T21:42:30.054575+00:00] │ 3. Improve communication channels to facilitate easier access to human       │
+[2025-11-25T21:42:30.054642+00:00] │ representatives.                                                             │
+[2025-11-25T21:42:30.054716+00:00] │                                                                              │
+[2025-11-25T21:42:30.054788+00:00] │ ## Risk Watchlist                                                            │
+[2025-11-25T21:42:30.054858+00:00] │                                                                              │
+[2025-11-25T21:42:30.054912+00:00] │ - 104 explicit churn signals detected (see watchlist).                       │
+[2025-11-25T21:42:30.054960+00:00] │   • structured_data: 11 keys                                                 │
+[2025-11-25T21:42:30.055022+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:42:30.055119+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    ✅ Output formatted
+[2025-11-25T21:42:30.055218+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO - 📊 Metrics Summary:
+[2025-11-25T21:42:30.055324+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Total LLM calls: 1
+[2025-11-25T21:42:30.055403+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Total tokens: 36224
+[2025-11-25T21:42:30.055458+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Topics processed: 13
+[2025-11-25T21:42:30.055506+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Examples selected: 106
+[2025-11-25T21:42:30.055571+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Errors: 0
+[2025-11-25T21:42:30.055631+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Sub-topics: Tier 2=14, Tier 3=37
+[2025-11-25T21:42:30.055717+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO - 💾 Phase 6.5: Auto-saving analysis snapshot...
+[2025-11-25T21:42:30.055833+00:00] 2025-11-25 21:42:30 - src.services.historical_snapshot_service - WARNING - Snapshot validation failed for weekly_20251125: 15 validation errors for SnapshotData
+[2025-11-25T21:42:30.055867+00:00] period_start
+[2025-11-25T21:42:30.055917+00:00]   Input should be a valid date [type=date_type, input_value=None, input_type=NoneType]
+[2025-11-25T21:42:30.055964+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/date_type
+[2025-11-25T21:42:30.056013+00:00] period_end
+[2025-11-25T21:42:30.056065+00:00]   Input should be a valid date [type=date_type, input_value=None, input_type=NoneType]
+[2025-11-25T21:42:30.056111+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/date_type
+[2025-11-25T21:42:30.056145+00:00] topic_volumes.Billing
+[2025-11-25T21:42:30.056200+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 3463, 'percent... 0, 'fallback_count': 1}, input_type=dict]
+[2025-11-25T21:42:30.056245+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.056288+00:00] topic_volumes.Workspace
+[2025-11-25T21:42:30.056541+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 285, 'percenta... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.056596+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.056650+00:00] topic_volumes.Product Question
+[2025-11-25T21:42:30.056708+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 2041, 'percent... 0, 'fallback_count': 4}, input_type=dict]
+[2025-11-25T21:42:30.056754+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.056789+00:00] topic_volumes.Unknown
+[2025-11-25T21:42:30.056857+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 95, 'percentag... 0, 'fallback_count': 2}, input_type=dict]
+[2025-11-25T21:42:30.056914+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.056947+00:00] topic_volumes.Bug
+[2025-11-25T21:42:30.057003+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 321, 'percenta... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.057048+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.057096+00:00] topic_volumes.Account
+[2025-11-25T21:42:30.057158+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 609, 'percenta... 0, 'fallback_count': 3}, input_type=dict]
+[2025-11-25T21:42:30.057215+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.057260+00:00] topic_volumes.Abuse
+[2025-11-25T21:42:30.057357+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 9, 'percentage... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.057426+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.057474+00:00] topic_volumes.Partnerships
+[2025-11-25T21:42:30.057539+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 39, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.057607+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.057649+00:00] topic_volumes.Privacy
+[2025-11-25T21:42:30.057833+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 61, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.057908+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.057956+00:00] topic_volumes.Promotions
+[2025-11-25T21:42:30.058029+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 47, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.058097+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.058153+00:00] topic_volumes.Chargeback
+[2025-11-25T21:42:30.058235+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 24, 'percentag... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.058297+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.058347+00:00] topic_volumes.Feedback
+[2025-11-25T21:42:30.058462+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 5, 'percentage... 0, 'fallback_count': 0}, input_type=dict]
+[2025-11-25T21:42:30.058566+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.058619+00:00] topic_volumes.Unknown/unresponsive
+[2025-11-25T21:42:30.058676+00:00]   Input should be a valid integer [type=int_type, input_value={'volume': 8, 'percentage... 0, 'fallback_count': 8}, input_type=dict]
+[2025-11-25T21:42:30.058735+00:00]     For further information visit https://errors.pydantic.dev/2.7/v/int_type
+[2025-11-25T21:42:30.058822+00:00] 2025-11-25 21:42:30 - src.services.duckdb_storage - INFO - Successfully stored analysis snapshot: weekly_20251125
+[2025-11-25T21:42:30.058886+00:00] 2025-11-25 21:42:30 - src.services.historical_snapshot_service - INFO - Snapshot weekly_20251125 stored successfully
+[2025-11-25T21:42:30.059479+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    ✅ Snapshot saved: weekly_20251125
+[2025-11-25T21:42:30.059634+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - [AUDIT] Phase 6.5: Snapshot Auto-Save: Saved analysis snapshot: weekly_20251125
+[2025-11-25T21:42:30.067197+00:00]                     Analysis Complete - 2025-W46
+[2025-11-25T21:42:30.067326+00:00] ╭─────────────────────────┬────────┬────────────┬──────────┬────────╮
+[2025-11-25T21:42:30.067400+00:00] │ Agent                   │ Status │ Confidence │ Time (s) │ Tokens │
+[2025-11-25T21:42:30.067479+00:00] ├─────────────────────────┼────────┼────────────┼──────────┼────────┤
+[2025-11-25T21:42:30.067551+00:00] │ SegmentationAgent       │   ✅   │      78.0% │     2.84 │      - │
+[2025-11-25T21:42:30.067611+00:00] │ TopicDetectionAgent     │   ✅   │     100.0% │   843.21 │      - │
+[2025-11-25T21:42:30.067655+00:00] │ BpoPerformanceAgent     │   ❌   │       0.0% │     0.00 │      - │
+[2025-11-25T21:42:30.067708+00:00] │ SubTopicDetectionAgent  │   ✅   │     100.0% │    15.35 │  8,823 │
+[2025-11-25T21:42:30.067769+00:00] │ FinPerformanceAgent     │   ✅   │     100.0% │    21.57 │      - │
+[2025-11-25T21:42:30.067817+00:00] │ CorrelationAgent        │   ✅   │      54.0% │     0.09 │      - │
+[2025-11-25T21:42:30.067864+00:00] │ QualityInsightsAgent    │   ✅   │      92.0% │     0.05 │      - │
+[2025-11-25T21:42:30.067908+00:00] │ ChurnRiskAgent          │   ✅   │      70.0% │     1.12 │      - │
+[2025-11-25T21:42:30.067960+00:00] │ ConfidenceMetaAgent     │   ✅   │     100.0% │     0.02 │      - │
+[2025-11-25T21:42:30.068041+00:00] │ TrendAgent              │   ✅   │      25.0% │     0.03 │      - │
+[2025-11-25T21:42:30.068111+00:00] │ NarrativeFormatterAgent │   ✅   │      85.0% │     0.00 │      - │
+[2025-11-25T21:42:30.068179+00:00] ╰─────────────────────────┴────────┴────────────┴──────────┴────────╯
+[2025-11-25T21:42:30.080801+00:00] ╭───────────────── 📄 Formatted Report - Week of Nov 17, 2025 ─────────────────╮
+[2025-11-25T21:42:30.080920+00:00] │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓ │
+[2025-11-25T21:42:30.081016+00:00] │ ┃                           Executive Narrative                            ┃ │
+[2025-11-25T21:42:30.081099+00:00] │ ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛ │
+[2025-11-25T21:42:30.081164+00:00] │                                                                              │
+[2025-11-25T21:42:30.081236+00:00] │ This week, customer support handled a total of 7,007 conversations, with a   │
+[2025-11-25T21:42:30.081307+00:00] │ significant focus on billing issues and product questions. The free-tier     │
+[2025-11-25T21:42:30.081450+00:00] │ resolution rate remains a challenge at 60.9%, while the paid-tier boasts a   │
+[2025-11-25T21:42:30.081542+00:00] │ high resolution rate of 97%. Key areas of customer frustration include       │
+[2025-11-25T21:42:30.081604+00:00] │ billing errors, disappearing presentations, and persistent bugs, despite     │
+[2025-11-25T21:42:30.081679+00:00] │ appreciation for the support team's responsiveness.                          │
+[2025-11-25T21:42:30.081735+00:00] │                                                                              │
+[2025-11-25T21:42:30.081804+00:00] │                                                                              │
+[2025-11-25T21:42:30.081874+00:00] │                             Metrics at a Glance                              │
+[2025-11-25T21:42:30.081945+00:00] │                                                                              │
+[2025-11-25T21:42:30.082011+00:00] │                                                                              │
+[2025-11-25T21:42:30.082075+00:00] │   Metric                          Value                                      │
+[2025-11-25T21:42:30.082147+00:00] │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━                                     │
+[2025-11-25T21:42:30.082232+00:00] │   Total Conversations             7,007                                      │
+[2025-11-25T21:42:30.082310+00:00] │   Paid Human Workload             970                                        │
+[2025-11-25T21:42:30.082377+00:00] │   Free Fin-only Volume            3,851                                      │
+[2025-11-25T21:42:30.082446+00:00] │   Topic Count                     8                                          │
+[2025-11-25T21:42:30.082522+00:00] │   Fin Free-tier Resolution Rate   60.9%                                      │
+[2025-11-25T21:42:30.082591+00:00] │   Fin Paid-tier Resolution Rate   97%                                        │
+[2025-11-25T21:42:30.082649+00:00] │                                                                              │
+[2025-11-25T21:42:30.082694+00:00] │                                                                              │
+[2025-11-25T21:42:30.082746+00:00] │                                                                              │
+[2025-11-25T21:42:30.082813+00:00] │                             Cross-Agent Signals                              │
+[2025-11-25T21:42:30.082878+00:00] │                                                                              │
+[2025-11-25T21:42:30.082948+00:00] │  • Message Count ↔ Escalation (ratio=0.8x): Escalated conversations average  │
+[2025-11-25T21:42:30.083011+00:00] │    25.1 messages vs 24.2 for Fin-only.                                       │
+[2025-11-25T21:42:30.083061+00:00] │  • 104 explicit churn signals detected (see watchlist).                      │
+[2025-11-25T21:42:30.083132+00:00] │                                                                              │
+[2025-11-25T21:42:30.083180+00:00] │                                                                              │
+[2025-11-25T21:42:30.083252+00:00] │                                 BPO Snapshot                                 │
+[2025-11-25T21:42:30.083738+00:00] │                                                                              │
+[2025-11-25T21:42:30.083850+00:00] │ Error: agent_assignments metadata missing for BPO analysis                   │
+[2025-11-25T21:42:30.083905+00:00] │                                                                              │
+[2025-11-25T21:42:30.083960+00:00] │                                                                              │
+[2025-11-25T21:42:30.084060+00:00] │                                Topic Stories                                 │
+[2025-11-25T21:42:30.084112+00:00] │                                                                              │
+[2025-11-25T21:42:30.084160+00:00] │                                   Billing                                    │
+[2025-11-25T21:42:30.084209+00:00] │                                                                              │
+[2025-11-25T21:42:30.084257+00:00] │ Billing issues dominated the week, accounting for 49.4% of conversations.    │
+[2025-11-25T21:42:30.084322+00:00] │ Customers expressed frustration over billing errors and subscription         │
+[2025-11-25T21:42:30.084374+00:00] │ management difficulties, although they appreciated the support team's        │
+[2025-11-25T21:42:30.084435+00:00] │ responsiveness. The free-tier resolution rate was notably low at 39.5%,      │
+[2025-11-25T21:42:30.084503+00:00] │ while the paid tier achieved a perfect resolution rate. A customer expressed │
+[2025-11-25T21:42:30.084567+00:00] │ their frustration: "Yesterday, 10 dollars were taken from my account, I      │
+[2025-11-25T21:42:30.084615+00:00] │ canceled the subscription because I don't use this tool. Can I request a     │
+[2025-11-25T21:42:30.084670+00:00] │ refund?" (originally in Polish).                                             │
+[2025-11-25T21:42:30.084737+00:00] │                                                                              │
+[2025-11-25T21:42:30.084802+00:00] │                               Product Question                               │
+[2025-11-25T21:42:30.084864+00:00] │                                                                              │
+[2025-11-25T21:42:30.084931+00:00] │ Product-related inquiries made up 29.1% of the conversations, with customers │
+[2025-11-25T21:42:30.084980+00:00] │ frustrated by disappearing presentations and file losses. However, they      │
+[2025-11-25T21:42:30.085026+00:00] │ appreciated the support that helped recover their work. The free-tier        │
+[2025-11-25T21:42:30.085074+00:00] │ resolution rate was high at 95.3%, with the paid tier again achieving 100%.  │
+[2025-11-25T21:42:30.085120+00:00] │ A customer noted: "I can't upload images into my gamma board...".            │
+[2025-11-25T21:42:30.085169+00:00] │                                                                              │
+[2025-11-25T21:42:30.085232+00:00] │                                   Account                                    │
+[2025-11-25T21:42:30.085296+00:00] │                                                                              │
+[2025-11-25T21:42:30.085349+00:00] │ Account management issues accounted for 8.7% of the conversations. Customers │
+[2025-11-25T21:42:30.085397+00:00] │ appreciated the ability to manage their accounts but were frustrated by      │
+[2025-11-25T21:42:30.085444+00:00] │ email change issues and missing credits. The free-tier resolution rate was   │
+[2025-11-25T21:42:30.085494+00:00] │ 90.3%, with the paid tier at 100%. One customer shared: "Hello, I can't find │
+[2025-11-25T21:42:30.085541+00:00] │ my account, I am logging in with my email..." (originally in Spanish).       │
+[2025-11-25T21:42:30.085586+00:00] │                                                                              │
+[2025-11-25T21:42:30.085637+00:00] │                                     Bug                                      │
+[2025-11-25T21:42:30.085701+00:00] │                                                                              │
+[2025-11-25T21:42:30.085754+00:00] │ Bugs were a concern in 4.6% of conversations, with customers frustrated by   │
+[2025-11-25T21:42:30.085801+00:00] │ non-working links and presentation errors. The free-tier resolution rate was │
+[2025-11-25T21:42:30.085849+00:00] │ 76.8%, while the paid tier achieved 100%. A customer reported: "my top       │
+[2025-11-25T21:42:30.085894+00:00] │ navigation bar disappeared and it's not coming back".                        │
+[2025-11-25T21:42:30.085948+00:00] │                                                                              │
+[2025-11-25T21:42:30.086016+00:00] │                                  Workspace                                   │
+[2025-11-25T21:42:30.086104+00:00] │                                                                              │
+[2025-11-25T21:42:30.086176+00:00] │ Workspace issues, including domain verification and sharing limitations,     │
+[2025-11-25T21:42:30.086250+00:00] │ accounted for 4.1% of conversations. Users appreciated the ability to        │
+[2025-11-25T21:42:30.086319+00:00] │ recover lost work. The free-tier resolution rate was 93.4%, with the paid    │
+[2025-11-25T21:42:30.086410+00:00] │ tier at 100%. A user expressed: "Hello. I purchased a domain through Gamma   │
+[2025-11-25T21:42:30.086477+00:00] │ for my site...".                                                             │
+[2025-11-25T21:42:30.086669+00:00] │                                                                              │
+[2025-11-25T21:42:30.086733+00:00] │                                   Unknown                                    │
+[2025-11-25T21:42:30.086790+00:00] │                                                                              │
+[2025-11-25T21:42:30.086866+00:00] │ 1.4% of conversations were categorized as unknown, with customers frustrated │
+[2025-11-25T21:42:30.086933+00:00] │ by the difficulty in reaching a human representative. The free-tier          │
+[2025-11-25T21:42:30.087007+00:00] │ resolution rate was low at 31.1%, while the paid tier was at 100%. A         │
+[2025-11-25T21:42:30.087071+00:00] │ customer stated: "Hey, I would like to talk to a human being. Thank you.".   │
+[2025-11-25T21:42:30.087136+00:00] │                                                                              │
+[2025-11-25T21:42:30.087204+00:00] │ ... (17 more lines)                                                          │
+[2025-11-25T21:42:30.087267+00:00] ╰──────────────────────────────────────────────────────────────────────────────╯
+[2025-11-25T21:42:30.087374+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO - 🎉 TopicOrchestrator: Complete in 962.0s
+[2025-11-25T21:42:30.087507+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO -    Topics: 13, Paid: 3156, Free: 3851
+[2025-11-25T21:42:30.087646+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - Audit trail saved to: /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/audit_trail_20251125_214230.md
+[2025-11-25T21:42:30.087786+00:00] 2025-11-25 21:42:30 - src.agents.topic_orchestrator - INFO - 📋 Audit trail saved to: /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/audit_trail_20251125_214230.md
+[2025-11-25T21:42:30.975808+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - [AUDIT] Output Generation: Saved analysis report
+[2025-11-25T21:42:30.976041+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - Audit trail saved to: /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/audit_trail_20251125_214230.md
+[2025-11-25T21:42:30.977031+00:00] 2025-11-25 21:42:30 - src.services.audit_trail - INFO - Audit trail JSON saved to: /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/audit_trail_20251125_214230.json
+[2025-11-25T21:42:30.977381+00:00] 📋 Audit Trail Reports Generated:
+[2025-11-25T21:42:30.977729+00:00]    📄 Narrative Report:
+[2025-11-25T21:42:30.978859+00:00] /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/au
+[2025-11-25T21:42:30.979071+00:00] dit_trail_20251125_214230.md
+[2025-11-25T21:42:30.979158+00:00]    📊 JSON Data:
+[2025-11-25T21:42:30.979241+00:00] /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/au
+[2025-11-25T21:42:30.979300+00:00] dit_trail_20251125_214230.json
+[2025-11-25T21:42:30.979365+00:00]    ℹ️  Review these files to validate the analysis methodology
+[2025-11-25T21:42:30.979490+00:00] ✅ VoC Narrative V2 complete
+[2025-11-25T21:42:30.979577+00:00] 📁 Report:
+[2025-11-25T21:42:30.979661+00:00] /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/na
+[2025-11-25T21:42:30.979723+00:00] rrative_v2_2025-W46_20251125_214230.md
+[2025-11-25T21:42:30.979804+00:00] 🎨 Generating Gamma presentation...
+[2025-11-25T21:42:30.979906+00:00] 2025-11-25 21:42:30 [info     ] gamma_client_initialized       api_key_present=True api_version=v1.0 base_url=https://public-api.gamma.app/v1.0 max_polls=30 max_total_wait_seconds=480
+[2025-11-25T21:42:30.979958+00:00]    Sending 5125 characters to Gamma API...
+[2025-11-25T21:42:30.980079+00:00] 2025-11-25 21:42:30 [info     ] gamma_generate_request_start   api_version=v1.0 export_as=None format=presentation input_text_length=5125 num_cards=10 text_mode=preserve theme_id=None theme_name='Night Sky'
+[2025-11-25T21:42:31.178837+00:00] 2025-11-25 21:42:31 [info     ] gamma_themes_listed            query=None theme_count=50
+[2025-11-25T21:42:31.178988+00:00] 2025-11-25 21:42:31 [debug    ] gamma_theme_cache_populated    cache_size=50
+[2025-11-25T21:42:31.179084+00:00] 2025-11-25 21:42:31 [warning  ] gamma_theme_not_found          available_themes=['alien', 'ash', 'ashrose', 'atacama', 'atmosphere', 'aurora', 'aurum', 'basic dark', 'basic light', 'bee happy'] theme_name='Night Sky'
+[2025-11-25T21:42:31.179146+00:00] 2025-11-25 21:42:31 [warning  ] gamma_theme_fallback           message='Theme not found, using workspace default' theme_name='Night Sky'
+[2025-11-25T21:42:31.397447+00:00] 2025-11-25 21:42:31 [info     ] gamma_generate_request_success generation_id=2YZvnWb5ry6NZYEhN1TSS input_length=5125 num_cards=10 response_time_ms=417.44256019592285
+[2025-11-25T21:42:31.398906+00:00]    ✅ Generation ID: 2YZvnWb5ry6NZYEhN1TSS
+[2025-11-25T21:42:31.399418+00:00]    ⏳ Waiting for Gamma to process (max 8 minutes)...
+[2025-11-25T21:42:31.399567+00:00] 2025-11-25 21:42:31 [info     ] gamma_polling_started          generation_id=2YZvnWb5ry6NZYEhN1TSS initial_interval=2.0 max_polls=30 max_total_wait_seconds=480
+[2025-11-25T21:42:31.759021+00:00] 2025-11-25 21:42:31 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=pending
+[2025-11-25T21:42:31.759210+00:00] 2025-11-25 21:42:31 [debug    ] gamma_polling_status           elapsed_seconds=0.0001838207244873047 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=1 status=pending
+[2025-11-25T21:42:31.759316+00:00] 2025-11-25 21:42:31 [debug    ] gamma_polling_wait             generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=1 wait_seconds=2.6477380031032203
+[2025-11-25T21:42:34.564628+00:00] 2025-11-25 21:42:34 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=pending
+[2025-11-25T21:42:34.564783+00:00] 2025-11-25 21:42:34 [debug    ] gamma_polling_status           elapsed_seconds=3.009226083755493 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=2 status=pending
+[2025-11-25T21:42:34.564868+00:00] 2025-11-25 21:42:34 [debug    ] gamma_polling_wait             generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=2 wait_seconds=3.1524930028472133
+[2025-11-25T21:42:37.870049+00:00] 2025-11-25 21:42:37 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=pending
+[2025-11-25T21:42:37.870177+00:00] 2025-11-25 21:42:37 [debug    ] gamma_polling_status           elapsed_seconds=6.321142196655273 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=3 status=pending
+[2025-11-25T21:42:37.870247+00:00] 2025-11-25 21:42:37 [debug    ] gamma_polling_wait             generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=3 wait_seconds=5.909233509264576
+[2025-11-25T21:42:43.990690+00:00] 2025-11-25 21:42:43 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=pending
+[2025-11-25T21:42:43.990847+00:00] 2025-11-25 21:42:43 [debug    ] gamma_polling_status           elapsed_seconds=12.386558532714844 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=4 status=pending
+[2025-11-25T21:42:43.990933+00:00] 2025-11-25 21:42:43 [debug    ] gamma_polling_wait             generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=4 wait_seconds=7.581117606987858
+[2025-11-25T21:42:51.818384+00:00] 2025-11-25 21:42:51 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=pending
+[2025-11-25T21:42:51.818593+00:00] 2025-11-25 21:42:51 [debug    ] gamma_polling_status           elapsed_seconds=20.18075394630432 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=5 status=pending
+[2025-11-25T21:42:51.818698+00:00] 2025-11-25 21:42:51 [debug    ] gamma_polling_wait             generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=5 wait_seconds=12.589768996245606
+[2025-11-25T21:43:04.861461+00:00] 2025-11-25 21:43:04 [debug    ] gamma_generation_status_checked generation_id=2YZvnWb5ry6NZYEhN1TSS status=completed
+[2025-11-25T21:43:04.861682+00:00] 2025-11-25 21:43:04 [debug    ] gamma_polling_status           elapsed_seconds=33.0211284160614 generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempt=6 status=completed
+[2025-11-25T21:43:04.861808+00:00] 2025-11-25 21:43:04 [debug    ] gamma_url_received             full_url=https://gamma.app/docs/qp5cqnq6spkjo9d generation_id=2YZvnWb5ry6NZYEhN1TSS
+[2025-11-25T21:43:04.861929+00:00] 2025-11-25 21:43:04 [info     ] gamma_generation_completed     credits_used=3 gamma_url=https://gamma.app/docs/qp5cqnq6spkjo9d generation_id=2YZvnWb5ry6NZYEhN1TSS poll_attempts=6 rate_limit_count=0 retry_5xx_count=0 total_time_seconds=33.46212434768677
+[2025-11-25T21:43:04.862889+00:00]    Poll completed with status: completed
+[2025-11-25T21:43:04.865189+00:00] 🎉 SUCCESS!
+[2025-11-25T21:43:04.865291+00:00] 📊 Gamma URL: https://gamma.app/docs/qp5cqnq6spkjo9d
+[2025-11-25T21:43:04.866266+00:00] 📁 URL saved to:
+[2025-11-25T21:43:04.866376+00:00] /mnt/persistent/outputs/executions/voice-of-customer_Last-Week_nov-25-12-30pm/Ga
+[2025-11-25T21:43:04.866446+00:00] mma_URL_Topic_2025-11-17_to_2025-11-24_Week of Nov 17, 2025.txt
+[2025-11-25T21:43:06.897330+00:00] [STATUS] [EXEC] Command completed successfully | Exit code: 0 | Duration: 4381.40s | Output: 35039 lines

@@ -1,0 +1,211 @@
+================================================================================
+AGENT DEBUG REPORT - What Each Agent Produced
+Generated: 2025-11-21T00:18:51.345664
+================================================================================
+
+
+================================================================================
+SegmentationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.76
+⏱️  Duration: 2.22s
+
+Data:
+  • paid_customer_conversations: [{'id': '215471749177498', 'created_at': 
+datetime.datetime(2025, 11, 13, 4, 53, 18, tzinfo=datetime.
+  • paid_fin_resolved_conversations: [{'id': '215471735719624', 'created_at': 
+datetime.datetime(2025, 11, 12, 14, 56, 46, tzinfo=datetime
+  • free_fin_only_conversations: [{'id': '215471734486983', 'created_at': 
+datetime.datetime(2025, 11, 12, 13, 54, 23, tzinfo=datetime
+  • unknown_tier: []
+  • agent_distribution: {'fin_only': 2133, 'fin_to_horatio': 559, 
+'fin_to_boldr': 159, 'fin_to_vendor_to_senior': 20, 'fin_t
+  • segmentation_summary: {'paid_count': 2883, 'paid_percentage': 40.0, 
+'free_count': 4325, 'free_percentage': 60.0, 'unknown_
+
+================================================================================
+TopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 4913.83s
+
+Topic Distribution:
+
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┓
+┃ Topic                ┃ Volume ┃     % ┃ Method    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━┩
+│ Billing              │   3475 │ 48.1% │ llm_smart │
+│ Product Question     │   1944 │ 26.9% │ llm_smart │
+│ Account              │    830 │ 11.5% │ llm_smart │
+│ Bug                  │    602 │  8.4% │ llm_smart │
+│ Workspace            │    147 │  2.0% │ llm_smart │
+│ Unknown              │     76 │  1.1% │ llm_smart │
+│ Privacy              │     64 │  0.9% │ llm_smart │
+│ Partnerships         │     28 │  0.4% │ llm_smart │
+│ Abuse                │     14 │  0.2% │ llm_smart │
+│ Promotions           │     13 │  0.2% │ llm_smart │
+│ Feedback             │      7 │  0.1% │ llm_smart │
+│ Chargeback           │      4 │  0.1% │ llm_smart │
+│ Unknown/unresponsive │      4 │  0.1% │ fallback  │
+└──────────────────────┴────────┴───────┴───────────┘
+
+📊 13 topics detected
+   LLM classified: 5775
+   Keyword matched: 1277
+
+================================================================================
+SubTopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 42.80s
+🪙 Tokens: 10180
+
+Sub-Topic Hierarchy (3-Tier):
+
+Billing
+  Tier 2 (from Intercom SDK):
+    • Refund: 655 (47.2%)
+    • Subscription: 82 (5.9%)
+    • Discount: 24 (1.7%)
+    • Invoice: 23 (1.7%)
+  Tier 3 (LLM discovered):
+    • Payment Method Issues: 259 (18.6%)
+    • Account Access & Login Problems: 1 (0.1%)
+    • Wrong Plan Selected: 90 (6.5%)
+
+Account
+  Tier 2 (from Intercom SDK):
+    • Password Reset: 16 (5.1%)
+    • Credits: 9 (2.9%)
+  Tier 3 (LLM discovered):
+    • Email Change: 18 (5.7%)
+    • Subscription Access Issues: 23 (7.3%)
+    • Account Cancellation: 3 (1.0%)
+
+Product Question
+  Tier 3 (LLM discovered):
+    • Import/Export Issues: 332 (43.7%)
+    • UI/Interface Problems: 1 (0.1%)
+    • AI Behavior/Content Control: 3 (0.4%)
+
+Bug
+  Tier 2 (from Intercom SDK):
+    • Export: 29 (9.9%)
+    • API: 28 (9.5%)
+    • Font: 10 (3.4%)
+    • Account: 7 (2.4%)
+    • Agent: 1 (0.3%)
+  Tier 3 (LLM discovered):
+    • Publishing/Deployment: 93 (31.6%)
+    • Custom Domain/SSL: 37 (12.6%)
+    • Performance/Stability: 57 (19.4%)
+
+Workspace
+  Tier 3 (LLM discovered):
+    • Custom Domain Configuration: 37 (60.7%)
+    • Domain Technical Issues: 2 (3.3%)
+    • Folder Sharing & Management: 0 (0.0%)
+
+Unknown
+  Tier 3 (LLM discovered):
+    • Agent Escalation Requests: 28 (87.5%)
+    • Urgency Indicators: 2 (6.2%)
+    • Non-English Support Requests: 10 (31.2%)
+
+Privacy
+  Tier 3 (LLM discovered):
+    • AI Training Data Usage: 2 (11.8%)
+    • Data Storage Location: 3 (17.6%)
+    • Content Sharing/Visibility Control: 2 (11.8%)
+
+Promotions
+  Tier 2 (from Intercom SDK):
+    • Promotion: 2 (40.0%)
+  Tier 3 (LLM discovered):
+    • Promo Code Redemption: 3 (60.0%)
+    • Discount Recovery: 1 (20.0%)
+    • Educational Discounts: 1 (20.0%)
+
+Partnerships
+  Tier 2 (from Intercom SDK):
+    • Affiliate: 6 (75.0%)
+
+Abuse
+
+Unknown/unresponsive
+
+Feedback
+
+
+================================================================================
+FinPerformanceAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 48.15s
+
+Fin AI Performance:
+
+Free Tier:
+  Resolution Rate: 64.9%
+  Knowledge Gaps: 35.6%
+
+Paid Tier:
+  Resolution Rate: 97.5%
+  Knowledge Gaps: 6.8%
+
+================================================================================
+CorrelationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.54
+⏱️  Duration: 17.45s
+
+Statistical Correlations Found: 1
+
+• Message Count ↔ Escalation (ratio=1.0x)
+  Strength: 1.00
+  Insight: Escalated conversations average 25.0 messages vs 21.8 for Fin-only
+
+
+================================================================================
+QualityInsightsAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.93
+⏱️  Duration: 0.06s
+
+Quality Insights: 0
+
+
+================================================================================
+OutputFormatterAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 0.07s
+
+Data:
+  • formatted_output: # Voice of Customer Analysis: Nov 12 - Nov 19, 2025
+
+## Executive Summary
+
+**Total Interactions**: 7
+  • total_topics: 13
+  • week_id: 2025-W45
+  • has_trend_data: False
+  • has_tier_based_fin_data: True
+  • free_tier_conversations: 4325
+  • paid_tier_conversations: 2133
+  • structured_data: {'digest_mode': False, 'topics': {'Billing': {'volume': 
+3475, 'percentage': 48.1, 'detection_method'
