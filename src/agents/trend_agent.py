@@ -120,10 +120,21 @@ Output trends for:
             # Load historical data
             historical_data = self._load_historical_data()
             
+            analysis_period = {
+                'start_date': context.start_date.isoformat() if context.start_date else None,
+                'end_date': context.end_date.isoformat() if context.end_date else None,
+                'week_id': week_id
+            }
+            
             if not historical_data:
                 # First week - no trends available
                 result_data = {
-                    'trends': {},
+                    'trends': [],
+                    'trends_by_topic': {},
+                    'week_over_week_changes': {},
+                    'trending_topics': [],
+                    'analysis_period': analysis_period,
+                    'trend_insights': None,
                     'week_id': week_id,
                     'note': 'First analysis - establishing baseline. Trends will be available next week.',
                     'historical_weeks_available': 0
@@ -134,13 +145,26 @@ Output trends for:
             else:
                 # Calculate trends
                 trends = self._calculate_trends(current_results, historical_data)
+                trends_list = self._trend_dict_to_list(trends)
+                week_over_week_changes = {
+                    entry['topic']: entry.get('volume_change', 0.0)
+                    for entry in trends_list if 'volume_change' in entry
+                }
+                trending_topics = [
+                    entry['topic'] for entry in trends_list
+                    if entry.get('alert') == '🚨'
+                ]
                 
                 # Add LLM interpretation of trends
                 self.logger.info("Generating trend explanations with LLM...")
                 trend_insights = await self._interpret_trends(trends, current_results, historical_data[-1]['results'] if historical_data else {})
                 
                 result_data = {
-                    'trends': trends,
+                    'trends': trends_list,
+                    'trends_by_topic': trends,
+                    'week_over_week_changes': week_over_week_changes,
+                    'trending_topics': trending_topics,
+                    'analysis_period': analysis_period,
                     'trend_insights': trend_insights,
                     'week_id': week_id,
                     'historical_weeks_available': len(historical_data),
@@ -312,6 +336,20 @@ Output trends for:
                 }
         
         return trends
+    
+    @staticmethod
+    def _trend_dict_to_list(trends: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if not isinstance(trends, dict):
+            return [] if trends is None else trends
+        entries = []
+        for topic, data in trends.items():
+            entry = {'topic': topic}
+            if isinstance(data, dict):
+                entry.update(data)
+            else:
+                entry['value'] = data
+            entries.append(entry)
+        return entries
     
     def _interpret_trend(self, pct_change: float) -> str:
         """Interpret what the trend means"""

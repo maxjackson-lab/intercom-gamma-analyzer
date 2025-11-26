@@ -974,9 +974,8 @@ class TopicOrchestrator:
             if self.bpo_performance_agent:
                 try:
                     self.logger.info("🏢 Running BPO performance summary")
-                    bpo_context = context.model_copy()
                     segmentation_data_for_bpo = workflow_results.get('SegmentationAgent', {}).get('data', segmentation_result.data)
-                    bpo_context.metadata = {
+                    bpo_metadata = {
                         'agent_distribution': segmentation_data_for_bpo.get('agent_distribution', {}),
                         'topics_by_conversation': topics_by_conv,
                         'topic_distribution': topic_dist,
@@ -984,11 +983,14 @@ class TopicOrchestrator:
                         'week_id': week_id,
                         'period_label': period_label
                     }
-                    bpo_context.previous_results = {
-                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
-                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
-                    }
+                    bpo_context = context.model_copy(update={
+                        'metadata': {**(context.metadata or {}), **bpo_metadata},
+                        'previous_results': {
+                            'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                            'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                            'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                        }
+                    })
                     bpo_result = await self.bpo_performance_agent.execute(bpo_context)
                     workflow_results[self.bpo_performance_agent.name] = _normalize_agent_result(bpo_result)
                 except Exception as err:
@@ -1012,20 +1014,22 @@ class TopicOrchestrator:
             
             try:
                 # Build analytical context with all necessary data
-                analytical_context = context.model_copy()
-                analytical_context.conversations = conversations
-                analytical_context.previous_results = {
-                    'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
-                    'TopicSentiments': topic_sentiments,
-                    'TopicExamples': topic_examples,
-                    'FinPerformanceAgent': _normalize_agent_result(fin_result)
-                }
-                analytical_context.metadata = {
-                    'week_id': week_id,
-                    'topics_by_conversation': topics_by_conv,
-                    'historical_context': self.historical_snapshot_service.get_historical_context() if self.historical_snapshot_service else {'weeks_available': 0}
-                }
+                analytical_context = context.model_copy(update={
+                    'conversations': conversations,
+                    'previous_results': {
+                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                        'TopicSentiments': topic_sentiments,
+                        'TopicExamples': topic_examples,
+                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                    },
+                    'metadata': {
+                        **(context.metadata or {}),
+                        'week_id': week_id,
+                        'topics_by_conversation': topics_by_conv,
+                        'historical_context': self.historical_snapshot_service.get_historical_context() if self.historical_snapshot_service else {'weeks_available': 0}
+                    }
+                })
                 
                 # Pass AI client to agents for LLM enrichment
                 from src.services.ai_model_factory import AIModel

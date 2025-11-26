@@ -616,15 +616,30 @@ class HistoricalSnapshotService:  # pylint: disable=too-many-public-methods
     def _extract_topic_volumes(agent_results: Dict[str, Any]) -> Dict[str, int]:
         try:
             td = agent_results.get("TopicDetectionAgent", {})
-            return td.get("data", {}).get("topic_distribution", {})
+            raw = td.get("data", {}).get("topic_distribution", {})
+            normalized: Dict[str, int] = {}
+            if isinstance(raw, dict):
+                for topic, stats in raw.items():
+                    if isinstance(stats, dict):
+                        normalized[topic] = int(stats.get('volume', 0) or 0)
+                    elif isinstance(stats, (int, float)):
+                        normalized[topic] = int(stats)
+            return normalized
         except Exception:  # noqa: broad-except
             return {}
 
     @staticmethod
     def _extract_topic_sentiments(agent_results: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            proc = agent_results.get("TopicProcessingAgent", {})
-            return proc.get("data", {}).get("topic_sentiments", {})
+            sentiments = agent_results.get("TopicSentiments", {})
+            normalized: Dict[str, Dict[str, float]] = {}
+            if isinstance(sentiments, dict):
+                for topic, payload in sentiments.items():
+                    data = payload.get('data', {}) if isinstance(payload, dict) else {}
+                    score = data.get('sentiment_score')
+                    if isinstance(score, (int, float)):
+                        normalized[topic] = {'sentiment_score': float(score)}
+            return normalized
         except Exception:  # noqa: broad-except
             return {}
 

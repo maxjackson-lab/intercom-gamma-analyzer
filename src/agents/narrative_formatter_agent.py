@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, date
 from typing import Dict, Any, List, Optional
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
@@ -412,8 +413,14 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
                     highlights[topic_name] = f"Correlation: {insight or description}"
         return highlights
 
+    @staticmethod
+    def _json_default(value: Any) -> str:
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        return str(value)
+
     def _build_prompt(self, context: AgentContext, payload: Dict[str, Any]) -> str:
-        payload_json = json.dumps(payload, ensure_ascii=False, indent=2)
+        payload_json = json.dumps(payload, ensure_ascii=False, indent=2, default=self._json_default)
         digest_mode = payload.get('settings', {}).get('digest_mode', False)
         digest_guidance = ""
         if digest_mode:

@@ -472,17 +472,54 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
     ) -> bool:
         """Check if conversation belongs to category."""
         tags = conversation.get('tags', {}).get('tags', [])
-        tag_names = [tag.get('name', '').lower() for tag in tags]
-        
-        category_keywords = {
+        tag_names = [
+            tag.get('name', '').lower() if isinstance(tag, dict) else str(tag).lower()
+            for tag in tags
+        ]
+        tag_string = " ".join(tag_names)
+
+        raw_category_keywords = {
             'Billing': ['billing', 'refund', 'invoice', 'payment'],
             'Product Question': ['product', 'bug', 'feature', 'export'],
             'Workspace': ['workspace', 'sites', 'domain', 'publishing'],
             'API': ['api', 'integration', 'authentication', 'endpoint']
         }
-        
-        keywords = category_keywords.get(category, [])
-        return any(kw in ' '.join(tag_names) for kw in keywords)
+
+        normalized_category = (category or "").strip().lower()
+        normalized_keywords = {
+            key.lower(): keywords for key, keywords in raw_category_keywords.items()
+        }
+
+        keywords = normalized_keywords.get(normalized_category)
+        if not keywords:
+            for normalized_key, key_keywords in normalized_keywords.items():
+                if not normalized_key:
+                    continue
+                if normalized_category and normalized_key in normalized_category:
+                    keywords = key_keywords
+                    break
+
+        if keywords:
+            return any(kw in tag_string for kw in keywords)
+
+        if normalized_category:
+            fallback_match = normalized_category in tag_string
+            if fallback_match:
+                self.logger.debug(
+                    "category_substring_fallback_match",
+                    category=category,
+                    normalized_category=normalized_category
+                )
+            else:
+                self.logger.debug(
+                    "category_missing_keyword_mapping",
+                    category=category,
+                    normalized_category=normalized_category
+                )
+            return fallback_match
+
+        self.logger.debug("category_name_missing", category=category)
+        return False
 
     def _extract_quotes_from_conversations(
         self,
@@ -515,7 +552,11 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
         
         return quotes
     
-    def _extract_quote_from_conversation(self, conversation: Dict) -> Optional[Dict]:
+    def _extract_quote_from_conversation(
+        self,
+        conversation: Dict,
+        sentiment: Optional[str] = None
+    ) -> Optional[Dict]:
         """Extract a compelling quote from a single conversation."""
         try:
             # Get conversation parts
@@ -552,9 +593,9 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
             intercom_url = self._build_intercom_url(conversation['id'])
             
             # Get context
-            context = self._get_quote_context(conversation)
+            context = self._get_quote_context(conversation, sentiment=sentiment)
             
-            return {
+            quote_payload = {
                 'quote': quote_text,
                 'customer_name': customer_name,
                 'customer_email': customer_email,
@@ -562,6 +603,10 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
                 'context': context,
                 'conversation_id': conversation['id']
             }
+            if sentiment:
+                quote_payload['sentiment'] = sentiment
+            
+            return quote_payload
             
         except Exception as e:
             self.logger.debug(
@@ -578,17 +623,78 @@ Based on analysis of {total_conversations:,} customer conversations, this traini
             return f"https://app.intercom.com/a/apps/[WORKSPACE_ID]/inbox/inbox/{conversation_id}"
         return f"https://app.intercom.com/a/apps/{self.workspace_id}/inbox/inbox/{conversation_id}"
     
-    def _get_quote_context(self, conversation: Dict) -> str:
-        """Get context for a quote (category, resolution status, etc.)."""
-        # Try to get category from tags
+    def _get_quote_context(self, conversation: Dict, sentiment: Optional[str] = None) -> str:
+        """Get context for a quote (category, resolution status, sentiment, etc.)."""
+        context_parts = []
+        
+        state = conversation.get('state', 'unknown')
+        context_parts.append(f"Status: {state}")
+        
         tags = conversation.get('tags', {}).get('tags', [])
         if tags:
             tag_names = [tag.get('name', '') for tag in tags[:2]]
-            return f"Tags: {', '.join(tag_names)}"
+            cleaned_tags = [name for name in tag_names if name]
+            if cleaned_tags:
+                context_parts.append(f"Tags: {', '.join(cleaned_tags)}")
         
-        # Try to get from state
-        state = conversation.get('state', 'unknown')
-        return f"Status: {state}"
+        detected_sentiment = None
+        conversation_sentiment = conversation.get('sentiment')
+        if isinstance(conversation_sentiment, dict):
+            detected_sentiment = conversation_sentiment.get('label') or conversation_sentiment.get('sentiment')
+        elif isinstance(conversation_sentiment, str):
+            detected_sentiment = conversation_sentiment
+        elif sentiment:
+            detected_sentiment = sentiment
+        
+        if detected_sentiment:
+            context_parts.append(f"Sentiment: {str(detected_sentiment).title()}")
+        
+        return " | ".join(context_parts)
+
+    def extract_quotes_by_sentiment(
+        self,
+        conversations: List[Dict],
+        sentiment_analyses: List[Dict],
+        max_quotes_per_sentiment: int = 3
+    ) -> Dict[str, List[Dict]]:
+        """
+        Extract quotes grouped by sentiment using analysis confidence ordering.
+        """
+        sentiment_groups = {
+            'positive': [],
+            'negative': [],
+            'neutral': [],
+            'mixed': []
+        }
+        
+        if not conversations or not sentiment_analyses:
+            return sentiment_groups
+        
+        conversation_lookup = {conv.get('id'): conv for conv in conversations if conv.get('id')}
+        
+        for sentiment_label in sentiment_groups.keys():
+            filtered = [
+                analysis for analysis in sentiment_analyses
+                if analysis.get('sentiment') == sentiment_label
+            ]
+            filtered.sort(key=lambda a: a.get('confidence', 0), reverse=True)
+            
+            for analysis in filtered[:max_quotes_per_sentiment]:
+                conversation = conversation_lookup.get(analysis.get('conversation_id'))
+                if not conversation:
+                    continue
+                
+                quote = self._extract_quote_from_conversation(
+                    conversation,
+                    sentiment=sentiment_label
+                )
+                if not quote:
+                    continue
+                
+                quote['confidence'] = analysis.get('confidence')
+                sentiment_groups[sentiment_label].append(quote)
+        
+        return sentiment_groups
     
     def _get_top_categories(self, category_results: Dict, limit: int) -> List[Dict]:
         """Get top categories by volume."""
@@ -1745,11 +1851,14 @@ This is the first analysis period. Future reports will include:
             return "No historical data available."
         
         analysis = "**Trend Analysis:**\n"
-        trends = historical_trends.get('trends', {})
-        insights = historical_trends.get('insights', [])
+        insights = historical_trends.get('trend_insights') or historical_trends.get('insights', [])
         
-        for insight in insights[:3]:
-            analysis += f"• {insight}\n"
+        if isinstance(insights, dict):
+            for topic, insight in list(insights.items())[:3]:
+                analysis += f"• {topic}: {insight}\n"
+        else:
+            for insight in insights[:3]:
+                analysis += f"• {insight}\n"
         
         return analysis
 

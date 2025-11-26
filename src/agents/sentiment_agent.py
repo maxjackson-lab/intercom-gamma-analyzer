@@ -17,6 +17,7 @@ from datetime import datetime
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
 from src.config.settings import settings
+from src.services.presentation_builder import PresentationBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class SentimentAgent(BaseAgent):
         # Source: https://docs.anthropic.com/en/api/rate-limits
         self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Provider-specific semaphore
         self.llm_timeout = settings.sentiment_timeout  # Configurable timeout from settings
+        self.presentation_builder = PresentationBuilder()
     
     def get_agent_specific_instructions(self) -> str:
         """Sentiment agent specific instructions"""
@@ -185,7 +187,7 @@ Analyze ALL {len(context.conversations)} conversations for sentiment patterns.
                 'average_confidence': average_confidence,
                 'total_analyzed': len(sentiment_analyses),
                 'high_confidence_count': sum(1 for s in sentiment_analyses if s['confidence'] > 0.8),
-                'representative_quotes': self._extract_representative_quotes(sentiment_analyses)
+                'representative_quotes': self._extract_representative_quotes(sentiment_analyses, conversations)
             }
             
             # Validate output
@@ -291,12 +293,77 @@ Analyze ALL {len(context.conversations)} conversations for sentiment patterns.
         
         return distribution
     
-    def _extract_representative_quotes(self, sentiment_analyses: List[Dict]) -> Dict[str, List[str]]:
-        """Extract representative quotes for each sentiment"""
-        # Placeholder for POC
-        return {
+    def _extract_representative_quotes(
+        self,
+        sentiment_analyses: List[Dict],
+        conversations: List[Dict],
+        max_quotes_per_sentiment: int = 3
+    ) -> Dict[str, List[Dict]]:
+        """Extract representative quotes for each sentiment category."""
+        sentiment_buckets = {
             'positive': [],
             'negative': [],
-            'neutral': []
+            'neutral': [],
+            'mixed': []
         }
+        
+        if not sentiment_analyses or not conversations:
+            return sentiment_buckets
+        
+        quotes_by_sentiment = self.presentation_builder.extract_quotes_by_sentiment(
+            conversations=conversations,
+            sentiment_analyses=sentiment_analyses,
+            max_quotes_per_sentiment=max_quotes_per_sentiment
+        )
+        
+        if not any(quotes_by_sentiment.values()):
+            self.logger.warning(
+                "SentimentAgent: No representative quotes extracted from sentiment analysis, using fallback extraction"
+            )
+            conversation_lookup = {
+                conv.get('id'): conv for conv in conversations if conv.get('id')
+            }
+
+            for analysis in sentiment_analyses:
+                conv_id = analysis.get('conversation_id')
+                if not conv_id:
+                    continue
+
+                conversation = conversation_lookup.get(conv_id)
+                if not conversation:
+                    continue
+
+                sentiment_label = analysis.get('sentiment', 'neutral')
+                if sentiment_label not in sentiment_buckets:
+                    sentiment_label = 'neutral'
+
+                if len(sentiment_buckets[sentiment_label]) >= max_quotes_per_sentiment:
+                    continue
+
+                quote = self.presentation_builder._extract_quote_from_conversation(conversation)
+                if not quote:
+                    continue
+
+                quote['sentiment'] = sentiment_label
+                sentiment_buckets[sentiment_label].append(quote)
+
+                if all(
+                    len(bucket) >= max_quotes_per_sentiment
+                    for bucket in sentiment_buckets.values()
+                ):
+                    break
+
+            if not any(sentiment_buckets.values()):
+                self.logger.warning(
+                    "SentimentAgent: Fallback quote extraction produced no results"
+                )
+
+            return sentiment_buckets
+        
+        for sentiment_label, quotes in quotes_by_sentiment.items():
+            for quote in quotes:
+                quote.setdefault('sentiment', sentiment_label)
+                sentiment_buckets[sentiment_label].append(quote)
+
+        return sentiment_buckets
 

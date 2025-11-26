@@ -284,6 +284,24 @@ The tool automatically generates professional Gamma presentations with:
 - **Proper markdown structure** optimized for Gamma
 - **Interactive elements** and professional styling
 
+### PresentationAgent Output Schema
+
+`PresentationAgent` returns an `AgentResult.data` payload that includes a `presentation_quality`
+dictionary rather than a single scalar score. The structure is:
+
+- `overall_score`
+- `narrative_flow_score`
+- `insight_depth_score`
+- `data_grounding_score`
+- `executive_appeal_score`
+- `strengths` (list of strings)
+- `weaknesses` (list of strings)
+- `improvement_suggestions` (list of strings)
+- `assessment_status` (`"ok"` when parsed from the LLM response, `"fallback"` when a default structure is returned)
+
+Downstream services, UI layers, and reporting scripts should read from this structured dict to access
+per-dimension scores and qualitative feedback.
+
 ## 🖥️ **Web User Interface**
 
 Everything now runs from **one FastAPI service** (`deploy/railway_web.py`), powered by the modular routers in `deploy/web/`.

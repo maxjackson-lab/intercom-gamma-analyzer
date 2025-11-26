@@ -1033,8 +1033,26 @@ For each conversation:
                 if assignment.get('topic') == 'Unknown/unresponsive':
                     self.fallback_metrics['unknown_count'] += 1
             
+            topics_summary = []
+            for topic_name, stats in topic_distribution.items():
+                summary_entry = {
+                    'name': topic_name,
+                    'volume': stats.get('volume', 0),
+                    'percentage': stats.get('percentage'),
+                    'detection_method': stats.get('detection_method'),
+                    'llm_smart_count': stats.get('llm_smart_count', 0),
+                    'llm_only_count': stats.get('llm_only_count', 0),
+                    'hybrid_count': stats.get('hybrid_count', 0),
+                    'keyword_count': stats.get('keyword_count', 0),
+                    'sdk_only_count': stats.get('sdk_only_count', 0),
+                    'fallback_count': stats.get('fallback_count', 0),
+                    'conversation_volume': len(conversations_by_topic.get(topic_name, [])),
+                }
+                topics_summary.append(summary_entry)
+            
             # Prepare result
             result_data = {
+                'topics': topics_summary,
                 'topics_by_conversation': topics_by_conversation,
                 'topic_distribution': topic_distribution,
                 'conversations_by_topic': {k: len(v) for k, v in conversations_by_topic.items()},

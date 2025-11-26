@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
-from utils.cli_help import CLIHelpSystem
+from src.utils.cli_help import CLIHelpSystem
 
 
 class TestCLIHelpSystem:

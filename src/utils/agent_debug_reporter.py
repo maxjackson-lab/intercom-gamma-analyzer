@@ -170,6 +170,37 @@ class AgentDebugReporter:
             console.print(f"  Resolution Rate: {paid_tier.get('resolution_rate', 0):.1%}")
             console.print(f"  Knowledge Gaps: {paid_tier.get('knowledge_gap_rate', 0):.1%}")
     
+    def add_traceability_summary(self, workflow_results: Dict[str, Any]):
+        """Add traceability coverage summary"""
+        console.print(f"\n{'='*80}")
+        console.print("[bold cyan]TRACEABILITY COVERAGE[/bold cyan]")
+        console.print(f"{'='*80}\n")
+        
+        # BPO
+        bpo = workflow_results.get('BpoPerformanceAgent', {}).get('data', {}).get('vendor_overview', {})
+        bpo_samples = 0
+        for vendor, data in bpo.items():
+            samples = data.get('sample_conversations', [])
+            bpo_samples += len(samples)
+        console.print(f"• BpoPerformanceAgent: {bpo_samples} samples")
+        
+        # Fin
+        fin = workflow_results.get('FinPerformanceAgent', {}).get('data', {})
+        free_samples = len(fin.get('free_tier', {}).get('sample_conversations', []))
+        paid_samples = len(fin.get('paid_tier', {}).get('sample_conversations', []))
+        console.print(f"• FinPerformanceAgent: {free_samples + paid_samples} samples ({free_samples} Free, {paid_samples} Paid)")
+        
+        # Topic Examples
+        topic_examples = workflow_results.get('TopicExamples', {})
+        total_topic_samples = 0
+        for topic, result in topic_examples.items():
+            data = result.get('data', {})
+            samples = data.get('examples', [])
+            total_topic_samples += len(samples)
+        console.print(f"• TopicExamples: {total_topic_samples} samples across {len(topic_examples)} topics")
+        
+        console.print()
+
     def save_report(self):
         """Save the complete debug report"""
         # Export to text
@@ -227,6 +258,9 @@ def create_agent_debug_report(workflow_results: Dict, output_path: Path) -> Path
             console.print(f"[yellow]{topic}:[/yellow]")
             console.print(f"  {sentiment_result.get('data', {}).get('sentiment_insight', 'N/A')}")
             console.print()
+    
+    # Add traceability summary
+    reporter.add_traceability_summary(workflow_results)
     
     return reporter.save_report()
 

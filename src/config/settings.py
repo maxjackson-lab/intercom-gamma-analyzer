@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     topic_detection_timeout: int = Field(60, env="TOPIC_DETECTION_TIMEOUT")  # TopicDetectionAgent timeout
     subtopic_detection_timeout: int = Field(60, env="SUBTOPIC_DETECTION_TIMEOUT")  # SubTopicDetectionAgent timeout
     quality_insights_timeout: int = Field(60, env="QUALITY_INSIGHTS_TIMEOUT")  # QualityInsightsAgent timeout
+    presentation_quality_timeout: int = Field(60, env="PRESENTATION_QUALITY_TIMEOUT")  # PresentationAgent quality assessment timeout
     sentiment_timeout: int = Field(60, env="SENTIMENT_TIMEOUT")  # SentimentAgent timeout
     output_formatter_timeout: int = Field(120, env="OUTPUT_FORMATTER_TIMEOUT")  # OutputFormatterAgent timeout (longer for complex reasoning)
     correlation_timeout: int = Field(60, env="CORRELATION_TIMEOUT")  # CorrelationAgent timeout

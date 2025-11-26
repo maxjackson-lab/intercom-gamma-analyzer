@@ -432,7 +432,22 @@ Return ONLY valid JSON, no other text:
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
             fin_performance = context.previous_results.get('FinPerformanceAgent', {}).get('data', {})
             bpo_performance = context.previous_results.get('BpoPerformanceAgent', {})
-            trends = context.previous_results.get('TrendAgent', {}).get('data', {}).get('trends', {})
+            trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
+            trends_lookup = {}
+            if isinstance(trend_agent_data, dict):
+                if isinstance(trend_agent_data.get('trends_by_topic'), dict):
+                    trends_lookup = trend_agent_data.get('trends_by_topic', {})
+                else:
+                    raw_trends = trend_agent_data.get('trends', {})
+                    if isinstance(raw_trends, dict):
+                        trends_lookup = raw_trends
+                    elif isinstance(raw_trends, list):
+                        trends_lookup = {
+                            entry.get('topic'): entry
+                            for entry in raw_trends
+                            if isinstance(entry, dict) and entry.get('topic')
+                        }
+            trends = trends_lookup
             bpo_topic_highlights = {}
             if isinstance(bpo_performance, dict):
                 bpo_topic_highlights = bpo_performance.get('topic_vendor_highlights', {})
@@ -614,7 +629,9 @@ Return ONLY valid JSON, no other text:
             
             # Get LLM trend insights from TrendAgent (outside loop for efficiency)
             trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
-            trend_insights = trend_agent_data.get('trend_insights', {})
+            trend_insights = {}
+            if isinstance(trend_agent_data, dict):
+                trend_insights = trend_agent_data.get('trend_insights', {}) or {}
             topic_summaries: List[Dict[str, Any]] = []
             topic_cards: List[Dict[str, Any]] = []
             quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}

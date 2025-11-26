@@ -509,6 +509,7 @@ class TopicDetectionResult(BaseModel):
     Represents detected topics with conversation assignments.
     """
     topics: List[Dict[str, Any]] = Field(
+        default_factory=list,
         description="List of detected topics with metadata"
     )
     topic_distribution: Dict[str, Dict[str, Any]] = Field(

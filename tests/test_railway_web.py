@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import date, datetime
 
 # Import the app
-from railway_web import app, initialize_services
+from deploy.railway_web import app
 
 
 @pytest.fixture
@@ -22,8 +22,8 @@ def client():
 @pytest.fixture
 def mock_services():
     """Mock DuckDB and HistoricalSnapshotService."""
-    with patch('railway_web.duckdb_storage') as mock_db, \
-         patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db, \
+         patch('deploy.railway_web.historical_service') as mock_service:
         # Ensure they're not None
         mock_db.return_value = Mock()
         mock_service.return_value = Mock()
@@ -96,7 +96,7 @@ def test_root_endpoint_returns_html(client):
 
 def test_api_snapshots_list_all(client):
     """Test listing all snapshots with context."""
-    with patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.historical_service') as mock_service:
         mock_service.list_snapshots_async = MagicMock(return_value=[
             {
                 'snapshot_id': 'weekly_20251114',
@@ -128,7 +128,7 @@ def test_api_snapshots_list_all(client):
 
 def test_api_snapshots_list_filtered_by_type(client):
     """Test filtering snapshots by analysis type."""
-    with patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.historical_service') as mock_service:
         mock_service.list_snapshots_async = MagicMock(return_value=[])
         mock_service.get_historical_context_async = MagicMock(return_value={})
         
@@ -141,7 +141,7 @@ def test_api_snapshots_list_filtered_by_type(client):
 
 def test_api_snapshots_list_service_unavailable(client):
     """Test error handling when service is unavailable."""
-    with patch('railway_web.historical_service', None):
+    with patch('deploy.railway_web.historical_service', None):
         response = client.get("/api/snapshots/list")
         
         assert response.status_code == 500
@@ -154,7 +154,7 @@ def test_api_snapshots_list_service_unavailable(client):
 
 def test_api_snapshots_get_single(client):
     """Test retrieving a single snapshot."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.get_analysis_snapshot = MagicMock(return_value={
             'snapshot_id': 'weekly_20251114',
             'analysis_type': 'weekly',
@@ -177,7 +177,7 @@ def test_api_snapshots_get_single(client):
 
 def test_api_snapshots_get_not_found(client):
     """Test 404 when snapshot doesn't exist."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.get_analysis_snapshot = MagicMock(return_value=None)
         
         response = client.get("/api/snapshots/nonexistent_id")
@@ -192,7 +192,7 @@ def test_api_snapshots_get_not_found(client):
 
 def test_api_snapshots_review_success(client):
     """Test successfully marking snapshot as reviewed."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.mark_snapshot_reviewed = MagicMock(return_value=True)
         
         response = client.post(
@@ -223,7 +223,7 @@ def test_api_snapshots_review_requires_auth_with_token_set(client):
 
 def test_api_snapshots_review_with_notes(client):
     """Test review with optional notes."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.mark_snapshot_reviewed = MagicMock(return_value=True)
         
         response = client.post(
@@ -242,7 +242,7 @@ def test_api_snapshots_review_with_notes(client):
 
 def test_api_snapshots_review_not_found(client):
     """Test review returns 404 when snapshot doesn't exist."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.mark_snapshot_reviewed = MagicMock(return_value=False)
         
         response = client.post(
@@ -259,7 +259,7 @@ def test_api_snapshots_review_not_found(client):
 
 def test_api_snapshots_timeseries(client, sample_snapshots):
     """Test timeseries endpoint returns Chart.js format."""
-    with patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.historical_service') as mock_service:
         mock_service.list_snapshots_async = MagicMock(return_value=sample_snapshots)
         
         response = client.get("/api/snapshots/timeseries?analysis_type=weekly&limit=12")
@@ -274,7 +274,7 @@ def test_api_snapshots_timeseries(client, sample_snapshots):
 
 def test_api_snapshots_timeseries_empty(client):
     """Test timeseries with no data."""
-    with patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.historical_service') as mock_service:
         mock_service.list_snapshots_async = MagicMock(return_value=[])
         
         response = client.get("/api/snapshots/timeseries")
@@ -299,7 +299,7 @@ def test_analysis_history_route(client):
 
 def test_analysis_view_route(client):
     """Test snapshot detail view."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.get_analysis_snapshot = MagicMock(return_value={
             'snapshot_id': 'weekly_20251114',
             'date_range_label': 'Nov 8-14, 2025',
@@ -319,7 +319,7 @@ def test_analysis_view_route(client):
 
 def test_analysis_view_not_found(client):
     """Test view returns 404 for missing snapshot."""
-    with patch('railway_web.duckdb_storage') as mock_db:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db:
         mock_db.get_analysis_snapshot = MagicMock(return_value=None)
         
         response = client.get("/analysis/view/nonexistent")
@@ -329,8 +329,8 @@ def test_analysis_view_not_found(client):
 
 def test_analysis_compare_route(client):
     """Test comparison view."""
-    with patch('railway_web.duckdb_storage') as mock_db, \
-         patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.duckdb_storage') as mock_db, \
+         patch('deploy.railway_web.historical_service') as mock_service:
         
         mock_db.get_analysis_snapshot = MagicMock(side_effect=[
             {
@@ -363,8 +363,8 @@ def test_analysis_compare_route(client):
 
 def test_health_check_with_services(client):
     """Test health check returns service status."""
-    with patch('railway_web.duckdb_storage', Mock()), \
-         patch('railway_web.historical_service', Mock()):
+    with patch('deploy.railway_web.duckdb_storage', Mock()), \
+         patch('deploy.railway_web.historical_service', Mock()):
         
         response = client.get("/health")
         
@@ -377,8 +377,8 @@ def test_health_check_with_services(client):
 
 def test_health_check_service_failure(client):
     """Test health check reports missing services."""
-    with patch('railway_web.duckdb_storage', None), \
-         patch('railway_web.historical_service', None):
+    with patch('deploy.railway_web.duckdb_storage', None), \
+         patch('deploy.railway_web.historical_service', None):
         
         response = client.get("/health")
         
@@ -399,7 +399,7 @@ def test_download_file_success(client, tmp_path):
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("Test content")
     
-    with patch('railway_web.Path') as mock_path:
+    with patch('deploy.railway_web.Path') as mock_path:
         mock_path.return_value.resolve.return_value = test_file
         mock_path.return_value.exists.return_value = True
         mock_path.return_value.is_file.return_value = True
@@ -445,7 +445,7 @@ def test_download_file_security_validation(client):
 
 def test_api_handles_service_exception(client):
     """Test graceful error handling when service raises exception."""
-    with patch('railway_web.historical_service') as mock_service:
+    with patch('deploy.railway_web.historical_service') as mock_service:
         mock_service.list_snapshots_async = MagicMock(side_effect=Exception('Database error'))
         
         response = client.get("/api/snapshots/list")
@@ -467,7 +467,7 @@ def test_api_handles_invalid_json(client):
 
 def test_api_handles_missing_fields(client):
     """Test 422 validation error for missing required fields."""
-    with patch('railway_web.duckdb_storage'):
+    with patch('deploy.railway_web.duckdb_storage'):
         response = client.post(
             "/api/snapshots/weekly_20251114/review",
             json={}  # Missing reviewed_by field

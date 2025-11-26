@@ -70,7 +70,7 @@ def run_unit_tests() -> bool:
     
     # Run pytest with coverage
     command = [
-        'python', '-m', 'pytest',
+        sys.executable, '-m', 'pytest',
         'tests/',
         '-v',
         '--tb=short',
@@ -97,7 +97,7 @@ def run_specific_test_files(test_files: List[str]) -> bool:
     project_root = Path(__file__).parent
     
     command = [
-        'python', '-m', 'pytest',
+        sys.executable, '-m', 'pytest',
         *test_files,
         '-v',
         '--tb=short',
@@ -123,7 +123,7 @@ def run_linting() -> bool:
     # Run black for code formatting
     print("Running black...")
     try:
-        run_command(['python', '-m', 'black', '--check', 'src/', 'tests/'], cwd=str(project_root))
+        run_command([sys.executable, '-m', 'black', '--check', 'src/', 'tests/'], cwd=str(project_root))
         print("✅ Black formatting is correct")
     except subprocess.CalledProcessError:
         print("❌ Black formatting issues found")
@@ -132,7 +132,7 @@ def run_linting() -> bool:
     # Run isort for import sorting
     print("Running isort...")
     try:
-        run_command(['python', '-m', 'isort', '--check-only', 'src/', 'tests/'], cwd=str(project_root))
+        run_command([sys.executable, '-m', 'isort', '--check-only', 'src/', 'tests/'], cwd=str(project_root))
         print("✅ Import sorting is correct")
     except subprocess.CalledProcessError:
         print("❌ Import sorting issues found")
