@@ -986,10 +986,10 @@ class TopicOrchestrator:
                     bpo_context = context.model_copy(update={
                         'metadata': {**(context.metadata or {}), **bpo_metadata},
                         'previous_results': {
-                            'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                            'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
-                            'FinPerformanceAgent': _normalize_agent_result(fin_result)
-                        }
+                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                    }
                     })
                     bpo_result = await self.bpo_performance_agent.execute(bpo_context)
                     workflow_results[self.bpo_performance_agent.name] = _normalize_agent_result(bpo_result)
@@ -1017,18 +1017,18 @@ class TopicOrchestrator:
                 analytical_context = context.model_copy(update={
                     'conversations': conversations,
                     'previous_results': {
-                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
-                        'TopicSentiments': topic_sentiments,
-                        'TopicExamples': topic_examples,
-                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
+                    'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
+                    'TopicSentiments': topic_sentiments,
+                    'TopicExamples': topic_examples,
+                    'FinPerformanceAgent': _normalize_agent_result(fin_result)
                     },
                     'metadata': {
                         **(context.metadata or {}),
-                        'week_id': week_id,
-                        'topics_by_conversation': topics_by_conv,
-                        'historical_context': self.historical_snapshot_service.get_historical_context() if self.historical_snapshot_service else {'weeks_available': 0}
-                    }
+                    'week_id': week_id,
+                    'topics_by_conversation': topics_by_conv,
+                    'historical_context': self.historical_snapshot_service.get_historical_context() if self.historical_snapshot_service else {'weeks_available': 0}
+                }
                 })
                 
                 # Pass AI client to agents for LLM enrichment

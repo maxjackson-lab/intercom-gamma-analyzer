@@ -322,7 +322,7 @@ class GammaGenerator:
                     "gamma_markdown_generation_instructions_near_limit",
                     instructions_length=len(additional_instructions)
                 )
-
+            
             # Generate presentation with markdown preservation
             generation_id = await self.client.generate_presentation(
                 input_text=input_text,

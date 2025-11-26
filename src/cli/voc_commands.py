@@ -480,17 +480,6 @@ async def run_voice_of_customer_analysis(
         console.print("[dim]Skipping Canny ingestion in test mode.[/dim]")
 
     if analysis_type == 'topic-based':
-        await run_topic_based_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            test_mode,
-            test_data_count_int,
-            audit_trail,
-            digest_mode=digest_mode,
-            extra_conversations=extra_canny_conversations
-        )
-    elif analysis_type == 'narrative-v2':
         from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
         await run_topic_based_analysis_custom(
             start_dt,
@@ -501,8 +490,8 @@ async def run_voice_of_customer_analysis(
             audit_trail,
             digest_mode=digest_mode,
             orchestrator_cls=TopicOrchestratorV2,
-            mode_label="VoC Narrative V2",
-            output_slug="narrative_v2",
+            mode_label="Voice of Customer (Topic-Based)",
+            output_slug="voc_topic_based",
             extra_conversations=extra_canny_conversations
         )
     elif analysis_type == 'synthesis':

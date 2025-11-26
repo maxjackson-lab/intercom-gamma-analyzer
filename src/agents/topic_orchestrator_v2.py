@@ -8,7 +8,7 @@ and BpoPerformanceAgent so the rest of the pipeline can remain unchanged.
 from typing import Optional
 
 from src.agents.topic_orchestrator import TopicOrchestrator
-from src.agents.narrative_formatter_agent import NarrativeFormatterAgent
+from src.agents.output_formatter_agent import OutputFormatterAgent
 from src.agents.bpo_performance_agent import BpoPerformanceAgent
 from src.services.ai_model_factory import AIModelFactory
 
@@ -21,7 +21,7 @@ class TopicOrchestratorV2:
             ai_factory=ai_factory,
             audit_trail=audit_trail,
             execution_monitor=execution_monitor,
-            formatter_agent=NarrativeFormatterAgent(),
+            formatter_agent=OutputFormatterAgent(use_llm_formatting=True),
             bpo_agent=BpoPerformanceAgent(),
             report_type="voc_v2"
         )

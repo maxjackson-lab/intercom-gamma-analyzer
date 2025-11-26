@@ -178,6 +178,9 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
 
     def _assemble_payload(self, context: AgentContext) -> Dict[str, Any]:
         previous = context.previous_results or {}
+        # #region agent log
+        import json as _json_debug; _log_path = "/Users/max.jackson/Intercom Analysis Tool /.cursor/debug.log"; open(_log_path, "a").write(_json_debug.dumps({"location": "narrative_formatter_agent.py:_assemble_payload", "message": "previous_results keys", "data": {"keys": list(previous.keys()), "has_subtopic": "SubTopicDetectionAgent" in previous}, "hypothesisId": "H1", "timestamp": __import__("time").time()}) + "\n")
+        # #endregion
         segmentation = (previous.get('SegmentationAgent') or {}).get('data', {})
         segmentation_summary = segmentation.get('segmentation_summary', {}) if isinstance(segmentation.get('segmentation_summary'), dict) else {}
         topic_detection = (previous.get('TopicDetectionAgent') or {}).get('data', {})
@@ -194,6 +197,9 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
         if not isinstance(synthesis_summary, dict):
             synthesis_summary = {'data': synthesis_summary}
         digest_mode = bool((context.metadata or {}).get('digest_mode'))
+        # #region agent log
+        subtopic_entry = previous.get('SubTopicDetectionAgent') or {}; subtopic_data = subtopic_entry.get('data', {}) if isinstance(subtopic_entry, dict) else {}; open(_log_path, "a").write(_json_debug.dumps({"location": "narrative_formatter_agent.py:_assemble_payload", "message": "subtopic data check", "data": {"subtopic_entry_keys": list(subtopic_entry.keys()) if isinstance(subtopic_entry, dict) else "not_dict", "subtopic_data_keys": list(subtopic_data.keys()) if isinstance(subtopic_data, dict) else "not_dict", "has_hierarchy": "topic_hierarchy" in subtopic_data or "subtopics_by_topic" in subtopic_data}, "hypothesisId": "H1", "timestamp": __import__("time").time()}) + "\n")
+        # #endregion
 
         top_topics = self._build_topic_profiles(
             topic_dist,
@@ -237,7 +243,7 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
 
         metrics_overview['date_range_label'] = f"Analysis: {context.start_date.strftime('%b %d')}–{context.end_date.strftime('%b %d')} | Raw data: {raw_dates_label}"
 
-        return {
+        payload = {
             'global_date_range': global_range,
             'timeframe': {
                 'start': context.start_date.isoformat() if context.start_date else None,
@@ -273,6 +279,10 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
             'synthesis_summary': synthesis_summary,
             'settings': {'digest_mode': digest_mode}
         }
+        # #region agent log
+        open(_log_path, "a").write(_json_debug.dumps({"location": "narrative_formatter_agent.py:_assemble_payload:return", "message": "final payload keys", "data": {"payload_keys": list(payload.keys()), "has_subtopics_key": "subtopics" in payload or "sub_topics" in payload, "topics_count": len(top_topics), "first_topic_keys": list(top_topics[0].keys()) if top_topics else []}, "hypothesisId": "H3", "timestamp": __import__("time").time()}) + "\n")
+        # #endregion
+        return payload
 
     def _build_topic_profiles(
         self,

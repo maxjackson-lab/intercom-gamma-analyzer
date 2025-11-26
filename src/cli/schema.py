@@ -116,12 +116,11 @@ CANONICAL_COMMAND_MAPPINGS = {
             },
             '--analysis-type': {
                 'type': 'enum',
-                'values': ['topic-based', 'synthesis', 'complete', 'narrative-v2'],
-                    'default': 'narrative-v2',
+                'values': ['topic-based', 'synthesis', 'complete'],
+                    'default': 'topic-based',
                 'description': (
-                    "Select workflow: 'topic-based' = Hilary card deck via TopicOrchestrator, "
-                    "'synthesis' = strategic insights only, 'complete' = topic-based + synthesis, "
-                    "'narrative-v2' = TopicOrchestratorV2 feeding NarrativeFormatterAgent (Hilary weekly story / Narrative V2)."
+                    "Select workflow: 'topic-based' = Hilary card deck via TopicOrchestratorV2 (Voice of Customer V2), "
+                    "'synthesis' = strategic insights only, 'complete' = topic-based + synthesis."
                 )
             },
             '--multi-agent': {
