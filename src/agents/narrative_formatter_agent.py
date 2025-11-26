@@ -339,13 +339,19 @@ DATA (representative sample of the week's conversations):
 
 OUTPUT RULES:
 1. Return clean markdown only.
-2. Follow this section order exactly:
+2. Follow this section order exactly and use "---" to separate every major section (this creates slides):
    # Executive Narrative (tie the week together with 2-3 sentences unless digest mode says otherwise)
+   ---
    ## Metrics at a Glance (render a markdown table with columns Metric | Value that covers: total conversations, paid human workload, free Fin-only volume, topic count, Fin free-tier resolution rate, Fin paid-tier resolution rate. Use "N/A" if a number is missing.)
+   ---
    ## Cross-Agent Signals (bullets linking correlations/churn)
+   ---
    ## BPO Snapshot (Horatio/Boldr loads + pressure points)
+   ---
    ## Topic Stories (one subsection per topic, weaving sentiment, Fin stats, vendor load, analytical signals, and exactly one curated quote that links to Intercom)
+   ---
    ## Prioritized Actions (3 numbered items max unless digest mode constrains further)
+   ---
    ## Risk Watchlist (bullets or '_No acute risks detected_')
 3. When writing Topic Stories, embed one curated quote inline using the format ["customer text"](intercom_url). Prefer translations when available and note the original language if it was not English.
 4. Mention Fin resolution performance or knowledge gaps inline when relevant and cite vendor workload inline (e.g., "Horatio carrying 62% of escalations").

@@ -14,6 +14,7 @@ Output: Rich console output + JSON dump of raw conversations
 import logging
 import json
 import re
+from collections import Counter
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -256,6 +257,8 @@ class SampleMode:
         
         conv_stats = self._analyze_conversation_statistics(conversations)
         self._display_conversation_statistics(conv_stats)
+        human_admin_activity = self._summarize_human_admin_activity(conversations)
+        self._display_human_admin_activity(human_admin_activity)
         
         # ===== AGENT ATTRIBUTION ANALYSIS =====
         console.print("\n" + "="*80)
@@ -264,6 +267,8 @@ class SampleMode:
         
         agent_analysis = self._analyze_agent_attribution(conversations)
         self._display_agent_attribution(agent_analysis)
+        bpo_preview = await self._run_segmentation_and_bpo_preview(conversations)
+        self._display_bpo_preview(bpo_preview)
         
         # ===== TOPIC DETECTION SUMMARY =====
         console.print("\n" + "="*80)
@@ -315,9 +320,11 @@ class SampleMode:
             'field_coverage': field_coverage,
             'custom_attributes': custom_attrs_analysis,
             'conversation_statistics': conv_stats,
+            'human_admin_activity': human_admin_activity,
             'agent_attribution': agent_analysis,
             'topic_summary': topic_summary,
             'hierarchy_debug': hierarchy_debug,
+            'bpo_preview': bpo_preview,
             'total_conversations': len(conversations)
         }
     
@@ -834,6 +841,184 @@ class SampleMode:
             for state, count in sorted(stats['ai_resolution_states'].items(), key=lambda x: x[1], reverse=True):
                 console.print(f"  {state}: {count}")
     
+    def _summarize_human_admin_activity(self, conversations: List[Dict]) -> Dict[str, Any]:
+        """
+        Build a quick view of which human admins (non-Sal) are answering tickets.
+        """
+        try:
+            from src.agents.segmentation_agent import is_sal_or_fin
+        except ImportError:
+            # Fallback if segmentation agent moves
+            def is_sal_or_fin(author: Dict) -> bool:
+                name = (author.get('name') or '').lower()
+                email = (author.get('email') or '').lower()
+                author_id = str(author.get('id') or '').lower()
+                return any(token in name for token in ('sal', 'support sal', 'finn')) or \
+                    'sal' in email or author_id == 'bot'
+
+        admin_counter: Counter = Counter()
+        vendor_counter: Counter = Counter()
+        for conv in conversations:
+            parts = (conv.get('conversation_parts') or {}).get('conversation_parts') or []
+            for part in parts:
+                author = part.get('author') or {}
+                if author.get('type') != 'admin':
+                    continue
+                if is_sal_or_fin(author):
+                    continue
+                name = author.get('name') or author.get('email') or "Unknown Admin"
+                admin_counter[name] += 1
+                email = (author.get('email') or '').lower()
+                if 'horatio' in email or 'hirehoratio' in email:
+                    vendor_counter['Horatio'] += 1
+                elif 'boldr' in email:
+                    vendor_counter['Boldr'] += 1
+                elif email:
+                    vendor_counter['Internal'] += 1
+
+        return {
+            'top_admins': admin_counter.most_common(10),
+            'vendor_counts': vendor_counter,
+            'total_comments': sum(admin_counter.values())
+        }
+
+    def _display_human_admin_activity(self, activity: Dict[str, Any]):
+        """Display quick leaderboard of human admins responding."""
+        console.print("\n" + "=" * 80)
+        console.print("[bold]🧑‍💼 HUMAN AGENT PREVIEW[/bold]")
+        console.print("[dim]Real human responses detected in this sample[/dim]")
+        console.print("=" * 80 + "\n")
+
+        total = activity.get('total_comments', 0)
+        if total == 0:
+            console.print("[yellow]No human admin responses detected (all Fin).[/yellow]")
+            return
+
+        console.print(f"Total human admin comments: {total}")
+        vendor_counts = activity.get('vendor_counts', {})
+        if vendor_counts:
+            console.print("Vendor mix:")
+            for vendor, count in vendor_counts.items():
+                console.print(f"  • {vendor}: {count}")
+
+        console.print("\nTop agents by response volume:")
+        for name, count in activity.get('top_admins', [])[:5]:
+            console.print(f"  • {name}: {count} replies")
+
+    async def _run_segmentation_and_bpo_preview(self, conversations: List[Dict]) -> Dict[str, Any]:
+        """
+        Execute Segmentation + BPO agents to preview vendor workload distribution.
+        """
+        from src.agents.base_agent import AgentContext
+        from src.agents.segmentation_agent import SegmentationAgent
+        from src.agents.topic_detection_agent import TopicDetectionAgent
+        from src.agents.bpo_performance_agent import BpoPerformanceAgent
+
+        context = AgentContext(
+            analysis_id="sample_mode_segmentation",
+            analysis_type="sample_mode",
+            conversations=conversations,
+            start_date=datetime.now(),
+            end_date=datetime.now()
+        )
+
+        seg_agent = SegmentationAgent(track_escalations=True)
+        seg_result = await seg_agent.execute(context)
+        if not seg_result.success:
+            return {'error': f"SegmentationAgent failed: {seg_result.error_message}"}
+
+        topic_agent = TopicDetectionAgent()
+        topic_result = await topic_agent.execute(context)
+        if not topic_result.success:
+            return {'error': f"TopicDetectionAgent failed: {topic_result.error_message}"}
+
+        agent_assignments = seg_result.data.get('agent_assignments') or {}
+        topics_by_conversation = topic_result.data.get('topics_by_conversation', {})
+        if not agent_assignments or not topics_by_conversation:
+            return {
+                'warning': "Segmentation produced no agent assignments; cannot generate BPO preview.",
+                'segmentation_summary': seg_result.data.get('segmentation_summary', {}),
+                'agent_distribution': seg_result.data.get('agent_distribution', {})
+            }
+
+        bpo_context = context.model_copy()
+        bpo_context.metadata = {
+            'agent_assignments': agent_assignments,
+            'agent_distribution': seg_result.data.get('agent_distribution', {}),
+            'topics_by_conversation': topics_by_conversation,
+            'topic_distribution': topic_result.data.get('topic_distribution', {}),
+            'segmentation_summary': seg_result.data.get('segmentation_summary', {})
+        }
+        bpo_context.previous_results = {
+            'SegmentationAgent': seg_result.dict(),
+            'TopicDetectionAgent': topic_result.dict()
+        }
+
+        bpo_agent = BpoPerformanceAgent()
+        bpo_result = await bpo_agent.execute(bpo_context)
+        preview = {
+            'segmentation_summary': seg_result.data.get('segmentation_summary', {}),
+            'agent_distribution': seg_result.data.get('agent_distribution', {}),
+            'agent_assignments_count': len(agent_assignments),
+            'vendor_overview': {},
+            'pressure_points': [],
+            'success': bpo_result.success
+        }
+
+        if bpo_result.success:
+            preview['vendor_overview'] = bpo_result.data.get('vendor_overview', {})
+            preview['pressure_points'] = bpo_result.data.get('pressure_points', [])
+        else:
+            preview['error'] = bpo_result.data.get('error') or bpo_result.error_message
+
+        return preview
+
+    def _display_bpo_preview(self, preview: Dict[str, Any]):
+        """Render Segmentation + BPO findings to console."""
+        console.print("\n" + "=" * 80)
+        console.print("[bold]👥 BPO WORKLOAD PREVIEW[/bold]")
+        console.print("[dim]Segmentation + vendor load based on real data[/dim]")
+        console.print("=" * 80 + "\n")
+
+        if 'error' in preview:
+            console.print(f"[red]{preview['error']}[/red]")
+            return
+        if 'warning' in preview:
+            console.print(f"[yellow]{preview['warning']}[/yellow]")
+
+        seg_summary = preview.get('segmentation_summary') or {}
+        if seg_summary:
+            paid_human = seg_summary.get('paid_human_count', 0)
+            paid_fin = seg_summary.get('paid_fin_resolved_count', 0)
+            console.print(f"Paid human conversations: {paid_human} | Paid Fin-only: {paid_fin}")
+
+        vendor_overview = preview.get('vendor_overview') or {}
+        if not vendor_overview:
+            console.print("[yellow]No vendor overview returned (likely due to low volume).[/yellow]")
+        else:
+            table = Table(show_header=True, title="Vendor Share", header_style="bold cyan")
+            table.add_column("Vendor")
+            table.add_column("Conversations", justify="right")
+            table.add_column("Share", justify="right")
+            table.add_column("Top Topics", overflow="fold")
+            for vendor, data in vendor_overview.items():
+                share = data.get('share_of_paid_workload', 0)
+                topics = data.get('top_topics', [])
+                topics_str = ", ".join(f"{name} ({count})" for name, count in topics) if topics else "-"
+                table.add_row(
+                    vendor.title(),
+                    f"{data.get('total_conversations', 0):,}",
+                    f"{share*100:.0f}%",
+                    topics_str
+                )
+            console.print(table)
+
+        pressure_points = preview.get('pressure_points') or []
+        if pressure_points:
+            console.print("\n[bold]Pressure Points:[/bold]")
+            for point in pressure_points[:5]:
+                console.print(f"  • {point}")
+
     async def _analyze_topic_detection(self, conversations: List[Dict]) -> Dict[str, Any]:
         """
         Analyze topic detection using PRODUCTION TopicDetectionAgent.
@@ -1228,6 +1413,8 @@ class SampleMode:
         from src.agents.quality_insights_agent import QualityInsightsAgent
         from src.agents.churn_risk_agent import ChurnRiskAgent
         from src.agents.confidence_meta_agent import ConfidenceMetaAgent
+        from src.agents.segmentation_agent import SegmentationAgent
+        from src.agents.bpo_performance_agent import BpoPerformanceAgent
         import time
         
         # Create base context
@@ -1239,7 +1426,16 @@ class SampleMode:
             end_date=datetime.now()
         )
         
-        # First, detect topics (needed by other agents)
+        # First, segment conversations
+        console.print("[yellow]📌 Step 0: Segmentation (paid vs free, vendor detection)[/yellow]")
+        seg_agent = SegmentationAgent(track_escalations=True)
+        seg_result = await seg_agent.execute(context)
+        if not seg_result.success:
+            console.print(f"[red]❌ SegmentationAgent failed - cannot continue: {seg_result.error_message}[/red]")
+            return
+        console.print(f"[green]✅ Segmentation complete: {seg_result.data.get('segmentation_summary', {}).get('paid_count', 0)} paid conversations[/green]\n")
+
+        # Next, detect topics (needed by other agents)
         console.print("[yellow]📊 Step 1: Topic Detection (prerequisite for other agents)[/yellow]")
         topic_agent = TopicDetectionAgent()
         topic_result = await topic_agent.execute(context)
@@ -1251,8 +1447,11 @@ class SampleMode:
         topic_dist = topic_result.data.get('topic_distribution', {})
         console.print(f"[green]✅ Topics detected: {list(topic_dist.keys())[:5]}...[/green]\n")
         
-        # Update context with topic detection results
-        context.previous_results = {'TopicDetectionAgent': topic_result.dict()}
+        # Update context with latest results for downstream agents
+        context.previous_results = {
+            'SegmentationAgent': seg_result.dict(),
+            'TopicDetectionAgent': topic_result.dict()
+        }
         
         # Test each agent
         agents_to_test = [
@@ -1327,6 +1526,44 @@ class SampleMode:
             except Exception as e:
                 console.print(f"[red]💥 {agent_name} crashed: {str(e)}[/red]\n")
                 results[agent_name] = {'status': 'crashed', 'error': str(e)}
+
+        # Run BPO Performance Agent with fresh metadata
+        console.print(f"{'─'*80}")
+        console.print("[bold cyan]Testing: BpoPerformanceAgent[/bold cyan]")
+        console.print(f"{'─'*80}\n")
+        bpo_metadata = {
+            'agent_assignments': seg_result.data.get('agent_assignments', {}),
+            'agent_distribution': seg_result.data.get('agent_distribution', {}),
+            'topics_by_conversation': topic_result.data.get('topics_by_conversation', {}),
+            'topic_distribution': topic_result.data.get('topic_distribution', {}),
+            'segmentation_summary': seg_result.data.get('segmentation_summary', {})
+        }
+        bpo_agent = BpoPerformanceAgent()
+        bpo_context = context.model_copy()
+        bpo_context.metadata = bpo_metadata
+        bpo_context.previous_results = context.previous_results
+        try:
+            start_time = time.time()
+            bpo_result = await bpo_agent.execute(bpo_context)
+            elapsed = time.time() - start_time
+            if bpo_result.success:
+                vendor_overview = bpo_result.data.get('vendor_overview', {})
+                console.print(f"[green]✅ BpoPerformanceAgent succeeded in {elapsed:.1f}s[/green]")
+                for vendor, data in vendor_overview.items():
+                    share = data.get('share_of_paid_workload', 0)
+                    console.print(f"   • {vendor.title()}: {data.get('total_conversations', 0)} cases ({share*100:.0f}%)")
+                pressure = bpo_result.data.get('pressure_points', [])
+                if pressure:
+                    console.print("   Pressure points:")
+                    for point in pressure[:3]:
+                        console.print(f"     - {point}")
+                results['BpoPerformanceAgent'] = {'status': 'success', 'elapsed': elapsed, 'confidence': bpo_result.confidence}
+            else:
+                console.print(f"[red]❌ BpoPerformanceAgent failed: {bpo_result.data.get('error') or bpo_result.error_message}[/red]")
+                results['BpoPerformanceAgent'] = {'status': 'failed', 'error': bpo_result.data.get('error') or bpo_result.error_message}
+        except Exception as e:
+            console.print(f"[red]💥 BpoPerformanceAgent crashed: {e}[/red]")
+            results['BpoPerformanceAgent'] = {'status': 'crashed', 'error': str(e)}
         
         # Summary
         console.print(f"{'='*80}")
@@ -1334,7 +1571,7 @@ class SampleMode:
         console.print(f"{'='*80}\n")
         
         success_count = sum(1 for r in results.values() if r['status'] == 'success')
-        console.print(f"[bold]Results: {success_count}/{len(agents_to_test)} agents passed[/bold]")
+        console.print(f"[bold]Results: {success_count}/{len(results)} agents passed[/bold]")
         
         for agent_name, result in results.items():
             status = result['status']

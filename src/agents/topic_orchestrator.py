@@ -472,34 +472,55 @@ class TopicOrchestrator:
             # PHASE 2.4: BPO Vendor Performance
             self.logger.info("👥 Phase 2.4: BPO Vendor Load Analysis")
             bpo_result_data = {}
-            try:
-                bpo_context = context.model_copy()
-                bpo_context.metadata = {
-                    'agent_assignments': segmentation_result.data.get('agent_assignments', {}),
-                    'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
-                    'topics_by_conversation': topics_by_conv,
-                    'topic_distribution': topic_dist,
-                    'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
-                }
-                bpo_context.previous_results = {
-                    'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
-                }
-                bpo_result = await self.bpo_performance_agent.execute(bpo_context)
-                bpo_result_data = _normalize_agent_result(bpo_result)
-                workflow_results['BpoPerformanceAgent'] = bpo_result_data
-                try:
-                    display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
-                except Exception as e:
-                    logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
-            except Exception as e:
-                self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
+            agent_assignments = segmentation_result.data.get('agent_assignments') or {}
+            topics_map = topics_by_conv or {}
+            self.logger.info(f"   BPO Prep: Found {len(agent_assignments)} assignments, {len(topics_map)} topic maps")
+
+            if not agent_assignments:
+                self.logger.warning("SegmentationAgent returned no agent_assignments; skipping BPO vendor analysis.")
                 workflow_results['BpoPerformanceAgent'] = {
                     'agent_name': 'BpoPerformanceAgent',
                     'success': False,
-                    'error_message': str(e),
+                    'error_message': "Missing agent_assignments from segmentation.",
                     'data': {}
                 }
+            elif not topics_map:
+                self.logger.warning("TopicDetectionAgent returned no topics_by_conversation; skipping BPO vendor analysis.")
+                workflow_results['BpoPerformanceAgent'] = {
+                    'agent_name': 'BpoPerformanceAgent',
+                    'success': False,
+                    'error_message': "Missing topics_by_conversation for BPO analysis.",
+                    'data': {}
+                }
+            else:
+                try:
+                    bpo_context = context.model_copy()
+                    bpo_context.metadata = {
+                        'agent_assignments': agent_assignments,
+                        'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
+                        'topics_by_conversation': topics_map,
+                        'topic_distribution': topic_dist,
+                        'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
+                    }
+                    bpo_context.previous_results = {
+                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                    }
+                    bpo_result = await self.bpo_performance_agent.execute(bpo_context)
+                    bpo_result_data = _normalize_agent_result(bpo_result)
+                    workflow_results['BpoPerformanceAgent'] = bpo_result_data
+                    try:
+                        display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
+                except Exception as e:
+                    self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
+                    workflow_results['BpoPerformanceAgent'] = {
+                        'agent_name': 'BpoPerformanceAgent',
+                        'success': False,
+                        'error_message': str(e),
+                        'data': {}
+                    }
             
             # PHASE 2.5: Sub-Topic Detection
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")

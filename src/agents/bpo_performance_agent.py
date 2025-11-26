@@ -45,6 +45,7 @@ identify pressure points, and highlight imbalances executives should see.
 
     def validate_input(self, context: AgentContext) -> bool:
         metadata = context.metadata or {}
+        self.logger.info(f"BPO Input Validation: {len(metadata.get('agent_assignments', {}))} assignments, {len(metadata.get('topics_by_conversation', {}))} topic maps")
         if not metadata.get('agent_assignments'):
             raise ValueError("agent_assignments metadata missing for BPO analysis")
         if not metadata.get('topics_by_conversation'):
