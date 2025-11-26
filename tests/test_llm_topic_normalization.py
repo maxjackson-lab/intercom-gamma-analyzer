@@ -34,10 +34,19 @@ def test_llm_topic_normalization():
         ("Template Upload and Customization", "Product Question"),
         ("Login Method Change", "Account"),
         ("Technical Issue", "Bug"),
+        ("Technical problem with exports", "Bug"),
+        ("Technical issue with API rate limits", "Bug"),
+        ("Issue with API timeout errors", "Bug"),
+        ("Problem integrating with the exports API", "Bug"),
         ("Discount Request", "Promotions"),
         ("Image Editing and Uploading", "Product Question"),
         ("App Usage and Access Issues", "Account"),
         ("Website Text Size Adjustment", "Product Question"),
+        ("Workflow question about roles", "Product Question"),
+        ("Question about billing invoices", "Billing"),
+        ("How do I invite teammates?", "Product Question"),
+        ("Question: How can we enable new workflows?", "Product Question"),
+        ("Technical question about API limits", None),
         
         # Exact matches (should pass through)
         ("Billing", "Billing"),
@@ -45,10 +54,19 @@ def test_llm_topic_normalization():
         ("Product Question", "Product Question"),
         
         # Unknown
-        ("Unknown", "Unknown"),
-        ("Unknown/unresponsive", None),  # Might not be in topics
+        ("Unknown", "Unknown/unresponsive"),
+        ("Unknown/unresponsive", "Unknown/unresponsive"),
         
         # Invalid (should return None)
+        ("General question about policies", None),
+        ("Question about roadmap updates", None),
+        ("Question about adoption timeline", None),
+        ("Minor issue with wording", None),
+        ("Issue with onboarding timeline", None),
+        ("Problems with marketing messaging", None),
+        ("Minor issue with wording on the homepage", None),
+        ("Issue with theme colors", "Product Question"),
+        ("Open question about upcoming policies", None),
         ("Completely Invalid Topic Name", None),
         ("RandomGarbage", None),
     ]

@@ -942,17 +942,32 @@ class SampleMode:
             }
 
         bpo_context = context.model_copy()
-        bpo_context.metadata = {
+        
+        # Create a new context directly to avoid frozen instance issues
+        # Instead of copying and modifying (which fails with frozen=True),
+        # create a new instance with the updated metadata
+        
+        new_metadata = context.metadata.copy() if context.metadata else {}
+        new_metadata.update({
             'agent_assignments': agent_assignments,
             'agent_distribution': seg_result.data.get('agent_distribution', {}),
             'topics_by_conversation': topics_by_conversation,
             'topic_distribution': topic_result.data.get('topic_distribution', {}),
             'segmentation_summary': seg_result.data.get('segmentation_summary', {})
-        }
-        bpo_context.previous_results = {
-            'SegmentationAgent': seg_result.dict(),
-            'TopicDetectionAgent': topic_result.dict()
-        }
+        })
+        
+        bpo_context = AgentContext(
+            analysis_id=context.analysis_id,
+            analysis_type=context.analysis_type,
+            start_date=context.start_date,
+            end_date=context.end_date,
+            conversations=context.conversations,
+            previous_results={
+                'SegmentationAgent': seg_result.dict(),
+                'TopicDetectionAgent': topic_result.dict()
+            },
+            metadata=new_metadata
+        )
 
         bpo_agent = BpoPerformanceAgent()
         bpo_result = await bpo_agent.execute(bpo_context)

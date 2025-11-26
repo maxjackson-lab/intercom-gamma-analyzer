@@ -278,6 +278,29 @@ async function runAnalysis() {
         const startDate = document.getElementById('startDate')?.value || null;
         const endDate = document.getElementById('endDate')?.value || null;
         
+        // Validate custom dates
+        if (timePeriod === 'custom' && analysisType !== 'sample-mode') {
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates for custom range', 'error');
+                return;
+            }
+            if (startDate > endDate) {
+                showToast('Start date must be before or equal to end date', 'error');
+                return;
+            }
+            
+            // Warn if range is large (> 31 days) using calendar-day difference (inclusive)
+            // Parse as UTC midnight to mirror backend calendar-day semantics before Pacific alignment
+            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            const startUtc = new Date(`${startDate}T00:00:00Z`);
+            const endUtc = new Date(`${endDate}T00:00:00Z`);
+            const daysDiff = Math.floor((endUtc - startUtc) / MS_PER_DAY) + 1;
+            if (daysDiff > 31) {
+                showToast('Warning: Date range > 31 days may take longer to process', 'warning');
+            }
+            console.log('ℹ️ Custom date ranges are normalized to Pacific time on the backend; minor +/- 1 day shifts may occur when the UTC-calculated span crosses midnight PT.');
+        }
+        
         console.log('Form values:', {
             analysisType, timePeriod, dataSource, outputFormat, 
             aiModel, testMode, auditMode, taxonomyFilter
@@ -551,6 +574,11 @@ async function runAnalysis() {
         
         // Switch to terminal tab
         switchTab('terminal');
+        
+        // Show custom date range in terminal
+        if (timePeriod === 'custom' && startDate && endDate) {
+            appendToTerminal(`📅 Custom date range: ${startDate} to ${endDate}\n`, 'status');
+        }
         
         // Determine if this is a long-running task that should use background execution
         const isLongRunning = shouldUseBackgroundExecution(args, timePeriod);
@@ -1048,6 +1076,11 @@ function updateAnalysisOptions() {
     }
     if (timePeriodSelect) {
         timePeriodSelect.style.display = showTimePeriod ? 'block' : 'none';
+        // Show/hide custom date inputs based on selection
+        const customDateInputs = document.getElementById('customDateInputs');
+        if (customDateInputs) {
+            customDateInputs.style.display = (showTimePeriod && timePeriodSelect.value === 'custom') ? 'block' : 'none';
+        }
     }
     
     // Hide/show Data Source (only for VoC)

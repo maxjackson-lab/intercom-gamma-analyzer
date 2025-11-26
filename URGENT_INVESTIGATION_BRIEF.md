@@ -1,185 +1,93 @@
-# URGENT: Topic Detection Failure Investigation
-**For External AI Analysis**
+# Urgent Investigation Brief
 
-## The Critical Problem
+## Executive Summary
+This document summarizes the investigation and resolution of four critical issues in the Intercom Analysis Tool:
+1.  **Fin Tier Segmentation**: Billing conversations from free users were misclassified.
+2.  **Topic Normalization**: LLM-detected topics were being rejected by the normalization layer.
+3.  **Date Range Flexibility**: UI hid custom date inputs despite backend support.
+4.  **ZIP Download**: Lack of logging and error handling made debugging difficult.
 
-**Gamma presentations show ZERO topics - just boilerplate text.**
+All issues have been addressed with surgical fixes that maintain backward compatibility.
 
-User's exact words:
-> "NO TOPICS WERE COUNTED AT ALL NOT A SINGLE ONE THE ENTIRE PRESENTATION WAS BOILERPLATE"
+---
 
-## What We Know Works
+## Issue 1: Fin Tier Segmentation
 
-✅ **LLM Classification:** 800 successful API calls in test runs (no 404s, no timeouts)  
-✅ **Sample Mode:** Shows topics correctly (Billing: 99, Bug: 37, Account: 27...)  
-✅ **Agent Thinking Logs:** Prove LLM is classifying (agent_thinking.log shows 800 LLM responses)  
-✅ **Console Logs:** Topic distribution prints correctly during execution
+### Problem
+Billing conversations from free users were correctly identified as "Free" tier but then labeled as "Fin-only" because no human agent was assigned. This is technically correct but misleading for billing disputes that require human attention (even if not yet assigned).
 
-## What's Broken
+### Root Cause
+Tier classification happened *before* topic detection, and the "Free" tier logic didn't account for high-intent keywords like "refund" or "charge".
 
-❌ **Gamma Output:** No topic cards, no counts, just boilerplate sections  
-❌ **Data Flow:** Topics detected by agent → disappear before Gamma generation
+### Solution
+Modified `SegmentationAgent._extract_customer_tier` to include a keyword check for "Free" tier conversations. If billing keywords (`refund`, `charge`, `invoice`, etc.) are found, the conversation is promoted to `TEAM` (paid) tier to ensure it flows through the paid support logic.
 
-## Architecture Context
+**Files Modified:** `src/agents/segmentation_agent.py`
 
-**Data Flow:**
-```
-TopicDetectionAgent.execute()
-  ↓ returns AgentResult with topic_distribution
-TopicOrchestrator
-  ↓ stores in workflow_results['TopicDetectionAgent']
-OutputFormatterAgent.execute(context)
-  ↓ gets topic_dist from context.previous_results['TopicDetectionAgent']['data']['topic_distribution']
-  ↓ formats topic cards for Gamma
-GammaGenerator
-  ↓ sends formatted markdown to Gamma API
-```
+---
 
-**Where it breaks:** Somewhere between TopicDetectionAgent returning data and OutputFormatterAgent receiving it.
+## Issue 2: Topic Normalization Fallbacks
 
-## Investigation Questions
+### Problem
+The `TopicDetectionAgent` was rejecting valid LLM outputs like "Refund Request" because they didn't exactly match the canonical "Billing" topic. This caused the system to fall back to keyword matching, ignoring the LLM's semantic understanding.
 
-### Q1: Is TopicDetectionAgent returning data correctly?
-**Check:** `workflow_results['TopicDetectionAgent']` structure  
-**Expected:** `{'success': True, 'data': {'topic_distribution': {...}}}`  
-**Debug:** Added logging in OutputFormatterAgent (commit 57a22e3)
+### Root Cause
+The `_normalize_llm_topic` method had a limited semantic map.
 
-### Q2: Is OutputFormatterAgent receiving empty dict?
-**Symptoms:**
-- OutputFormatter logs show available agents
-- But topic_dist might be {}
-- Check new logs for `🚨 CRITICAL: topic_dist is EMPTY`
+### Solution
+1.  Expanded the `semantic_map` with 30+ new mappings (e.g., `issue` -> `Bug`, `how do` -> `Product Question`).
+2.  Added instrumentation to log raw LLM topics and count normalization failures.
+3.  Added `_suggest_keyword_expansions` helper to analyze unmapped topics.
 
-### Q3: Is data normalization breaking structure?
-**Code:** `_normalize_agent_result()` in topic_orchestrator.py  
-**Purpose:** Converts AgentResult to dict  
-**Risk:** Might be stripping nested data
+**Files Modified:** `src/agents/topic_detection_agent.py`
 
-### Q4: Is concurrent processing causing race conditions?
-**Recent change:** Made SubTopicDetection concurrent (commit 309efb0)  
-**Risk:** asyncio.gather() exception handling might be swallowing data
+---
 
-## What We've Already Fixed
+## Issue 3: Date Range Flexibility
 
-1. ✅ Claude model names (404 → working)
-2. ✅ Fin resolution 0% bug (dual metrics)
-3. ✅ LLM method mislabeling (llm_smart showing as keyword)  
-4. ✅ Removed "What We Cannot Determine" section (looked like AI hallucination)
-5. ✅ Rate limiting (all agents, zero failures)
-6. ✅ Structured Outputs (100% schema compliance)
-7. ✅ Mathematical validation (topic % sum = 100%)
+### Problem
+The backend supported custom date ranges (`--start-date`, `--end-date`), but the Web UI only showed the "Time Period" dropdown, hiding the custom date inputs.
 
-## Files for Investigation
+### Root Cause
+`app.js` lacked logic to toggle the visibility of the custom date input container based on the dropdown selection.
 
-**Latest Production Run** (`prod run data 4/`):
-- `sample_mode_20251113_203219.log` (118 KB) - Console shows topics correctly
-- `sample_mode_20251113_203219.json` (9.3 MB) - Raw data with 200 conversations
-- `agent_thinking_20251113_202628.log` (2.6 MB) - 800 LLM responses
+### Solution
+1.  Updated `app.js` to show/hide `customDateInputs` when "Custom Range" is selected.
+2.  Added validation to ensure start date <= end date.
+3.  Added warnings for large date ranges (>31 days).
+4.  Updated CLI output to show the custom range clearly.
+5.  Added optional `VOC_STRICT_DATE_LIMITS=1` environment variable to enforce a 90-day ceiling for automation pipelines that require hard limits.
 
-**Key Evidence:**
-- Topics ARE being detected (logs show them)
-- Topics ARE NOT in Gamma (boilerplate only)
-- **Gap:** Between detection and presentation
+**Files Modified:** `static/app.js`, `src/cli/voc_commands.py`
 
-## Specific Code to Investigate
+---
 
-### TopicDetectionAgent Result Structure
-**File:** `src/agents/topic_detection_agent.py` (line 770-820)
-```python
-return AgentResult(
-    agent_name=self.name,
-    success=True,
-    data=result_data,  # ← Contains topic_distribution
-    confidence=confidence,
-    ...
-)
-```
+## Issue 4: ZIP Download
 
-### Data Normalization
-**File:** `src/agents/topic_orchestrator.py` (line 48-88)
-```python
-def _normalize_agent_result(result: Any) -> Dict[str, Any]:
-    # Converts AgentResult to dict
-    # Could be losing nested data?
-```
+### Problem
+ZIP downloads would sometimes fail silently or generically, making it hard to know if the issue was missing files, permissions, or timeouts.
 
-### OutputFormatter Data Access
-**File:** `src/agents/output_formatter_agent.py` (line 347-360)
-```python
-topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
-topic_dist = topic_detection.get('topic_distribution', {})
-# ← Is this {} when it shouldn't be?
-```
+### Root Cause
+Lack of detailed logging and specific error handling in the API routes and frontend.
 
-## Questions for AI Investigator
+### Solution
+1.  Added detailed logging to `download_outputs_zip` and `download_folder_zip` (scanning paths, file counts).
+2.  Added robust error handling for `FileNotFound` and `BadZipFile` errors.
+3.  Added a `downloadWithRetry` helper in the frontend to handle transient network issues.
 
-1. **Does `_normalize_agent_result()` preserve nested dict structure?**
-   - Input: `AgentResult(data={'topic_distribution': {...}})`
-   - Output: Should be `{'data': {'topic_distribution': {...}}}`
-   - Is it actually: `{}`?
+**Files Modified:** `static/file_browser.js`, `deploy/web/routes_files.py`
 
-2. **Is there a try/except swallowing data silently?**
-   - Check all except blocks between TopicDetection and OutputFormatter
-   - Look for `except: pass` or `except Exception: logger.warning(...)`
+---
 
-3. **Is concurrent processing creating a race condition?**
-   - SubTopicDetection uses `asyncio.gather(*tasks, return_exceptions=True)`
-   - Could this be affecting TopicDetection result storage?
+## Testing Recommendations
 
-4. **Is the dict nesting correct?**
-   - Sample mode works: Uses TopicDetectionAgent directly
-   - VOC mode broken: Uses TopicOrchestrator → stores in workflow_results
-   - Is the nesting different between these paths?
+1.  **Segmentation**: Run `sample-mode` on a known free user billing conversation. Verify it is classified as `TEAM` (Paid).
+2.  **Topic Normalization**: Check logs for `Top unmapped LLM topics`.
+3.  **Date Range**: Select "Custom Range" in UI and verify date inputs appear. Run a 35-day analysis and check for the warning.
+4.  **ZIP**: Try downloading a non-existent folder ZIP via API to verify error handling.
 
-## Expected Behavior (From Working Sample Mode)
+## Future Enhancements
 
-**Sample mode logs show:**
-```
-Topic Distribution:
-  Billing: 99 (49.5%) - llm_smart
-  Bug: 37 (18.5%) - llm_smart
-  Account: 27 (13.5%) - llm_smart
-```
-
-**VOC mode Gamma shows:**
-```
-[Just boilerplate - no topics listed]
-```
-
-**Why the difference?**
-
-## Constraints
-
-- **Can't add complexity:** User frustrated by over-engineering
-- **Can't do major refactors:** Need surgical fix
-- **Can't break working sample mode:** Only fix VOC path
-- **Must debug together:** User wants to see logs and understand
-
-## What to Provide
-
-**Focused recommendations only:**
-1. Which exact file/line is losing the data?
-2. What's the 1-line fix?
-3. How to verify it's fixed?
-
-**NOT needed:**
-- Architectural rewrites
-- New monitoring systems
-- Optimization suggestions
-- Best practices lectures
-
-## Debug Logs Available After Next Run
-
-- `🚨 CRITICAL: topic_dist is EMPTY` (if empty)
-- `✅ topic_dist has X topics` (if present)
-- `Available agent results: [list]` (which agents ran)
-- `agent_debug_report.txt` (human-readable summary)
-
-## Success Criteria
-
-✅ Gamma presentation shows topic cards with real numbers  
-✅ Topic distribution matches what's in logs  
-✅ No boilerplate-only output  
-
-**That's it. Just make topics appear in Gamma.**
-
+*   **Deep Topic Dives**: Add `--focus-topic` flag to run analysis only on specific topics.
+*   **Temporal Rollups**: Add monthly aggregation for long-term trend analysis.
+*   **BPO Agent Reviews**: Integrate BPO agent performance data into the main dashboard.

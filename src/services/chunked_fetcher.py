@@ -5,9 +5,11 @@ Handles large data fetches with intelligent chunking and rate limiting.
 
 import asyncio
 import logging
+import math
+import os
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Any, AsyncGenerator
 from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, List, Optional
 import json
 
 from src.services.intercom_sdk_service import IntercomSDKService
@@ -27,6 +29,7 @@ class ChunkedFetcher:
     - Progress tracking
     - Error recovery
     - Memory-efficient processing
+    - Configurable SIMPLE-mode threshold via CHUNKED_FETCHER_SIMPLE_MAX_DAYS (defaults to 7 calendar days)
     """
     
     def __init__(
@@ -34,6 +37,9 @@ class ChunkedFetcher:
         intercom_service: Optional[IntercomSDKService] = None,
         enable_preprocessing: bool = True,
         chunk_timeout: int = 600,  # Increased to 600s (10 minutes) per chunk to handle high-volume days
+        simple_mode_max_days: Optional[int] = None,
+        simple_mode_warning_seconds: Optional[int] = None,
+        estimated_daily_volume: Optional[int] = None,
     ):
         """
         Initialize chunked fetcher.
@@ -53,6 +59,39 @@ class ChunkedFetcher:
         self.enable_preprocessing = enable_preprocessing
         self.logger = logging.getLogger(__name__)
         self.chunk_timeout = chunk_timeout
+        env_simple_days = os.getenv("CHUNKED_FETCHER_SIMPLE_MAX_DAYS")
+        if simple_mode_max_days is not None:
+            self.simple_mode_max_days = max(1, simple_mode_max_days)
+        elif env_simple_days:
+            try:
+                parsed_days = int(env_simple_days)
+            except ValueError:
+                parsed_days = None
+            self.simple_mode_max_days = max(1, parsed_days) if parsed_days else 7
+        else:
+            self.simple_mode_max_days = 7
+
+        env_warning_seconds = os.getenv("CHUNKED_FETCHER_SIMPLE_WARNING_SECONDS")
+        if simple_mode_warning_seconds is not None:
+            self.simple_mode_warning_seconds = max(1, simple_mode_warning_seconds)
+        elif env_warning_seconds:
+            try:
+                parsed_seconds = int(env_warning_seconds)
+            except ValueError:
+                parsed_seconds = None
+            self.simple_mode_warning_seconds = max(1, parsed_seconds) if parsed_seconds else 90
+        else:
+            self.simple_mode_warning_seconds = 90
+
+        if estimated_daily_volume is not None:
+            self.estimated_daily_volume = max(1, estimated_daily_volume)
+        else:
+            env_volume = os.getenv("INTERCOM_ESTIMATED_DAILY_VOLUME", "800")
+            try:
+                parsed_volume = int(env_volume)
+            except ValueError:
+                parsed_volume = 800
+            self.estimated_daily_volume = max(1, parsed_volume)
         
         # Chunking configuration - Like pre-SDK version, no artificial timeouts
         # Let each chunk complete naturally with SDK's built-in rate limiting and retries
@@ -63,6 +102,8 @@ class ChunkedFetcher:
         self.logger.info(
             f"Initialized ChunkedFetcher with max_days_per_chunk={self.max_days_per_chunk}, "
             f"preprocessing={'enabled' if enable_preprocessing else 'disabled'}, "
+            f"simple_mode_max_days={self.simple_mode_max_days}, "
+            f"estimated_daily_volume≈{self.estimated_daily_volume}, "
             f"no artificial timeouts (runs until complete like pre-SDK version)"
         )
     
@@ -78,13 +119,18 @@ class ChunkedFetcher:
         """
         Fetch conversations with intelligent mode selection.
         
-        - SIMPLE mode: For small date ranges (<= 3 days) - single async call
-        - CHUNKED mode: For large date ranges (> 3 days) - daily chunks with progress updates
+        - SIMPLE mode: For small date ranges (<= `simple_mode_max_days`, default 7) - single async call
+        - CHUNKED mode: For larger windows - daily chunks with progress updates
         
         CHUNKED mode is required for Railway/web deployments because:
         - Yields progress updates between days (allows keepalives to work)
         - Prevents HTTP timeout during 20+ minute fetches
         - Provides better visibility into fetch progress
+        
+        Environment knobs:
+        - `CHUNKED_FETCHER_SIMPLE_MAX_DAYS`: Override SIMPLE-mode threshold
+        - `CHUNKED_FETCHER_SIMPLE_WARNING_SECONDS`: Emit warnings if SIMPLE mode exceeds this runtime
+        - `INTERCOM_ESTIMATED_DAILY_VOLUME`: Used for logging expected volume
         
         Args:
             start_date: Start date for fetching
@@ -100,53 +146,75 @@ class ChunkedFetcher:
         """
         days_diff = (end_date.date() - start_date.date()).days + 1
         self.logger.info(f"Fetching conversations from {start_date.date()} to {end_date.date()} ({days_diff} days)")
+        approx_volume = days_diff * self.estimated_daily_volume
+        approx_chunks = max(1, math.ceil(days_diff / self.max_days_per_chunk))
+        use_simple_mode = days_diff <= self.simple_mode_max_days
+        selected_mode = "SIMPLE" if use_simple_mode else "CHUNKED"
+        self.logger.info(
+            f"Mode selection: {selected_mode} "
+            f"(days={days_diff}, threshold={self.simple_mode_max_days}, "
+            f"est_volume≈{approx_volume:,}, est_chunks≈{approx_chunks})"
+        )
         
-        # Use CHUNKED mode for large date ranges to prevent Railway timeouts
-        # CHUNKED mode yields progress between days, allowing keepalives to work
-        if days_diff > 3:
-            self.logger.info(f"Using CHUNKED mode ({days_diff} days > 3) - daily chunks with progress updates")
+        if not use_simple_mode:
+            self.logger.info(
+                f"Date range spans {days_diff} days - using daily chunking to avoid API limits "
+                f"(est. {approx_chunks} chunk(s))"
+            )
             return await self._fetch_daily_chunks(
                 start_date, end_date, max_conversations, progress_callback
             )
-        else:
-            self.logger.info(f"Using SIMPLE mode ({days_diff} days <= 3) - single async call")
-            try:
-                # Just fetch - let the SDK handle everything
-                conversations = await self.intercom_service.fetch_conversations_by_date_range(
-                    start_date, 
-                    end_date, 
-                    max_conversations=max_conversations
+
+        self.logger.info(
+            f"Using SIMPLE mode ({days_diff} days <= {self.simple_mode_max_days}) - single async call "
+            f"(est. volume ≈ {approx_volume:,} conversations)"
+        )
+        try:
+            simple_start = datetime.now()
+            conversations = await self.intercom_service.fetch_conversations_by_date_range(
+                start_date, 
+                end_date, 
+                max_conversations=max_conversations
+            )
+            
+            fetch_output_count = len(conversations)
+            self.logger.info(f"✅ Fetched {fetch_output_count} conversations")
+            
+            # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
+            if self.enable_preprocessing and self.preprocessor and conversations:
+                preprocess_input_count = len(conversations)
+                self.logger.info(f"Preprocessing {preprocess_input_count} conversations...")
+                conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
+                    conversations,
+                    options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
                 )
+                preprocess_output_count = len(conversations)
+                preprocess_dropped_count = preprocess_input_count - preprocess_output_count
+                preprocess_pct_kept = (preprocess_output_count / preprocess_input_count * 100) if preprocess_input_count > 0 else 0
                 
-                fetch_output_count = len(conversations)
-                self.logger.info(f"✅ Fetched {fetch_output_count} conversations")
-                
-                # CRITICAL: Preprocess conversations to inject customer_messages and normalize fields
-                if self.enable_preprocessing and self.preprocessor and conversations:
-                    preprocess_input_count = len(conversations)
-                    self.logger.info(f"Preprocessing {preprocess_input_count} conversations...")
-                    conversations, preprocess_stats = self.preprocessor.preprocess_conversations(
-                        conversations,
-                        options={'deduplicate': True, 'infer_missing': True, 'clean_text': True}
-                    )
-                    preprocess_output_count = len(conversations)
-                    preprocess_dropped_count = preprocess_input_count - preprocess_output_count
-                    preprocess_pct_kept = (preprocess_output_count / preprocess_input_count * 100) if preprocess_input_count > 0 else 0
-                    
-                    self.logger.info(
-                        f"Preprocessing: {preprocess_input_count} → {preprocess_output_count} valid "
-                        f"({preprocess_pct_kept:.1f}% kept, {preprocess_dropped_count} dropped)"
-                    )
-                    self.logger.info(
-                        f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
-                        f"{len(preprocess_stats.get('validation_errors', []))} errors"
-                    )
-                
-                return conversations
-                
-            except Exception as e:
-                self.logger.error(f"❌ Fetch failed: {e}")
-                raise FetchError(f"Failed to fetch conversations: {e}") from e
+                self.logger.info(
+                    f"Preprocessing: {preprocess_input_count} → {preprocess_output_count} valid "
+                    f"({preprocess_pct_kept:.1f}% kept, {preprocess_dropped_count} dropped)"
+                )
+                self.logger.info(
+                    f"Preprocessing complete: {preprocess_stats['processed_count']} valid conversations, "
+                    f"{len(preprocess_stats.get('validation_errors', []))} errors"
+                )
+            
+            duration = (datetime.now() - simple_start).total_seconds()
+            if duration > self.simple_mode_warning_seconds:
+                self.logger.warning(
+                    "SIMPLE mode fetch took %.1fs (> %ss). Consider lowering CHUNKED_FETCHER_SIMPLE_MAX_DAYS "
+                    "or forcing chunked mode for this workload.",
+                    duration,
+                    self.simple_mode_warning_seconds,
+                )
+            
+            return conversations
+            
+        except Exception as e:
+            self.logger.error(f"❌ Fetch failed: {e}")
+            raise FetchError(f"Failed to fetch conversations: {e}") from e
     
     async def _fetch_single_chunk(
         self, 
@@ -240,9 +308,12 @@ class ChunkedFetcher:
         current_date = start_date
         total_days = (end_date - start_date).days + 1
         processed_days = 0
+        total_chunks = total_days // self.max_days_per_chunk + (1 if total_days % self.max_days_per_chunk else 0)
+        chunk_counter = 0
 
         try:
             while current_date <= end_date:
+                chunk_counter += 1
                 # Calculate chunk end date
                 # For 1-day chunks: need to extend from start of day to end of day
                 # Add max_days_per_chunk - 1 to get number of full days in chunk
@@ -253,7 +324,7 @@ class ChunkedFetcher:
                     end_date
                 )
 
-                self.logger.info(f"Processing chunk: {current_date.date()} to {chunk_end.date()}")
+                self.logger.info(f"Processing chunk {chunk_counter}/{total_chunks}: {current_date.date()} to {chunk_end.date()}")
                 self.logger.debug(f"  Chunk timestamps: {current_date} to {chunk_end}")
 
                 try:
@@ -262,6 +333,8 @@ class ChunkedFetcher:
                     chunk_conversations = await self.intercom_service.fetch_conversations_by_date_range(
                         current_date, chunk_end, max_conversations=max_conversations
                     )
+                    
+                    self.logger.debug(f"Chunk {chunk_counter} returned {len(chunk_conversations)} conversations")
 
                     # Deduplicate: only add conversations we haven't seen
                     duplicates = 0
@@ -312,7 +385,7 @@ class ChunkedFetcher:
                     if progress_callback:
                         progress_callback(len(all_conversations), processed_days, total_days)
 
-                    self.logger.info(f"Chunk completed: {len(chunk_conversations)} conversations (total: {len(all_conversations)})")
+                    self.logger.info(f"Chunk {chunk_counter} completed: {len(chunk_conversations)} conversations (total: {len(all_conversations)})")
 
                     # Delay between chunks to respect rate limits
                     if chunk_end < end_date:
@@ -364,8 +437,8 @@ class ChunkedFetcher:
                 self.logger.info(f"FINAL: Fetched {len(all_conversations)} conversations")
                 self.logger.info(f"FINAL: Date range {final_min.date()} to {final_max.date()}")
                 self.logger.info(f"   Requested: {start_date.date()} to {end_date.date()}")
-        else:
-            self.logger.info(f"Daily chunking completed: {len(all_conversations)} total conversations")
+        
+        self.logger.info(f"Fetched {len(all_conversations)} conversations across {chunk_counter} chunks")
         
         # Preprocess all conversations if enabled
         if self.enable_preprocessing and self.preprocessor and all_conversations:

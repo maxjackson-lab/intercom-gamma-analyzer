@@ -1491,6 +1491,17 @@ This is the first analysis period. Future reports will include:
             section += f"**Sentiment:** {sentiment.get('sentiment', 'neutral').capitalize()} "
             section += f"(confidence: {sentiment.get('confidence', 0):.0%})\n\n"
             
+            # NEW: Add Key Themes (from label aggregation) if available
+            # This is where the "Bucket & Label" pattern pays off in the final report
+            label_summary = category_data.get('label_summary', [])
+            if label_summary:
+                section += "**Key Themes (Specific Issues):**\n"
+                for label_item in label_summary[:5]:  # Top 5 labels
+                    label_text = label_item.get('label', 'Unknown')
+                    label_count = label_item.get('count', 0)
+                    section += f"• **{label_text}** ({label_count} cases)\n"
+                section += "\n"
+
             # Add representative conversation examples
             examples = category_data.get('examples', {})
             if examples:

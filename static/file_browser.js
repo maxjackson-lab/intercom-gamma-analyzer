@@ -5,10 +5,53 @@
  * WITHOUT needing to run a new analysis first.
  */
 
-console.log('📁 File browser loading...');
+const FILE_BROWSER_DEBUG = typeof window !== 'undefined' && window.FILE_BROWSER_DEBUG === true;
+function debugLog(...args) {
+    if (FILE_BROWSER_DEBUG) {
+        console.log(...args);
+    }
+}
+
+function notifyZipStatus(message, type = 'info') {
+    if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+        window.showToast(message, type);
+    } else {
+        debugLog(message);
+    }
+}
+
+let allZipDownloadInProgress = false;
+const folderZipDownloadsInProgress = new Set();
+
+function setButtonState(button, downloading, busyLabel) {
+    if (!button) return;
+    if (downloading) {
+        if (!button.dataset.defaultLabel) {
+            button.dataset.defaultLabel = button.textContent.trim();
+        }
+        button.disabled = true;
+        button.textContent = busyLabel;
+    } else {
+        button.disabled = false;
+        const label = button.dataset.defaultLabel || button.textContent;
+        button.textContent = label;
+    }
+}
+
+function setAllZipButtonState(downloading) {
+    const button = document.getElementById('downloadAllZipButton');
+    setButtonState(button, downloading, '⏳ Preparing ZIP...');
+}
+
+function setFolderZipButtonState(folderName, downloading) {
+    const button = document.querySelector(`button[data-folder-zip-button="${folderName}"]`);
+    setButtonState(button, downloading, '⏳ Preparing...');
+}
+
+debugLog('📁 File browser loading...');
 
 async function loadAllAvailableFiles() {
-    console.log('📂 Fetching all available output files...');
+    debugLog('📂 Fetching all available output files...');
     
     try {
         const response = await fetch('/api/browse-files');
@@ -18,7 +61,7 @@ async function loadAllAvailableFiles() {
         
         const data = await response.json();
         
-        console.log(`✅ Found ${data.total_files} files across ${data.directories} directories`);
+        debugLog(`✅ Found ${data.total_files} files across ${data.directories} directories`);
         
         displayAllFiles(data);
         
@@ -51,7 +94,7 @@ function displayAllFiles(data) {
     let html = '<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">';
     html += `<p style="color: #22c55e; font-weight: 600; margin: 0;">Found ${data.total_files} files</p>`;
     html += `
-        <button onclick="downloadAllAsZip()" 
+        <button id="downloadAllZipButton" data-default-label="📦 Download All as ZIP" onclick="downloadAllAsZip()" 
                 style="padding: 8px 16px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 6px; color: #22c55e; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
             📦 Download All as ZIP
         </button>
@@ -68,7 +111,7 @@ function displayAllFiles(data) {
                     <h4 style="color: #60a5fa; margin: 0;">
                         📂 ${dirName.replace(/_/g, ' ')}
                     </h4>
-                    <button onclick="downloadFolderAsZip('${dirName}')" 
+                    <button data-folder-zip-button="${dirName}" data-default-label="📦 Download Folder" onclick="downloadFolderAsZip('${dirName}')" 
                             style="padding: 6px 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); border-radius: 4px; color: #a78bfa; cursor: pointer; font-size: 12px; font-weight: 600;">
                         📦 Download Folder
                     </button>
@@ -133,7 +176,7 @@ async function downloadFileFromBrowser(filePath) {
         return;
     }
     
-    console.log(`📥 Downloading file: ${filePath}`);
+    debugLog(`📥 Downloading file: ${filePath}`);
     
     try {
         const response = await fetch(`/outputs/${filePath}`);
@@ -152,16 +195,16 @@ async function downloadFileFromBrowser(filePath) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        console.log(`✅ Download started: ${filePath}`);
+        debugLog(`✅ Download started: ${filePath}`);
     } catch (error) {
         console.error(`❌ Download failed: ${error.message}`);
-        alert(`Failed to download file: ${error.message}`);
+        notifyZipStatus(`Failed to download file: ${error.message}`, 'error');
     }
 }
 
 // Auto-load files when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Page loaded, loading available files...');
+    debugLog('🚀 Page loaded, loading available files...');
     loadAllAvailableFiles();
     
     // Refresh files every 30 seconds
@@ -169,14 +212,34 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function downloadAllAsZip() {
-    console.log('📦 Downloading all files as ZIP...');
+    if (allZipDownloadInProgress) {
+        notifyZipStatus('A ZIP download is already running.', 'warning');
+        return;
+    }
+    allZipDownloadInProgress = true;
+    setAllZipButtonState(true);
+    debugLog('📦 Requesting ZIP download from /api/download-zip?file_type=all');
     
-    try {
+    const performDownload = async () => {
         const response = await fetch('/api/download-zip?file_type=all');
         
+        debugLog('Response status:', response.status, response.statusText);
+        
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            const errorText = await response.text();
+            console.error('ZIP download error response:', errorText);
+            const error = new Error(`${response.status} ${response.statusText}\n\n${errorText}`);
+            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                error.nonRetryable = true;
+            }
+            throw error;
         }
+        
+        return response;
+    };
+
+    try {
+        const response = await downloadWithRetry(performDownload);
         
         // Get filename from response headers
         const contentDisposition = response.headers.get('Content-Disposition');
@@ -199,23 +262,47 @@ async function downloadAllAsZip() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        console.log(`✅ ZIP download started: ${filename}`);
+        debugLog(`✅ ZIP download started: ${filename}`);
     } catch (error) {
         console.error(`❌ ZIP download failed: ${error.message}`);
-        alert(`Failed to download ZIP: ${error.message}`);
+        notifyZipStatus(`Failed to download ZIP: ${error.message}`, 'error');
+    } finally {
+        allZipDownloadInProgress = false;
+        setAllZipButtonState(false);
     }
 }
 
 async function downloadFolderAsZip(folderName) {
-    console.log(`📦 Downloading folder as ZIP: ${folderName}`);
+    if (folderZipDownloadsInProgress.has(folderName)) {
+        notifyZipStatus(`A ZIP download for ${folderName} is already running.`, 'warning');
+        return;
+    }
+    folderZipDownloadsInProgress.add(folderName);
+    setFolderZipButtonState(folderName, true);
+    debugLog('Requesting folder ZIP:', folderName);
+    const fullUrl = '/api/download-folder-zip?folder=' + encodeURIComponent(folderName);
+    debugLog('Full URL:', fullUrl);
     
-    try {
-        // Use folder name as a filter (it's part of the execution directory name)
-        const response = await fetch(`/api/download-folder-zip?folder=${encodeURIComponent(folderName)}`);
+    const performDownload = async () => {
+        const response = await fetch(fullUrl);
+        
+        debugLog('Response status:', response.status, response.statusText);
         
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            const errorText = await response.text();
+            console.error('ZIP download error response:', errorText);
+            const error = new Error(`${response.status} ${response.statusText}\n\n${errorText}`);
+            if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+                error.nonRetryable = true;
+            }
+            throw error;
         }
+        
+        return response;
+    };
+    
+    try {
+        const response = await downloadWithRetry(performDownload);
         
         // Get filename from response headers
         const contentDisposition = response.headers.get('Content-Disposition');
@@ -238,11 +325,38 @@ async function downloadFolderAsZip(folderName) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        console.log(`✅ Folder ZIP download started: ${filename}`);
+        debugLog(`✅ Folder ZIP download started: ${filename}`);
     } catch (error) {
         console.error(`❌ Folder ZIP download failed: ${error.message}`);
-        alert(`Failed to download folder ZIP: ${error.message}`);
+        notifyZipStatus(`Failed to download folder ZIP: ${error.message}`, 'error');
+    } finally {
+        folderZipDownloadsInProgress.delete(folderName);
+        setFolderZipButtonState(folderName, false);
     }
+}
+
+/**
+ * Retry helper for downloads
+ */
+async function downloadWithRetry(fn, retries = 3, delay = 1000) {
+    let lastError;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            console.warn(`Download attempt ${i + 1} failed:`, error);
+            lastError = error;
+            if (error && error.nonRetryable) {
+                break;
+            }
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    
+    throw lastError;
 }
 
 // Export to global scope
@@ -251,5 +365,5 @@ window.downloadFileFromBrowser = downloadFileFromBrowser;
 window.downloadAllAsZip = downloadAllAsZip;
 window.downloadFolderAsZip = downloadFolderAsZip;
 
-console.log('✅ File browser loaded');
+debugLog('✅ File browser loaded');
 

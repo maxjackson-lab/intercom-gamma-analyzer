@@ -1,0 +1,235 @@
+================================================================================
+AGENT DEBUG REPORT - What Each Agent Produced
+Generated: 2025-11-26T10:53:15.220134
+================================================================================
+
+
+================================================================================
+SegmentationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.78
+⏱️  Duration: 2.57s
+
+Data:
+  • paid_customer_conversations: [{'id': '215471840754241', 'created_at': 
+datetime.datetime(2025, 11, 18, 17, 46, 14, tzinfo=datetime
+  • paid_fin_resolved_conversations: [{'id': '215471847930035', 'created_at': 
+datetime.datetime(2025, 11, 19, 1, 27, 55, tzinfo=datetime.
+  • free_fin_only_conversations: [{'id': '215471841228503', 'created_at': 
+datetime.datetime(2025, 11, 18, 18, 2, 26, tzinfo=datetime.
+  • unknown_tier: []
+  • agent_distribution: {'fin_only': 2136, 'fin_to_horatio': 717, 
+'fin_to_boldr': 237, 'fin_to_vendor_to_senior': 21, 'fin_t
+  • agent_assignments: {'215471841228503': {'segment': 'free', 'agent_type': 
+'fin_ai', 'vendor': 'fin'}, '215471840754241':
+  • segmentation_summary: {'paid_count': 3130, 'paid_percentage': 45.1, 
+'free_count': 3809, 'free_percentage': 54.9, 'unknown_
+
+================================================================================
+TopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 769.78s
+
+Topic Distribution:
+
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┓
+┃ Topic                ┃ Volume ┃     % ┃ Method    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━┩
+│ Billing              │   3408 │ 49.1% │ llm_smart │
+│ Product Question     │   2044 │ 29.5% │ llm_smart │
+│ Account              │    615 │  8.9% │ llm_smart │
+│ Bug                  │    303 │  4.4% │ llm_smart │
+│ Workspace            │    284 │  4.1% │ llm_smart │
+│ Unknown              │     91 │  1.3% │ llm_smart │
+│ Privacy              │     56 │  0.8% │ llm_smart │
+│ Promotions           │     50 │  0.7% │ llm_smart │
+│ Partnerships         │     36 │  0.5% │ llm_smart │
+│ Chargeback           │     25 │  0.4% │ llm_smart │
+│ Feedback             │      9 │  0.1% │ llm_smart │
+│ Abuse                │      9 │  0.1% │ llm_smart │
+│ Unknown/unresponsive │      9 │  0.1% │ fallback  │
+└──────────────────────┴────────┴───────┴───────────┘
+
+📊 13 topics detected
+   LLM classified: 5991
+   Keyword matched: 895
+
+================================================================================
+SubTopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 15.00s
+🪙 Tokens: 8956
+
+Sub-Topic Hierarchy (3-Tier):
+
+Product Question
+  Tier 3 (LLM discovered):
+    • Export Issues: 74 (8.7%)
+    • Font Compatibility: 160 (18.8%)
+    • Image Generation Problems: 1 (0.1%)
+
+Billing
+  Tier 2 (from Intercom SDK):
+    • Refund: 823 (50.1%)
+    • Subscription: 135 (8.2%)
+    • Invoice: 37 (2.3%)
+    • Discount: 24 (1.5%)
+  Tier 3 (LLM discovered):
+    • Incorrect Billing Information: 4 (0.2%)
+    • Subscription Management Issues: 317 (19.3%)
+    • Unexpected Charges: 19 (1.2%)
+
+Bug
+  Tier 2 (from Intercom SDK):
+    • Export: 27 (16.7%)
+    • API: 15 (9.3%)
+    • Font: 8 (4.9%)
+    • Account: 4 (2.5%)
+    • Workspace: 1 (0.6%)
+  Tier 3 (LLM discovered):
+    • Cloudflare Errors: 6 (3.7%)
+    • Publishing Issues: 39 (24.1%)
+    • Link Errors: 107 (66.0%)
+
+Unknown
+  Tier 3 (LLM discovered):
+    • Request for Human Interaction: 12 (24.0%)
+    • Urgency in Request: 41 (82.0%)
+    • Technical Assistance: 0 (0.0%)
+
+Account
+  Tier 2 (from Intercom SDK):
+    • Password Reset: 12 (5.2%)
+    • Credits: 10 (4.4%)
+  Tier 3 (LLM discovered):
+    • Email Change: 6 (2.6%)
+    • Cloudflare Access Issues: 7 (3.1%)
+    • Account Access Issues: 24 (10.5%)
+
+Privacy
+  Tier 3 (LLM discovered):
+    • Data Storage Location: 3 (15.0%)
+    • Data Usage for AI Training: 3 (15.0%)
+    • Compliance with Regulations: 4 (20.0%)
+
+Workspace
+  Tier 3 (LLM discovered):
+    • Domain Connection Issues: 53 (41.1%)
+    • Custom Domain Limits: 48 (37.2%)
+    • Privacy and Access Control: 53 (41.1%)
+
+Promotions
+  Tier 2 (from Intercom SDK):
+    • Promotion: 9 (50.0%)
+  Tier 3 (LLM discovered):
+    • Educational Discounts: 3 (16.7%)
+    • Referral Code Issues: 2 (11.1%)
+    • Organizational Discounts: 3 (16.7%)
+
+Partnerships
+  Tier 2 (from Intercom SDK):
+    • Affiliate: 9 (56.2%)
+  Tier 3 (LLM discovered):
+    • Social Media Collaborations: 3 (18.8%)
+    • Enterprise and Government Partnerships: 2 (12.5%)
+    • Reseller and Distribution Agreements: 2 (12.5%)
+
+Unknown/unresponsive
+
+Feedback
+  Tier 3 (LLM discovered):
+    • User Interface Concerns: 2 (50.0%)
+    • Feature Requests: 1 (25.0%)
+    • SEO Optimization Issues: 1 (25.0%)
+
+Abuse
+
+Chargeback
+
+
+================================================================================
+FinPerformanceAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 15.58s
+
+Fin AI Performance:
+
+Free Tier:
+  Resolution Rate: 60.7%
+  Knowledge Gaps: 39.7%
+
+Paid Tier:
+  Resolution Rate: 96.9%
+  Knowledge Gaps: 6.5%
+
+================================================================================
+CorrelationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.54
+⏱️  Duration: 0.07s
+
+Statistical Correlations Found: 1
+
+• Message Count ↔ Escalation (ratio=1.0x)
+  Strength: 1.00
+  Insight: Escalated conversations average 25.1 messages vs 21.0 for Fin-only
+
+
+================================================================================
+QualityInsightsAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.92
+⏱️  Duration: 0.05s
+
+Quality Insights: 0
+
+
+================================================================================
+Per-Topic Sentiment Analysis
+================================================================================
+
+Billing:
+  Customers are frustrated with unexpected charges and refund issues, 
+highlighting a need for clearer billing communication and resolution processes.
+
+Product Question:
+  Customers appreciate the product's capabilities but are frustrated by 
+persistent technical issues like API errors and export failures.
+
+Bug:
+  Customers are frustrated with persistent bugs affecting presentation access 
+and rendering, but they appreciate the support team's responsiveness.
+
+Account:
+  Customers appreciate the flexibility of managing their accounts but are 
+frustrated by delays in support response and issues with accessing account 
+features.
+
+Unknown:
+  Customers are eager to connect with a human agent, indicating frustration with
+automated systems.
+
+
+================================================================================
+TRACEABILITY COVERAGE
+================================================================================
+
+• BpoPerformanceAgent: 0 samples
+• FinPerformanceAgent: 6 samples (3 Free, 3 Paid)
+• TopicExamples: 106 samples across 13 topics
+

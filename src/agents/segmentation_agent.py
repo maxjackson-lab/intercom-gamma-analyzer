@@ -19,7 +19,7 @@ Performance Modes:
 
 import logging
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple, Callable
 from datetime import datetime
 from pydantic import ValidationError
 
@@ -29,6 +29,20 @@ from src.services.fin_escalation_analyzer import is_fin_resolved
 from src.utils.conversation_utils import extract_conversation_text
 
 logger = logging.getLogger(__name__)
+
+BILLING_KEYWORD_PATTERNS = {
+    'refund': re.compile(r'\brefund(?:ed|s|ing)?\b'),
+    'charged': re.compile(r'\bcharg(?:e|ed|es|ing)\b'),
+    'invoice': re.compile(r'\binvoice(s)?\b'),
+    'chargeback': re.compile(r'\bchargeback(s)?\b'),
+    'subscription': re.compile(r'\bsubscription\b'),
+    'payment': re.compile(r'\bpayment(?:s)?\b'),
+    'billing': re.compile(r'\bbilling\b'),
+    'credit card': re.compile(r'\bcredit\s+card\b'),
+    'receipt': re.compile(r'\breceipt\b'),
+}
+
+STRONG_BILLING_TERMS = {'refund', 'charged', 'invoice', 'chargeback'}
 
 
 def is_sal_or_fin(author: Dict) -> bool:
@@ -101,8 +115,31 @@ class SegmentationAgent(BaseAgent):
             'horatio': r'horatio|@horatio\.com|@hirehoratio\.co',
             'boldr': r'\bboldr\b|@boldrimpact\.com'
         }
+        self._tier_source_keys = [
+            'stripe',
+            'schema',
+            'custom_attribute',
+            'segment_paid_users',
+            'billing_keyword_promotion',
+            'default_free'
+        ]
+        self._reset_tier_source_counts()
 
-    def _extract_customer_tier(self, conv: Dict) -> CustomerTier:
+    def _reset_tier_source_counts(self) -> None:
+        """Reset tier source counters for a new execution run."""
+        self.tier_source_counts = {key: 0 for key in self._tier_source_keys}
+
+    def _track_tier_source(self, source: str) -> None:
+        """Track which data source produced a tier classification."""
+        if source not in self.tier_source_counts:
+            self.tier_source_counts[source] = 0
+        self.tier_source_counts[source] += 1
+
+    def _extract_customer_tier(
+        self,
+        conv: Dict,
+        conversation_text_supplier: Optional[Callable[[], str]] = None,
+    ) -> Tuple[CustomerTier, str]:
         """
         Extract and validate customer tier from conversation data.
 
@@ -119,111 +156,173 @@ class SegmentationAgent(BaseAgent):
             CustomerTier enum instance (FREE, TEAM, BUSINESS, PRO, PLUS, or ULTRA)
         """
         conv_id = conv.get('id', 'unknown')
+        inferred_tier: Optional[CustomerTier] = None
+        tier_source: Optional[str] = None
+
+        contacts_data = conv.get('contacts', {})
+        contacts_list = []
+        if contacts_data and isinstance(contacts_data, dict):
+            contacts_list = contacts_data.get('contacts', []) or []
 
         # PRIORITY 1: Stripe plan (SOURCE OF TRUTH - billing system is authoritative)
-        contacts_data = conv.get('contacts', {})
-        if contacts_data and isinstance(contacts_data, dict):
-            contacts_list = contacts_data.get('contacts', [])
-            if contacts_list and len(contacts_list) > 0:
-                contact = contacts_list[0]
-                custom_attrs = contact.get('custom_attributes', {}) or {}
-                
-                # Check for Stripe subscription (SOURCE OF TRUTH)
-                stripe_status = custom_attrs.get('stripe_subscription_status')
-                stripe_plan = custom_attrs.get('stripe_plan')
-                
-                if stripe_status == 'active' and stripe_plan:
-                    self.logger.debug(f"Found active Stripe subscription '{stripe_plan}' for conversation {conv_id}")
-                    
-                    # Map Stripe plan to CustomerTier
-                    plan_lower = str(stripe_plan).lower()
-                    
-                    if 'team' in plan_lower:
-                        self.logger.debug(f"Detected TEAM tier from Stripe plan for conversation {conv_id}")
-                        return CustomerTier.TEAM
-                    elif 'business' in plan_lower:
-                        self.logger.debug(f"Detected BUSINESS tier from Stripe plan for conversation {conv_id}")
-                        return CustomerTier.BUSINESS
-                    elif 'plus' in plan_lower:
-                        self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
-                        return CustomerTier.PLUS
-                    elif 'pro' in plan_lower:
-                        self.logger.debug(f"Detected PRO tier from Stripe plan for conversation {conv_id}")
-                        return CustomerTier.PRO
-                    elif 'ultra' in plan_lower:
-                        self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
-                        return CustomerTier.ULTRA
-                    else:
-                        # Active Stripe subscription but unrecognized plan name
-                        # Default to TEAM (lowest paid tier) rather than FREE
-                        self.logger.debug(f"Active Stripe plan '{stripe_plan}' doesn't match known tiers, defaulting to TEAM for conversation {conv_id}")
-                        return CustomerTier.TEAM
-        
+        def _set_tier(candidate: CustomerTier, source: str) -> None:
+            nonlocal inferred_tier, tier_source
+            if inferred_tier is None:
+                inferred_tier = candidate
+                tier_source = source
+
+        stripe_tier_set = False
+        if contacts_list and inferred_tier is None:
+            contact = contacts_list[0]
+            custom_attrs = contact.get('custom_attributes', {}) or {}
+
+            stripe_status = custom_attrs.get('stripe_subscription_status')
+            stripe_plan = custom_attrs.get('stripe_plan')
+
+            if stripe_status == 'active' and stripe_plan:
+                self.logger.debug(f"Found active Stripe subscription '{stripe_plan}' for conversation {conv_id}")
+                plan_lower = str(stripe_plan).lower()
+
+                if 'team' in plan_lower:
+                    self.logger.debug(f"Detected TEAM tier from Stripe plan for conversation {conv_id}")
+                    _set_tier(CustomerTier.TEAM, 'stripe')
+                    stripe_tier_set = True
+                if 'business' in plan_lower:
+                    self.logger.debug(f"Detected BUSINESS tier from Stripe plan for conversation {conv_id}")
+                    _set_tier(CustomerTier.BUSINESS, 'stripe')
+                    stripe_tier_set = True
+                if 'plus' in plan_lower:
+                    self.logger.debug(f"Detected PLUS tier from Stripe plan for conversation {conv_id}")
+                    _set_tier(CustomerTier.PLUS, 'stripe')
+                    stripe_tier_set = True
+                if 'pro' in plan_lower:
+                    self.logger.debug(f"Detected PRO tier from Stripe plan for conversation {conv_id}")
+                    _set_tier(CustomerTier.PRO, 'stripe')
+                    stripe_tier_set = True
+                if 'ultra' in plan_lower:
+                    self.logger.debug(f"Detected ULTRA tier from Stripe plan for conversation {conv_id}")
+                    _set_tier(CustomerTier.ULTRA, 'stripe')
+                    stripe_tier_set = True
+
+                if not stripe_tier_set:
+                    self.logger.warning(
+                        f"Active Stripe plan '{stripe_plan}' doesn't match known tiers for conversation {conv_id} "
+                        f"- defaulting to TEAM"
+                    )
+                    _set_tier(CustomerTier.TEAM, 'stripe')
+
         # PRIORITY 2: Pre-validated tier from ConversationSchema (if Stripe not available)
-        tier = conv.get('tier')
-        if isinstance(tier, CustomerTier):
+        if inferred_tier is None:
+            tier = conv.get('tier')
+        else:
+            tier = None
+        if isinstance(tier, CustomerTier) and inferred_tier is None:
             self.logger.debug(f"No Stripe data, using pre-validated tier {tier.value} for conversation {conv_id}")
-            return tier
-        
-        # PRIORITY 3: custom_attributes.tier string (fallback if Stripe and pre-validated unavailable)
-        if tier and isinstance(tier, str) and tier.strip():
-            try:
-                tier_string_lower = tier.strip().lower()
-                for tier_enum in CustomerTier:
-                    if tier_enum.value.lower() == tier_string_lower:
-                        self.logger.debug(f"No Stripe data, extracted tier {tier_enum.value} from top-level string for conversation {conv_id}")
-                        return tier_enum
+            _set_tier(tier, 'schema')
+        elif tier and isinstance(tier, str) and tier.strip() and inferred_tier is None:
+            matched_tier = self._match_tier_string(tier)
+            if matched_tier:
+                self.logger.debug(
+                    f"No Stripe data, extracted tier {matched_tier.value} from top-level string for conversation {conv_id}"
+                )
+                _set_tier(matched_tier, 'schema')
+            else:
                 self.logger.debug(f"Top-level tier string '{tier}' did not match any CustomerTier enum for conversation {conv_id}")
-            except Exception as e:
-                self.logger.debug(f"Error processing top-level tier string for conversation {conv_id}: {e}")
 
-        # PRIORITY 4: Check contact custom_attributes.tier
-        tier_string = None
+        # PRIORITY 3: custom_attributes.tier string (fallback if Stripe and pre-validated unavailable)
+        if inferred_tier is None and contacts_list:
+            contact = contacts_list[0]
+            custom_attrs = contact.get('custom_attributes', {}) or {}
+            contact_tier = custom_attrs.get('tier')
+            matched_tier = self._match_tier_string(contact_tier)
+            if matched_tier:
+                self.logger.debug(f"Extracted tier {matched_tier.value} from contact custom_attributes for conversation {conv_id}")
+                _set_tier(matched_tier, 'custom_attribute')
 
-        if contacts_data and isinstance(contacts_data, dict):
-            contacts_list = contacts_data.get('contacts', [])
-            if contacts_list and len(contacts_list) > 0:
-                contact = contacts_list[0]
-                custom_attrs = contact.get('custom_attributes', {}) or {}
-                tier_string = custom_attrs.get('tier')
-
-        # Fallback to conversation-level custom attributes
-        if not tier_string:
+        if inferred_tier is None:
             custom_attrs = conv.get('custom_attributes', {}) or {}
-            tier_string = custom_attrs.get('tier')
+            conv_tier = custom_attrs.get('tier')
+            matched_tier = self._match_tier_string(conv_tier)
+            if matched_tier:
+                self.logger.debug(f"Extracted tier {matched_tier.value} from conversation custom_attributes for conversation {conv_id}")
+                _set_tier(matched_tier, 'custom_attribute')
+            elif conv_tier:
+                self.logger.debug(f"Unknown tier value '{conv_tier}' for conversation {conv_id}, defaulting to FREE baseline")
 
-        # Try to match tier string to enum
-        if tier_string:
-            try:
-                tier_string_lower = str(tier_string).lower()
-                for tier_enum in CustomerTier:
-                    if tier_enum.value.lower() == tier_string_lower:
-                        self.logger.debug(f"No Stripe data, extracted tier {tier_enum.value} from custom_attributes for conversation {conv_id}")
-                        return tier_enum
+        # PRIORITY 4: Check "Paid Users" segment as final fallback before FREE
+        if inferred_tier is None and contacts_list:
+            contact = contacts_list[0]
+            segments = contact.get('segments')
+            if isinstance(segments, dict):
+                segment_entries = segments.get('segments') or []
+                for segment in segment_entries:
+                    if segment.get('name') == 'Paid Users':
+                        self.logger.debug(
+                            f"Contact is in 'Paid Users' segment for conversation {conv_id}, defaulting to TEAM (lowest paid tier)"
+                        )
+                        _set_tier(CustomerTier.TEAM, 'segment_paid_users')
+                        break
 
-                # Unknown tier value
-                self.logger.debug(f"Unknown tier value '{tier_string}' for conversation {conv_id}, defaulting to FREE")
-            except Exception as e:
-                self.logger.debug(f"Error matching tier for conversation {conv_id}: {e}, defaulting to FREE")
-        
-        # PRIORITY 5 (LAST): Check "Paid Users" segment as final fallback before FREE
-        if contacts_data and isinstance(contacts_data, dict):
-            contacts_list = contacts_data.get('contacts', [])
-            if contacts_list and len(contacts_list) > 0:
-                contact = contacts_list[0]
-                
-                # Check if contact has segments information
-                if 'segments' in contact:
-                    segments = contact['segments']
-                    if 'segments' in segments and len(segments['segments']) > 0:
-                        for segment in segments['segments']:
-                            if segment.get('name') == 'Paid Users':
-                                self.logger.debug(f"Contact is in 'Paid Users' segment for conversation {conv_id}, defaulting to TEAM (lowest paid tier)")
-                                return CustomerTier.TEAM
+        if inferred_tier is None:
+            self.logger.debug(f"No tier data found for conversation {conv_id}, defaulting to FREE")
+            inferred_tier = CustomerTier.FREE
+            tier_source = 'default_free'
 
-        # Final default to FREE
-        self.logger.debug(f"No tier data found for conversation {conv_id}, defaulting to FREE")
-        return CustomerTier.FREE
+        if inferred_tier == CustomerTier.FREE:
+            return self._apply_billing_keyword_promotion(
+                conv_id=conv_id,
+                base_tier=inferred_tier,
+                tier_source=tier_source or 'default_free',
+                conversation_text_supplier=conversation_text_supplier,
+            )
+
+        return inferred_tier, tier_source or 'schema'
+
+    def _match_tier_string(self, tier_value: Optional[Any]) -> Optional[CustomerTier]:
+        """Helper to normalize arbitrary tier strings into CustomerTier values."""
+        if not tier_value or not isinstance(tier_value, str):
+            return None
+        tier_string_lower = tier_value.strip().lower()
+        if not tier_string_lower:
+            return None
+        for tier_enum in CustomerTier:
+            if tier_enum.value == tier_string_lower:
+                return tier_enum
+        return None
+
+    def _apply_billing_keyword_promotion(
+        self,
+        *,
+        conv_id: str,
+        base_tier: CustomerTier,
+        tier_source: str,
+        conversation_text_supplier: Optional[Callable[[], str]] = None,
+    ) -> Tuple[CustomerTier, str]:
+        """Promote Free tier conversations to TEAM if strong billing language is detected."""
+        if conversation_text_supplier is None:
+            return base_tier, tier_source
+
+        text = conversation_text_supplier()
+        matched_keyword = self._detect_strong_billing_keyword(text)
+
+        if matched_keyword:
+            self.logger.info(
+                f"Conversation {conv_id}: tier promotion {base_tier.value}→TEAM "
+                f"(original_source={tier_source}, reason=billing_keyword:{matched_keyword})"
+            )
+            return CustomerTier.TEAM, 'billing_keyword_promotion'
+
+        return base_tier, tier_source
+
+    def _detect_strong_billing_keyword(self, text: str) -> Optional[str]:
+        """Return the matched strong billing keyword if present."""
+        if not text:
+            return None
+        for term in STRONG_BILLING_TERMS:
+            pattern = BILLING_KEYWORD_PATTERNS.get(term)
+            if pattern and pattern.search(text):
+                return term
+        return None
 
     def get_agent_specific_instructions(self) -> str:
         """Segmentation agent specific instructions"""
@@ -302,6 +401,7 @@ Output: Segmented conversations with agent type labels
             
             conversations = context.conversations
             self.logger.info(f"SegmentationAgent: Segmenting {len(conversations)} conversations")
+            self._reset_tier_source_counts()
             
             # Segment conversations
             paid_customers = []
@@ -327,9 +427,48 @@ Output: Segmented conversations with agent type labels
                 'unknown': []        # Unclassified
             }
             agent_assignments: Dict[str, Dict[str, Any]] = {}
+
+            conversation_text_cache: Dict[str, str] = {}
+
+            def _get_cached_text(conv_id: str, conv_obj: Dict) -> str:
+                cached = conversation_text_cache.get(conv_id)
+                if cached is not None:
+                    return cached
+                text_value = extract_conversation_text(conv_obj, clean_html=True).lower()
+                conversation_text_cache[conv_id] = text_value
+                return text_value
             
+            tier_distribution = {'free': 0, 'team': 0, 'business': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
+            defaulted_tier_count = 0
+
             for conv in conversations:
-                segment, agent_type, vendor_label = self._classify_conversation(conv)
+                conv_id = str(conv.get('id') or len(agent_assignments))
+
+                def _conversation_text_supplier(conv_id: str = conv_id, conv_obj: Dict = conv) -> str:
+                    return _get_cached_text(conv_id, conv_obj)
+
+                tier, tier_source = self._extract_customer_tier(
+                    conv,
+                    conversation_text_supplier=_conversation_text_supplier,
+                )
+                self._track_tier_source(tier_source)
+                if tier_source == 'default_free':
+                    defaulted_tier_count += 1
+
+                tier_key = tier.value if isinstance(tier, CustomerTier) else 'unknown'
+                if tier_key in tier_distribution:
+                    tier_distribution[tier_key] += 1
+                else:
+                    tier_distribution['unknown'] += 1
+
+                conversation_text_for_classification = (
+                    _conversation_text_supplier() if self.track_escalations else None
+                )
+                segment, agent_type, vendor_label = self._classify_conversation(
+                    conv,
+                    precomputed_tier=tier,
+                    conversation_text=conversation_text_for_classification,
+                )
 
                 if segment == 'paid':
                     paid_customers.append(conv)
@@ -345,66 +484,13 @@ Output: Segmented conversations with agent type labels
                 
                 agent_distribution[agent_type].append(conv)
 
-                conv_id = str(conv.get('id') or len(agent_assignments))
                 agent_assignments[conv_id] = {
                     'segment': segment,
                     'agent_type': agent_type,
-                    'vendor': vendor_label
+                    'vendor': vendor_label,
+                    'tier': tier.value,
+                    'tier_source': tier_source
                 }
-
-            # Tier distribution tracking and tier data quality
-            tier_distribution = {'free': 0, 'team': 0, 'business': 0, 'pro': 0, 'plus': 0, 'ultra': 0, 'unknown': 0}
-            defaulted_tier_count = 0
-
-            for conv in conversations:
-                tier = self._extract_customer_tier(conv)
-                if tier == CustomerTier.FREE:
-                    tier_distribution['free'] += 1
-
-                    # Check if tier was defaulted (missing from all sources)
-                    # Check pre-validated tier
-                    has_tier = isinstance(conv.get('tier'), CustomerTier)
-                    # Check top-level string tier - must match a valid CustomerTier enum value
-                    if not has_tier:
-                        top_tier = conv.get('tier')
-                        if top_tier and isinstance(top_tier, str) and top_tier.strip():
-                            tier_string_lower = top_tier.strip().lower()
-                            has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
-                    # Check contact-level custom attributes - must match a valid CustomerTier enum value
-                    if not has_tier:
-                        contacts_data = conv.get('contacts', {})
-                        if contacts_data and isinstance(contacts_data, dict):
-                            contacts_list = contacts_data.get('contacts', [])
-                            if contacts_list and len(contacts_list) > 0:
-                                contact = contacts_list[0]
-                                custom_attrs = contact.get('custom_attributes', {})
-                                contact_tier = custom_attrs.get('tier')
-                                if contact_tier and isinstance(contact_tier, str) and contact_tier.strip():
-                                    tier_string_lower = contact_tier.strip().lower()
-                                    has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
-                    # Check conversation-level custom attributes - must match a valid CustomerTier enum value
-                    if not has_tier:
-                        custom_attrs = conv.get('custom_attributes', {})
-                        conv_tier = custom_attrs.get('tier')
-                        if conv_tier and isinstance(conv_tier, str) and conv_tier.strip():
-                            tier_string_lower = conv_tier.strip().lower()
-                            has_tier = any(tier_enum.value.lower() == tier_string_lower for tier_enum in CustomerTier)
-
-                    if not has_tier:
-                        defaulted_tier_count += 1
-
-                elif tier == CustomerTier.TEAM:
-                    tier_distribution['team'] += 1
-                elif tier == CustomerTier.BUSINESS:
-                    tier_distribution['business'] += 1
-                elif tier == CustomerTier.PRO:
-                    tier_distribution['pro'] += 1
-                elif tier == CustomerTier.PLUS:
-                    tier_distribution['plus'] += 1
-                elif tier == CustomerTier.ULTRA:
-                    tier_distribution['ultra'] += 1
-                else:
-                    tier_distribution['unknown'] += 1
 
             # Log tier distribution
             total = len(conversations)
@@ -425,6 +511,7 @@ Output: Segmented conversations with agent type labels
                     f"Plus: {tier_distribution['plus']} ({plus_pct}%), "
                     f"Ultra: {tier_distribution['ultra']} ({ultra_pct}%)"
                 )
+                self.logger.info(f"Tier sources (data provenance): {self.tier_source_counts}")
 
             # Calculate language breakdown
             language_distribution = {}
@@ -498,7 +585,8 @@ Output: Segmented conversations with agent type labels
 
                     # Tier data quality
                     'tier_distribution': tier_distribution,  # Include tier breakdown in summary
-                    
+                    'tier_sources': dict(self.tier_source_counts),
+
                     # Language/Regional breakdown
                     'language_distribution': sorted_languages,
                     'total_languages': len(sorted_languages),
@@ -638,7 +726,12 @@ Output: Segmented conversations with agent type labels
         
         return False
     
-    def _classify_conversation(self, conv: Dict) -> tuple[str, str, Optional[str]]:
+    def _classify_conversation(
+        self,
+        conv: Dict,
+        precomputed_tier: Optional[CustomerTier] = None,
+        conversation_text: Optional[str] = None,
+    ) -> tuple[str, str, Optional[str]]:
         """
         Classify conversation by customer tier and optionally ESCALATION CHAIN.
 
@@ -663,7 +756,7 @@ Output: Segmented conversations with agent type labels
         detected_vendor: Optional[str] = None
 
         # Step 1: Extract tier FIRST (tier-first classification)
-        tier = self._extract_customer_tier(conv)
+        tier = precomputed_tier or self._extract_customer_tier(conv)[0]
         
         # Paid tiers: TEAM, BUSINESS, PRO, PLUS, ULTRA
         is_paid_tier = tier in [CustomerTier.TEAM, CustomerTier.BUSINESS, CustomerTier.PRO, CustomerTier.PLUS, CustomerTier.ULTRA]
@@ -698,7 +791,10 @@ Output: Segmented conversations with agent type labels
         
         # DETAILED PATH: Track full escalation chains
         # Extract actual conversation text for vendor/staff detection
-        text = extract_conversation_text(conv, clean_html=True).lower()
+        if conversation_text is None:
+            text = extract_conversation_text(conv, clean_html=True).lower()
+        else:
+            text = conversation_text
         ai_participated = self._determine_ai_participation(conv)
         starts_with_finn = self._starts_with_finn(conv)
         

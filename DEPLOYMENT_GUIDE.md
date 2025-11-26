@@ -288,6 +288,7 @@ python src/main.py validate-data --days 7
 - AI API calls are logged for cost tracking
 - Error handling with detailed error messages
 - Performance metrics (execution time, memory usage)
+- ZIP downloads log aggregate counts (files + bytes) at INFO level. File-level paths only appear when `LOG_LEVEL=DEBUG`. The browser file explorer only emits filename logs when `window.FILE_BROWSER_DEBUG = true`, keeping production consoles clean by default.
 
 ### **Cost Management**
 - **OpenAI**: ~$0.01-0.03 per 1000 conversations

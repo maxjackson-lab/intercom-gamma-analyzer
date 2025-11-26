@@ -636,6 +636,43 @@ Return ONLY valid JSON, no other text:
             topic_cards: List[Dict[str, Any]] = []
             quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
 
+            # Calculate label_summary (Comment 2)
+            # Structure: { topic_name: [{'label': '...', 'count': N}, ...] }
+            label_aggregation = {} 
+            topics_by_conv = topic_detection.get('topics_by_conversation', {})
+            
+            for conv_id, assignments in topics_by_conv.items():
+                if not assignments:
+                    continue
+                # We typically care about the PRIMARY assignment for aggregation to avoid double counting
+                # However, instruction says "for each assignment", but usually we group by topic.
+                # If a conversation has multiple topics, it contributes to multiple label summaries.
+                for assignment in assignments:
+                    topic = assignment.get('topic')
+                    # Use 'subtopic' if available (from my changes), fallback to 'label' or empty
+                    subtopic = assignment.get('subtopic', assignment.get('label'))
+                    
+                    if not topic or not subtopic:
+                        continue
+                    
+                    if topic not in label_aggregation:
+                        label_aggregation[topic] = {}
+                    
+                    label = subtopic.strip()
+                    label_aggregation[topic][label] = label_aggregation[topic].get(label, 0) + 1
+            
+            # Convert to sorted lists and attach to topic_dist (results)
+            # This makes it available to PresentationBuilder via the results dict
+            for topic_name, counts in label_aggregation.items():
+                sorted_labels = [
+                    {'label': l, 'count': c}
+                    for l, c in sorted(counts.items(), key=lambda x: x[1], reverse=True)
+                ]
+                
+                # Attach to topic_dist if entry exists
+                if topic_name in topic_dist:
+                    topic_dist[topic_name]['label_summary'] = sorted_labels
+
             for topic_name, topic_stats in sorted_topics:
                 # Get sentiment and examples for this topic (defensive reads)
                 sentiment_payload = topic_sentiments.get(topic_name, {}).get('data', {})
@@ -846,6 +883,40 @@ Return ONLY valid JSON, no other text:
             #     cannot_determine_section = self._format_cannot_determine_section(historical_context, confidence_data_for_cannot_determine)
             #     output_sections.append(cannot_determine_section)
             
+            # Calculate label_summary (Comment 2)
+            # Structure: { topic_name: [{'label': '...', 'count': N}, ...] }
+            label_aggregation = {} 
+            topics_by_conv = topic_detection.get('topics_by_conversation', {})
+            
+            for conv_id, assignments in topics_by_conv.items():
+                if not assignments:
+                    continue
+                # We typically care about the PRIMARY assignment for aggregation to avoid double counting
+                # However, instruction says "for each assignment", but usually we group by topic.
+                # If a conversation has multiple topics, it contributes to multiple label summaries.
+                for assignment in assignments:
+                    topic = assignment.get('topic')
+                    # Use 'subtopic' if available (from my changes), fallback to 'label' or empty
+                    subtopic = assignment.get('subtopic', assignment.get('label'))
+                    
+                    if not topic or not subtopic:
+                        continue
+                    
+                    if topic not in label_aggregation:
+                        label_aggregation[topic] = {}
+                    
+                    label = subtopic.strip()
+                    label_aggregation[topic][label] = label_aggregation[topic].get(label, 0) + 1
+            
+            # Convert to sorted lists
+            label_summaries = {}
+            for topic, counts in label_aggregation.items():
+                sorted_labels = [
+                    {'label': l, 'count': c}
+                    for l, c in sorted(counts.items(), key=lambda x: x[1], reverse=True)
+                ]
+                label_summaries[topic] = sorted_labels
+
             # Combine all sections
             formatted_output = '\n'.join(output_sections)
             
@@ -880,7 +951,8 @@ Return ONLY valid JSON, no other text:
                             ],
                             'trend': trends.get(topic_name, {}).get('direction'),
                             'trend_explanation': trend_insights.get(topic_name) if 'trend_insights' in locals() else None,
-                            'subtopics': subtopics_data.get(topic_name, {}) if subtopics_data else {}
+                            'subtopics': subtopics_data.get(topic_name, {}) if subtopics_data else {},
+                            'label_summary': label_summaries.get(topic_name, [])  # New field
                         }
                         for topic_name, stats in sorted_topics
                     },

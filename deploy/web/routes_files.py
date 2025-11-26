@@ -136,91 +136,130 @@ async def download_outputs_zip(
     file_type: str = "all",
 ):
     """Download output files as a ZIP archive."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ZIP download requested: execution_id={execution_id}, file_type={file_type}")
+    
     await check_rate_limit(request)
 
-    zip_buffer = io.BytesIO()
-    seen_paths = set()
-    file_count = 0
+    try:
+        zip_buffer = io.BytesIO()
+        seen_paths = set()
+        file_count = 0
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for outputs_dir in get_output_paths():
-            if not outputs_dir.exists():
-                continue
-            for file_path in outputs_dir.rglob("*"):
-                if not file_path.is_file():
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for outputs_dir in get_output_paths():
+                if not outputs_dir.exists():
                     continue
-                rel_path = file_path.relative_to(outputs_dir)
-                rel_str = str(rel_path)
-                if rel_str in seen_paths:
-                    continue
+                
+                logger.debug(f"Scanning directory: {outputs_dir}")
+                
+                for file_path in outputs_dir.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+                    rel_path = file_path.relative_to(outputs_dir)
+                    rel_str = str(rel_path)
+                    if rel_str in seen_paths:
+                        continue
 
-                file_name = file_path.name
-                is_audit = "audit_trail" in file_name.lower()
-                if file_type == "audit" and not is_audit:
-                    continue
-                if file_type == "analysis" and is_audit:
-                    continue
-                if execution_id and execution_id not in file_name and execution_id not in rel_str:
-                    continue
+                    file_name = file_path.name
+                    is_audit = "audit_trail" in file_name.lower()
+                    if file_type == "audit" and not is_audit:
+                        continue
+                    if file_type == "analysis" and is_audit:
+                        continue
+                    if execution_id and execution_id not in file_name and execution_id not in rel_str:
+                        continue
 
-                zip_file.write(file_path, arcname=rel_str)
-                seen_paths.add(rel_str)
-                file_count += 1
+                    logger.debug(f"Adding to ZIP: {rel_str} ({file_path.stat().st_size} bytes)")
+                    zip_file.write(file_path, arcname=rel_str)
+                    seen_paths.add(rel_str)
+                    file_count += 1
 
-    if file_count == 0:
-        raise HTTPException(status_code=404, detail="No files found matching criteria")
+        if file_count == 0:
+            logger.warning(f"No files found matching criteria. Checked directories: {[str(d) for d in get_output_paths()]}")
+            raise HTTPException(status_code=404, detail="No files found matching criteria")
 
-    zip_buffer.seek(0)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_filename = (
-        f"outputs_{execution_id}_{timestamp}.zip" if execution_id else f"outputs_{file_type}_{timestamp}.zip"
-    )
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+        zip_size = len(zip_bytes)
+        logger.info(f"ZIP created: {file_count} files, {zip_size} bytes")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = (
+            f"outputs_{execution_id}_{timestamp}.zip" if execution_id else f"outputs_{file_type}_{timestamp}.zip"
+        )
 
-    return StreamingResponse(
-        iter([zip_buffer.getvalue()]),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename={zip_filename}",
-            "Content-Length": str(len(zip_buffer.getvalue())),
-        },
-    )
+        return StreamingResponse(
+            iter([zip_bytes]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={zip_filename}",
+                "Content-Length": str(zip_size),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"ZIP creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create ZIP archive: {str(e)}")
 
 
 @files_router.get("/api/download-folder-zip")
 async def download_folder_zip(folder: str, request: Request):
     """Download a specific execution folder as a ZIP archive."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Folder ZIP requested: {folder}")
+    
     await check_rate_limit(request)
     if not folder:
         raise HTTPException(status_code=400, detail="Folder name is required")
 
-    zip_buffer = io.BytesIO()
-    found_folder = False
+    try:
+        zip_buffer = io.BytesIO()
+        found_folder = False
+        file_count = 0
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for outputs_dir in get_output_paths():
-            execution_dir = outputs_dir / "executions" / folder
-            if not execution_dir.exists() or not execution_dir.is_dir():
-                continue
-            found_folder = True
-            for file_path in execution_dir.rglob("*"):
-                if not file_path.is_file():
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for outputs_dir in get_output_paths():
+                execution_dir = outputs_dir / "executions" / folder
+                if not execution_dir.exists() or not execution_dir.is_dir():
                     continue
-                rel_path = file_path.relative_to(outputs_dir)
-                zip_file.write(file_path, arcname=str(rel_path))
+                found_folder = True
+                logger.debug(f"Scanning directory: {execution_dir}")
+                
+                for file_path in execution_dir.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+                    rel_path = file_path.relative_to(outputs_dir)
+                    
+                    logger.debug(f"Adding to ZIP: {rel_path} ({file_path.stat().st_size} bytes)")
+                    zip_file.write(file_path, arcname=str(rel_path))
+                    file_count += 1
 
-    if not found_folder:
-        raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found")
+        if not found_folder:
+            logger.warning(f"Folder not found: {folder}. Checked paths: {[str(d / 'executions' / folder) for d in get_output_paths()]}")
+            raise HTTPException(status_code=404, detail=f"Folder '{folder}' not found")
 
-    zip_buffer.seek(0)
-    zip_filename = f"{folder}.zip"
-    return StreamingResponse(
-        iter([zip_buffer.getvalue()]),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename={zip_filename}",
-            "Content-Length": str(len(zip_buffer.getvalue())),
-        },
-    )
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+        zip_size = len(zip_bytes)
+        logger.info(f"Folder ZIP created for {folder}: {file_count} files, {zip_size} bytes")
+
+        zip_filename = f"{folder}.zip"
+        return StreamingResponse(
+            iter([zip_bytes]),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={zip_filename}",
+                "Content-Length": str(zip_size),
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Folder ZIP creation failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create folder ZIP: {str(e)}")
 
 
 @files_router.get("/outputs")

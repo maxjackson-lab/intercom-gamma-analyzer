@@ -1,0 +1,334 @@
+================================================================================
+AGENT DEBUG REPORT - What Each Agent Produced
+Generated: 2025-11-26T21:23:06.882048
+================================================================================
+
+
+================================================================================
+SegmentationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.78
+⏱️  Duration: 3.39s
+
+Data:
+  • paid_customer_conversations: [{'id': '215471834924507', 'created_at': 
+datetime.datetime(2025, 11, 18, 14, 39, 20, tzinfo=datetime
+  • paid_fin_resolved_conversations: [{'id': '215471847930035', 'created_at': 
+datetime.datetime(2025, 11, 19, 1, 27, 55, tzinfo=datetime.
+  • free_fin_only_conversations: [{'id': '215471841228503', 'created_at': 
+datetime.datetime(2025, 11, 18, 18, 2, 26, tzinfo=datetime.
+  • unknown_tier: []
+  • agent_distribution: {'fin_only': 2136, 'fin_to_horatio': 719, 
+'fin_to_boldr': 238, 'fin_to_vendor_to_senior': 22, 'fin_t
+  • agent_assignments: {'215471834924507': {'segment': 'paid', 'agent_type': 
+'fin_to_horatio', 'vendor': 'horatio'}, '21547
+  • segmentation_summary: {'paid_count': 3133, 'paid_percentage': 45.2, 
+'free_count': 3805, 'free_percentage': 54.8, 'unknown_
+
+================================================================================
+TopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 6223.93s
+
+Topic Distribution:
+
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┓
+┃ Topic                ┃ Volume ┃     % ┃ Method    ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━┩
+│ Billing              │   3341 │ 48.2% │ llm_smart │
+│ Product Question     │   1821 │ 26.2% │ llm_smart │
+│ Account              │    792 │ 11.4% │ llm_smart │
+│ Bug                  │    608 │  8.8% │ llm_smart │
+│ Workspace            │    140 │  2.0% │ llm_smart │
+│ Unknown              │     84 │  1.2% │ llm_smart │
+│ Privacy              │     71 │  1.0% │ llm_smart │
+│ Partnerships         │     32 │  0.5% │ llm_smart │
+│ Promotions           │     16 │  0.2% │ llm_smart │
+│ Abuse                │     15 │  0.2% │ llm_smart │
+│ Feedback             │      9 │  0.1% │ llm_smart │
+│ Unknown/unresponsive │      6 │  0.1% │ fallback  │
+│ Chargeback           │      3 │  0.0% │ llm_smart │
+└──────────────────────┴────────┴───────┴───────────┘
+
+📊 13 topics detected
+   LLM classified: 5485
+   Keyword matched: 1223
+
+================================================================================
+SubTopicDetectionAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 47.99s
+🪙 Tokens: 11388
+
+Sub-Topic Hierarchy (3-Tier):
+
+Billing
+  Tier 2 (from Intercom SDK):
+    • Refund: 825 (52.2%)
+    • Subscription: 110 (7.0%)
+    • Invoice: 38 (2.4%)
+    • Discount: 30 (1.9%)
+  Tier 3 (LLM discovered):
+    • Wrong Plan Selected: 168 (10.6%)
+    • Invoice Details Update: 7 (0.4%)
+    • Subscription Cancellation Issues: 95 (6.0%)
+
+Bug
+  Tier 2 (from Intercom SDK):
+    • Export: 50 (14.9%)
+    • API: 41 (12.2%)
+    • Font: 15 (4.5%)
+    • Account: 7 (2.1%)
+    • Workspace: 1 (0.3%)
+  Tier 3 (LLM discovered):
+    • Publishing/Link Issues: 278 (82.7%)
+    • Upload/Import Issues: 134 (39.9%)
+    • Payment/Billing: 213 (63.4%)
+
+Unknown
+  Tier 3 (LLM discovered):
+    • Language Diversity - Non-English Requests: 9 (20.5%)
+    • Urgency Indicators: 29 (65.9%)
+    • Gratitude/Acknowledgment Messages: 0 (0.0%)
+
+Account
+  Tier 2 (from Intercom SDK):
+    • Credits: 16 (5.1%)
+    • Password Reset: 14 (4.4%)
+  Tier 3 (LLM discovered):
+    • Email Change/Update: 14 (4.4%)
+    • Login/Access Issues: 28 (8.9%)
+    • Cloudflare Blocking: 24 (7.6%)
+
+Product Question
+  Tier 3 (LLM discovered):
+    • Localization & Language Issues: 1 (0.1%)
+    • Export & Download Problems: 214 (29.1%)
+    • Custom Branding & Templates: 133 (18.1%)
+
+Promotions
+  Tier 2 (from Intercom SDK):
+    • Promotion: 2 (22.2%)
+  Tier 3 (LLM discovered):
+    • Referral/Partnership Codes: 3 (33.3%)
+    • Educational/Student Discounts: 1 (11.1%)
+    • Retention Offers: 1 (11.1%)
+
+Workspace
+  Tier 3 (LLM discovered):
+    • Custom Domain Management Issues: 16 (25.0%)
+    • Domain Connection & Verification Problems: 14 (21.9%)
+    • Cross-Workspace Operations: 4 (6.2%)
+
+Partnerships
+  Tier 2 (from Intercom SDK):
+    • Affiliate: 8 (61.5%)
+  Tier 3 (LLM discovered):
+    • Reseller/Distribution: 3 (23.1%)
+    • Referral Program: 10 (76.9%)
+    • Template Sharing: 10 (76.9%)
+
+Privacy
+  Tier 3 (LLM discovered):
+    • Enterprise Security Compliance: 4 (16.0%)
+    • EU/Regional Data Residency: 2 (8.0%)
+    • Content Visibility & Search Indexing: 6 (24.0%)
+
+Unknown/unresponsive
+
+Feedback
+  Tier 3 (LLM discovered):
+    • Product Changes & Version Preferences: 2 (50.0%)
+    • API & Technical Integration: 3 (75.0%)
+    • SEO & Web Standards: 1 (25.0%)
+
+Abuse
+  Tier 3 (LLM discovered):
+    • Human Support Request: 6 (85.7%)
+    • Link/Sharing Functionality Issues: 5 (71.4%)
+
+
+================================================================================
+FinPerformanceAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 44.41s
+
+Fin AI Performance:
+
+Free Tier:
+  Resolution Rate: 60.7%
+  Knowledge Gaps: 39.8%
+
+Paid Tier:
+  Resolution Rate: 96.9%
+  Knowledge Gaps: 6.5%
+
+================================================================================
+CorrelationAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.54
+⏱️  Duration: 18.44s
+
+Statistical Correlations Found: 1
+
+• Message Count ↔ Escalation (ratio=0.9x)
+  Strength: 0.90
+  Insight: Escalated conversations average 25.3 messages vs 21.1 for Fin-only
+
+
+================================================================================
+QualityInsightsAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 0.92
+⏱️  Duration: 0.06s
+
+Quality Insights: 0
+
+
+================================================================================
+OutputFormatterAgent
+================================================================================
+
+✅ Status: Success
+🎯 Confidence: 1.00
+⏱️  Duration: 14.05s
+
+Data:
+  • formatted_output: # Voice of Customer Analysis: Nov 18 - Nov 25, 2025
+
+## Executive Summary
+
+**Total Interactions**: 6
+  • total_topics: 13
+  • week_id: 2025-W46
+  • has_trend_data: False
+  • has_tier_based_fin_data: True
+  • free_tier_conversations: 3805
+  • paid_tier_conversations: 2136
+  • structured_data: {'digest_mode': False, 'topics': {'Billing': {'volume': 
+3341, 'percentage': 48.2, 'detection_method'
+
+================================================================================
+Per-Topic Sentiment Analysis
+================================================================================
+
+Billing:
+  Based on the provided sample, here is my one-sentence sentiment insight:
+
+**Confidence Level: HIGH**
+
+Users are frustrated with unexpected charges and billing issues, desperately 
+requesting refunds for payments they didn't intend to make or for services they 
+no longer use.
+
+---
+
+**Source**: The sample shows a clear pattern of refund requests (conversations 
+215471834924507, 215471841228503, 215471839430668, 215471841057155, 
+215471831772394), unexpected charges (215471841228503: "surprising to me"), 
+charges after cancellation (215471831772394: "even though I don't use the app 
+anymore"), and billing management issues (215471835952303, 215471840419963, 
+215471836711905 requesting account/plan changes). The dominant sentiment is 
+frustration with billing accuracy and control.
+
+Bug:
+  Based on the provided sample, here is my sentiment analysis:
+
+**Confidence Level: MEDIUM** (interpreting patterns from limited context in 
+multilingual bug reports)
+
+**Sentiment Insight:**
+
+Users are reporting critical technical failures across payments, API routing, 
+SSL certificates, and site outages with urgency and frustration, but the lack of
+detailed context in most reports suggests they're hitting blockers that prevent 
+them from even explaining the full problem.
+
+---
+
+**Source**: Sample shows payment discrepancies (conversation 215471841228503), 
+PowerPoint rendering failures (215471839824393), SSL/certificate chain errors 
+blocking Googlebot (215471831886941), API 404 routing issues despite valid 
+generation IDs (215471840754241), generator page errors (215471840338037), site 
+downtime (215471834392543), and one escalated "URGENT FORMAL DEMAND" 
+(215471848483824) indicating high frustration with support response quality.
+
+Account:
+  Based on the provided sample, here is my one-sentence sentiment analysis:
+
+**Users are confused and frustrated by billing issues, account access problems, 
+and email/subscription management, with recurring complaints about unexpected 
+charges and inability to cancel or transfer accounts properly.**
+
+**Confidence Level: HIGH** - This sentiment is directly observable across 
+multiple conversations in the sample, with specific mentions of billing 
+surprises (€69.05 charge), cancellation issues not processing, email change 
+difficulties, account access problems, and subscription management confusion.
+
+Unknown:
+  Based on the provided sample, here is my one-sentence sentiment insight:
+
+**Confidence Level: HIGH**
+
+Users are bypassing automated systems in multiple languages to demand human 
+agents, showing clear frustration with bot interactions and a strong preference 
+for human support.
+
+---
+
+**Source**: All 10 conversations show explicit requests for human agents in 
+various languages (Portuguese: "Fala com atendente", "falar com humano", "Olá"; 
+English: "connect me to an human assistant", "Can I speak to a human agent?"; 
+French: "je veux parler avec un HUMAIN"; German: "Können Sie mich zum 
+Mitarbeiter durchstellen?"), indicating a consistent pattern of users wanting to
+escalate past automated responses.
+
+Product Question:
+  Based on the provided sample, here is my sentiment analysis:
+
+**Confidence Level: MEDIUM** (Sample shows diverse technical/account questions 
+across multiple languages, making unified sentiment interpretation challenging, 
+but patterns are observable)
+
+---
+
+**ONE-SENTENCE SENTIMENT INSIGHT:**
+
+Users are reaching out with basic account management and technical publishing 
+questions that suggest confusion about how core product features like 
+cancellations, site publishing, and plan transfers actually work.
+
+---
+
+**Source**: The sample shows recurring patterns of fundamental product confusion
+- billing/cancellation issues (conversations 215471841228503, 215471844310357), 
+publishing/technical problems (215471849090115, 215471831886941), account 
+management questions (215471840419963, 215471836711905), and formatting 
+limitations (215471831827776, 215471840434168) - indicating users need clearer 
+guidance on basic product operations rather than expressing strong positive or 
+negative emotion about features themselves.
+
+
+================================================================================
+TRACEABILITY COVERAGE
+================================================================================
+
+• BpoPerformanceAgent: 0 samples
+• FinPerformanceAgent: 6 samples (3 Free, 3 Paid)
+• TopicExamples: 120 samples across 13 topics
+

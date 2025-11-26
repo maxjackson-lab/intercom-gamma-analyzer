@@ -103,12 +103,27 @@ Examples to match:
         for conv in topic_conversations[:10]:
             # Extract customer messages
             customer_msgs = conv.get('customer_messages', [])
+            
+            # Extract subtopic label if available (for better context)
+            subtopic_label = None
+            details = conv.get('detected_topic_details', [])
+            current_topic = context.metadata.get('current_topic')
+            
+            # Find the specific subtopic label for the current topic being analyzed
+            for detail in details:
+                if detail.get('topic') == current_topic and detail.get('subtopic'):
+                    subtopic_label = detail.get('subtopic')
+                    break
+            
             if customer_msgs:
-                sample.append({
+                item = {
                     'id': conv.get('id'),
                     'customer_message': customer_msgs[0][:200],  # First message, truncated
                     'rating': conv.get('conversation_rating')
-                })
+                }
+                if subtopic_label:
+                    item['specific_topic'] = subtopic_label
+                sample.append(item)
         
         return f"""
 Representative sample for topic: {context.metadata.get('current_topic')}

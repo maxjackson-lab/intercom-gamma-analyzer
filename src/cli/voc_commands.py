@@ -377,6 +377,10 @@ async def run_voice_of_customer_analysis(
 
         # Complete dual-format output with digest (exec sanity check)
         python src/main.py voice-of-customer --time-period week --multi-agent --analysis-type complete --digest-mode
+
+    Notes:
+        - The >31 day and >90 day custom range checks emit warnings by default. Set
+          VOC_STRICT_DATE_LIMITS=1 to convert the 90-day warning into a hard error.
     """
     from src.utils.time_utils import calculate_date_range, format_date_range_for_display
     from src.utils.timezone_utils import get_date_range_pacific
@@ -398,6 +402,22 @@ async def run_voice_of_customer_analysis(
             console.print(f"Period: Last {periods_back} {time_period}(s)")
         else:
             console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
+            # Validation for custom date ranges
+            days_span = (end_dt - start_dt).days
+            strict_limits_enabled = os.getenv('VOC_STRICT_DATE_LIMITS', '').lower() in ('1', 'true', 'yes')
+            if days_span > 31:
+                console.print(f"[yellow]⚠️  Custom date range spans {days_span} days (> 31 days). This may take longer to process and could hit Intercom API limits.[/yellow]")
+            if days_span > 90:
+                warning_msg = f"Date range too large ({days_span} days). Consider using --time-period month --periods-back 3 instead."
+                if strict_limits_enabled:
+                    console.print(f"[red]❌ {warning_msg} (VOC_STRICT_DATE_LIMITS enforced)[/red]")
+                    return
+                console.print(f"[red]⚠️  {warning_msg}[/red]")
+            console.print(f"[cyan]📅 Custom Date Range: {start_date} to {end_date} ({days_span} days)[/cyan]")
+            
+            # Document API limitations
+            console.print("[dim]ℹ️  Intercom Search API has a 10,000 conversation limit per request.[/dim]")
+            console.print("[dim]ℹ️  Large ranges are chunked daily to avoid this limit.[/dim]")
 
         console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
     except ValueError as e:

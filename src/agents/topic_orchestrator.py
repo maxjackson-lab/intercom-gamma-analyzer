@@ -538,9 +538,12 @@ class TopicOrchestrator:
                     conv_id = conv.get('id')
                     if conv_id in topics_map:
                         conv['detected_topics'] = [t['topic'] for t in topics_map[conv_id]]
+                        # NEW: Attach full details including subtopic label
+                        conv['detected_topic_details'] = topics_map[conv_id]
                         applied_count += 1
                     else:
                         conv['detected_topics'] = []
+                        conv['detected_topic_details'] = []
                 return applied_count
             
             # Apply to all lists
