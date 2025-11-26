@@ -283,7 +283,7 @@ async function runAnalysis() {
             aiModel, testMode, auditMode, taxonomyFilter
         });
         
-        const isVocFamily = analysisType && (analysisType.startsWith('voice-of-customer') || analysisType === 'voc-v2');
+        const isVocFamily = analysisType && analysisType.startsWith('voice-of-customer');
         
         // Build command based on analysis type
         let command = 'python';
@@ -377,18 +377,6 @@ async function runAnalysis() {
             args.push('--multi-agent');
             
             // LLM topic detection if checkbox enabled
-            const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
-            if (llmTopicDetectionVoc) {
-                args.push('--llm-topic-detection');
-            }
-            
-            if (digestMode) {
-                args.push('--digest-mode');
-            }
-            
-        } else if (analysisType === 'voc-v2') {
-            args.push('voc-v2');
-            
             const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
             if (llmTopicDetectionVoc) {
                 args.push('--llm-topic-detection');
@@ -1028,7 +1016,7 @@ function updateAnalysisOptions() {
     
     // Determine if this is a diagnostic mode
     const isDiagnostic = analysisType === 'sample-mode';
-    const isVoC = analysisType && (analysisType.startsWith('voice-of-customer') || analysisType === 'voc-v2');
+    const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
     
     // Show/hide LLM topic detection for VOC
     const llmTopicDetectionVocContainer = document.getElementById('llmTopicDetectionVocContainer');
@@ -1038,7 +1026,7 @@ function updateAnalysisOptions() {
     
     const digestModeContainer = document.getElementById('digestModeContainer');
     if (digestModeContainer) {
-        const digestEligible = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete', 'voice-of-customer-narrative-v2', 'voc-v2']);
+        const digestEligible = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete', 'voice-of-customer-narrative-v2']);
         const showDigest = digestEligible.has(analysisType);
 
         digestModeContainer.style.display = showDigest ? 'block' : 'none';

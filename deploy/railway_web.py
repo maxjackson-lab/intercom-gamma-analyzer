@@ -527,7 +527,6 @@ if HAS_FASTAPI:
                         <option value="voice-of-customer-narrative-v2" selected>VoC: Narrative V2 (Hilary Weekly Story)</option>
                         <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
                         <option value="voice-of-customer-complete">VoC: Complete (Both Formats)</option>
-                        <option value="voc-v2">VoC: Narrative V2 (Hilary Weekly Story)</option>
                     </optgroup>
                     <optgroup label="Category Deep Dives (Narrative V2)">
                         <option value="analyze-billing">Billing Analysis</option>
