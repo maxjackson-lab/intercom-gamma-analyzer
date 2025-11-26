@@ -188,7 +188,6 @@ Use ONLY this data for the presentation. All claims must be grounded in these re
             # The prompt is already formatted markdown, so use generate_from_markdown
             gamma_result = await self.gamma_generator.generate_from_markdown(
                 input_text=prompt,
-                num_cards=10,
                 theme_name="Night Sky"  # Professional dark theme (automatically resolved to themeId)
             )
             

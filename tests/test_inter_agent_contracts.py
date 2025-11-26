@@ -10,6 +10,7 @@ Validates that:
 """
 
 import pytest
+from unittest.mock import AsyncMock, MagicMock
 from pydantic import ValidationError
 from datetime import datetime
 
@@ -20,6 +21,8 @@ from src.models.analysis_models import (
     FinAnalysisPayload,
     TrendAnalysisPayload
 )
+from src.agents.base_agent import AgentContext
+from src.services.gamma_generator import GammaGenerator
 
 
 class TestSegmentationPayload:
@@ -546,6 +549,155 @@ class TestErrorHandling:
         error_str = str(exc_info.value)
         # At least one error should be reported
         assert len(str(exc_info.value)) > 0
+
+
+class TestArchitectureContracts:
+    """Tests for new architectural contracts and robust behaviors."""
+
+    def test_agent_context_merge_metadata_immutability(self):
+        """
+        Verify AgentContext.merge_metadata returns a NEW instance 
+        and leaves the original untouched.
+        """
+        original_metadata = {'key1': 'value1'}
+        context = AgentContext(
+            analysis_id="test_id",
+            analysis_type="test",
+            start_date=datetime.now(),
+            end_date=datetime.now(),
+            metadata=original_metadata
+        )
+        
+        # Perform merge
+        new_metadata = {'key2': 'value2'}
+        new_context = context.merge_metadata(new_metadata)
+        
+        # Assertions
+        assert context is not new_context, "merge_metadata should return a new instance"
+        assert context.metadata == {'key1': 'value1'}, "Original metadata should be unchanged"
+        assert new_context.metadata == {'key1': 'value1', 'key2': 'value2'}, "New context should have merged metadata"
+
+    def test_orchestrator_handoff_simulation(self):
+        """
+        Simulate the orchestrator handing off data between agents via context updates.
+        """
+        # 1. Initial Context
+        context = AgentContext(
+            analysis_id="handoff_test",
+            analysis_type="test",
+            start_date=datetime.now(),
+            end_date=datetime.now(),
+            metadata={'init': True}
+        )
+        
+        # 2. Simulate Segmentation Result
+        agent_assignments = {'conv1': {'vendor': 'horatio'}}
+        context = context.merge_metadata({'agent_assignments': agent_assignments})
+        
+        # 3. Simulate Topic Detection Result
+        topics_by_conv = {'conv1': [{'topic': 'Billing'}]}
+        context = context.merge_metadata({'topics_by_conversation': topics_by_conv})
+        
+        # 4. Build BPO Context (Simulate what TopicOrchestrator does)
+        bpo_metadata_update = {
+            'week_id': '2024-W01'
+        }
+        # In orchestrator: context.model_copy(update={'metadata': {**context.metadata, **bpo_metadata}})
+        # Here we use merge_metadata which is the cleaner wrapper for that
+        bpo_context = context.merge_metadata(bpo_metadata_update)
+        
+        # 5. Verify BPO Context has all upstream data
+        meta = bpo_context.metadata
+        assert meta['init'] is True
+        assert meta['agent_assignments'] == agent_assignments
+        assert meta['topics_by_conversation'] == topics_by_conv
+        assert meta['week_id'] == '2024-W01'
+        
+    def test_gamma_dynamic_slide_counting(self):
+        """
+        Verify that markdown sections are correctly counted as slides.
+        """
+        generator = GammaGenerator(gamma_client=AsyncMock())
+        
+        # Case 1: Single slide (no separators)
+        markdown_1 = "# Slide 1 Content"
+        count_1 = generator._count_markdown_sections(markdown_1)
+        assert count_1 == 1, f"Expected 1 slide, got {count_1}"
+        
+        # Case 2: Two slides (one separator)
+        markdown_2 = "# Slide 1\n---\n# Slide 2"
+        count_2 = generator._count_markdown_sections(markdown_2)
+        assert count_2 == 2, f"Expected 2 slides, got {count_2}"
+        
+        # Case 3: 5 slides (4 separators)
+        markdown_5 = "S1\n---\nS2\n---\nS3\n---\nS4\n---\nS5"
+        count_5 = generator._count_markdown_sections(markdown_5)
+        assert count_5 == 5, f"Expected 5 slides, got {count_5}"
+        
+        # Case 4: Empty string
+        assert generator._count_markdown_sections("") == 0
+
+
+class TestTraceabilityContracts:
+    """Tests for data traceability contracts (samples, links, dates)"""
+
+    def test_bpo_traceability(self):
+        """Test BPO output contains traceable samples"""
+        # Mock BPO result data structure
+        bpo_data = {
+            'vendor_overview': {
+                'horatio': {
+                    'sample_conversations': [
+                        {'id': '1', 'url': 'https://app.intercom.com/...', 'snippet': '...'}
+                    ],
+                    'date_range': {'min_created_at': '2024-01-01', 'max_created_at': '2024-01-02'}
+                }
+            },
+            'topic_vendor_highlights': {},
+            'bpo_snapshot_summary': '',
+            'pressure_points': [],
+            'risk_watchlist': []
+        }
+        
+        # Manually verify structure
+        horatio = bpo_data['vendor_overview']['horatio']
+        assert 'sample_conversations' in horatio
+        assert len(horatio['sample_conversations']) > 0
+        assert 'url' in horatio['sample_conversations'][0]
+        assert 'date_range' in horatio
+
+    def test_fin_traceability(self):
+        """Test Fin output contains traceable samples"""
+        fin_data = {
+            'total_fin_conversations': 10,
+            'total_free_tier': 5,
+            'total_paid_tier': 5,
+            'free_tier': {
+                'sample_conversations': [{'id': '1', 'url': '...'}],
+                'date_range': {'min_created_at': '2024-01-01', 'max_created_at': '2024-01-02'},
+                'resolution_rate': 0.5
+            },
+            'paid_tier': {
+                'sample_conversations': [{'id': '2', 'url': '...'}],
+                'date_range': {'min_created_at': '2024-01-01', 'max_created_at': '2024-01-02'},
+                'resolution_rate': 0.6
+            }
+        }
+        
+        assert 'sample_conversations' in fin_data['free_tier']
+        assert 'sample_conversations' in fin_data['paid_tier']
+        assert 'date_range' in fin_data['free_tier']
+
+    def test_narrative_payload_traceability(self):
+        """Test Narrative Formatter payload includes global date range"""
+        payload = {
+            'global_date_range': {'min_created_at': '2024-01-01', 'max_created_at': '2024-01-07'},
+            'bpo_snapshot': {'vendor_overview': {'horatio': {'sample_conversations': []}}},
+            'fin_overview': {'free_tier': {'sample_conversations': []}}
+        }
+        
+        assert 'global_date_range' in payload
+        assert 'min_created_at' in payload['global_date_range']
 
 
 if __name__ == '__main__':

@@ -249,7 +249,7 @@ class GammaGenerator:
         self,
         input_text: str,
         title: Optional[str] = None,
-        num_cards: int = 10,
+        num_cards: Optional[int] = None,
         theme_name: Optional[str] = None,
         export_format: Optional[str] = None,
         output_dir: Optional[Path] = None
@@ -266,7 +266,7 @@ class GammaGenerator:
         Args:
             input_text: Markdown text (1-400,000 characters, v1.0 token limit: ~100k tokens)
             title: Optional presentation title
-            num_cards: Number of slides (default 10)
+            num_cards: Number of slides (default None = auto-detected)
             theme_name: Gamma theme name (e.g., "Night Sky") - automatically resolved to themeId
             export_format: Export format ("pdf" or "pptx")
             output_dir: Output directory for saving results
@@ -280,7 +280,7 @@ class GammaGenerator:
         self.logger.info(
             "gamma_markdown_generation_start",
             input_length=len(input_text),
-            num_cards=num_cards,
+            num_cards=num_cards if num_cards is not None else "auto",
             theme=theme_name,
             export_format=export_format
         )
@@ -304,6 +304,15 @@ class GammaGenerator:
             # Add title if provided
             if title and not input_text.startswith(f"# {title}"):
                 input_text = f"# {title}\n\n{input_text}"
+
+            # Auto-calculate num_cards if not provided
+            if num_cards is None:
+                num_cards = self._count_markdown_sections(input_text)
+                # Safe maximum to prevent API errors
+                if num_cards > 25:
+                    self.logger.warning(f"Auto-detected {num_cards} slides, capping at 25")
+                    num_cards = 25
+                self.logger.info(f"Auto-calculated slide count: {num_cards}")
             
             # Generate presentation with markdown preservation
             generation_id = await self.client.generate_presentation(
@@ -359,6 +368,31 @@ class GammaGenerator:
                 exc_info=True
             )
             raise
+
+    def _count_markdown_sections(self, markdown: str) -> int:
+        """
+        Count the number of sections in the markdown text separated by ---.
+        
+        Args:
+            markdown: Markdown content
+            
+        Returns:
+            Number of sections (slides)
+        """
+        if not markdown:
+            return 0
+            
+        # Count separators (---)
+        # Note: This counts explicit breaks. 
+        # If there is content before the first ---, that's one slide.
+        # If content follows ---, that's another slide.
+        # Assuming standard format: Section 1 \n---\n Section 2
+        
+        separator_count = markdown.count('\n---\n')
+        
+        # Base count is separator count + 1 (N separators = N+1 sections)
+        # e.g., "Slide 1 --- Slide 2" has 1 separator, 2 slides.
+        return separator_count + 1
     
     async def generate_executive_presentation(
         self,

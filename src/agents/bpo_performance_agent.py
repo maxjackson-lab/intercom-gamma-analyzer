@@ -1,4 +1,5 @@
 import logging
+import random
 from collections import defaultdict
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -107,6 +108,62 @@ identify pressure points, and highlight imbalances executives should see.
             vendor_topic_totals,
             paid_human_total
         )
+
+        # Build id_to_conv lookup
+        convs = context.conversations or []
+        id_to_conv = {c['id']: c for c in convs}
+        
+        # Add samples + date range per vendor
+        for vendor, data in vendor_overview.items():
+            vendor_conv_ids = [
+                conv_id for conv_id, assignment in assignments.items()
+                if self._map_vendor_bucket(assignment) == vendor
+            ]
+            if vendor_conv_ids:
+                sample_ids = random.sample(vendor_conv_ids, min(3, len(vendor_conv_ids)))
+                samples = []
+                vendor_dates = []
+                for conv_id in sample_ids:
+                    conv = id_to_conv.get(conv_id)
+                    if conv:
+                        url = BaseAgent.build_conversation_url(conv_id)
+                        snippet = BaseAgent.extract_conversation_snippet(conv)
+                        created_at = conv.get('created_at', 'Unknown')
+                        vendor_dates.append(created_at)
+                        samples.append({
+                            'id': conv_id,
+                            'created_at': created_at,
+                            'url': url,
+                            'snippet': snippet
+                        })
+                data['sample_conversations'] = samples
+                if vendor_dates:
+                    # Normalize all dates to ISO strings for consistent comparison
+                    try:
+                        normalized_dates = []
+                        for d in vendor_dates:
+                            if isinstance(d, (int, float)):
+                                from datetime import datetime
+                                normalized_dates.append(datetime.fromtimestamp(d).isoformat())
+                            elif hasattr(d, 'isoformat'):
+                                normalized_dates.append(d.isoformat())
+                            elif isinstance(d, str):
+                                # Assume already ISO or string rep, try to keep as is if valid
+                                # If it's "Unknown", we skip
+                                if d != 'Unknown':
+                                    normalized_dates.append(d)
+                        
+                        if normalized_dates:
+                            min_date = min(normalized_dates)
+                            max_date = max(normalized_dates)
+                            
+                            data['date_range'] = {
+                                'min_created_at': min_date,
+                                'max_created_at': max_date
+                            }
+                    except Exception as e:
+                        self.logger.warning(f"Failed to compute date range for {vendor}: {e}")
+
         topic_highlights, pressure_points = self._build_topic_highlights(
             topic_vendor_counts,
             topic_distribution

@@ -11,6 +11,7 @@ Purpose:
 """
 
 import logging
+import random
 from typing import Dict, Any, List
 from datetime import datetime
 from collections import defaultdict
@@ -509,6 +510,55 @@ Calculate tier-specific metrics:
             f"{tier_name} tier CSAT: No ratings ({eligible_count} eligible, {overall_rated_count} rated)"
         )
 
+        # Traceability: Add samples and date range
+        sample_conversations = []
+        tier_date_range = {}
+        if conversations:
+            try:
+                sample_convs = random.sample(conversations, min(3, len(conversations)))
+                dates = []
+                for conv in sample_convs:
+                    conv_id = conv.get('id')
+                    if conv_id:
+                        url = BaseAgent.build_conversation_url(conv_id)
+                        snippet = BaseAgent.extract_conversation_snippet(conv)
+                        created_at = conv.get('created_at', 'Unknown')
+                        dates.append(created_at)
+                        sample_conversations.append({
+                            'id': conv_id,
+                            'created_at': created_at,
+                            'url': url,
+                            'snippet': snippet
+                        })
+                
+                # Compute date range
+                all_dates = [c.get('created_at') for c in conversations if c.get('created_at')]
+                if all_dates:
+                    try:
+                        normalized_dates = []
+                        for d in all_dates:
+                            if isinstance(d, (int, float)):
+                                from datetime import datetime
+                                normalized_dates.append(datetime.fromtimestamp(d).isoformat())
+                            elif hasattr(d, 'isoformat'):
+                                normalized_dates.append(d.isoformat())
+                            elif isinstance(d, str):
+                                if d != 'Unknown':
+                                    normalized_dates.append(d)
+                        
+                        if normalized_dates:
+                            min_val = min(normalized_dates)
+                            max_val = max(normalized_dates)
+                            
+                            tier_date_range = {
+                                'min_created_at': min_val,
+                                'max_created_at': max_val
+                            }
+                    except Exception as e:
+                        self.logger.warning(f"Failed to compute date range for {tier_name}: {e}")
+            except Exception as e:
+                self.logger.warning(f"Failed to generate samples/dates for {tier_name}: {e}")
+
         return {
             'total_conversations': total,
             'resolution_rate': resolution_rate,
@@ -525,6 +575,8 @@ Calculate tier-specific metrics:
                 }
                 for c in knowledge_gaps[:3]
             ],
+            'sample_conversations': sample_conversations,
+            'date_range': tier_date_range,
             'performance_by_topic': topic_performance_dict,
             'top_performing_topics': top_performing,
             'struggling_topics': struggling,

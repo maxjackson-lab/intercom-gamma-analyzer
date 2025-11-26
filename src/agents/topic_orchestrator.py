@@ -99,13 +99,17 @@ class TopicOrchestrator:
         execution_monitor=None,
         formatter_agent: Optional[BaseAgent] = None,
         bpo_agent: Optional[BaseAgent] = None,
-        report_type: str = "voc_v1"
+        report_type: str = "voc_v1",
+        fail_on_critical_errors: bool = False
     ):
         #Audit trail for detailed narration
         self.audit = audit_trail
         
         # Execution monitor for real-time status (optional)
         self.monitor = execution_monitor
+        
+        # Configuration for critical failure handling
+        self.fail_on_critical_errors = fail_on_critical_errors
         
         # Enable escalation tracking to track Fin → Vendor → Senior Staff escalations
         self.segmentation_agent = SegmentationAgent(track_escalations=True)
@@ -355,7 +359,88 @@ class TopicOrchestrator:
                     'method': 'AI classification with keyword fallback'
                 })
             
-            context.conversations = conversations  # Changed: detect topics for ALL conversations
+            # Changed: detect topics for ALL conversations (immutable update)
+            context = context.model_copy(update={'conversations': conversations})
+            
+            # NEW: Compute global raw date range from conversations
+            convs = context.conversations or []
+            if convs:
+                created_ats = [c.get('created_at') for c in convs if c.get('created_at')]
+                if created_ats:
+                    # Safely handle both int timestamps and isoformat strings if necessary
+                    # Assuming SDK returns int timestamps or we need to be careful.
+                    # User plan says "created_at" and "min(created_ats).isoformat()".
+                    # If they are ints, we might need conversion. But let's follow plan implies they are comparable.
+                    # Actually Intercom SDK usually gives int timestamps. BaseAgent logic assumes isoformat output.
+                    # Let's try to keep it safe.
+                    try:
+                        raw_range = {
+                            'raw_data_date_range': {
+                                'min_created_at': min(created_ats),
+                                'max_created_at': max(created_ats)
+                            }
+                        }
+                        # If they are ints, isoformat() method won't exist on them directly unless converted.
+                        # But the plan code: `min(created_ats).isoformat()` implies they are datetime objects OR 
+                        # the user expects me to handle it.
+                        # Let's check if conversations have datetime objects or timestamps.
+                        # In `execute_weekly_analysis` args, `conversations: List[Dict]`. 
+                        # Usually these are dicts from SDK. SDK gives timestamps (int).
+                        # But `BaseAgent` plan code: `min(created_ats).isoformat()`
+                        # I should probably convert if they are ints.
+                        # But adhering to "Follow the below plan verbatim" -> I will use the code provided.
+                        # If it fails at runtime, it fails. But I will check if I can make it safer without deviating too much.
+                        # Actually, let's look at `src/utils/conversation_utils.py` or similar to see if they are processed.
+                        # For now, I'll insert the logic as requested, but maybe add a check.
+                        pass 
+                    except:
+                        pass
+                    
+                    # Re-implementing strictly as per plan text:
+                    # created_ats = [c.get('created_at') for c in convs if c.get('created_at')]
+                    # if created_ats:
+                    #    raw_range = { ... min(...).isoformat() ... }
+                    #    context = context.merge_metadata(raw_range)
+            
+            # Implementation with safety for timestamps vs datetimes
+            if convs:
+                created_ats = [c.get('created_at') for c in convs if c.get('created_at')]
+                if created_ats:
+                    # Determine if we need to convert from int
+                    sample = created_ats[0]
+                    if isinstance(sample, int):
+                        min_ts = min(created_ats)
+                        max_ts = max(created_ats)
+                        raw_range = {
+                            'raw_data_date_range': {
+                                'min_created_at': datetime.fromtimestamp(min_ts).isoformat(),
+                                'max_created_at': datetime.fromtimestamp(max_ts).isoformat()
+                            }
+                        }
+                    else:
+                        # Assume datetime objects or ISO strings
+                        # If strings, isoformat() might fail if it's already string.
+                        # If datetime, it works.
+                        # The plan says: `min(created_ats).isoformat()`. 
+                        # I will implement exactly as plan but handle the type error if it's not a datetime.
+                        # Actually, safe bet: just put the values in if they are strings.
+                        # But I'll stick to the plan's intent: "Compute global raw date range"
+                         try:
+                            min_val = min(created_ats)
+                            max_val = max(created_ats)
+                            
+                            min_str = min_val.isoformat() if hasattr(min_val, 'isoformat') else str(min_val)
+                            max_str = max_val.isoformat() if hasattr(max_val, 'isoformat') else str(max_val)
+
+                            raw_range = {
+                                'raw_data_date_range': {
+                                    'min_created_at': min_str,
+                                    'max_created_at': max_str
+                                }
+                            }
+                            context = context.merge_metadata(raw_range)
+                         except Exception as e:
+                            self.logger.warning(f"Could not compute date range: {e}")
             
             # Report agent start
             if self.monitor:
@@ -467,7 +552,7 @@ class TopicOrchestrator:
             self.logger.info(f"   Topics applied: Original={original_applied}, Free={free_applied}, Paid={paid_applied}, PaidFin={paid_fin_applied}")
             
             # ALSO pass topics_by_conversation to metadata for agents that need it
-            context.metadata['topics_by_conversation'] = topics_by_conv
+            context = context.merge_metadata({'topics_by_conversation': topics_by_conv})
 
             # PHASE 2.4: BPO Vendor Performance
             self.logger.info("👥 Phase 2.4: BPO Vendor Load Analysis")
@@ -494,18 +579,24 @@ class TopicOrchestrator:
                 }
             else:
                 try:
-                    bpo_context = context.model_copy()
-                    bpo_context.metadata = {
+                    bpo_metadata = {
                         'agent_assignments': agent_assignments,
                         'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
                         'topics_by_conversation': topics_map,
                         'topic_distribution': topic_dist,
                         'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
                     }
-                    bpo_context.previous_results = {
+                    bpo_previous = {
                         'SegmentationAgent': _normalize_agent_result(segmentation_result),
                         'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
                     }
+                    
+                    # Immutable update
+                    bpo_context = context.model_copy(update={
+                        'metadata': {**context.metadata, **bpo_metadata},
+                        'previous_results': {**context.previous_results, **bpo_previous}
+                    })
+                    
                     bpo_result = await self.bpo_performance_agent.execute(bpo_context)
                     bpo_result_data = _normalize_agent_result(bpo_result)
                     workflow_results['BpoPerformanceAgent'] = bpo_result_data
@@ -513,7 +604,19 @@ class TopicOrchestrator:
                         display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
                     except Exception as e:
                         logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
+                    
+                    # Check for critical failure if configured
+                    if self.fail_on_critical_errors and not bpo_result.success:
+                        error_msg = bpo_result.error_message or "Unknown BPO failure"
+                        self.logger.error(f"CRITICAL: BpoPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
+                        raise RuntimeError(f"Critical failure in BpoPerformanceAgent: {error_msg}")
+
                 except Exception as e:
+                    if self.fail_on_critical_errors:
+                        # If we are failing on critical errors, re-raise the exception
+                        self.logger.error(f"CRITICAL: BpoPerformanceAgent exception and fail_on_critical_errors=True: {e}")
+                        raise
+                        
                     self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
                     workflow_results['BpoPerformanceAgent'] = {
                         'agent_name': 'BpoPerformanceAgent',
@@ -529,11 +632,15 @@ class TopicOrchestrator:
             subtopic_payload: Optional[SubtopicDetectionResult] = None
             subtopic_start_time = datetime.now()
             try:
-                subtopic_context = context.model_copy()
-                subtopic_context.previous_results = {
+                subtopic_previous = {
                     'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
                 }
-                subtopic_context.conversations = paid_conversations
+                
+                # Immutable update
+                subtopic_context = context.model_copy(update={
+                    'previous_results': {**context.previous_results, **subtopic_previous},
+                    'conversations': paid_conversations
+                })
                 
                 # Report agent start
                 if self.monitor:
@@ -692,18 +799,23 @@ class TopicOrchestrator:
                         
                         self.logger.info(f"   Processing {topic_name}: {len(topic_convs)} conversations")
                         
-                        # Sentiment for this topic
-                        topic_context = context.model_copy()
-                        topic_context.metadata = {
+                        # Sentiment for this topic - Immutable update
+                        topic_metadata = {
                             'current_topic': topic_name,
                             'topic_conversations': topic_convs,
                             'sentiment_insight': ''
                         }
+                        topic_context = context.model_copy(update={
+                            'metadata': {**context.metadata, **topic_metadata}
+                        })
                         
                         sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
                         
-                        # Examples for this topic
-                        topic_context.metadata['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
+                        # Examples for this topic - Immutable update for insight
+                        updated_meta = topic_context.metadata.copy()
+                        updated_meta['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
+                        topic_context = topic_context.model_copy(update={'metadata': updated_meta})
+                        
                         examples_result = await self.example_extraction_agent.execute(topic_context)
                         
                         self.logger.info(f"   ✅ Completed topic {topic_num}/{total_topics}: {topic_name} - {len(examples_result.data.get('examples', []))} examples")
@@ -788,18 +900,23 @@ class TopicOrchestrator:
                 )
             
             fin_start_time = datetime.now()
-            fin_context = context.model_copy()
-            fin_context.metadata = {
+            fin_metadata = {
                 'free_fin_conversations': free_fin_only_conversations,
                 'paid_fin_conversations': paid_fin_resolved_conversations,
                 'week_id': week_id,
                 'subtopics_by_tier1_topic': subtopics_data
             }
             # Pass sub-topic data via previous_results for compatibility
-            fin_context.previous_results = {
+            fin_previous = {
                 'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
                 'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
             }
+            
+            fin_context = context.model_copy(update={
+                'metadata': {**context.metadata, **fin_metadata},
+                'previous_results': {**context.previous_results, **fin_previous}
+            })
+            
             # Report agent start
             if self.monitor:
                 await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.RUNNING,
@@ -814,6 +931,12 @@ class TopicOrchestrator:
                                                       "Fin performance analysis complete",
                                                       confidence=fin_result.confidence)
             
+            # Check for critical failure if configured
+            if self.fail_on_critical_errors and not fin_result.success:
+                error_msg = fin_result.error_message or "Unknown Fin performance failure"
+                self.logger.error(f"CRITICAL: FinPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
+                raise RuntimeError(f"Critical failure in FinPerformanceAgent: {error_msg}")
+
             fin_execution_time = (datetime.now() - fin_start_time).total_seconds()
             
             # Validate and parse Fin analysis result with typed payload
@@ -1073,14 +1196,17 @@ class TopicOrchestrator:
                 )
             
             trend_start_time = datetime.now()
-            trend_context = context.model_copy()
-            trend_context.metadata = {
+            trend_metadata = {
                 'current_week_results': {
                     'topic_distribution': topic_dist,
                     'topic_sentiments': {k: v['data'] for k, v in topic_sentiments.items()}
                 },
                 'week_id': week_id
             }
+            trend_context = context.model_copy(update={
+                'metadata': {**context.metadata, **trend_metadata}
+            })
+            
             trend_result = await self.trend_agent.execute(trend_context)
             workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
             
@@ -1129,10 +1255,10 @@ class TopicOrchestrator:
                 )
             
             output_start_time = datetime.now()
-            output_context = context.model_copy()
+            
             # Ensure OutputFormatterAgent receives full conversation set
-            output_context.conversations = conversations
-            output_context.previous_results = {
+            # And merge previous results
+            output_previous = {
                 'SegmentationAgent': _normalize_agent_result(segmentation_result),
                 'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
                 'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
@@ -1143,8 +1269,15 @@ class TopicOrchestrator:
                 'TrendAgent': _normalize_agent_result(trend_result),
                 'AnalyticalInsights': analytical_insights  # Phase 4.5 results
             }
+            
             if self.bpo_performance_agent and self.bpo_performance_agent.name in workflow_results:
-                output_context.previous_results[self.bpo_performance_agent.name] = workflow_results[self.bpo_performance_agent.name]
+                output_previous[self.bpo_performance_agent.name] = workflow_results[self.bpo_performance_agent.name]
+            
+            output_context = context.model_copy(update={
+                'conversations': conversations,
+                'previous_results': {**context.previous_results, **output_previous}
+            })
+            
             # Get historical context for "What We Cannot Determine" section
             historical_context = {'weeks_available': 0}
             if self.historical_snapshot_service:
@@ -1168,7 +1301,7 @@ class TopicOrchestrator:
                 except Exception as e:
                     self.logger.warning(f"Error getting comparison data: {e}")
             
-            output_context.metadata = {
+            output_metadata = {
                 'week_id': week_id,
                 'period_type': period_type,
                 'period_label': period_label,
@@ -1177,6 +1310,10 @@ class TopicOrchestrator:
                 'bpo_summary': workflow_results.get(self.bpo_performance_agent.name, {}).get('data') if self.bpo_performance_agent else {},
                 'digest_mode': (context.metadata or {}).get('digest_mode')
             }
+            
+            output_context = output_context.model_copy(update={
+                'metadata': {**output_context.metadata, **output_metadata}
+            })
             
             # Report agent start
             formatter_agent_key = self.formatter_agent_name

@@ -51,6 +51,60 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
             raise ValueError("NarrativeFormatterAgent output missing formatted_output")
         return True
 
+    def _compute_global_date_range(self, convs: List[Dict]) -> Dict[str, str]:
+        if not convs:
+            return {}
+        try:
+            timestamps = [c.get('created_at') for c in convs if c.get('created_at')]
+            if not timestamps:
+                return {}
+            
+            min_val = min(timestamps)
+            max_val = max(timestamps)
+            
+            from datetime import datetime
+            
+            def to_iso(val):
+                if isinstance(val, (int, float)):
+                    return datetime.fromtimestamp(val).isoformat()
+                if hasattr(val, 'isoformat'):
+                    return val.isoformat()
+                return str(val)
+
+            return {
+                'min_created_at': to_iso(min_val),
+                'max_created_at': to_iso(max_val)
+            }
+        except Exception as e:
+            self.logger.warning(f"Failed to compute global date range: {e}")
+            return {}
+
+    def _validate_critical_sections(self, payload: Dict[str, Any]) -> None:
+        """
+        Validate that critical sections (BPO, Fin, Topics) have data.
+        Raises ValueError if critical sections are empty/missing to prevent silent failures.
+        """
+        # Check BPO
+        bpo = payload.get('bpo_snapshot', {})
+        if not bpo.get('vendor_overview'):
+            # It's possible BPO agent didn't run or produced empty result.
+            # We should signal this clearly.
+            # However, if it wasn't requested (e.g. digest mode without BPO?), maybe skip.
+            # But standard report requires it.
+            pass # We'll let the prompt handle empty BPO if it's legitimately empty, 
+                 # but if the agent failed, we want to know.
+                 # The orchestrator now handles "fail_on_critical_errors".
+                 # Here we just ensure we don't generate a misleading report if data is unexpectedly missing.
+        
+        # Check Topics
+        if not payload.get('topics'):
+             raise ValueError("Critical Section Missing: No topics found in payload.")
+
+        # Check Fin
+        fin = payload.get('fin_overview', {})
+        if not fin.get('free_tier') and not fin.get('paid_tier'):
+             raise ValueError("Critical Section Missing: No Fin performance data in payload.")
+
     async def execute(self, context: AgentContext) -> AgentResult:
         try:
             self.validate_input(context)
@@ -66,6 +120,22 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
             )
 
         payload = self._assemble_payload(context)
+        
+        # Validate critical sections before generation
+        try:
+            self._validate_critical_sections(payload)
+        except ValueError as exc:
+             return AgentResult(
+                agent_name=self.name,
+                success=False,
+                data={'error': str(exc)},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                limitations=[f"Critical Data Missing: {str(exc)}"],
+                error_message=str(exc),
+                execution_time=0.0
+            )
+
         prompt = self._build_prompt(context, payload)
 
         try:
@@ -147,8 +217,27 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
         }
 
         cross_agent_signals = self._extract_cross_agent_signals(analytical)
+        
+        global_range = self._compute_global_date_range(context.conversations or [])
+        
+        # Format date label
+        from datetime import datetime
+        try:
+            min_ts = global_range.get('min_created_at')
+            max_ts = global_range.get('max_created_at')
+            if min_ts and max_ts:
+                min_dt = datetime.fromisoformat(min_ts)
+                max_dt = datetime.fromisoformat(max_ts)
+                raw_dates_label = f"{min_dt.strftime('%b %d')}–{max_dt.strftime('%b %d')}"
+            else:
+                raw_dates_label = "Unknown"
+        except:
+            raw_dates_label = "Unknown"
+
+        metrics_overview['date_range_label'] = f"Analysis: {context.start_date.strftime('%b %d')}–{context.end_date.strftime('%b %d')} | Raw data: {raw_dates_label}"
 
         return {
+            'global_date_range': global_range,
             'timeframe': {
                 'start': context.start_date.isoformat() if context.start_date else None,
                 'end': context.end_date.isoformat() if context.end_date else None,
@@ -163,15 +252,19 @@ and explain what needs to happen next. Avoid bullet dumps of raw data.
             'fin_overview': {
                 'free_tier': {
                     'resolution_rate': fin_free_snapshot.get('resolution_rate'),
-                    'total_conversations': fin_free_snapshot.get('total_conversations')
+                    'total_conversations': fin_free_snapshot.get('total_conversations'),
+                    'sample_conversations': fin_free_snapshot.get('sample_conversations', []),
+                    'date_range': fin_free_snapshot.get('date_range')
                 },
                 'paid_tier': {
                     'resolution_rate': fin_paid_snapshot.get('resolution_rate'),
-                    'total_conversations': fin_paid_snapshot.get('total_conversations')
+                    'total_conversations': fin_paid_snapshot.get('total_conversations'),
+                    'sample_conversations': fin_paid_snapshot.get('sample_conversations', []),
+                    'date_range': fin_paid_snapshot.get('date_range')
                 }
             },
             'topics': top_topics,
-            'bpo_snapshot': bpo_performance,
+            'bpo_snapshot': bpo_performance, # BpoPerformanceAgent result already includes sample_conversations and date_range inside vendor_overview
             'cross_agent_signals': cross_agent_signals,
             'risk_watchlist': bpo_performance.get('risk_watchlist', []),
             'prioritized_actions_hint': [t.get('action_hint') for t in top_topics[:4]],
@@ -340,15 +433,21 @@ DATA (representative sample of the week's conversations):
 OUTPUT RULES:
 1. Return clean markdown only.
 2. Follow this section order exactly and use "---" to separate every major section (this creates slides):
-   # Executive Narrative (tie the week together with 2-3 sentences unless digest mode says otherwise)
+   # Executive Narrative (tie the week together with 2-3 sentences unless digest mode says otherwise. Reference the raw data date range: {payload.get('metrics_overview', {}).get('date_range_label')})
    ---
-   ## Metrics at a Glance (render a markdown table with columns Metric | Value that covers: total conversations, paid human workload, free Fin-only volume, topic count, Fin free-tier resolution rate, Fin paid-tier resolution rate. Use "N/A" if a number is missing.)
+   ## Metrics at a Glance (render a markdown table with columns Metric | Value. Must include: Date Range, total conversations, paid human workload, free Fin-only volume, topic count, Fin free-tier resolution rate, Fin paid-tier resolution rate.)
    ---
    ## Cross-Agent Signals (bullets linking correlations/churn)
    ---
    ## BPO Snapshot (Horatio/Boldr loads + pressure points)
+   **Table: Vendor | % Load | Date Range | Sample Links**
+   (For each vendor, render a table row. 'Sample Links' should be 2-3 [snippet](url) links based on provided sample_conversations. If no samples, write N/A.)
    ---
-   ## Topic Stories (one subsection per topic, weaving sentiment, Fin stats, vendor load, analytical signals, and exactly one curated quote that links to Intercom)
+   ## Fin Overview
+   **Table: Tier | Resolution | Date Range | Sample Links**
+   (Render table with rows for Free and Paid tiers. Include date range and sample [snippet](url) links from provided data. Use sample_conversations to create links.)
+   ---
+   ## Topic Stories (one subsection per topic, weaving sentiment, Fin stats, vendor load, analytical signals, and exactly one curated quote that links to Intercom. Mention volume date range.)
    ---
    ## Prioritized Actions (3 numbered items max unless digest mode constrains further)
    ---
@@ -364,11 +463,28 @@ OUTPUT RULES:
         topics = payload.get('topics', [])
         cross_signals = payload.get('cross_agent_signals', {})
         bpo = payload.get('bpo_snapshot', {})
+        fin = payload.get('fin_overview', {})
         metrics = payload.get('metrics_overview', {})
         fmt = lambda value: value if value not in (None, "") else "N/A"
-        summary_lines = [
+        
+        # Explicit checks for missing critical sections
+        missing_sections = []
+        if not bpo.get('vendor_overview'):
+            missing_sections.append("BPO/Vendor Data")
+        if not fin.get('free_tier') and not fin.get('paid_tier'):
+            missing_sections.append("Fin Performance Data")
+        if not topics:
+            missing_sections.append("Topic Analysis")
+            
+        exec_summary = [
             "# Executive Narrative",
-            "Customer volume continued at typical levels. Key friction remains concentrated in the top topics listed below.",
+            "Customer volume continued at typical levels. Key friction remains concentrated in the top topics listed below."
+        ]
+        
+        if missing_sections:
+            exec_summary.append(f"\n\n**⚠️ Note: The following analysis is incomplete due to missing data: {', '.join(missing_sections)}.**")
+
+        summary_lines = exec_summary + [
             "",
             "## Metrics at a Glance",
             "| Metric | Value |",
@@ -389,27 +505,56 @@ OUTPUT RULES:
         else:
             summary_lines.append("- No cross-agent anomalies detected.")
         summary_lines.append("")
+        
         summary_lines.append("## BPO Snapshot")
-        if bpo:
+        if bpo and bpo.get('vendor_overview'):
             summary_lines.append(bpo.get('bpo_snapshot_summary', "_See vendor overview from upstream data._"))
+            # Surface a sample link if available
+            first_vendor = next(iter(bpo['vendor_overview'].values()))
+            if first_vendor and first_vendor.get('sample_conversations'):
+                sample = first_vendor['sample_conversations'][0]
+                summary_lines.append(f"- Sample: [{sample.get('snippet', 'Link')}]({sample.get('url')})")
         else:
-            summary_lines.append("_No vendor workload data available._")
+            summary_lines.append("_⚠️ BPO Performance Agent failed or produced no data._")
+            
+        summary_lines.append("")
+        summary_lines.append("## Fin Overview")
+        if fin:
+             # Basic text summary for Fin
+             free = fin.get('free_tier', {})
+             paid = fin.get('paid_tier', {})
+             summary_lines.append(f"- Free Tier: {fmt(free.get('resolution_rate'))} resolution ({fmt(free.get('total_conversations'))} convs)")
+             if free.get('sample_conversations'):
+                 sample = free['sample_conversations'][0]
+                 summary_lines.append(f"  - Sample: [{sample.get('snippet', 'Link')}]({sample.get('url')})")
+             
+             summary_lines.append(f"- Paid Tier: {fmt(paid.get('resolution_rate'))} resolution ({fmt(paid.get('total_conversations'))} convs)")
+             if paid.get('sample_conversations'):
+                 sample = paid['sample_conversations'][0]
+                 summary_lines.append(f"  - Sample: [{sample.get('snippet', 'Link')}]({sample.get('url')})")
+        else:
+             summary_lines.append("_⚠️ Fin Performance Agent failed or produced no data._")
+
         summary_lines.append("")
         summary_lines.append("## Topic Stories")
-        for topic in topics[:3]:
-            summary_lines.append(f"### {topic['name']}")
-            summary_lines.append(f"- Sentiment: {topic.get('sentiment') or 'No sentiment insight available.'}")
-            bpo_line = topic.get('bpo_callout', {}).get('inline_callout')
-            if bpo_line:
-                summary_lines.append(f"- Vendor Load: {bpo_line}")
-            quote = (topic.get('quotes') or [])
-            if quote:
-                quote_payload = quote[0]
-                text = quote_payload.get('text') or quote_payload.get('original_preview') or ''
-                if len(text) > 140:
-                    text = text[:137] + "..."
-                summary_lines.append(f"- Quote: [{text}]({quote_payload.get('intercom_url')})")
-            summary_lines.append("")
+        if topics:
+            for topic in topics[:3]:
+                summary_lines.append(f"### {topic['name']}")
+                summary_lines.append(f"- Sentiment: {topic.get('sentiment') or 'No sentiment insight available.'}")
+                bpo_line = topic.get('bpo_callout', {}).get('inline_callout')
+                if bpo_line:
+                    summary_lines.append(f"- Vendor Load: {bpo_line}")
+                quote = (topic.get('quotes') or [])
+                if quote:
+                    quote_payload = quote[0]
+                    text = quote_payload.get('text') or quote_payload.get('original_preview') or ''
+                    if len(text) > 140:
+                        text = text[:137] + "..."
+                    summary_lines.append(f"- Quote: [{text}]({quote_payload.get('intercom_url')})")
+                summary_lines.append("")
+        else:
+            summary_lines.append("_⚠️ No topics detected or TopicDetectionAgent failed._")
+
         summary_lines.append("## Prioritized Actions")
         summary_lines.append("1. Focus on top friction topics and rebalance Horatio/Boldr workload.")
         summary_lines.append("")

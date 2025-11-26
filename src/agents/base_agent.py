@@ -45,6 +45,17 @@ class AgentContext(BaseModel):
     
     class Config:
         arbitrary_types_allowed = True
+        frozen = True
+
+    def merge_metadata(self, extra_metadata: Dict[str, Any]) -> 'AgentContext':
+        """Merge new metadata and return new context (immutable pattern)."""
+        new_meta = self.metadata.copy()
+        new_meta.update(extra_metadata)
+        return self.model_copy(update={'metadata': new_meta})
+
+    def deep_copy(self) -> 'AgentContext':
+        """Return deep copy of context."""
+        return self.model_copy(deep=True)
 
 
 class AgentMetrics(BaseModel):
@@ -113,6 +124,43 @@ class BaseAgent(ABC):
         ```
     """
     
+    @classmethod
+    def build_conversation_url(cls, conv_id: str, workspace_id: Optional[str] = None) -> str:
+        """Build Intercom conversation URL."""
+        from src.config.settings import settings
+        ws_id = workspace_id or settings.intercom_workspace_id
+        if not ws_id:
+            return f"CONV-{conv_id} (workspace_id missing)"
+        return f"https://app.intercom.com/a/apps/{ws_id}/conversations/{conv_id}"
+
+    @staticmethod
+    def extract_conversation_snippet(conv: Dict[str, Any], max_chars: int = 120) -> str:
+        """
+        Extract customer snippet from conversation.
+        Falls back to title or default message if no customer messages found.
+        """
+        from src.utils.conversation_utils import extract_customer_messages
+        messages = extract_customer_messages(conv)
+        
+        if messages:
+            snippet = ' '.join(messages[:2])
+        else:
+            # Fallback 1: Title (often "User asked about X")
+            title = conv.get('title')
+            if title and isinstance(title, str):
+                snippet = title
+            else:
+                # Fallback 2: Source subject
+                source = conv.get('source', {})
+                subject = source.get('subject') or source.get('body')
+                if subject and isinstance(subject, str):
+                    snippet = subject
+                else:
+                    snippet = "No content available"
+        
+        # Truncate
+        return snippet[:max_chars] + '...' if len(snippet) >= max_chars else snippet
+
     def __init__(self, name: str, model: str = "gpt-4o", temperature: float = 0.3, tool_registry: Optional['ToolRegistry'] = None):
         self.name = name
         self.model = model
