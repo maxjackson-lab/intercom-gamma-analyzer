@@ -1255,8 +1255,8 @@ def run_comprehensive_analysis_wrapper(
 @click.option('--separate-agent-feedback', is_flag=True, default=True,
               help='Separate feedback by agent type (Finn, Boldr, Horatio, etc.)')
 @click.option('--multi-agent', is_flag=True, help='Use multi-agent mode')
-@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete', 'narrative-v2']), 
-             default='narrative-v2', help='Analysis type when multi-agent enabled')
+@click.option('--analysis-type', type=click.Choice(['standard', 'topic-based', 'synthesis', 'complete']), 
+             default='topic-based', help='Analysis type: topic-based (V2 with detailed cards), synthesis, or complete')
 @click.option('--ai-model', type=click.Choice(['openai', 'claude']), default=None,
               help='AI model to use (openai or claude). Defaults to config setting.')
 @click.option('--audit-trail', is_flag=True, default=False,

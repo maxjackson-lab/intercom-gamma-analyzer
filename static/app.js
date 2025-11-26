@@ -347,8 +347,9 @@ async function runAnalysis() {
             }
             
         } else if (analysisType === 'voice-of-customer-narrative-v2') {
+            // narrative-v2 now uses topic-based which runs TopicOrchestratorV2
             args.push('voice-of-customer');
-            args.push('--analysis-type', 'narrative-v2');
+            args.push('--analysis-type', 'topic-based');
             args.push('--multi-agent');
             
             const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
