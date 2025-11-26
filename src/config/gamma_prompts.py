@@ -44,7 +44,7 @@ class GammaPrompts:
 **Key Business Insights:**
 • **Volume Pattern:** {len(top_issues)} primary issue categories are driving support volume, with **{top_category['name']}** representing {top_category['percentage']:.1f}% of all conversations
 • **Sentiment Trend:** Customer satisfaction shows {key_metrics.get('sentiment_trend', 'mixed results')} - this indicates {'positive momentum' if 'positive' in str(key_metrics.get('sentiment_trend', '')).lower() else 'areas needing attention'}
-• **Escalation Insight:** {key_metrics.get('escalation_rate', 15.2):.1f}% of conversations require escalation, suggesting {'efficient frontline resolution' if key_metrics.get('escalation_rate', 15.2) < 20 else 'potential training or process gaps'}
+• **Escalation Insight:** {key_metrics.get('escalation_rate', 0.0):.1f}% of conversations require escalation, suggesting {'efficient frontline resolution' if key_metrics.get('escalation_rate', 0.0) < 20 else 'potential training or process gaps'}
 • **Business Impact:** Estimated cost impact of ${key_metrics.get('estimated_cost_impact', 'TBD')} - this represents {'manageable operational cost' if 'TBD' in str(key_metrics.get('estimated_cost_impact', 'TBD')) else 'significant financial opportunity'}"""
         
         # Build customer voice section with insights
@@ -70,7 +70,7 @@ class GammaPrompts:
 
 **Primary Focus Area:** {top_category['name']} represents {top_category['percentage']:.1f}% of all support volume ({top_category['count']} conversations). This concentration suggests {'a systemic issue requiring immediate attention' if top_category['percentage'] > 30 else 'a manageable distribution of support topics'}.
 
-**Escalation Pattern Analysis:** The average escalation rate of {key_metrics.get('escalation_rate', 15.2):.1f}% indicates {'efficient frontline resolution capabilities' if key_metrics.get('escalation_rate', 15.2) < 20 else 'opportunities for agent training and knowledge base improvements'}.
+**Escalation Pattern Analysis:** The average escalation rate of {key_metrics.get('escalation_rate', 0.0):.1f}% indicates {'efficient frontline resolution capabilities' if key_metrics.get('escalation_rate', 0.0) < 20 else 'opportunities for agent training and knowledge base improvements'}.
 
 **Volume Distribution Insight:** The top 3 categories account for {sum(issue['percentage'] for issue in top_issues[:3]):.1f}% of total volume, {'indicating concentrated support needs' if sum(issue['percentage'] for issue in top_issues[:3]) > 60 else 'showing diverse support requirements'}."""
         
@@ -79,7 +79,7 @@ class GammaPrompts:
 
 **Immediate Priority (0-30 days):** {recommendations[0] if recommendations else f'Focus on {top_category["name"]} category - addressing this {top_category["percentage"]:.1f}% of volume will have the highest impact on reducing support costs and improving customer satisfaction'}
 
-**Short-term Strategy (30-60 days):** {recommendations[1] if len(recommendations) > 1 else f'Implement targeted improvements based on escalation patterns - the {key_metrics.get("escalation_rate", 15.2):.1f}% escalation rate suggests specific areas for agent training and process optimization'}
+**Short-term Strategy (30-60 days):** {recommendations[1] if len(recommendations) > 1 else f'Implement targeted improvements based on escalation patterns - the {key_metrics.get("escalation_rate", 0.0):.1f}% escalation rate suggests specific areas for agent training and process optimization'}
 
 **Long-term Vision (60-90 days):** {recommendations[2] if len(recommendations) > 2 else f'Develop proactive solutions to prevent the top {len(top_issues)} issue categories from recurring - this represents a strategic shift from reactive support to predictive customer success'}"""
         
