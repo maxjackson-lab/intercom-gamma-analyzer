@@ -1240,8 +1240,12 @@ For each conversation:
                 keyword_data = keyword_detections[topic_name]
                 sdk_data = sdk_detections[topic_name]
                 
+                # Derive subtopic from keyword or SDK
+                matched_kw = keyword_data['keywords'][0] if keyword_data['keywords'] else "hybrid match"
+                
                 detected.append({
                     'topic': topic_name,
+                    'subtopic': f"Keyword: {matched_kw}",
                     'method': 'hybrid',  # Both keyword + SDK
                     'confidence': 0.95,  # Very high - both sources agree
                     'sdk_validated': True,
@@ -1259,9 +1263,11 @@ For each conversation:
             elif has_keywords:
                 # GOOD: Keywords detected (reliable)
                 keyword_data = keyword_detections[topic_name]
+                matched_kw = keyword_data['keywords'][0] if keyword_data['keywords'] else "keyword match"
                 
                 detected.append({
                     'topic': topic_name,
+                    'subtopic': f"Keyword: {matched_kw}",
                     'method': 'keyword',
                     'confidence': keyword_data['confidence'],
                     'sdk_validated': False,
@@ -1282,6 +1288,7 @@ For each conversation:
                 
                 detected.append({
                     'topic': topic_name,
+                    'subtopic': f"SDK: {sdk_data['value']}",
                     'method': 'sdk_only',
                     'confidence': 0.7,  # Medium confidence - unvalidated
                     'sdk_validated': True,
@@ -1333,6 +1340,7 @@ For each conversation:
                 
                 detected.append({
                     'topic': 'Unknown/unresponsive',
+                    'subtopic': 'Unspecified',
                     'method': 'fallback',
                     'confidence': 0.1,
                     'sdk_validated': False
@@ -1376,6 +1384,7 @@ For each conversation:
             if matched_keywords:
                 detected.append({
                     'topic': topic_name,
+                    'subtopic': f"Keyword: {matched_keywords[0]}",
                     'method': 'keyword',
                     'confidence': min(0.9, 0.5 + (len(matched_keywords) * 0.15)),
                     'sdk_validated': False,
@@ -1387,6 +1396,7 @@ For each conversation:
         if not detected:
             detected.append({
                 'topic': 'Unknown/unresponsive',
+                'subtopic': 'Unspecified',
                 'method': 'fallback',
                 'confidence': 0.1,
                 'sdk_validated': False
@@ -1523,7 +1533,11 @@ Additional topics:"""
             from src.utils.agent_thinking_logger import AgentThinkingLogger
             thinking = AgentThinkingLogger.get_logger()
             
-            topic_list = ', '.join(self._get_topic_priority_order()[:10])
+            # Use dynamic category list from taxonomy (Single Source of Truth)
+            # Exclude 'Unknown/unresponsive' from the main list if it's not in self.topics, 
+            # but add it explicitly to the prompt as an option.
+            valid_categories = [t for t in self.topics.keys() if t != 'Unknown/unresponsive']
+            categories_str = ', '.join(valid_categories)
             
             # Build context-aware prompt
             hint_section = ""
@@ -1533,17 +1547,25 @@ Additional topics:"""
                 hint_section += f"⚠️ HINT: Keywords matched: {', '.join(keywords_hint[:5])}\n"
             
             # STRUCTURED OUTPUTS: Prompt now returns Pydantic model (100% schema compliance!)
-            prompt = f"""Analyze this customer support conversation and classify it into the PRIMARY topic category.
+            prompt = f'''Analyze this customer support conversation and classify it.
 {hint_section}
 CONVERSATION TEXT:
 {text[:1500]}
 
-GUIDELINES:
-1. Identify the customer's MAIN issue/question from the conversation
-2. Ignore the hints if they don't match actual content
-3. If unclear/unresponsive, choose "Unknown/unresponsive"
+Your task is two-fold:
+1. CATEGORY: Assign the conversation to exactly ONE of the following high-level categories:
+   [{categories_str}, Unknown/unresponsive]
 
-Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
+   The `topic` field MUST be exactly one of these strings. Do not invent new categories or rephrase them.
+
+2. LABEL: Provide a specific, descriptive label (3-6 words) that captures the user's actual intent or problem.
+   Be creative and specific. Examples: "Mobile App Login Failure", "Request for Invoice PDF", "Question about API Rate Limits".
+   Put any creative specifics here, NOT in the 'topic' field.
+
+Return JSON with:
+- 'topic': The strict high-level category (must match list above)
+- 'subtopic': The specific descriptive label (use 'subtopic' key instead of 'label' for consistency)
+- 'confidence': 0.0-1.0'''
 
             # Log prompt
             thinking.log_prompt(
@@ -1563,13 +1585,14 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
             # Call LLM with SIMPLE TEXT (proven, reliable)
             # Structured Outputs is incompatible with Pydantic Enums (allOf not permitted by OpenAI)
             try:
-                raw_response, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=50)
+                raw_response, tokens_used = await self._call_llm_with_retry(prompt, max_tokens=75)
                 llm_confidence = 0.85  # High confidence for LLM classification
             except Exception as e:
                 self.logger.warning(f"LLM classification failed after retries: {e}")
                 return None
             
             # Parse JSON response (LLM may add markdown fences and extra text after JSON)
+            parsed = {}
             try:
                 # Extract JUST the JSON object (ignore markdown fences and extra text)
                 if '{' in raw_response and '}' in raw_response:
@@ -1583,9 +1606,15 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                 
                 parsed = json.loads(json_text)
                 topic_name = parsed.get('topic', '').strip()
+                # Handle 'label' or 'subtopic' keys from LLM
+                specific_label = parsed.get('subtopic', parsed.get('label', '')).strip()
+                
                 # Use LLM's confidence if provided, otherwise default
                 if 'confidence' in parsed:
-                    llm_confidence = float(parsed['confidence'])
+                    try:
+                        llm_confidence = float(parsed['confidence'])
+                    except (ValueError, TypeError):
+                        pass # Keep default
             except (json.JSONDecodeError, ValueError, KeyError) as e:
                 self.logger.warning(f"Failed to parse LLM JSON response: {e}\nRaw: {raw_response}")
                 return None
@@ -1603,10 +1632,18 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
             # We normalize to our taxonomy: "billing" → "Billing", "Refund Request" → "Billing"
             normalized_topic = self._normalize_llm_topic(topic_name)
             
+            # ERROR MODE 1: Invalid Topic -> Return None (fallback to keywords)
             if normalized_topic is None:
-                self.logger.warning(f"LLM returned invalid topic: {topic_name} (could not normalize)")
+                self.logger.warning(
+                    f"LLM returned invalid topic: {topic_name} (could not normalize)"
+                )
                 return None
             
+            # ERROR MODE 2: Missing/Invalid Label -> Use Default
+            if not specific_label or len(specific_label) < 3:
+                specific_label = f"{normalized_topic} Issue" # Safe default
+                self.logger.debug(f"LLM returned missing/short label, using default: {specific_label}")
+
             # Use normalized topic name
             topic_name = normalized_topic
             
@@ -1624,7 +1661,8 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
                         "sdk_hint": sdk_hint,
                         "agreed_with_sdk": agreed_with_sdk,
                         "keywords_hint": keywords_hint,
-                        "confidence": confidence
+                        "confidence": confidence,
+                        "subtopic": specific_label
                     }
             )
             
@@ -1637,6 +1675,7 @@ Return JSON with 'topic' and 'confidence' (0.0-1.0)."""
             
             return {
                 'topic': topic_name,
+                'subtopic': specific_label,
                 'method': 'llm_smart',
                 'confidence': confidence,
                 'sdk_validated': agreed_with_sdk if sdk_hint else False,

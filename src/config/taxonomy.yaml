@@ -873,22 +873,6 @@ categories:
       - deal
       - discount
       name: Promotion
-  Unknown:
-    confidence_threshold: 0.7
-    description: Unclassified or unresponsive conversations
-    keywords:
-    - unknown
-    - unclassified
-    - unresponsive
-    - unclear
-    subcategories:
-    - confidence_threshold: 0.8
-      description: Unclassified conversations
-      keywords:
-      - unknown
-      - unclear
-      - unclassified
-      name: Unknown
   Workspace:
     confidence_threshold: 0.7
     description: Member management, permissions, sharing
