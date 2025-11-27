@@ -7,7 +7,9 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 import yaml
 from pathlib import Path
+import logging
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Subcategory:
@@ -47,36 +49,59 @@ class TaxonomyManager:
         if self.taxonomy_file.exists():
             self._load_from_yaml()
         else:
-            import logging
             logging.warning(f"Taxonomy file not found at {self.taxonomy_file}, using default taxonomy")
             self._create_default_taxonomy()
             # Don't save to YAML if file doesn't exist - might be deployment environment
             # self._save_to_yaml()
     
+    def _validate_keywords_encoding(self, keywords: List[str], context: str) -> List[str]:
+        """
+        Validate that keywords are properly encoded UTF-8 strings.
+        Logs warnings for potentially problematic characters.
+        """
+        validated = []
+        for kw in keywords:
+            if not isinstance(kw, str):
+                logger.warning(f"Skipping non-string keyword in {context}: {kw}")
+                continue
+                
+            # Ensure it's proper UTF-8 (Python 3 strings are unicode by default, but good to check valid chars)
+            try:
+                kw.encode('utf-8')
+                validated.append(kw)
+            except UnicodeEncodeError:
+                logger.warning(f"Invalid encoding for keyword in {context}: {kw}")
+        return validated
+
     def _create_default_taxonomy(self):
         """Create the default Gamma taxonomy."""
+        
+        # Helper to validate list of keywords inline
+        def v(keywords, context):
+            return self._validate_keywords_encoding(keywords, context)
+
         self.categories = {
             "Abuse": Category(
                 name="Abuse",
                 description="Reports of harmful behavior, DMCA, malicious links",
-                keywords=["abuse", "spam", "malicious", "dmca", "harassment", "inappropriate"],
+                keywords=v(["abuse", "spam", "malicious", "dmca", "harassment", "inappropriate"], "Abuse"),
                 subcategories=[
-                    Subcategory("Spam", "Spam messages or content", ["spam", "unsolicited", "promotional"]),
-                    Subcategory("Malicious Links", "Suspicious or harmful links", ["malicious", "virus", "phishing", "suspicious link"]),
-                    Subcategory("DMCA", "Copyright infringement reports", ["dmca", "copyright", "infringement"]),
-                    Subcategory("Harassment", "Harassment or bullying", ["harassment", "bullying", "threat", "intimidation"]),
-                    Subcategory("Inappropriate Content", "Inappropriate or offensive content", ["inappropriate", "offensive", "explicit"]),
-                    Subcategory("Account Takeover", "Suspected account compromise", ["hacked", "compromised", "unauthorized access"]),
-                    Subcategory("Fake Account", "Suspected fake or impersonation", ["fake", "impersonation", "identity theft"]),
-                    Subcategory("Report User", "User reporting another user", ["report user", "block user", "user complaint"]),
-                    Subcategory("Other Abuse", "Other abuse-related issues", ["abuse", "violation", "policy violation"])
+                    Subcategory("Spam", "Spam messages or content", v(["spam", "unsolicited", "promotional"], "Abuse.Spam")),
+                    Subcategory("Malicious Links", "Suspicious or harmful links", v(["malicious", "virus", "phishing", "suspicious link"], "Abuse.MaliciousLinks")),
+                    Subcategory("DMCA", "Copyright infringement reports", v(["dmca", "copyright", "infringement"], "Abuse.DMCA")),
+                    Subcategory("Harassment", "Harassment or bullying", v(["harassment", "bullying", "threat", "intimidation"], "Abuse.Harassment")),
+                    Subcategory("Inappropriate Content", "Inappropriate or offensive content", v(["inappropriate", "offensive", "explicit"], "Abuse.Inappropriate")),
+                    Subcategory("Account Takeover", "Suspected account compromise", v(["hacked", "compromised", "unauthorized access"], "Abuse.AccountTakeover")),
+                    Subcategory("Fake Account", "Suspected fake or impersonation", v(["fake", "impersonation", "identity theft"], "Abuse.FakeAccount")),
+                    Subcategory("Report User", "User reporting another user", v(["report user", "block user", "user complaint"], "Abuse.ReportUser")),
+                    Subcategory("Other Abuse", "Other abuse-related issues", v(["abuse", "violation", "policy violation"], "Abuse.Other"))
                 ]
             ),
             
             "Account": Category(
                 name="Account",
                 description="Account access, settings, credits, email changes",
-                keywords=[
+                keywords=v([
                     # English - Core terms
                     "account", "login", "password", "email", "settings", "credits",
                     
@@ -113,28 +138,36 @@ class TaxonomyManager:
                     
                     # Italian (3.5% of conversations)
                     "cambiare email", "password", "account", "accesso",
-                    "indirizzo email", "reimpostare password", "dominio"
-                ],
+                    "indirizzo email", "reimpostare password", "dominio",
+
+                    # Russian (5.0% of conversations) - Validated UTF-8
+                    "аккаунт", "вход", "пароль", "доступ", "почта",
+                    "сброс пароля", "войти",
+
+                    # Korean (9.0% of conversations) - Validated UTF-8
+                    "계정", "로그인", "비밀번호", "접속", "이메일",
+                    "비번", "가입"
+                ], "Account"),
                 subcategories=[
-                    Subcategory("Login Issues", "Problems logging in", ["login", "sign in", "authentication", "password"]),
-                    Subcategory("Email Change", "Request to change email address", ["email change", "update email", "new email"]),
-                    Subcategory("Password Reset", "Password reset requests", ["password reset", "forgot password", "reset password"]),
-                    Subcategory("Account Settings", "Account configuration changes", ["settings", "preferences", "profile", "account settings"]),
-                    Subcategory("Credits", "Credit-related questions", ["credits", "balance", "usage", "billing credits"]),
-                    Subcategory("Account Deletion", "Request to delete account", ["delete account", "close account", "remove account"]),
-                    Subcategory("Two-Factor Auth", "2FA setup or issues", ["2fa", "two factor", "authenticator", "security"]),
-                    Subcategory("Account Access", "General account access issues", ["access", "permissions", "locked out"]),
-                    Subcategory("Profile Update", "Profile information updates", ["profile", "name change", "update profile"]),
-                    Subcategory("Account Verification", "Account verification issues", ["verification", "verify", "unverified"]),
-                    Subcategory("Account Merge", "Merging multiple accounts", ["merge", "combine", "duplicate account"]),
-                    Subcategory("Other Account", "Other account-related issues", ["account", "user", "member"])
+                    Subcategory("Login Issues", "Problems logging in", v(["login", "sign in", "authentication", "password"], "Account.Login")),
+                    Subcategory("Email Change", "Request to change email address", v(["email change", "update email", "new email"], "Account.EmailChange")),
+                    Subcategory("Password Reset", "Password reset requests", v(["password reset", "forgot password", "reset password"], "Account.PasswordReset")),
+                    Subcategory("Account Settings", "Account configuration changes", v(["settings", "preferences", "profile", "account settings"], "Account.Settings")),
+                    Subcategory("Credits", "Credit-related questions", v(["credits", "balance", "usage", "billing credits"], "Account.Credits")),
+                    Subcategory("Account Deletion", "Request to delete account", v(["delete account", "close account", "remove account"], "Account.Deletion")),
+                    Subcategory("Two-Factor Auth", "2FA setup or issues", v(["2fa", "two factor", "authenticator", "security"], "Account.2FA")),
+                    Subcategory("Account Access", "General account access issues", v(["access", "permissions", "locked out"], "Account.Access")),
+                    Subcategory("Profile Update", "Profile information updates", v(["profile", "name change", "update profile"], "Account.Profile")),
+                    Subcategory("Account Verification", "Account verification issues", v(["verification", "verify", "unverified"], "Account.Verification")),
+                    Subcategory("Account Merge", "Merging multiple accounts", v(["merge", "combine", "duplicate account"], "Account.Merge")),
+                    Subcategory("Other Account", "Other account-related issues", v(["account", "user", "member"], "Account.Other"))
                 ]
             ),
             
             "Billing": Category(
                 name="Billing",
                 description="Refunds, invoices, subscriptions, payment methods",
-                keywords=[
+                keywords=v([
                     # English - Core terms (validated by 651 billing conversations)
                     "billing", "payment", "invoice", "refund", "subscription", "credit card",
                     
@@ -228,45 +261,53 @@ class TaxonomyManager:
                     "carta di credito", # credit card
                     "ricevuta",         # receipt
                     "addebito",         # charge
-                    "salve"             # hello/greetings (NEW from 2000 convs)
-                ],
+                    "salve",            # hello/greetings (NEW from 2000 convs)
+
+                    # Russian (5.0% of conversations)
+                    "оплата", "счет", "подписка", "возврат", "отмена",
+                    "деньги", "тариф", "карта",
+
+                    # Korean (9.0% of conversations)
+                    "결제", "청구", "구독", "환불", "취소",
+                    "요금", "카드", "영수증"
+                ], "Billing"),
                 subcategories=[
-                    Subcategory("Refund", "Refund requests", ["refund", "money back", "cancel payment"]),
-                    Subcategory("Subscription", "Subscription management", ["subscription", "plan", "upgrade", "downgrade"]),
-                    Subcategory("Invoice", "Invoice questions", ["invoice", "receipt", "billing statement"]),
-                    Subcategory("Payment Method", "Payment method updates", ["payment method", "credit card", "billing info"]),
-                    Subcategory("Billing Info", "Billing information changes", ["billing address", "tax info", "billing details"]),
-                    Subcategory("Pricing", "Pricing questions", ["price", "cost", "pricing", "how much"]),
-                    Subcategory("Discount", "Discount requests", ["discount", "coupon", "promo", "deal"]),
-                    Subcategory("Credit", "Account credits", ["credit", "balance", "account credit"]),
-                    Subcategory("Failed Payment", "Payment failures", ["failed payment", "declined", "payment error"]),
-                    Subcategory("Billing Cycle", "Billing cycle questions", ["billing cycle", "renewal", "auto-renew"]),
-                    Subcategory("Tax", "Tax-related questions", ["tax", "vat", "taxes", "tax exempt"]),
-                    Subcategory("Currency", "Currency conversion", ["currency", "exchange rate", "usd", "eur"]),
-                    Subcategory("Enterprise Billing", "Enterprise billing", ["enterprise", "volume", "custom pricing"]),
-                    Subcategory("Trial", "Trial period questions", ["trial", "free trial", "trial period"]),
-                    Subcategory("Cancellation", "Subscription cancellation", ["cancel", "cancellation", "stop subscription"]),
-                    Subcategory("Reactivation", "Account reactivation", ["reactivate", "restore", "reactivation"]),
-                    Subcategory("Proration", "Prorated billing", ["proration", "prorated", "partial refund"]),
-                    Subcategory("Billing Dispute", "Billing disputes", ["dispute", "chargeback", "billing error"]),
-                    Subcategory("Payment History", "Payment history requests", ["payment history", "transactions", "billing history"]),
-                    Subcategory("Billing Contact", "Billing contact changes", ["billing contact", "account manager"]),
-                    Subcategory("Invoice Customization", "Custom invoice requests", ["custom invoice", "invoice format"]),
-                    Subcategory("Billing Export", "Billing data export", ["export billing", "billing data", "financial report"]),
-                    Subcategory("Multi-Currency", "Multi-currency billing", ["multi-currency", "currency conversion"]),
-                    Subcategory("Billing Integration", "Billing system integration", ["billing integration", "api billing"]),
-                    Subcategory("Billing Automation", "Automated billing", ["automated billing", "auto-billing"]),
-                    Subcategory("Billing Analytics", "Billing analytics", ["billing analytics", "usage analytics"]),
-                    Subcategory("Billing Compliance", "Billing compliance", ["compliance", "audit", "billing compliance"]),
-                    Subcategory("Billing Migration", "Billing system migration", ["migration", "billing migration"]),
-                    Subcategory("Other Billing", "Other billing issues", ["billing", "payment", "financial"])
+                    Subcategory("Refund", "Refund requests", v(["refund", "money back", "cancel payment"], "Billing.Refund")),
+                    Subcategory("Subscription", "Subscription management", v(["subscription", "plan", "upgrade", "downgrade"], "Billing.Subscription")),
+                    Subcategory("Invoice", "Invoice questions", v(["invoice", "receipt", "billing statement"], "Billing.Invoice")),
+                    Subcategory("Payment Method", "Payment method updates", v(["payment method", "credit card", "billing info"], "Billing.PaymentMethod")),
+                    Subcategory("Billing Info", "Billing information changes", v(["billing address", "tax info", "billing details"], "Billing.Info")),
+                    Subcategory("Pricing", "Pricing questions", v(["price", "cost", "pricing", "how much"], "Billing.Pricing")),
+                    Subcategory("Discount", "Discount requests", v(["discount", "coupon", "promo", "deal"], "Billing.Discount")),
+                    Subcategory("Credit", "Account credits", v(["credit", "balance", "account credit"], "Billing.Credit")),
+                    Subcategory("Failed Payment", "Payment failures", v(["failed payment", "declined", "payment error"], "Billing.Failed")),
+                    Subcategory("Billing Cycle", "Billing cycle questions", v(["billing cycle", "renewal", "auto-renew"], "Billing.Cycle")),
+                    Subcategory("Tax", "Tax-related questions", v(["tax", "vat", "taxes", "tax exempt"], "Billing.Tax")),
+                    Subcategory("Currency", "Currency conversion", v(["currency", "exchange rate", "usd", "eur"], "Billing.Currency")),
+                    Subcategory("Enterprise Billing", "Enterprise billing", v(["enterprise", "volume", "custom pricing"], "Billing.Enterprise")),
+                    Subcategory("Trial", "Trial period questions", v(["trial", "free trial", "trial period"], "Billing.Trial")),
+                    Subcategory("Cancellation", "Subscription cancellation", v(["cancel", "cancellation", "stop subscription"], "Billing.Cancellation")),
+                    Subcategory("Reactivation", "Account reactivation", v(["reactivate", "restore", "reactivation"], "Billing.Reactivation")),
+                    Subcategory("Proration", "Prorated billing", v(["proration", "prorated", "partial refund"], "Billing.Proration")),
+                    Subcategory("Billing Dispute", "Billing disputes", v(["dispute", "chargeback", "billing error"], "Billing.Dispute")),
+                    Subcategory("Payment History", "Payment history requests", v(["payment history", "transactions", "billing history"], "Billing.History")),
+                    Subcategory("Billing Contact", "Billing contact changes", v(["billing contact", "account manager"], "Billing.Contact")),
+                    Subcategory("Invoice Customization", "Custom invoice requests", v(["custom invoice", "invoice format"], "Billing.InvoiceCustom")),
+                    Subcategory("Billing Export", "Billing data export", v(["export billing", "billing data", "financial report"], "Billing.Export")),
+                    Subcategory("Multi-Currency", "Multi-currency billing", v(["multi-currency", "currency conversion"], "Billing.MultiCurrency")),
+                    Subcategory("Billing Integration", "Billing system integration", v(["billing integration", "api billing"], "Billing.Integration")),
+                    Subcategory("Billing Automation", "Automated billing", v(["automated billing", "auto-billing"], "Billing.Automation")),
+                    Subcategory("Billing Analytics", "Billing analytics", v(["billing analytics", "usage analytics"], "Billing.Analytics")),
+                    Subcategory("Billing Compliance", "Billing compliance", v(["compliance", "audit", "billing compliance"], "Billing.Compliance")),
+                    Subcategory("Billing Migration", "Billing system migration", v(["migration", "billing migration"], "Billing.Migration")),
+                    Subcategory("Other Billing", "Other billing issues", v(["billing", "payment", "financial"], "Billing.Other"))
                 ]
             ),
             
             "Bug": Category(
                 name="Bug",
                 description="Product bugs, errors, functionality issues",
-                keywords=[
+                keywords=v([
                     # English - Core error terms
                     "bug", "error", "broken", "not working", "issue", "problem",
                     
@@ -300,99 +341,107 @@ class TaxonomyManager:
                     
                     # Italian (3.5% of conversations)
                     "non funziona", "errore", "rotto", "problema",
-                    "non carica", "non posso", "non può"
-                ],
+                    "non carica", "non posso", "non può",
+
+                    # Russian (5.0% of conversations)
+                    "ошибка", "не работает", "баг", "проблема",
+                    "сломалось", "зависло",
+
+                    # Korean (9.0% of conversations)
+                    "오류", "버그", "문제", "안됨", "안돼요",
+                    "작동 안함", "에러"
+                ], "Bug"),
                 subcategories=[
-                    Subcategory("Export", "Export functionality bugs", ["export", "ppt", "pdf", "slides", "download"]),
-                    Subcategory("Account", "Account-related bugs", ["account bug", "login bug", "profile bug"]),
-                    Subcategory("Agent", "AI agent bugs", ["agent bug", "fin bug", "ai bug", "bot bug"]),
-                    Subcategory("API", "API-related bugs", ["api bug", "api error", "integration bug"]),
-                    Subcategory("Authentication", "Authentication bugs", ["auth bug", "login bug", "session bug"]),
-                    Subcategory("Billing", "Billing system bugs", ["billing bug", "payment bug", "invoice bug"]),
-                    Subcategory("Collaboration", "Collaboration features", ["collaboration bug", "sharing bug", "permissions bug"]),
-                    Subcategory("Dashboard", "Dashboard bugs", ["dashboard bug", "ui bug", "interface bug"]),
-                    Subcategory("Data", "Data-related bugs", ["data bug", "sync bug", "data loss"]),
-                    Subcategory("Email", "Email functionality bugs", ["email bug", "notification bug", "email delivery"]),
-                    Subcategory("File Upload", "File upload bugs", ["upload bug", "file bug", "attachment bug"]),
-                    Subcategory("Font", "Font-related bugs", ["font bug", "text bug", "formatting bug"]),
-                    Subcategory("Import", "Import functionality bugs", ["import bug", "upload bug", "file import"]),
-                    Subcategory("Integration", "Third-party integration bugs", ["integration bug", "connector bug", "api bug"]),
-                    Subcategory("Mobile", "Mobile app bugs", ["mobile bug", "app bug", "ios bug", "android bug"]),
-                    Subcategory("Performance", "Performance issues", ["slow", "performance", "loading", "timeout"]),
-                    Subcategory("Publishing", "Publishing bugs", ["publish bug", "deploy bug", "publication bug"]),
-                    Subcategory("Search", "Search functionality bugs", ["search bug", "find bug", "search not working"]),
-                    Subcategory("Security", "Security-related bugs", ["security bug", "vulnerability", "security issue"]),
-                    Subcategory("Sync", "Synchronization bugs", ["sync bug", "sync issue", "data sync"]),
-                    Subcategory("Template", "Template bugs", ["template bug", "theme bug", "design bug"]),
-                    Subcategory("UI/UX", "User interface bugs", ["ui bug", "ux bug", "interface bug", "design bug"]),
-                    Subcategory("Video", "Video-related bugs", ["video bug", "media bug", "playback bug"]),
-                    Subcategory("Workspace", "Workspace bugs", ["workspace bug", "team bug", "organization bug"]),
-                    Subcategory("Other Bug", "Other bug reports", ["bug", "error", "issue", "problem"])
+                    Subcategory("Export", "Export functionality bugs", v(["export", "ppt", "pdf", "slides", "download"], "Bug.Export")),
+                    Subcategory("Account", "Account-related bugs", v(["account bug", "login bug", "profile bug"], "Bug.Account")),
+                    Subcategory("Agent", "AI agent bugs", v(["agent bug", "fin bug", "ai bug", "bot bug"], "Bug.Agent")),
+                    Subcategory("API", "API-related bugs", v(["api bug", "api error", "integration bug"], "Bug.API")),
+                    Subcategory("Authentication", "Authentication bugs", v(["auth bug", "login bug", "session bug"], "Bug.Auth")),
+                    Subcategory("Billing", "Billing system bugs", v(["billing bug", "payment bug", "invoice bug"], "Bug.Billing")),
+                    Subcategory("Collaboration", "Collaboration features", v(["collaboration bug", "sharing bug", "permissions bug"], "Bug.Collab")),
+                    Subcategory("Dashboard", "Dashboard bugs", v(["dashboard bug", "ui bug", "interface bug"], "Bug.Dashboard")),
+                    Subcategory("Data", "Data-related bugs", v(["data bug", "sync bug", "data loss"], "Bug.Data")),
+                    Subcategory("Email", "Email functionality bugs", v(["email bug", "notification bug", "email delivery"], "Bug.Email")),
+                    Subcategory("File Upload", "File upload bugs", v(["upload bug", "file bug", "attachment bug"], "Bug.Upload")),
+                    Subcategory("Font", "Font-related bugs", v(["font bug", "text bug", "formatting bug"], "Bug.Font")),
+                    Subcategory("Import", "Import functionality bugs", v(["import bug", "upload bug", "file import"], "Bug.Import")),
+                    Subcategory("Integration", "Third-party integration bugs", v(["integration bug", "connector bug", "api bug"], "Bug.Integration")),
+                    Subcategory("Mobile", "Mobile app bugs", v(["mobile bug", "app bug", "ios bug", "android bug"], "Bug.Mobile")),
+                    Subcategory("Performance", "Performance issues", v(["slow", "performance", "loading", "timeout"], "Bug.Perf")),
+                    Subcategory("Publishing", "Publishing bugs", v(["publish bug", "deploy bug", "publication bug"], "Bug.Publish")),
+                    Subcategory("Search", "Search functionality bugs", v(["search bug", "find bug", "search not working"], "Bug.Search")),
+                    Subcategory("Security", "Security-related bugs", v(["security bug", "vulnerability", "security issue"], "Bug.Security")),
+                    Subcategory("Sync", "Synchronization bugs", v(["sync bug", "sync issue", "data sync"], "Bug.Sync")),
+                    Subcategory("Template", "Template bugs", v(["template bug", "theme bug", "design bug"], "Bug.Template")),
+                    Subcategory("UI/UX", "User interface bugs", v(["ui bug", "ux bug", "interface bug", "design bug"], "Bug.UIUX")),
+                    Subcategory("Video", "Video-related bugs", v(["video bug", "media bug", "playback bug"], "Bug.Video")),
+                    Subcategory("Workspace", "Workspace bugs", v(["workspace bug", "team bug", "organization bug"], "Bug.Workspace")),
+                    Subcategory("Other Bug", "Other bug reports", v(["bug", "error", "issue", "problem"], "Bug.Other"))
                 ]
             ),
             
             "Agent/Buddy": Category(
                 name="Agent/Buddy",
                 description="AI agent questions and usage (internal name: Buddy)",
-                keywords=["agent", "buddy", "fin", "ai", "bot", "assistant"],
+                keywords=v(["agent", "buddy", "fin", "ai", "bot", "assistant"], "AgentBuddy"),
                 subcategories=[
-                    Subcategory("Agent Question", "Questions about AI agent", ["agent", "fin", "ai", "bot", "assistant"]),
-                    Subcategory("Agent Feedback", "Feedback on AI agent", ["agent feedback", "fin feedback", "ai feedback"]),
-                    Subcategory("Agent Training", "AI agent training requests", ["agent training", "fin training", "ai training"]),
-                    Subcategory("Agent Integration", "AI agent integration", ["agent integration", "fin integration", "ai integration"]),
-                    Subcategory("Agent Performance", "AI agent performance", ["agent performance", "fin performance", "ai performance"]),
-                    Subcategory("Other Agent", "Other AI agent issues", ["agent", "ai", "fin", "buddy"])
+                    Subcategory("Agent Question", "Questions about AI agent", v(["agent", "fin", "ai", "bot", "assistant"], "Agent.Question")),
+                    Subcategory("Agent Feedback", "Feedback on AI agent", v(["agent feedback", "fin feedback", "ai feedback"], "Agent.Feedback")),
+                    Subcategory("Agent Training", "AI agent training requests", v(["agent training", "fin training", "ai training"], "Agent.Training")),
+                    Subcategory("Agent Integration", "AI agent integration", v(["agent integration", "fin integration", "ai integration"], "Agent.Integration")),
+                    Subcategory("Agent Performance", "AI agent performance", v(["agent performance", "fin performance", "ai performance"], "Agent.Perf")),
+                    Subcategory("Other Agent", "Other AI agent issues", v(["agent", "ai", "fin", "buddy"], "Agent.Other"))
                 ]
             ),
             
             "Chargeback": Category(
                 name="Chargeback",
                 description="Disputed or unauthorized charges",
-                keywords=["chargeback", "dispute", "unauthorized", "fraudulent"],
+                keywords=v(["chargeback", "dispute", "unauthorized", "fraudulent"], "Chargeback"),
                 subcategories=[
-                    Subcategory("Chargeback", "Chargeback disputes", ["chargeback", "dispute", "unauthorized charge"])
+                    Subcategory("Chargeback", "Chargeback disputes", v(["chargeback", "dispute", "unauthorized charge"], "Chargeback.Dispute"))
                 ]
             ),
             
             "Feedback": Category(
                 name="Feedback",
                 description="Feature requests and suggestions",
-                keywords=["feedback", "suggestion", "feature request", "improvement"],
+                keywords=v(["feedback", "suggestion", "feature request", "improvement"], "Feedback"),
                 subcategories=[
-                    Subcategory("Feature Request", "Feature requests", ["feature request", "new feature", "suggestion"]),
-                    Subcategory("Improvement", "Product improvements", ["improvement", "enhancement", "better"]),
-                    Subcategory("User Experience", "UX feedback", ["ux", "user experience", "usability"]),
-                    Subcategory("Other Feedback", "Other feedback", ["feedback", "suggestion", "comment"])
+                    Subcategory("Feature Request", "Feature requests", v(["feature request", "new feature", "suggestion"], "Feedback.Request")),
+                    Subcategory("Improvement", "Product improvements", v(["improvement", "enhancement", "better"], "Feedback.Improvement")),
+                    Subcategory("User Experience", "UX feedback", v(["ux", "user experience", "usability"], "Feedback.UX")),
+                    Subcategory("Other Feedback", "Other feedback", v(["feedback", "suggestion", "comment"], "Feedback.Other"))
                 ]
             ),
             
             "Partnerships": Category(
                 name="Partnerships",
                 description="Business collaborations, affiliate programs",
-                keywords=["partnership", "affiliate", "collaboration", "business"],
+                keywords=v(["partnership", "affiliate", "collaboration", "business"], "Partnerships"),
                 subcategories=[
-                    Subcategory("Partnership", "Partnership inquiries", ["partnership", "collaboration", "business"]),
-                    Subcategory("Affiliate", "Affiliate program", ["affiliate", "referral", "commission"]),
-                    Subcategory("Integration", "Integration partnerships", ["integration", "api partnership", "connector"])
+                    Subcategory("Partnership", "Partnership inquiries", v(["partnership", "collaboration", "business"], "Partnerships.Inquiry")),
+                    Subcategory("Affiliate", "Affiliate program", v(["affiliate", "referral", "commission"], "Partnerships.Affiliate")),
+                    Subcategory("Integration", "Integration partnerships", v(["integration", "api partnership", "connector"], "Partnerships.Integration"))
                 ]
             ),
             
             "Privacy": Category(
                 name="Privacy",
                 description="Data protection, security, ToS, privacy policies",
-                keywords=["privacy", "security", "data protection", "gdpr", "tos"],
+                keywords=v(["privacy", "security", "data protection", "gdpr", "tos"], "Privacy"),
                 subcategories=[
-                    Subcategory("Privacy Policy", "Privacy policy questions", ["privacy policy", "privacy", "data protection"]),
-                    Subcategory("GDPR", "GDPR compliance", ["gdpr", "data protection", "privacy rights"]),
-                    Subcategory("Security", "Security concerns", ["security", "data security", "protection"]),
-                    Subcategory("Terms of Service", "Terms of service", ["terms", "tos", "terms of service"])
+                    Subcategory("Privacy Policy", "Privacy policy questions", v(["privacy policy", "privacy", "data protection"], "Privacy.Policy")),
+                    Subcategory("GDPR", "GDPR compliance", v(["gdpr", "data protection", "privacy rights"], "Privacy.GDPR")),
+                    Subcategory("Security", "Security concerns", v(["security", "data security", "protection"], "Privacy.Security")),
+                    Subcategory("Terms of Service", "Terms of service", v(["terms", "tos", "terms of service"], "Privacy.ToS"))
                 ]
             ),
             
             "Product Question": Category(
                 name="Product Question",
                 description="How-to questions about features",
-                keywords=[
+                keywords=v([
                     # English - Core terms
                     "how to", "question", "help", "tutorial", "guide",
                     
@@ -468,29 +517,37 @@ class TaxonomyManager:
                     # Italian (3.5% of conversations)
                     "esportare", "scaricare", "diapositive", "presentazione",
                     "pubblicare", "condividere", "tradurre", "tema", "modello",
-                    "nota", "note", "bloccato nella"
-                ],
+                    "nota", "note", "bloccato nella",
+
+                    # Russian (5.0% of conversations)
+                    "как", "вопрос", "помощь", "экспорт", "скачать",
+                    "презентация", "слайд", "поделиться",
+
+                    # Korean (9.0% of conversations)
+                    "방법", "질문", "도움", "내보내기", "다운로드",
+                    "프레젠테이션", "슬라이드", "공유", "어떻게"
+                ], "ProductQuestion"),
                 subcategories=[
-                    Subcategory("How to Use", "How-to questions", ["how to", "how do i", "tutorial", "guide"]),
-                    Subcategory("Feature Explanation", "Feature explanations", ["what is", "explain", "feature"]),
-                    Subcategory("Best Practices", "Best practices", ["best practice", "tips", "recommendations"]),
-                    Subcategory("Workflow", "Workflow questions", ["workflow", "process", "steps"]),
-                    Subcategory("Integration", "Integration questions", ["integration", "connect", "setup"]),
-                    Subcategory("Customization", "Customization questions", ["customize", "personalize", "settings"]),
-                    Subcategory("Troubleshooting", "General troubleshooting", ["troubleshoot", "help", "problem"]),
-                    Subcategory("Training", "Training requests", ["training", "learn", "education"]),
-                    Subcategory("Documentation", "Documentation requests", ["documentation", "docs", "manual"]),
-                    Subcategory("Support", "General support", ["support", "help", "assistance"]),
-                    Subcategory("Other Product", "Other product questions", ["question", "help", "support"])
+                    Subcategory("How to Use", "How-to questions", v(["how to", "how do i", "tutorial", "guide"], "Product.HowTo")),
+                    Subcategory("Feature Explanation", "Feature explanations", v(["what is", "explain", "feature"], "Product.Feature")),
+                    Subcategory("Best Practices", "Best practices", v(["best practice", "tips", "recommendations"], "Product.BestPractices")),
+                    Subcategory("Workflow", "Workflow questions", v(["workflow", "process", "steps"], "Product.Workflow")),
+                    Subcategory("Integration", "Integration questions", v(["integration", "connect", "setup"], "Product.Integration")),
+                    Subcategory("Customization", "Customization questions", v(["customize", "personalize", "settings"], "Product.Customization")),
+                    Subcategory("Troubleshooting", "General troubleshooting", v(["troubleshoot", "help", "problem"], "Product.Troubleshooting")),
+                    Subcategory("Training", "Training requests", v(["training", "learn", "education"], "Product.Training")),
+                    Subcategory("Documentation", "Documentation requests", v(["documentation", "docs", "manual"], "Product.Docs")),
+                    Subcategory("Support", "General support", v(["support", "help", "assistance"], "Product.Support")),
+                    Subcategory("Other Product", "Other product questions", v(["question", "help", "support"], "Product.Other"))
                 ]
             ),
             
             "Promotions": Category(
                 name="Promotions",
                 description="Discounts, special offers, coupon codes",
-                keywords=["promotion", "discount", "coupon", "offer", "deal"],
+                keywords=v(["promotion", "discount", "coupon", "offer", "deal"], "Promotions"),
                 subcategories=[
-                    Subcategory("Promotion", "Promotional offers", ["promotion", "offer", "deal", "discount"])
+                    Subcategory("Promotion", "Promotional offers", v(["promotion", "offer", "deal", "discount"], "Promotions.Offer"))
                 ]
             ),
             
@@ -502,7 +559,7 @@ class TaxonomyManager:
             "Workspace": Category(
                 name="Workspace",
                 description="Member management, permissions, sharing",
-                keywords=[
+                keywords=v([
                     # English - Core terms
                     "workspace", "team", "member", "permission", "sharing",
                     
@@ -535,11 +592,19 @@ class TaxonomyManager:
                     
                     # Italian (3.5% of conversations)
                     "spazio di lavoro", "squadra", "dominio", "sito web",
-                    "impostazioni del team", "organizzazione"
-                ],
+                    "impostazioni del team", "organizzazione",
+
+                    # Russian (5.0% of conversations)
+                    "рабочее пространство", "команда", "участник",
+                    "пригласить", "настройки",
+
+                    # Korean (9.0% of conversations)
+                    "워크스페이스", "팀", "멤버", "초대",
+                    "설정", "조직"
+                ], "Workspace"),
                 subcategories=[
-                    Subcategory("Member Management", "Member management", ["member", "team", "user management"]),
-                    Subcategory("Permissions", "Permission management", ["permission", "access", "role", "admin"])
+                    Subcategory("Member Management", "Member management", v(["member", "team", "user management"], "Workspace.Member")),
+                    Subcategory("Permissions", "Permission management", v(["permission", "access", "role", "admin"], "Workspace.Permissions"))
                 ]
             )
         }
@@ -736,12 +801,29 @@ class TaxonomyManager:
         # This will be implemented to handle dynamic taxonomy updates
         pass
 
+    def test_multilingual_keywords(self):
+        """
+        Test method to verify that multi-language keywords (Russian, Korean) are working.
+        Logs debug info about keyword integrity.
+        """
+        test_keywords = {
+            "Russian": ["аккаунт", "пароль"],
+            "Korean": ["계정", "비밀번호"]
+        }
+        
+        for lang, keys in test_keywords.items():
+            for key in keys:
+                # Check if keyword exists in any category
+                found = False
+                for cat in self.categories.values():
+                    if key in cat.keywords:
+                        found = True
+                        break
+                
+                if found:
+                    logger.debug(f"✅ {lang} keyword '{key}' verified in taxonomy")
+                else:
+                    logger.warning(f"⚠️ {lang} keyword '{key}' MISSING from taxonomy")
 
 # Global taxonomy manager instance
 taxonomy_manager = TaxonomyManager()
-
-
-
-
-
-

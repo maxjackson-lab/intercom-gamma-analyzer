@@ -72,10 +72,53 @@ TOPIC SENTIMENT AGENT SPECIFIC RULES:
 8. Never refuse; if uncertain, describe the strongest pattern visible in the sample.
 """
     
+    def _get_topic_specific_examples(self, topic_name: str) -> str:
+        """
+        Return domain-specific sentiment examples for tone consistency.
+        Priority 2 from PROMPT_CATALOG.md
+        """
+        examples = {
+            "Billing": [
+                "Users are appreciative of the ability to buy more credits, but frustrated that Gamma moved to a credit model",
+                "Customers love the flexibility of the pro plan BUT are confused by the pro-rated invoice dates"
+            ],
+            "Bug": [
+                "Users are frustrated with persistent export bugs BUT appreciate the support team's responsiveness",
+                "Customers are annoyed by the image upload error and just want it fixed immediately"
+            ],
+            "Product Question": [
+                "Users think templates are rad but want to be able to use them with API",
+                "Customers love the export feature but are confused by format options"
+            ],
+            "Workspace": [
+                "Users like the team features BUT are frustrated by permission granularity",
+                "Customers want to share with their team but find the invite flow confusing"
+            ],
+            "Account": [
+                "Users are happy with the login speed BUT annoyed by frequent session timeouts",
+                "Customers want to change their email easily and are frustrated by the manual process"
+            ]
+        }
+        
+        # Get specific examples or default fallbacks
+        topic_examples = examples.get(topic_name, [
+            f"Users are generally happy with {topic_name} but want more control",
+            f"Customers find {topic_name} features useful BUT are frustrated by limitations"
+        ])
+        
+        formatted = []
+        for ex in topic_examples:
+            formatted.append(f'   ✓ "{ex}"')
+            
+        return "\n".join(formatted)
+
     def get_task_description(self, context: AgentContext) -> str:
         """Describe the topic sentiment analysis task"""
         topic_name = context.metadata.get('current_topic')
         conv_count = len(context.metadata.get('topic_conversations', []))
+        
+        # PROMPT OPTIMIZATION: Use topic-specific examples (Priority 2)
+        examples_block = self._get_topic_specific_examples(topic_name)
         
         return f"""
 Analyze sentiment for the topic: {topic_name}
@@ -88,10 +131,8 @@ Generate exactly ONE SENTENCE that:
 3. Uses natural, conversational language
 4. Is immediately actionable and grounded in the sample provided
 
-Examples to match:
-- "Users hate buddy so much"
-- "Users are appreciative of the ability to buy more credits, but frustrated that Gamma moved to a credit model"
-- "Users think templates are rad but want to be able to use them with API"
+For {topic_name} sentiment, match this style from past analyses:
+{examples_block}
 """
     
     def format_context_data(self, context: AgentContext) -> str:
