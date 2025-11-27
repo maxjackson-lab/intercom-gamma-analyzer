@@ -420,6 +420,36 @@ The UI displays available capabilities based on data history:
 
 The tool includes verification scripts to help operators validate date calculations, API filters, and conversation counts:
 
+### **Sentiment Analysis Quality Assurance**
+
+To ensure sentiment insights are specific, nuanced, and actionable, use the dedicated quality validation tools.
+
+**Quality Standards:**
+- **Specificity:** Avoid generic terms like "issues" or "problems" without context.
+- **Nuance:** Use connectors like "but", "however", "yet" to capture complexity (e.g., "Love X BUT hate Y").
+- **Actionable Phrasing:** Insights should imply what needs fixing.
+- **Avoid Generic Labels:** No "positive/negative sentiment detected".
+
+**Examples:**
+- ✅ *Good:* "Users appreciate the new export feature BUT are frustrated by the lack of PDF support."
+- ❌ *Bad:* "Negative sentiment detected regarding exports."
+
+**Running Tests:**
+Execute the prompt optimization tests to verify the agent's behavior:
+```bash
+pytest tests/test_prompt_optimization.py::TestTopicSentimentAgent -v
+```
+
+**Running the Validation Script:**
+Analyze recent logs to score sentiment insight quality:
+```bash
+# Analyze a specific log file
+python scripts/validate_sentiment_quality.py --log-file outputs/intercom_analysis.log
+
+# Analyze the latest log in a directory
+python scripts/validate_sentiment_quality.py --log-dir outputs/
+```
+
 ### **1. Verify Date Calculations** (`scripts/verify_date_calculation.py`)
 Prints Pacific and UTC timestamps with expected API filter windows to verify date boundary inclusion.
 

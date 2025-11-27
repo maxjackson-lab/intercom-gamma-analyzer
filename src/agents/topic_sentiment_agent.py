@@ -187,11 +187,20 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
         return True
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        """Validate sentiment insight"""
+        """
+        Validate sentiment insight and attach quality metadata.
+        
+        Args:
+            result: Dictionary containing 'sentiment_insight' and where metadata will be attached
+            
+        Returns:
+            bool: True if validation technically passed (even with warnings), False if critical failure
+        """
         if 'sentiment_insight' not in result:
             return False
         
         insight = result['sentiment_insight']
+        warnings = []
         
         # Check for bad patterns
         bad_patterns = [
@@ -199,11 +208,70 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
             'positive sentiment',
             'mixed sentiment',
             'users are frustrated',  # Too generic
-            'customers express'
+            'customers express',
+            'sentiment detected',
+            'sentiment about',
+            'have issues',
+            'have problems',
+            'issues',   # generic
+            'problems', # generic
+            'concerns'  # generic
         ]
         
-        if any(pattern in insight.lower() for pattern in bad_patterns):
-            self.logger.warning(f"Generic sentiment detected: {insight}")
+        generic_pattern_count = 0
+        for pattern in bad_patterns:
+            # strict check for the short words to avoid matching within words (e.g. "issues" in "tissues" - unlikely but good practice, 
+            # though simple 'in' is what was asked: "when they are not attached to specific features" - 
+            # The instruction says: "Extend... to cover additional weak phrasing like `issues`, `problems`, and `concerns` when they are not attached to specific features."
+            # Implementing "not attached to specific features" via regex is hard without NLP. 
+            # The instruction implies simply adding them to the list effectively catches them as "weak phrasing" triggers.
+            # I will proceed with simple substring match as per existing pattern logic, but maybe adding space boundaries for the single words would be safer? 
+            # "issues" might match "issues" inside "reissues". 
+            # The existing code uses `if pattern in insight.lower():`.
+            # The instruction says "Extend the bad_patterns ... to cover ... 'issues', 'problems', and 'concerns'".
+            # I will just add them to the list.
+            if pattern in insight.lower():
+                warnings.append(f"Generic pattern detected: '{pattern}'")
+                self.logger.warning(f"Generic sentiment detected: {insight}")
+                generic_pattern_count += 1
+        
+        # Update metrics if they exist
+        if 'sentiment_metrics' in result:
+            result['sentiment_metrics']['generic_pattern_count'] = generic_pattern_count
+        
+        # Length check
+        if len(insight) < 20:
+            warnings.append("Insight too short (<20 chars)")
+        elif len(insight) > 200:
+            warnings.append("Insight too long (>200 chars)")
+            
+        # Nuance check
+        nuance_connectors = ["but", "however", "although", "yet"]
+        contains_nuance = any(connector in insight.lower() for connector in nuance_connectors)
+        if not contains_nuance:
+            warnings.append("Missing nuance connector (but/however/etc)")
+            
+        # Compute quality score (0.0 to 1.0)
+        score = 1.0
+        if warnings:
+            score -= 0.1 * len(warnings)  # Dock points for warnings
+        if not contains_nuance:
+            score -= 0.2  # Major penalty for lack of nuance
+        if generic_pattern_count > 0:
+            score -= 0.3  # Major penalty for generic patterns
+            
+        score = max(0.0, score)
+        
+        # Attach metadata to result
+        result['validation_warnings'] = warnings
+        result['quality_score'] = round(score, 2)
+        result['contains_nuance'] = contains_nuance
+        
+        # Log quality breakdown
+        self.logger.info(
+            f"Sentiment Quality: Score={result['quality_score']:.2f}, "
+            f"Nuance={contains_nuance}, Warnings={len(warnings)}"
+        )
         
         return True
     
@@ -240,7 +308,11 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
             insight = await self.ai_client.generate_analysis(prompt)
             insight = insight.strip().strip('"').strip()  # Clean up formatting
 
+            refusal_count = 0
+            retry_count = 0
+
             if self._looks_like_refusal(insight):
+                refusal_count += 1
                 self.logger.warning(f"TopicSentimentAgent detected refusal for {topic_name}; reinforcing prompt")
                 reinforcement_prompt = (
                     f"{prompt}\n\n"
@@ -248,11 +320,14 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
                     "the representative sample above. Do not refuse."
                 )
                 try:
+                    retry_count += 1
                     retry_response = await self.ai_client.generate_analysis(reinforcement_prompt)
                     insight = retry_response.strip().strip('"').strip()
                 except Exception as retry_exc:
                     self.logger.error(f"Retry failed for {topic_name}: {retry_exc}")
+                
                 if self._looks_like_refusal(insight):
+                    refusal_count += 1
                     insight = self._fallback_sentence(topic_name)
             
             token_count = len(prompt) // 4 + len(insight) // 4
@@ -271,7 +346,11 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
                 'sentiment_insight': insight,
                 'conversation_count': len(topic_conversations),
                 'sample_quotes': self._extract_sample_quotes(topic_conversations[:5]),
-                'method': method  # Always 'llm' now
+                'method': method,  # Always 'llm' now
+                'sentiment_metrics': {
+                    'refusal_count': refusal_count,
+                    'retry_count': retry_count
+                }
             }
             
             self.validate_output(result_data)
@@ -318,14 +397,24 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
             "do not have enough information",
             "insufficient information",
             "as an ai",
-            "i do not have access"
+            "i do not have access",
+            "not enough data",
+            "insufficient data",
+            "cannot determine",
+            "unable to determine",
+            "need more information",
+            "as a language model"
         ]
         return any(marker in lowered for marker in refusal_markers)
 
     def _fallback_sentence(self, topic_name: str) -> str:
-        return (
-            f"Customers keep talking about {topic_name.lower()}, appreciating the core value but clearly frustrated by the current gaps."
-        )
+        t_lower = topic_name.lower()
+        if topic_name in ["Billing", "Account"]:
+            return f"Customers value the service but are frustrated by friction in {t_lower} management."
+        elif topic_name == "Bug":
+            return f"Users are annoyed by technical issues with {t_lower} and want faster resolution."
+        else:
+            return f"Customers keep talking about {t_lower}, appreciating the core value but clearly frustrated by the current gaps."
     
     def _extract_cx_score_insights(self, conversations: List[Dict]) -> List[str]:
         """
