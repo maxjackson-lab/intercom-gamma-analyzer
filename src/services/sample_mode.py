@@ -1372,11 +1372,12 @@ class SampleMode:
             # Run actual sentiment analysis
             console.print("[yellow]🤖 Running TopicSentimentAgent...[/yellow]")
             
-            topic_context = context.model_copy()
-            topic_context.metadata = {
-                'current_topic': topic_name,
-                'topic_conversations': topic_convs
-            }
+            topic_context = context.model_copy(update={
+                'metadata': {
+                    'current_topic': topic_name,
+                    'topic_conversations': topic_convs
+                }
+            })
             
             sentiment_result = await sentiment_agent.execute(topic_context)
             
@@ -1466,11 +1467,13 @@ class SampleMode:
         topic_dist = topic_result.data.get('topic_distribution', {})
         console.print(f"[green]✅ Topics detected: {list(topic_dist.keys())[:5]}...[/green]\n")
         
-        # Update context with latest results for downstream agents
-        context.previous_results = {
-            'SegmentationAgent': seg_result.dict(),
-            'TopicDetectionAgent': topic_result.dict()
-        }
+        # Update context with latest results for downstream agents (using immutable model_copy)
+        context = context.model_copy(update={
+            'previous_results': {
+                'SegmentationAgent': seg_result.dict(),
+                'TopicDetectionAgent': topic_result.dict()
+            }
+        })
         
         # Test each agent
         agents_to_test = [
@@ -1546,7 +1549,7 @@ class SampleMode:
                 console.print(f"[red]💥 {agent_name} crashed: {str(e)}[/red]\n")
                 results[agent_name] = {'status': 'crashed', 'error': str(e)}
 
-        # Run BPO Performance Agent with fresh metadata
+        # Run BPO Performance Agent with fresh metadata (using immutable model_copy)
         console.print(f"{'─'*80}")
         console.print("[bold cyan]Testing: BpoPerformanceAgent[/bold cyan]")
         console.print(f"{'─'*80}\n")
@@ -1558,9 +1561,10 @@ class SampleMode:
             'segmentation_summary': seg_result.data.get('segmentation_summary', {})
         }
         bpo_agent = BpoPerformanceAgent()
-        bpo_context = context.model_copy()
-        bpo_context.metadata = bpo_metadata
-        bpo_context.previous_results = context.previous_results
+        bpo_context = context.model_copy(update={
+            'metadata': {**context.metadata, **bpo_metadata},
+            'previous_results': context.previous_results
+        })
         try:
             start_time = time.time()
             bpo_result = await bpo_agent.execute(bpo_context)
