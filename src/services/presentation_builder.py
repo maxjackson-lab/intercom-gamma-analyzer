@@ -1223,6 +1223,8 @@ We analyzed {total_conversations:,} customer conversations using {ai_model.upper
 
 ---
 
+{self._build_subtopic_breakdown_section(results, metadata)}
+
 # Agent Performance
 
 {self._format_agent_breakdown(agent_feedback)}
@@ -1339,21 +1341,35 @@ We analyzed {total_conversations:,} customer conversations using {ai_model.upper
         return table
 
     def _format_sentiment_breakdown(self, results: Dict) -> str:
-        """Format sentiment breakdown for presentation."""
-        sentiment_summary = self._build_sentiment_summary(results)
+        """Format sentiment breakdown for presentation using verbatim insights."""
+        breakdown = ""
         
-        breakdown = f"**Overall Sentiment:** {sentiment_summary['overall_sentiment'].title()}\n"
-        breakdown += f"**Confidence:** {sentiment_summary['confidence']:.2f}\n\n"
+        # Sort categories by volume to show most important first
+        sorted_categories = sorted(
+            results.items(),
+            key=lambda x: x[1].get('volume', 0),
+            reverse=True
+        )
         
-        breakdown += "**By Category:**\n"
-        for category, data in results.items():
-            sentiment_data = data.get('sentiment_breakdown', {})
-            sentiment = sentiment_data.get('sentiment', 'unknown')
-            confidence = sentiment_data.get('confidence', 0)
+        for category, data in sorted_categories:
             volume = data.get('volume', 0)
+            sentiment_data = data.get('sentiment_breakdown', {})
             
-            breakdown += f"• {category}: {sentiment} ({confidence:.2f}) - {volume} conversations\n"
+            # Use verbatim sentiment insight if available (from TopicSentimentAgent)
+            insight = sentiment_data.get('sentiment_insight')
+            
+            # Fallback to sentiment label if insight is missing
+            if not insight:
+                sentiment = sentiment_data.get('sentiment', 'neutral')
+                confidence = sentiment_data.get('confidence', 0)
+                insight = f"{sentiment.capitalize()} sentiment detected (confidence: {confidence:.2f})"
+            
+            # Format: Topic: Insight (Volume)
+            breakdown += f"• **{category}**: {insight} ({volume} conversations)\n"
         
+        if not breakdown:
+            return "No sentiment analysis data available."
+            
         return breakdown
 
     def _format_agent_breakdown(self, agent_feedback: Dict) -> str:
@@ -1468,7 +1484,7 @@ This is the first analysis period. Future reports will include:
         return section
     
     def _build_category_deep_dive_section(self, top_categories: List, results: Dict) -> str:
-        """Build category deep dive with conversation links."""
+        """Build category deep dive with conversation links and verbatim insights."""
         from src.config.settings import settings
         workspace_id = settings.intercom_workspace_id
         
@@ -1481,15 +1497,24 @@ This is the first analysis period. Future reports will include:
             # Generate category filter URL
             from urllib.parse import quote
             encoded_category = quote(category_name)
-            category_url = f"https://app.intercom.com/a/apps/{workspace_id}/inbox/inbox/all?tag={encoded_category}"
+            # Fallback if workspace_id is placeholder
+            ws_id = workspace_id if workspace_id and workspace_id != "your-workspace-id-here" else "[WORKSPACE_ID]"
+            category_url = f"https://app.intercom.com/a/apps/{ws_id}/inbox/inbox/all?tag={encoded_category}"
             
             section += f"## {category_name}\n\n"
             section += f"**{volume:,} conversations** ({percentage:.1f}% of total) "
             section += f"[View all in Intercom]({category_url})\n\n"
             
-            sentiment = category_data.get('sentiment_breakdown', {})
-            section += f"**Sentiment:** {sentiment.get('sentiment', 'neutral').capitalize()} "
-            section += f"(confidence: {sentiment.get('confidence', 0):.0%})\n\n"
+            sentiment_data = category_data.get('sentiment_breakdown', {})
+            
+            # Use verbatim sentiment insight
+            insight = sentiment_data.get('sentiment_insight')
+            if not insight:
+                sentiment = sentiment_data.get('sentiment', 'neutral')
+                confidence = sentiment_data.get('confidence', 0)
+                insight = f"{sentiment.capitalize()} sentiment detected (confidence: {confidence:.2f})"
+            
+            section += f"**Sentiment Analysis:** {insight}\n\n"
             
             # NEW: Add Key Themes (from label aggregation) if available
             # This is where the "Bucket & Label" pattern pays off in the final report
@@ -1506,11 +1531,16 @@ This is the first analysis period. Future reports will include:
             examples = category_data.get('examples', {})
             if examples:
                 section += "**Representative Conversations:**\n"
-                for sentiment_type, convs in list(examples.items())[:2]:  # Max 2 sentiment types
-                    for conv in convs[:2]:  # Max 2 conversations per type
-                        text = conv.get('text', '')[:100]
-                        url = conv.get('intercom_url', '#')
-                        section += f"• \"{text}...\" [View]({url})\n"
+                # Flatten examples from all sentiment types
+                all_examples = []
+                for sentiment_type, convs in examples.items():
+                    all_examples.extend(convs)
+                
+                # Take top 3 examples
+                for conv in all_examples[:3]:
+                    text = conv.get('quote', conv.get('text', ''))[:100]
+                    url = conv.get('intercom_url', '#')
+                    section += f"• \"{text}...\" [View]({url})\n"
                 section += "\n"
             
             section += "---\n\n"
@@ -1580,12 +1610,15 @@ This is the first analysis period. Future reports will include:
         return section
     
     def _build_methodology_appendix(self, results: Dict, metadata: Dict, total_conversations: int) -> str:
-        """Build comprehensive methodology documentation."""
+        """Build comprehensive methodology documentation with optimization metrics."""
         ai_model = metadata.get('ai_model', 'unknown')
         categories_analyzed = len(results)
+        start_date = metadata.get('start_date', 'Unknown')
+        end_date = metadata.get('end_date', 'Unknown')
+        period_type = metadata.get('period_type', 'custom')
         
-        section = f"""**Analysis Period:** {metadata.get('start_date', 'Unknown')} to {metadata.get('end_date', 'Unknown')}
-**Analysis Period Type:** {period_type if period_type else 'custom'}
+        section = f"""**Analysis Period:** {start_date} to {end_date}
+**Analysis Period Type:** {period_type}
 **Total Conversations:** {total_conversations:,}
 **Categories Identified:** {categories_analyzed}
 **AI Model:** {ai_model.upper()}
@@ -1620,8 +1653,72 @@ This is the first analysis period. Future reports will include:
 • Dynamic AI analysis for all languages
 • No pre-translation required"""
 
+        # Add optimization metrics if available
+        fallback_metrics = metadata.get('fallback_metrics', {})
+        if fallback_metrics:
+            llm_calls = fallback_metrics.get('llm_calls', 0)
+            total_convs = fallback_metrics.get('total_conversations', total_conversations)
+            high_conf_skips = fallback_metrics.get('high_confidence_skip_count', 0)
+            
+            # Calculate efficiency
+            efficiency_pct = (high_conf_skips / total_convs * 100) if total_convs > 0 else 0
+            
+            section += f"""
+
+**Optimization Efficiency:**
+| Metric | Value |
+|--------|-------|
+| Total Conversations | {total_convs:,} |
+| AI Analysis Calls | {llm_calls:,} |
+| High-Confidence Skips | {high_conf_skips:,} |
+| Optimization Rate | {efficiency_pct:.1f}% |
+
+*High-confidence skips use keyword matching to route clearly defined topics without invoking LLMs, reducing cost and latency while maintaining accuracy.*"""
+
         return section
     
+    def _build_subtopic_breakdown_section(self, results: Dict, metadata: Dict) -> str:
+        """Build subtopic breakdown section."""
+        subtopics = metadata.get('subtopics_by_tier1_topic', {})
+        if not subtopics:
+            return ""
+            
+        section = "# Topic Deep Dive: Sub-Categorization\n\n"
+        
+        # Show top 3 Tier 1 topics with subtopics
+        # Sort by volume of tier1 topic
+        sorted_tier1 = sorted(
+            subtopics.items(),
+            key=lambda x: sum(t2['count'] for t2 in x[1].get('tier2', {}).values()) if isinstance(x[1], dict) else 0,
+            reverse=True
+        )
+        
+        for topic, data in sorted_tier1[:3]:
+            tier2_data = data.get('tier2', {})
+            total_sub = sum(item['count'] for item in tier2_data.values())
+            
+            if total_sub == 0:
+                continue
+                
+            section += f"## {topic} Breakdown\n\n"
+            
+            # Sort subtopics by count
+            sorted_subs = sorted(
+                tier2_data.items(),
+                key=lambda x: x[1]['count'],
+                reverse=True
+            )
+            
+            for sub_name, sub_info in sorted_subs[:5]:
+                count = sub_info['count']
+                pct = (count / total_sub * 100)
+                section += f"• **{sub_name}**: {count} ({pct:.1f}%)\n"
+            
+            section += "\n"
+            
+        section += "---\n\n"
+        return section
+
     def _build_full_category_appendix(self, results: Dict) -> str:
         """Build full category breakdown appendix."""
         section = "**Complete Category Distribution:**\n\n"
@@ -1681,6 +1778,10 @@ This is the first analysis period. Future reports will include:
 
 # Sentiment Analysis by Category
 
+**Sentiment Insight Narrative**
+{self._format_sentiment_breakdown(results)}
+
+**Sentiment Volume Snapshot**
 {self._build_detailed_sentiment_analysis(results)}
 
 ---
@@ -1821,7 +1922,36 @@ This is the first analysis period. Future reports will include:
 
     def _build_detailed_sentiment_analysis(self, results: Dict) -> str:
         """Build detailed sentiment analysis."""
-        return self._format_sentiment_breakdown(results)
+        if not results:
+            return "No sentiment analysis data available."
+        
+        table_header = "| Category | Sentiment | Confidence | Volume |\n"
+        table_header += "|----------|-----------|------------|--------|\n"
+        
+        rows = []
+        sorted_categories = sorted(
+            results.items(),
+            key=lambda x: x[1].get('volume', 0),
+            reverse=True
+        )
+        
+        for category, data in sorted_categories:
+            sentiment_data = data.get('sentiment_breakdown', {}) or {}
+            sentiment = sentiment_data.get('sentiment', 'unknown')
+            confidence = sentiment_data.get('confidence')
+            confidence_str = (
+                f"{confidence:.2f}" if isinstance(confidence, (int, float)) else "n/a"
+            )
+            volume = data.get('volume', 0)
+            
+            rows.append(
+                f"| {category} | {sentiment.title()} | {confidence_str} | {volume} |"
+            )
+        
+        if not rows:
+            return "No sentiment analysis data available."
+        
+        return table_header + "\n".join(rows)
 
     def _build_detailed_agent_analysis(self, agent_feedback: Dict) -> str:
         """Build detailed agent analysis."""

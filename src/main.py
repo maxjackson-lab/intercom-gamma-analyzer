@@ -1266,6 +1266,32 @@ def run_comprehensive_analysis_wrapper(
 @click.option('--output-dir', default='outputs', help='Output directory')
 @click.option('--digest-mode', is_flag=True, default=False,
              help='Digest mode: executive summary, topic cards, prioritized actions only')
+@click.option('--legacy-mode', is_flag=True, default=False,
+              help='Run legacy Hilary V1 multi-agent workflow (topic-based only)')
+@click.option('--enable-correlation-analysis', 'enable_correlation_analysis',
+              flag_value=True, default=None,
+              help='Toggle Phase 4.5 CorrelationAgent (default: enabled)')
+@click.option('--disable-correlation-analysis', 'enable_correlation_analysis',
+              flag_value=False, default=None,
+              help='Toggle Phase 4.5 CorrelationAgent (default: enabled)')
+@click.option('--enable-quality-insights', 'enable_quality_insights',
+              flag_value=True, default=None,
+              help='Toggle Phase 4.5 QualityInsightsAgent (default: enabled)')
+@click.option('--disable-quality-insights', 'enable_quality_insights',
+              flag_value=False, default=None,
+              help='Toggle Phase 4.5 QualityInsightsAgent (default: enabled)')
+@click.option('--enable-churn-detection', 'enable_churn_detection',
+              flag_value=True, default=None,
+              help='Toggle Phase 4.5 ChurnRiskAgent (default: enabled)')
+@click.option('--disable-churn-detection', 'enable_churn_detection',
+              flag_value=False, default=None,
+              help='Toggle Phase 4.5 ChurnRiskAgent (default: enabled)')
+@click.option('--enable-confidence-meta', 'enable_confidence_meta',
+              flag_value=True, default=None,
+              help='Toggle Phase 4.5 ConfidenceMetaAgent (default: enabled)')
+@click.option('--disable-confidence-meta', 'enable_confidence_meta',
+              flag_value=False, default=None,
+              help='Toggle Phase 4.5 ConfidenceMetaAgent (default: enabled)')
 def voice_of_customer_analysis(
     time_period: Optional[str],
     periods_back: int,
@@ -1286,7 +1312,12 @@ def voice_of_customer_analysis(
     analysis_type: str,
     audit_trail: bool,
     output_dir: str,
-    digest_mode: bool
+    digest_mode: bool,
+    legacy_mode: bool,
+    enable_correlation_analysis: Optional[bool],
+    enable_quality_insights: Optional[bool],
+    enable_churn_detection: Optional[bool],
+    enable_confidence_meta: Optional[bool]
 ):
     asyncio.run(
         run_voice_of_customer_analysis_impl(
@@ -1308,6 +1339,11 @@ def voice_of_customer_analysis(
             audit_trail=audit_trail,
             output_dir=output_dir,
             digest_mode=digest_mode,
+            enable_correlation_analysis=enable_correlation_analysis,
+            enable_quality_insights=enable_quality_insights,
+            enable_churn_detection=enable_churn_detection,
+            enable_confidence_meta=enable_confidence_meta,
+            legacy_mode=legacy_mode,
         )
     )
 

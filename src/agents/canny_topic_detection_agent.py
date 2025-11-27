@@ -19,6 +19,11 @@ class CannyTopicDetectionAgent(BaseAgent):
     
     Maps Canny posts to the existing taxonomy structure to enable unified analysis
     with Intercom conversations.
+    
+    FEATURE FLAG:
+    - Controlled by 'enable_canny' flag in config/analysis_modes.yaml
+    - Orchestrator checks this flag before invoking the agent
+    - Lazy-initialized via property to avoid overhead when disabled
     """
     
     def __init__(self, ai_factory: AIModelFactory):

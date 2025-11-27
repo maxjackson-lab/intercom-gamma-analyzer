@@ -48,9 +48,13 @@ def check_cli_railway_alignment():
             warnings.append(f"Railway key '{railway_key}' not found for CLI command '{cli_name}'")
             continue
         
-        # Get CLI params
+        # Get CLI params (include all option aliases)
         cli_cmd = cli.commands[cli_name]
-        cli_params = {p.name.replace('_', '-') for p in cli_cmd.params}
+        cli_params = set()
+        for param in cli_cmd.params:
+            for opt in getattr(param, 'opts', []):
+                if opt.startswith('--'):
+                    cli_params.add(opt.lstrip('-'))
         
         # Get Railway flags
         railway_flags = set(CANONICAL_COMMAND_MAPPINGS[railway_key]['allowed_flags'].keys())

@@ -1276,6 +1276,21 @@ For each conversation:
                              f"Estimated savings: ${estimated_savings:.2f}")
             self.logger.info(f"⚡ Confidence Routing: Skipped LLM for {skip_count}/{total_convs} conversations ({skip_pct:.1f}%) due to high-confidence keywords")
 
+            # Calculate global detection method counts for summary logging (Verification Requirement)
+            global_methods = {
+                'llm_smart': 0, 'hybrid': 0, 'keyword': 0, 'sdk_only': 0, 'fallback': 0
+            }
+            for methods in detection_methods.values():
+                global_methods['llm_smart'] += methods.get('llm_smart', 0)
+                global_methods['hybrid'] += methods.get('hybrid', 0)
+                global_methods['keyword'] += methods.get('keyword', 0)
+                global_methods['sdk_only'] += methods.get('sdk_only', 0)
+                global_methods['fallback'] += methods.get('fallback', 0)
+                
+            self.logger.info(f"Detection methods: llm_smart={global_methods['llm_smart']}, "
+                           f"hybrid={global_methods['hybrid']}, keyword={global_methods['keyword']}, "
+                           f"sdk_only={global_methods['sdk_only']}, fallback={global_methods['fallback']}")
+
             topics_summary = []
             for topic_name, stats in topic_distribution.items():
                 summary_entry = {

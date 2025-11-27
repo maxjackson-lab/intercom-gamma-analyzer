@@ -33,6 +33,7 @@ from src.agents.confidence_meta_agent import ConfidenceMetaAgent
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.duckdb_storage import DuckDBStorage
 from src.services.historical_snapshot_service import HistoricalSnapshotService
+from src.services.analysis_validator import AnalysisValidator
 from src.utils.agent_output_display import get_display
 from src.config.modes import get_analysis_mode_config
 from src.models.analysis_models import (
@@ -111,6 +112,29 @@ class TopicOrchestrator:
         # Configuration for critical failure handling
         self.fail_on_critical_errors = fail_on_critical_errors
         
+        # ============================================================================
+        # AGENT INITIALIZATION STRATEGY
+        # ============================================================================
+        # EAGER INITIALIZATION (instantiated immediately):
+        #   - Core workflow agents (Segmentation, TopicDetection, Sentiment, etc.)
+        #     → Always needed for every analysis run
+        #     → Lightweight initialization with no external dependencies
+        #   - Analytical insight agents (Correlation, Quality, Churn, Confidence)
+        #     → Part of standard Phase 4.5 workflow
+        #     → Eagerly loaded for simplicity and predictability
+        #
+        # LAZY INITIALIZATION (property-based, instantiated on first access):
+        #   - Optional feature agents (Canny agents)
+        #     → Only needed when Canny data is provided AND feature flag enabled
+        #     → Avoids unnecessary AIModelFactory overhead
+        #   - Service-dependent agents (TrendAgent)
+        #     → Requires HistoricalSnapshotService which needs DuckDB migration
+        #     → Lazy loading prevents startup delays
+        #   - Heavy services (DuckDBStorage, HistoricalSnapshotService)
+        #     → Database connections and migrations are expensive
+        #     → Deferred until actually needed
+        # ============================================================================
+
         # Enable escalation tracking to track Fin → Vendor → Senior Staff escalations
         self.segmentation_agent = SegmentationAgent(track_escalations=True)
         self.topic_detection_agent = TopicDetectionAgent()
@@ -119,9 +143,17 @@ class TopicOrchestrator:
         self.example_extraction_agent = ExampleExtractionAgent()
         self.fin_performance_agent = FinPerformanceAgent(audit=self.audit)
         self.bpo_performance_agent = bpo_agent or BpoPerformanceAgent()
+        
+        # BpoPerformanceAgent is eagerly instantiated because:
+        # - Always runs in Phase 2.4 for paid-tier workload analysis
+        # - Lightweight initialization (no external dependencies)
+        # - Core to understanding Horatio/Boldr vendor distribution
+
         # TrendAgent will get historical_snapshot_service via lazy property when needed
         self._trend_agent = None
         self.formatter_agent = formatter_agent or OutputFormatterAgent()
+        # Backwards-compatible alias for tests and legacy code paths
+        self.output_formatter_agent = self.formatter_agent
         self.formatter_agent_name = getattr(self.formatter_agent, 'name', 'OutputFormatterAgent')
         self.report_type = report_type
         
@@ -131,11 +163,22 @@ class TopicOrchestrator:
         self.churn_risk_agent = ChurnRiskAgent()
         self.confidence_meta_agent = ConfidenceMetaAgent()
         
+        # Analytical agents are eagerly instantiated because:
+        # - Part of standard Phase 4.5 workflow (always executed)
+        # - Lightweight initialization
+        # - Simplifies orchestrator logic (no conditional property access)
+
         # Canny integration agents (lazy-initialized only when needed)
         self.ai_factory = ai_factory or AIModelFactory()
         self._canny_topic_detection_agent = None
         self._cross_platform_correlation_agent = None
         
+        # Canny agents are lazy-initialized because:
+        # - Optional feature controlled by 'enable_canny' config flag
+        # - Only needed when canny_posts are provided (rare use case)
+        # - Requires AIModelFactory which adds initialization overhead
+        # See properties at lines 195-206 for lazy initialization logic
+
         self.logger = logging.getLogger(__name__)
         self.logger.info("Analytical insight agents initialized: Correlation, QualityInsights, ChurnRisk, ConfidenceMeta")
         
@@ -148,6 +191,12 @@ class TopicOrchestrator:
         # Historical snapshot service (lazy initialization)
         self._historical_snapshot_service = None
         self._duckdb_storage = None
+
+        # Historical services are lazy-initialized because:
+        # - DuckDB connection and schema migration are expensive operations
+        # - Not all analysis runs need historical comparison
+        # - Allows graceful degradation if DuckDB is unavailable
+        # See properties at lines 156-192 for lazy initialization logic
     
     @property
     def duckdb_storage(self):
@@ -190,14 +239,34 @@ class TopicOrchestrator:
     
     @property
     def canny_topic_detection_agent(self):
-        """Lazy-initialize Canny topic detection agent only when needed"""
+        """
+        Lazy-initialize Canny topic detection agent only when needed.
+        
+        Deferred initialization because:
+        - Optional feature (controlled by 'enable_canny' config flag)
+        - Only used when canny_posts are provided in execute_weekly_analysis()
+        - Requires AIModelFactory which adds overhead
+        
+        Returns:
+            CannyTopicDetectionAgent instance
+        """
         if self._canny_topic_detection_agent is None:
             self._canny_topic_detection_agent = CannyTopicDetectionAgent(self.ai_factory)
         return self._canny_topic_detection_agent
     
     @property
     def cross_platform_correlation_agent(self):
-        """Lazy-initialize cross-platform correlation agent only when needed"""
+        """
+        Lazy-initialize cross-platform correlation agent only when needed.
+        
+        Deferred initialization because:
+        - Optional feature (controlled by 'enable_canny' config flag)
+        - Only used when both Intercom and Canny data are available
+        - Requires AIModelFactory which adds overhead
+        
+        Returns:
+            CrossPlatformCorrelationAgent instance
+        """
         if self._cross_platform_correlation_agent is None:
             self._cross_platform_correlation_agent = CrossPlatformCorrelationAgent(self.ai_factory)
         return self._cross_platform_correlation_agent
@@ -305,9 +374,12 @@ class TopicOrchestrator:
             
             # Validate and parse segmentation result with typed payload
             try:
-                segmentation_payload = SegmentationPayload(**segmentation_result.data)
-                self.logger.debug("✅ SegmentationPayload validation passed")
-            except ValidationError as e:
+                if isinstance(segmentation_result.data, dict):
+                    segmentation_payload = SegmentationPayload(**segmentation_result.data)
+                    self.logger.debug("✅ SegmentationPayload validation passed")
+                else:
+                    raise TypeError("SegmentationAgent returned non-dict data payload")
+            except (ValidationError, TypeError) as e:
                 self.logger.warning(f"⚠️ SegmentationPayload validation failed: {e}")
                 # Continue with raw data but log warning
                 segmentation_payload = None
@@ -450,6 +522,15 @@ class TopicOrchestrator:
             topic_detection_result = await self.topic_detection_agent.execute(context)
             workflow_results['TopicDetectionAgent'] = _normalize_agent_result(topic_detection_result)
             
+            # Log optimization metrics
+            fallback_metrics = topic_detection_result.data.get('fallback_metrics', {})
+            if fallback_metrics:
+                llm_calls = fallback_metrics.get('llm_calls', 0)
+                skip_count = fallback_metrics.get('high_confidence_skip_count', 0)
+                total = fallback_metrics.get('total_conversations', 1)
+                skip_pct = (skip_count / total * 100) if total > 0 else 0
+                self.logger.info(f"   Optimization: {llm_calls} LLM calls, {skip_count} skips ({skip_pct:.1f}% efficient)")
+            
             # Report agent completion
             if self.monitor:
                 topics_found = len(topic_detection_result.data.get('topic_distribution', {}))
@@ -471,9 +552,12 @@ class TopicOrchestrator:
             
             # Validate and parse topic detection result with typed payload
             try:
-                topic_payload = TopicDetectionResult(**topic_detection_result.data)
-                self.logger.debug("✅ TopicDetectionResult validation passed")
-            except ValidationError as e:
+                if isinstance(topic_detection_result.data, dict):
+                    topic_payload = TopicDetectionResult(**topic_detection_result.data)
+                    self.logger.debug("✅ TopicDetectionResult validation passed")
+                else:
+                    raise TypeError("TopicDetectionAgent returned non-dict data payload")
+            except (ValidationError, TypeError) as e:
                 self.logger.warning(f"⚠️ TopicDetectionResult validation failed: {e}")
                 topic_payload = None
             
@@ -673,10 +757,13 @@ class TopicOrchestrator:
                 
                 # Validate and parse subtopic detection result with typed payload
                 try:
-                    subtopic_payload = SubtopicDetectionResult(**subtopic_detection_result.data)
-                    self.logger.debug("✅ SubtopicDetectionResult validation passed")
-                    subtopics_data = subtopic_payload.subtopics_by_tier1_topic
-                except ValidationError as e:
+                    if isinstance(subtopic_detection_result.data, dict):
+                        subtopic_payload = SubtopicDetectionResult(**subtopic_detection_result.data)
+                        self.logger.debug("✅ SubtopicDetectionResult validation passed")
+                        subtopics_data = subtopic_payload.subtopics_by_tier1_topic
+                    else:
+                        raise TypeError("SubTopicDetectionAgent returned non-dict data payload")
+                except (ValidationError, TypeError) as e:
                     self.logger.warning(f"⚠️ SubtopicDetectionResult validation failed: {e}")
                     subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
                 
@@ -697,7 +784,7 @@ class TopicOrchestrator:
             
             # PHASE 2.6: Canny Topic Detection (if Canny posts provided)
             canny_topics_by_category = {}
-            if canny_posts:
+            if canny_posts and config.is_feature_enabled('enable_canny'):
                 self.logger.info("🎯 Phase 2.6: Canny Topic Detection")
                 self.logger.info(f"   Mapping {len(canny_posts)} Canny posts to taxonomy")
                 canny_topic_start_time = datetime.now()
@@ -743,6 +830,8 @@ class TopicOrchestrator:
                         'confidence': 0.0,
                         'data': {}
                     }
+            elif canny_posts and not config.is_feature_enabled('enable_canny'):
+                self.logger.info("⏭️  Phase 2.6: Skipping Canny Topic Detection (feature disabled in config)")
             else:
                 self.logger.info("⏭️  Phase 2.6: Skipping Canny Topic Detection (no Canny posts provided)")
             
@@ -945,9 +1034,12 @@ class TopicOrchestrator:
             # Validate and parse Fin analysis result with typed payload
             fin_payload: Optional[FinAnalysisPayload] = None
             try:
-                fin_payload = FinAnalysisPayload(**fin_result.data)
-                self.logger.debug("✅ FinAnalysisPayload validation passed")
-            except ValidationError as e:
+                if isinstance(fin_result.data, dict):
+                    fin_payload = FinAnalysisPayload(**fin_result.data)
+                    self.logger.debug("✅ FinAnalysisPayload validation passed")
+                else:
+                    raise TypeError("FinPerformanceAgent returned non-dict data payload")
+            except (ValidationError, TypeError) as e:
                 self.logger.warning(f"⚠️ FinAnalysisPayload validation failed: {e}")
             
             if self.audit:
@@ -973,32 +1065,6 @@ class TopicOrchestrator:
 
             self.logger.info(f"   ✅ Fin analysis complete")
             
-            # Optional BPO performance analysis
-            if self.bpo_performance_agent:
-                try:
-                    self.logger.info("🏢 Running BPO performance summary")
-                    segmentation_data_for_bpo = workflow_results.get('SegmentationAgent', {}).get('data', segmentation_result.data)
-                    bpo_metadata = {
-                        'agent_distribution': segmentation_data_for_bpo.get('agent_distribution', {}),
-                        'topics_by_conversation': topics_by_conv,
-                        'topic_distribution': topic_dist,
-                        'fin_performance': _normalize_agent_result(fin_result).get('data', {}),
-                        'week_id': week_id,
-                        'period_label': period_label
-                    }
-                    bpo_context = context.model_copy(update={
-                        'metadata': {**(context.metadata or {}), **bpo_metadata},
-                        'previous_results': {
-                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result),
-                        'FinPerformanceAgent': _normalize_agent_result(fin_result)
-                    }
-                    })
-                    bpo_result = await self.bpo_performance_agent.execute(bpo_context)
-                    workflow_results[self.bpo_performance_agent.name] = _normalize_agent_result(bpo_result)
-                except Exception as err:
-                    self.logger.warning(f"BpoPerformanceAgent failed: {err}")
-            
             # PHASE 4.5: Analytical Insights
             self.logger.info("🔍 Phase 4.5: Analytical Insights (Correlation, Quality, Churn Risk, Confidence)")
             
@@ -1014,8 +1080,40 @@ class TopicOrchestrator:
             
             analytical_start_time = datetime.now()
             analytical_insights = {}
+            feature_map = {
+                'CorrelationAgent': ('enable_correlation_analysis', self.correlation_agent),
+                'QualityInsightsAgent': ('enable_quality_insights', self.quality_insights_agent),
+                'ChurnRiskAgent': ('enable_churn_detection', self.churn_risk_agent),
+                'ConfidenceMetaAgent': ('enable_confidence_meta', self.confidence_meta_agent),
+            }
+            enabled_agents = []
+            skipped_agents = []
+            
+            def _build_skipped_result(agent_name: str, feature_flag: str) -> Dict[str, Any]:
+                return {
+                    'agent_name': agent_name,
+                    'success': False,
+                    'skipped': True,
+                    'execution_time': 0.0,
+                    'confidence': 0.0,
+                    'data': {'message': f'{agent_name} skipped (feature flag {feature_flag}=False)'}
+                }
             
             try:
+                for agent_name, (flag_name, agent_obj) in feature_map.items():
+                    if config.is_feature_enabled(flag_name):
+                        enabled_agents.append((agent_name, agent_obj))
+                    else:
+                        skipped_agents.append(agent_name)
+                        workflow_results[agent_name] = _build_skipped_result(agent_name, flag_name)
+                        self.logger.info(f"⏭️  {agent_name}: Skipped (feature flag {flag_name}=False)")
+                
+                if not enabled_agents:
+                    self.logger.info("⏭️  Phase 4.5: Skipping analytical insights (all agents disabled)")
+                    analytical_execution_time = 0.0
+                    analytical_insights = {name: workflow_results.get(name) for name in feature_map.keys()}
+                    raise asyncio.CancelledError  # Use exception flow to skip execution gracefully
+                
                 # Build analytical context with all necessary data
                 analytical_context = context.model_copy(update={
                     'conversations': conversations,
@@ -1043,48 +1141,29 @@ class TopicOrchestrator:
                 self.churn_risk_agent.ai_client = client
                 self.confidence_meta_agent.ai_client = client
                 
-                # Run 4 agents in parallel using asyncio.gather()
-                correlation_result, quality_result, churn_result, confidence_result = await asyncio.gather(
-                    self.correlation_agent.execute(analytical_context),
-                    self.quality_insights_agent.execute(analytical_context),
-                    self.churn_risk_agent.execute(analytical_context),
-                    self.confidence_meta_agent.execute(analytical_context),
+                gather_results = await asyncio.gather(
+                    *(agent.execute(analytical_context) for _, agent in enabled_agents),
                     return_exceptions=True
                 )
                 
-                # Handle exceptions from gather
-                if isinstance(correlation_result, Exception):
-                    self.logger.error(f"CorrelationAgent failed: {correlation_result}")
-                    correlation_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(correlation_result)}, 'confidence': 0.0})()
+                for (agent_name, _), agent_result in zip(enabled_agents, gather_results):
+                    if isinstance(agent_result, Exception):
+                        self.logger.error(f"{agent_name} failed: {agent_result}")
+                        agent_result = type(
+                            'ErrorResult', (), {'success': False, 'data': {'error': str(agent_result)}, 'confidence': 0.0}
+                        )()
+                    
+                    normalized = _normalize_agent_result(agent_result)
+                    workflow_results[agent_name] = normalized
                 
-                if isinstance(quality_result, Exception):
-                    self.logger.error(f"QualityInsightsAgent failed: {quality_result}")
-                    quality_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(quality_result)}, 'confidence': 0.0})()
-                
-                if isinstance(churn_result, Exception):
-                    self.logger.error(f"ChurnRiskAgent failed: {churn_result}")
-                    churn_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(churn_result)}, 'confidence': 0.0})()
-                
-                if isinstance(confidence_result, Exception):
-                    self.logger.error(f"ConfidenceMetaAgent failed: {confidence_result}")
-                    confidence_result = type('ErrorResult', (), {'success': False, 'data': {'error': str(confidence_result)}, 'confidence': 0.0})()
-                
-                # Store results in workflow_results
-                workflow_results['CorrelationAgent'] = _normalize_agent_result(correlation_result)
-                workflow_results['QualityInsightsAgent'] = _normalize_agent_result(quality_result)
-                workflow_results['ChurnRiskAgent'] = _normalize_agent_result(churn_result)
-                workflow_results['ConfidenceMetaAgent'] = _normalize_agent_result(confidence_result)
-                
-                # Combine into AnalyticalInsights dict
+                # Combine into AnalyticalInsights dict (include skipped placeholders)
                 analytical_insights = {
-                    'CorrelationAgent': _normalize_agent_result(correlation_result),
-                    'QualityInsightsAgent': _normalize_agent_result(quality_result),
-                    'ChurnRiskAgent': _normalize_agent_result(churn_result),
-                    'ConfidenceMetaAgent': _normalize_agent_result(confidence_result)
+                    agent_name: workflow_results.get(agent_name)
+                    for agent_name in feature_map.keys()
                 }
                 
                 # Display agent results
-                for agent_name in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']:
+                for agent_name in feature_map.keys():
                     try:
                         display.display_agent_result(agent_name, workflow_results[agent_name], show_full_data)
                     except Exception as e:
@@ -1094,10 +1173,10 @@ class TopicOrchestrator:
                 analytical_execution_time = (datetime.now() - analytical_start_time).total_seconds()
                 
                 # Extract metrics for summary
-                correlations_count = workflow_results['CorrelationAgent'].get('data', {}).get('total_correlations_found', 0)
-                churn_signals_count = workflow_results['ChurnRiskAgent'].get('data', {}).get('risk_breakdown', {}).get('total_risk_signals', 0)
-                anomalies_count = len(workflow_results['QualityInsightsAgent'].get('data', {}).get('anomalies', []))
-                overall_confidence = workflow_results['ConfidenceMetaAgent'].get('data', {}).get('overall_data_quality_score', 0)
+                correlations_count = workflow_results.get('CorrelationAgent', {}).get('data', {}).get('total_correlations_found', 0)
+                churn_signals_count = workflow_results.get('ChurnRiskAgent', {}).get('data', {}).get('risk_breakdown', {}).get('total_risk_signals', 0)
+                anomalies_count = len(workflow_results.get('QualityInsightsAgent', {}).get('data', {}).get('anomalies', []))
+                overall_confidence = workflow_results.get('ConfidenceMetaAgent', {}).get('data', {}).get('overall_data_quality_score', 0)
                 
                 # Add audit step for completion
                 if self.audit:
@@ -1115,26 +1194,28 @@ class TopicOrchestrator:
                 
                 self.logger.info(f"   ✅ Analytical insights complete: {correlations_count} correlations, {churn_signals_count} churn signals, {anomalies_count} anomalies")
                 
+            except asyncio.CancelledError:
+                pass  # All agents disabled; nothing else to do
             except Exception as e:
                 self.logger.error(f"Phase 4.5 failed: {e}", exc_info=True)
                 analytical_execution_time = (datetime.now() - analytical_start_time).total_seconds()
                 
-                # Create error results for all agents
-                for agent_name in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']:
-                    workflow_results[agent_name] = {
-                        'agent_name': agent_name,
-                        'success': False,
-                        'error_message': str(e),
-                        'execution_time': analytical_execution_time / 4,
-                        'confidence': 0.0,
-                        'data': {}
-                    }
+                for agent_name in feature_map.keys():
+                    if agent_name not in workflow_results:
+                        workflow_results[agent_name] = {
+                            'agent_name': agent_name,
+                            'success': False,
+                            'error_message': str(e),
+                            'execution_time': analytical_execution_time / max(len(feature_map), 1),
+                            'confidence': 0.0,
+                            'data': {}
+                        }
                 
-                analytical_insights = {agent: workflow_results[agent] for agent in ['CorrelationAgent', 'QualityInsightsAgent', 'ChurnRiskAgent', 'ConfidenceMetaAgent']}
+                analytical_insights = {agent: workflow_results[agent] for agent in feature_map.keys()}
             
             # PHASE 4.6: Cross-Platform Correlation (if Canny posts provided)
             cross_platform_insights = {}
-            if canny_posts and canny_topics_by_category:
+            if canny_posts and canny_topics_by_category and config.is_feature_enabled('enable_canny'):
                 self.logger.info("🔗 Phase 4.6: Cross-Platform Correlation Analysis")
                 self.logger.info(f"   Analyzing correlations between Intercom ({len(conversations)}) and Canny ({len(canny_posts)})")
                 correlation_start_time = datetime.now()
@@ -1184,7 +1265,9 @@ class TopicOrchestrator:
                         'data': {}
                     }
             else:
-                if not canny_posts:
+                if not config.is_feature_enabled('enable_canny'):
+                    self.logger.info("⏭️  Phase 4.6: Skipping Cross-Platform Correlation (Canny feature disabled)")
+                elif not canny_posts:
                     self.logger.info("⏭️  Phase 4.6: Skipping Cross-Platform Correlation (no Canny posts)")
                 else:
                     self.logger.info("⏭️  Phase 4.6: Skipping Cross-Platform Correlation (Canny topic detection failed)")
@@ -1222,9 +1305,12 @@ class TopicOrchestrator:
             # Validate and parse trend analysis result with typed payload
             trend_payload: Optional[TrendAnalysisPayload] = None
             try:
-                trend_payload = TrendAnalysisPayload(**trend_result.data)
-                self.logger.debug("✅ TrendAnalysisPayload validation passed")
-            except ValidationError as e:
+                if isinstance(trend_result.data, dict):
+                    trend_payload = TrendAnalysisPayload(**trend_result.data)
+                    self.logger.debug("✅ TrendAnalysisPayload validation passed")
+                else:
+                    raise TypeError("TrendAgent returned non-dict data payload")
+            except (ValidationError, TypeError) as e:
                 self.logger.warning(f"⚠️ TrendAnalysisPayload validation failed: {e}")
             
             if self.audit:
@@ -1247,6 +1333,43 @@ class TopicOrchestrator:
                 logger.warning(f"Failed to display TrendAgent result: {e}")
             
             self.logger.info(f"   ✅ Trend analysis complete")
+            
+            # PHASE 5.5: Production Data Validation
+            self.logger.info("🔍 Phase 5.5: Production Data Validation")
+            if self.audit:
+                self.audit.step("Phase 5.5: Data Validation", "Validating workflow integrity before output formatting", 
+                              {'total_conversations': len(conversations)})
+
+            try:
+                validation_warnings = AnalysisValidator.validate_voc_analysis(
+                    workflow_results, 
+                    len(conversations), 
+                    free_tier_conversations_count=len(free_fin_only_conversations),
+                    raise_on_critical=self.fail_on_critical_errors
+                )
+
+                if validation_warnings:
+                    for warning in validation_warnings:
+                        if warning.startswith("CRITICAL:"):
+                            self.logger.error(f"❌ {warning}")
+                        elif warning.startswith("DATA LOSS:"):
+                            self.logger.error(f"🚨 {warning}")
+                        elif warning.startswith("QUALITY:"):
+                            self.logger.warning(f"⚠️  {warning}")
+                        else:
+                            self.logger.warning(f"⚠️  {warning}")
+                else:
+                    self.logger.info("   ✅ Validation passed: All topics have sentiment and examples")
+
+                if self.audit:
+                    self.audit.step("Phase 5.5: Data Validation", 
+                                  f"Validation complete: {len(validation_warnings)} warnings found", 
+                                  {'warnings': validation_warnings})
+
+            except Exception as e:
+                self.logger.warning(f"⚠️  Data validation failed: {e}")
+                if self.fail_on_critical_errors and isinstance(e, ValueError):
+                    raise
             
             # PHASE 6: Format Output
             self.logger.info("📝 Phase 6: Output Formatting")
@@ -1321,6 +1444,7 @@ class TopicOrchestrator:
             output_context = output_context.model_copy(update={
                 'metadata': {**output_context.metadata, **output_metadata}
             })
+
             
             # Report agent start
             formatter_agent_key = self.formatter_agent_name
@@ -1378,6 +1502,20 @@ class TopicOrchestrator:
             # Aggregate metrics from all agents
             metrics = self._aggregate_metrics(workflow_results, topic_sentiments, topic_examples, total_time)
             
+            metadata = dict(context.metadata or {})
+            metadata.update({
+                'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label,
+                'start_date': start_date.isoformat() if isinstance(start_date, datetime) else start_date,
+                'end_date': end_date.isoformat() if isinstance(end_date, datetime) else end_date,
+                'ai_model': ai_model.value if isinstance(ai_model, AIModel) else str(ai_model) if ai_model else None,
+                'digest_mode': digest_mode,
+                'total_conversations': len(conversations),
+                'subtopics_by_tier1_topic': subtopics_data or {},
+                'canny_posts_included': len(canny_posts) if canny_posts else 0
+            })
+            
             final_output = {
                 'week_id': week_id,
                 'period_type': period_type,
@@ -1387,6 +1525,7 @@ class TopicOrchestrator:
                 'digest_mode': digest_mode,
                 'report_type': self.report_type,
                 'formatted_report': formatter_result.data.get('formatted_output', ''),
+                'metadata': metadata,
                 'summary': {
                     'total_conversations': len(conversations),
                     'paid_conversations': len(paid_conversations),
@@ -1496,6 +1635,14 @@ class TopicOrchestrator:
         for agent_name, result_data in workflow_results.items():
             if agent_name == 'TopicProcessing':
                 continue  # Handle separately
+            
+            if not isinstance(result_data, dict):
+                self.logger.warning(
+                    "workflow_result_not_dict agent=%s type=%s",
+                    agent_name,
+                    type(result_data).__name__
+                )
+                continue
                 
             execution_time = result_data.get('execution_time', 0)
             token_count = result_data.get('token_count', 0)

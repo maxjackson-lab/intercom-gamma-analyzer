@@ -369,7 +369,7 @@ async def test_subtopic_phase_ordering(orchestrator, all_conversations, mock_wee
          patch.object(orchestrator.output_formatter_agent, 'execute', track_call('OutputFormatterAgent')), \
          patch('src.agents.topic_orchestrator.get_display'):
         
-        await orchestrator.execute_weekly_analysis(
+        result = await orchestrator.execute_weekly_analysis(
             conversations=all_conversations,
             **mock_week_params
         )
@@ -431,7 +431,7 @@ async def test_subtopic_context_construction(orchestrator, all_conversations, mo
             }
         )
         
-        await orchestrator.execute_weekly_analysis(
+        result = await orchestrator.execute_weekly_analysis(
             conversations=all_conversations,
             **mock_week_params
         )
@@ -509,7 +509,7 @@ async def test_subtopic_results_flow_to_output_formatter(
             }
         )
         
-        await orchestrator.execute_weekly_analysis(
+        result = await orchestrator.execute_weekly_analysis(
             conversations=all_conversations,
             **mock_week_params
         )
@@ -520,6 +520,10 @@ async def test_subtopic_results_flow_to_output_formatter(
         subtopic_data = formatter_context_captured.previous_results['SubTopicDetectionAgent']
         assert 'data' in subtopic_data
         assert 'subtopics_by_tier1_topic' in subtopic_data['data']
+        
+        # Verify metadata propagates subtopics for downstream presentation layers
+        assert 'metadata' in result
+        assert result['metadata'].get('subtopics_by_tier1_topic') == mock_subtopic.return_value.data['subtopics_by_tier1_topic']
 
 
 @pytest.mark.asyncio

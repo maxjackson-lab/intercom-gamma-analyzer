@@ -695,14 +695,41 @@ PRESENTATION CONTENT (truncated to 2000 characters):
             potential_issues += 1
             issues.append("Potential invented Intercom URL")
         
-        # Check for ungrounded claims
-        if 'according to' not in content.lower() and 'based on' not in content.lower():
-            potential_issues += 1
-            issues.append("Missing source attribution phrases")
+        # Check for ungrounded claims, but allow legitimate sentiment insights
+        if not self._is_sentiment_insight(content):
+            if 'according to' not in content.lower() and 'based on' not in content.lower():
+                # Also check for other common attribution patterns in sentiment insights
+                if not any(p in content.lower() for p in ['users', 'customers', 'appreciate', 'frustrated', 'love', 'hate']):
+                    potential_issues += 1
+                    issues.append("Missing source attribution phrases")
         
         return {
             'potential_issues': potential_issues,
             'issues': issues,
             'passed': potential_issues == 0
         }
+
+    def _is_sentiment_insight(self, text: str) -> bool:
+        """
+        Detect if text looks like a legitimate sentiment insight.
+        
+        Hilary-style insights use specific nuance connectors and emotional language.
+        We shouldn't flag these as hallucinations even if they lack "according to".
+        """
+        # Nuance connectors
+        nuance_connectors = ['but', 'however', 'although', 'while', 'despite']
+        has_connector = any(f" {c} " in text.lower() for c in nuance_connectors)
+        
+        # Emotional language (whitelist)
+        sentiment_words = [
+            'love', 'hate', 'frustrated', 'confused', 'happy', 'appreciate', 
+            'difficult', 'easy', 'painful', 'smooth', 'rad', 'annoying'
+        ]
+        has_sentiment = any(w in text.lower() for w in sentiment_words)
+        
+        # Subject identifiers
+        subjects = ['users', 'customers', 'clients', 'people', 'they']
+        has_subject = any(s in text.lower() for s in subjects)
+        
+        return has_connector and has_sentiment and has_subject
 

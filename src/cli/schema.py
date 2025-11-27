@@ -210,6 +210,51 @@ CANONICAL_COMMAND_MAPPINGS = {
                     'Digest narrative: tight executive summary + limited topic stories + constrained actions. '
                     'Recommended for quick LLM regression checks after prompt/model changes.'
                 )
+            },
+            '--legacy-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Run legacy Hilary V1 multi-agent workflow (topic-based only)'
+            },
+            '--enable-correlation-analysis': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Ensure Phase 4.5 CorrelationAgent runs (default: enabled)'
+            },
+            '--disable-correlation-analysis': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip Phase 4.5 CorrelationAgent for this run'
+            },
+            '--enable-quality-insights': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Ensure Phase 4.5 QualityInsightsAgent runs (default: enabled)'
+            },
+            '--disable-quality-insights': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip Phase 4.5 QualityInsightsAgent for this run'
+            },
+            '--enable-churn-detection': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Ensure Phase 4.5 ChurnRiskAgent runs (default: enabled)'
+            },
+            '--disable-churn-detection': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip Phase 4.5 ChurnRiskAgent for this run'
+            },
+            '--enable-confidence-meta': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Ensure Phase 4.5 ConfidenceMetaAgent runs (default: enabled)'
+            },
+            '--disable-confidence-meta': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip Phase 4.5 ConfidenceMetaAgent for this run'
             }
         },
         'estimated_duration': '10-30 minutes'

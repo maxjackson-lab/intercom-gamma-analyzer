@@ -1178,6 +1178,8 @@ class SampleMode:
         
         topics_by_conversation = topic_result.data.get('topics_by_conversation', {})
         topic_distribution = topic_result.data.get('topic_distribution', {})
+        topics_summary_list = topic_result.data.get('topics', [])
+        fallback_metrics = topic_result.data.get('fallback_metrics', {})
         
         # Analyze multi-topic assignments (DOUBLE-COUNTING DETECTION)
         multi_topic_convs = []
@@ -1227,7 +1229,9 @@ class SampleMode:
             'no_topic': no_topic_count,
             'multi_topic_examples': multi_topic_convs[:10],  # Show first 10
             'hierarchy_examples': hierarchy_examples[:5],  # Show first 5
-            'topic_distribution': topic_distribution
+            'topic_distribution': topic_distribution,
+            'topics': topics_summary_list,
+            'fallback_metrics': fallback_metrics
         }
     
     def _display_hierarchy_debug(self, debug_data: Dict[str, Any]):

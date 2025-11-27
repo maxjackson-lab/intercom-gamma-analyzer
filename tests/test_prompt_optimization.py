@@ -1,12 +1,89 @@
 import pytest
 import json
-from unittest.mock import MagicMock, patch
+from datetime import datetime
+from unittest.mock import MagicMock, patch, AsyncMock
 from src.agents.topic_detection_agent import TopicDetectionAgent, TopicCategory
 from src.agents.topic_sentiment_agent import TopicSentimentAgent
 from src.agents.base_agent import AgentContext, AgentResult, ConfidenceLevel
 from src.config.taxonomy import TaxonomyManager
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Any, Optional
+from src.services.presentation_builder import PresentationBuilder
+from src.agents.output_formatter_agent import OutputFormatterAgent
+from src.agents.insight_agent import InsightAgent
+from src.agents.sentiment_agent import SentimentAgent
+
+
+def build_topic_context(
+    topic_distribution: Dict[str, Dict[str, float]],
+    sentiment_overrides: Dict[str, Dict[str, Any]] = None
+) -> AgentContext:
+    """Create a reusable AgentContext for topic-based workflow tests."""
+    topic_names = list(topic_distribution.keys())
+    sentiments = sentiment_overrides or {
+        name: {
+            'success': True,
+            'data': {
+                'sentiment': 'neutral',
+                'sentiment_insight': f"{name} sentiment insight"
+            }
+        }
+        for name in topic_names
+    }
+    topic_examples = {
+        name: {
+            'data': {
+                'examples': [{
+                    'conversation_id': f"{name}-1",
+                    'preview': f"Example from {name}",
+                    'intercom_url': f"https://example.com/{name}"
+                }]
+            }
+        }
+        for name in topic_names
+    }
+    previous_results = {
+        'TopicDetectionAgent': {
+            'data': {
+                'topic_distribution': topic_distribution,
+                'topics_by_conversation': {},
+                'fallback_metrics': {}
+            }
+        },
+        'TopicSentiments': sentiments,
+        'TopicExamples': topic_examples,
+        'SegmentationAgent': {
+            'data': {
+                'segmentation_summary': {
+                    'paid_count': 100,
+                    'paid_percentage': 70.0,
+                    'free_count': 30,
+                    'free_percentage': 30.0,
+                    'language_distribution': {'English': 120},
+                    'total_languages': 1
+                }
+            }
+        },
+        'SubTopicDetectionAgent': {'data': {'subtopics_by_tier1_topic': {}}},
+        'TrendAgent': {'data': {}},
+        'FinPerformanceAgent': {'data': {}},
+        'AnalyticalInsights': {}
+    }
+    metadata = {
+        'period_label': 'Weekly',
+        'period_type': 'week',
+        'week_id': '2024-W01',
+        'digest_mode': False
+    }
+    return AgentContext(
+        analysis_id="test-analysis",
+        analysis_type="topic_based",
+        start_date=datetime(2024, 1, 1),
+        end_date=datetime(2024, 1, 7),
+        conversations=[],
+        previous_results=previous_results,
+        metadata=metadata
+    )
 
 class TopicDetectionAgentWrapper(TopicDetectionAgent):
     """Test-only subclass exposing internals and wrappers for testing"""
@@ -61,6 +138,18 @@ class TopicSentimentAgentWrapper(TopicSentimentAgent):
         
     def fallback_sentence_public(self, topic_name: str) -> str:
         return self._fallback_sentence(topic_name)
+
+
+class SentimentAgentWrapper(SentimentAgent):
+    """Test wrapper exposing private helpers on SentimentAgent."""
+    def get_global_examples_public(self) -> str:
+        return self._get_global_sentiment_examples()
+    
+    def looks_like_refusal_public(self, text: str) -> bool:
+        return self._looks_like_refusal(text)
+    
+    def fallback_sentence_public(self, context: Optional[AgentContext] = None) -> str:
+        return self._fallback_sentence(context)
 
 @pytest.mark.asyncio
 class TestPromptOptimization:
@@ -157,7 +246,7 @@ class TestPromptOptimization:
         
         # Mock _classify_with_llm_smart to avoid actual API call
         async def mock_classify(*args, **kwargs):
-            return {'topic': 'Product Question', 'method': 'llm_smart', 'confidence': 0.9}
+            return [{'topic': 'Product Question', 'method': 'llm_smart', 'confidence': 0.9}]
         agent._classify_with_llm_smart = mock_classify
         
         await agent.execute(context)
@@ -293,6 +382,602 @@ class TestPromptOptimization:
         res_special = await agent._detect_topics_for_conversation(conv_special)
         # Should detect Bug (regex should handle ???!!!)
         assert any(d['topic'] == 'Bug' for d in res_special)
+
+    async def test_detection_method_in_topic_distribution(self):
+        """Ensure topic distribution includes detection metadata"""
+        agent = TopicDetectionAgentWrapper()
+        conversations = [
+            {
+                "id": "billing_conv",
+                "conversation_parts": {
+                    "conversation_parts": [{"body": "I need a refund for my invoice subscription"}]
+                }
+            },
+            {
+                "id": "bug_conv",
+                "conversation_parts": {
+                    "conversation_parts": [{"body": "There is a bug in export"}]
+                }
+            }
+        ]
+        context = AgentContext(
+            analysis_id="test_detection_method_distribution",
+            analysis_type="topic_detection",
+            conversations=conversations,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2)
+        )
+        result = await agent.execute(context)
+        topic_dist = result.data.get('topic_distribution', {})
+        assert topic_dist, "Topic distribution should not be empty"
+        billing_stats = topic_dist.get('Billing')
+        assert billing_stats is not None
+        assert billing_stats['detection_method'] in {'keyword', 'hybrid', 'llm_smart', 'llm_only'}
+        assert 'llm_smart_count' in billing_stats
+        assert 'keyword_count' in billing_stats
+
+    async def test_fallback_metrics_include_method_counts(self):
+        """Verify fallback metrics include key counters"""
+        agent = TopicDetectionAgentWrapper()
+        conversations = [
+            {
+                "id": "strong_keywords",
+                "conversation_parts": {
+                    "conversation_parts": [{"body": "Need refund for invoice charge"}]
+                }
+            },
+            {
+                "id": "llm_needed",
+                "conversation_parts": {
+                    "conversation_parts": [{"body": "Hi there, something weird happens"}]
+                }
+            }
+        ]
+        context = AgentContext(
+            analysis_id="test_fallback_metrics",
+            analysis_type="topic_detection",
+            conversations=conversations,
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2)
+        )
+
+        async def mock_llm_classify(*args, **kwargs):
+            return [{
+                'topic': 'Product Question',
+                'method': 'llm_smart',
+                'confidence': 0.9
+            }]
+
+        original_llm = agent._classify_with_llm_smart
+        agent._classify_with_llm_smart = mock_llm_classify
+        try:
+            result = await agent.execute(context)
+        finally:
+            agent._classify_with_llm_smart = original_llm
+
+        fallback_metrics = result.data.get('fallback_metrics', {})
+        assert 'high_confidence_skip_count' in fallback_metrics
+        assert 'llm_calls' in fallback_metrics
+        assert 'llm_success_count' in fallback_metrics
+
+
+class TestOutputFormatterDetectionMethodLabeling:
+
+    def test_detection_method_label_mapping(self):
+        agent = OutputFormatterAgent(use_llm_formatting=False)
+        assert "Verified by AI Analysis" in agent._get_detection_method_label('llm_smart')
+        assert "Verified by AI Analysis" in agent._get_detection_method_label('llm_only')
+        assert "Hybrid Detection" in agent._get_detection_method_label('hybrid')
+        assert "keyword patterns" in agent._get_detection_method_label('keyword')
+        assert "Intercom attributes" in agent._get_detection_method_label('sdk_only')
+        assert "Fallback classification" in agent._get_detection_method_label('fallback')
+        assert "Intercom attributes" in agent._get_detection_method_label('attribute')
+        assert "not specified" in agent._get_detection_method_label('unknown_method')
+
+    def test_topic_card_includes_detection_method(self):
+        agent = OutputFormatterAgent(use_llm_formatting=False)
+        stats = {
+            'volume': 120,
+            'percentage': 24.0,
+            'detection_method': 'llm_smart',
+            'confidence': 0.92,
+            'llm_smart_count': 80,
+            'llm_only_count': 10,
+            'keyword_count': 30,
+            'hybrid_count': 0,
+            'sdk_only_count': 0,
+            'fallback_count': 0
+        }
+        card = agent._format_topic_card(
+            "Billing",
+            stats,
+            "Customers are frustrated with invoicing",
+            [],
+            "",
+            "",
+            "Weekly"
+        )
+        assert "Verified by AI Analysis" in card
+        assert "Confidence: 0.92" in card
+
+    def test_detection_method_breakdown_display(self):
+        agent = OutputFormatterAgent(use_llm_formatting=False)
+        stats = {
+            'volume': 100,
+            'percentage': 50.0,
+            'detection_method': 'hybrid',
+            'confidence': 0.8,
+            'llm_smart_count': 20,
+            'llm_only_count': 5,
+            'hybrid_count': 45,
+            'keyword_count': 20,
+            'sdk_only_count': 5,
+            'fallback_count': 5
+        }
+        card = agent._format_topic_card(
+            "Automation",
+            stats,
+            "Automation tickets hold steady",
+            [],
+            "",
+            "",
+            "Weekly"
+        )
+        assert "**Detection Mix**" in card
+        assert "AI-verified" in card
+        assert "Hybrid" in card
+        assert "Keyword" in card
+
+    def test_detection_method_validation(self, caplog):
+        agent = OutputFormatterAgent(use_llm_formatting=False)
+        valid = {
+            'formatted_output': 'ok',
+            'structured_data': {
+                'topics': {
+                    'Billing': {'detection_method': 'llm_smart'}
+                }
+            }
+        }
+        assert agent.validate_output(valid)
+        invalid = {
+            'formatted_output': 'ok',
+            'structured_data': {
+                'topics': {
+                    'Billing': {}
+                }
+            }
+        }
+        with caplog.at_level('WARNING'):
+            agent.validate_output(invalid)
+        assert "missing detection_method" in caplog.text
+
+
+class TestInsightAgentTopicBasedWorkflow:
+
+    @staticmethod
+    def _sample_distribution():
+        return {
+            'Billing': {
+                'volume': 50,
+                'percentage': 50.0,
+                'detection_method': 'llm_smart',
+                'confidence': 0.9,
+                'llm_smart_count': 40,
+                'llm_only_count': 10,
+                'hybrid_count': 0,
+                'keyword_count': 0,
+                'sdk_only_count': 0,
+                'fallback_count': 0
+            },
+            'Automation': {
+                'volume': 30,
+                'percentage': 30.0,
+                'detection_method': 'hybrid',
+                'confidence': 0.8,
+                'llm_smart_count': 5,
+                'llm_only_count': 0,
+                'hybrid_count': 20,
+                'keyword_count': 5,
+                'sdk_only_count': 0,
+                'fallback_count': 0
+            },
+            'Macros': {
+                'volume': 20,
+                'percentage': 20.0,
+                'detection_method': 'keyword',
+                'confidence': 0.6,
+                'llm_smart_count': 0,
+                'llm_only_count': 0,
+                'hybrid_count': 0,
+                'keyword_count': 15,
+                'sdk_only_count': 0,
+                'fallback_count': 5
+            }
+        }
+
+    def test_validate_input_topic_based_workflow(self):
+        agent = InsightAgent()
+        context = build_topic_context(json.loads(json.dumps(self._sample_distribution())))
+        assert agent.validate_input(context)
+        assert agent.workflow_type == 'topic_based'
+
+    def test_validate_input_standard_workflow(self):
+        agent = InsightAgent()
+        context = AgentContext(
+            analysis_id="standard",
+            analysis_type="standard",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[],
+            previous_results={
+                'CategoryAgent': {'data': {'category_distribution': {}}},
+                'SentimentAgent': {'data': {'sentiment_distribution': {}}}
+            }
+        )
+        assert agent.validate_input(context)
+        assert agent.workflow_type == 'standard'
+
+    def test_validate_input_missing_agents(self):
+        agent = InsightAgent()
+        context = AgentContext(
+            analysis_id="missing",
+            analysis_type="topic_based",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[],
+            previous_results={
+                'TopicDetectionAgent': {
+                    'data': {
+                        'topic_distribution': self._sample_distribution()
+                    }
+                }
+            }
+        )
+        with pytest.raises(ValueError):
+            agent.validate_input(context)
+
+    def test_format_topic_based_context_data(self):
+        agent = InsightAgent()
+        context = build_topic_context(json.loads(json.dumps(self._sample_distribution())))
+        agent.validate_input(context)
+        formatted = agent._format_topic_based_context_data(context)
+        assert "TOPIC DETECTION RESULTS" in formatted
+        assert "Billing" in formatted
+        assert "Detection Method" in formatted
+        assert "Detection Mix" in formatted
+        assert "Tag insights with detection provenance" in formatted
+
+    def test_extract_detection_method_confidence(self):
+        agent = InsightAgent()
+        avg_conf, distribution = agent._extract_detection_method_confidence(self._sample_distribution())
+        assert pytest.approx(avg_conf, 0.001) == 0.81
+        assert pytest.approx(distribution.get('llm_smart', 0), 0.1) == 45.0
+        assert pytest.approx(distribution.get('hybrid', 0), 0.1) == 20.0
+        assert pytest.approx(distribution.get('keyword', 0), 0.1) == 20.0
+        assert pytest.approx(distribution.get('fallback', 0), 0.1) == 5.0
+
+    @pytest.mark.asyncio
+    async def test_confidence_propagation_topic_based(self):
+        agent = InsightAgent()
+        context = build_topic_context(json.loads(json.dumps(self._sample_distribution())))
+        response_text = (
+            "1. Billing escalations rising (Verified by AI Analysis)\n"
+            "2. Automation workflows stable (Hybrid detection: AI + Keywords)\n"
+            "3. Macros complaints growing (Trend detected via keyword patterns)\n"
+            "Recommendations:\n"
+            "1. Fix billing flows (Verified by AI Analysis)\n"
+            "2. Improve macro tooling (Trend detected via keyword patterns)\n"
+            "3. Reinforce automation wins\n"
+        )
+        with patch.object(agent.ai_client, 'generate_analysis', new_callable=AsyncMock, return_value=response_text):
+            result = await agent.execute(context)
+        assert pytest.approx(result.data['detection_method_confidence'], 0.001) == 0.81
+        assert pytest.approx(result.confidence, 0.01) == 0.924
+        distribution = result.data['detection_method_distribution']
+        assert pytest.approx(distribution.get('hybrid', 0), 0.1) == 20.0
+        assert pytest.approx(distribution.get('keyword', 0), 0.1) == 20.0
+        assert "(Verified by AI Analysis)" in " ".join(result.data['detection_method_tags'])
+
+    def test_detection_method_tag_extraction(self):
+        agent = InsightAgent()
+        agent.workflow_type = 'topic_based'
+        text = "Billing insight (Verified by AI Analysis). Keyword spike (Trend detected via keyword patterns)."
+        parsed = agent._parse_insights_response(text)
+        assert "(Verified by AI Analysis)" in parsed['detection_method_tags']
+        assert "(Trend detected via keyword patterns)" in parsed['detection_method_tags']
+
+    def test_detection_method_tag_missing_warning(self, caplog):
+        agent = InsightAgent()
+        agent.workflow_type = 'topic_based'
+        with caplog.at_level('WARNING'):
+            parsed = agent._parse_insights_response("Generic summary without tags.")
+        assert parsed['detection_method_tags'] == []
+        assert "missing detection method tags" in caplog.text
+
+    def test_output_validation_topic_based(self, caplog):
+        agent = InsightAgent()
+        agent.workflow_type = 'topic_based'
+        good_result = {
+            'executive_summary': 'Summary',
+            'major_themes': ['1. Theme', '2. Theme', '3. Theme'],
+            'recommendations': ['1. Do A', '2. Do B', '3. Do C'],
+            'synthesis_quality': 1.0,
+            'detection_method_confidence': 0.9,
+            'detection_method_distribution': {
+                'llm_smart': 40.0,
+                'llm_only': 10.0,
+                'hybrid': 30.0,
+                'keyword': 15.0,
+                'sdk_only': 5.0,
+                'fallback': 0.0
+            },
+            'detection_method_tags': ['(Verified by AI Analysis)']
+        }
+        with caplog.at_level('WARNING'):
+            agent.validate_output(good_result)
+        assert not caplog.records
+
+        bad_result = {
+            'executive_summary': 'Summary',
+            'major_themes': ['1. Theme'],
+            'recommendations': ['1. Do A'],
+            'synthesis_quality': 0.5,
+            'detection_method_confidence': 0.3,
+            'detection_method_distribution': {},
+            'detection_method_tags': []
+        }
+        with caplog.at_level('WARNING'):
+            agent.validate_output(bad_result)
+        assert "Detection method confidence is low" in caplog.text
+        assert "missing detection_method_distribution" in caplog.text
+        assert "did not include detection method tags" in caplog.text
+
+
+class TestDetectionMethodMixedScenarios:
+
+    @staticmethod
+    def _mixed_distribution():
+        return {
+            'Billing': {
+                'volume': 50,
+                'percentage': 50.0,
+                'detection_method': 'hybrid',
+                'confidence': 0.85,
+                'llm_smart_count': 0,
+                'llm_only_count': 0,
+                'hybrid_count': 50,
+                'keyword_count': 0,
+                'sdk_only_count': 0,
+                'fallback_count': 0
+            },
+            'Automation': {
+                'volume': 30,
+                'percentage': 30.0,
+                'detection_method': 'keyword',
+                'confidence': 0.75,
+                'llm_smart_count': 0,
+                'llm_only_count': 0,
+                'hybrid_count': 0,
+                'keyword_count': 30,
+                'sdk_only_count': 0,
+                'fallback_count': 0
+            },
+            'AI Ops': {
+                'volume': 20,
+                'percentage': 20.0,
+                'detection_method': 'llm_smart',
+                'confidence': 0.95,
+                'llm_smart_count': 20,
+                'llm_only_count': 0,
+                'hybrid_count': 0,
+                'keyword_count': 0,
+                'sdk_only_count': 0,
+                'fallback_count': 0
+            }
+        }
+
+    @staticmethod
+    def _fallback_distribution():
+        return {
+            'Unknown/unresponsive': {
+                'volume': 20,
+                'percentage': 100.0,
+                'detection_method': 'fallback',
+                'confidence': 0.1,
+                'llm_smart_count': 0,
+                'llm_only_count': 0,
+                'hybrid_count': 0,
+                'keyword_count': 0,
+                'sdk_only_count': 0,
+                'fallback_count': 20
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_mixed_detection_methods_hybrid_keyword_llm(self):
+        insight_agent = InsightAgent()
+        formatter_agent = OutputFormatterAgent(use_llm_formatting=False)
+        context = build_topic_context(json.loads(json.dumps(self._mixed_distribution())))
+        response_text = (
+            "1. Hybrid-tagged Billing trend (Hybrid detection: AI + Keywords)\n"
+            "2. Keyword Automation trend (Trend detected via keyword patterns)\n"
+            "3. AI Ops improvements (Verified by AI Analysis)\n"
+            "Recommendations:\n"
+            "1. Fix billing (Hybrid detection: AI + Keywords)\n"
+            "2. Improve automation macros (Trend detected via keyword patterns)\n"
+            "3. Accelerate AI Ops (Verified by AI Analysis)\n"
+        )
+        with patch.object(insight_agent.ai_client, 'generate_analysis', new_callable=AsyncMock, return_value=response_text):
+            insight_result = await insight_agent.execute(context)
+        formatter_result = await formatter_agent.execute(context)
+        formatted = formatter_result.data['formatted_output']
+        assert "Hybrid Detection" in formatted
+        assert "Trend detected via keyword patterns" in formatted
+        assert "Verified by AI Analysis" in formatted
+        distribution = insight_result.data['detection_method_distribution']
+        assert pytest.approx(distribution.get('hybrid', 0), 0.1) == 50.0
+        assert pytest.approx(distribution.get('keyword', 0), 0.1) == 30.0
+        assert pytest.approx(distribution.get('llm_smart', 0), 0.1) == 20.0
+        assert pytest.approx(insight_result.confidence, 0.01) == 0.936
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_fallback_detection(self, caplog):
+        insight_agent = InsightAgent()
+        formatter_agent = OutputFormatterAgent(use_llm_formatting=False)
+        context = build_topic_context(json.loads(json.dumps(self._fallback_distribution())))
+        response_text = (
+            "1. Sparse signals (Fallback classification (low confidence))\n"
+            "Recommendations:\n"
+            "1. Gather more data\n"
+        )
+        with patch.object(insight_agent.ai_client, 'generate_analysis', new_callable=AsyncMock, return_value=response_text):
+            with caplog.at_level('WARNING'):
+                insight_result = await insight_agent.execute(context)
+        formatter_result = await formatter_agent.execute(context)
+        formatted = formatter_result.data['formatted_output']
+        assert "Fallback classification (low confidence)" in formatted
+        assert pytest.approx(insight_result.data['detection_method_confidence'], 0.001) == 0.1
+        assert pytest.approx(insight_result.confidence, 0.01) == 0.64
+        assert "Detection method confidence is low" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_backward_compatibility_standard_workflow(self):
+        agent = InsightAgent()
+        context = AgentContext(
+            analysis_id="standard",
+            analysis_type="insight",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[{'id': '1'}],
+            previous_results={
+                'CategoryAgent': {'data': {'category_distribution': {'Billing': 10}}},
+                'SentimentAgent': {'data': {'sentiment_distribution': {'negative': 5}}}
+            }
+        )
+        response_text = (
+            "1. Billing issue\n"
+            "2. Support improvement\n"
+            "3. Macros fix\n"
+            "Recommendations:\n"
+            "1. Fix billing\n"
+            "2. Improve support\n"
+            "3. Enhance macros\n"
+        )
+        with patch.object(agent.ai_client, 'generate_analysis', new_callable=AsyncMock, return_value=response_text):
+            result = await agent.execute(context)
+        assert 'detection_method_confidence' not in result.data
+        assert 'detection_method_distribution' not in result.data
+        assert result.confidence_level in [ConfidenceLevel.HIGH.value, ConfidenceLevel.HIGH]
+
+@pytest.mark.asyncio
+class TestSentimentAgentUpgrade:
+    
+    async def test_agent_instructions_forbid_generic_labels(self):
+        agent = SentimentAgentWrapper()
+        instructions = agent.get_agent_specific_instructions().lower()
+        assert "hilary" in instructions
+        assert "positive sentiment" in instructions
+        assert "mixed sentiment" in instructions
+        assert "per-conversation" in instructions
+    
+    async def test_global_examples_include_nuance(self):
+        agent = SentimentAgentWrapper()
+        examples = agent.get_global_examples_public()
+        assert "✓" in examples
+        assert " but " in examples.lower()
+        assert examples.count("✓") >= 3
+    
+    async def test_refusal_detection_and_fallback(self):
+        agent = SentimentAgentWrapper()
+        context = AgentContext(
+            analysis_id="sentiment_refusal",
+            analysis_type="sentiment",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[{'id': '1', 'conversation_parts': {'conversation_parts': [{'body': 'billing rage'}]}}],
+            metadata={}
+        )
+        agent.ai_client.generate_analysis = AsyncMock(side_effect=["I cannot do that", "Still insufficient data"])
+        result = await agent.execute(context)
+        assert result.success
+        assert result.data['method'] == 'fallback_template'
+        assert result.data['sentiment_metrics']['refusal_count'] == 2
+        assert result.data['sentiment_metrics']['fallback_used'] is True
+        assert "but" in result.data['sentiment_insight'].lower()
+    
+    async def test_validate_output_quality_metadata(self):
+        agent = SentimentAgentWrapper()
+        good_result = {
+            'sentiment_insight': "Customers love AI Builder but need billing clarity before scaling.",
+            'sentiment_distribution': [{'label': 'builder-love', 'percentage': 70, 'nuance': 'love builder but hate billing'}],
+            'supporting_evidence': [{'quote': "Love the builder speed but billing is wild."}]
+        }
+        agent.validate_output(good_result)
+        assert good_result['quality_score'] >= 0.7
+        assert good_result['contains_nuance'] is True
+        assert not good_result['validation_warnings']
+        
+        bad_result = {
+            'sentiment_insight': "Negative sentiment detected about billing.",
+            'sentiment_distribution': [],
+            'supporting_evidence': []
+        }
+        agent.validate_output(bad_result)
+        assert bad_result['quality_score'] < 0.5
+        assert any("Generic pattern detected" in warning for warning in bad_result['validation_warnings'])
+    
+    async def test_execute_uses_llm_output_structure(self):
+        agent = SentimentAgentWrapper()
+        context = AgentContext(
+            analysis_id="sentiment_structured",
+            analysis_type="sentiment",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[
+                {'id': 'a', 'conversation_parts': {'conversation_parts': [{'body': 'love builder'}]}},
+                {'id': 'b', 'conversation_parts': {'conversation_parts': [{'body': 'hate billing'}]}}
+            ],
+            metadata={}
+        )
+        payload = {
+            "sentiment_insight": "Customers love AI Builder but are livid about billing opacity.",
+            "sentiment_distribution": [
+                {"label": "builder-love", "percentage": 65, "nuance": "Love the speed but want billing clarity"},
+                {"label": "billing-friction", "percentage": 55, "nuance": "Praising support yet raging about invoices"}
+            ],
+            "supporting_evidence": [
+                {"quote": "Love builder but billing feels like roulette.", "conversation_id": "a", "tone": "mixed"}
+            ]
+        }
+        agent.ai_client.generate_analysis = AsyncMock(return_value=json.dumps(payload))
+        result = await agent.execute(context)
+        assert result.success
+        assert result.data['method'] == 'llm'
+        assert len(result.data['sentiment_distribution']) == 2
+        assert result.data['supporting_evidence'][0]['quote'].startswith("Love builder")
+        assert result.data['sentiment_metrics']['retry_count'] == 0
+        assert result.data['sentiment_metrics']['fallback_used'] is False
+    
+    async def test_looks_like_refusal_helper(self):
+        agent = SentimentAgentWrapper()
+        assert agent.looks_like_refusal_public("I cannot determine that with the given info.")
+        assert not agent.looks_like_refusal_public("Users love the product but hate the fees.")
+    
+    async def test_fallback_sentence_public(self):
+        agent = SentimentAgentWrapper()
+        fallback = agent.fallback_sentence_public()
+        assert "but" in fallback.lower()
+        context = AgentContext(
+            analysis_id="fallback",
+            analysis_type="sentiment",
+            start_date=datetime(2024, 1, 1),
+            end_date=datetime(2024, 1, 2),
+            conversations=[{'id': '1'}],
+            metadata={}
+        )
+        contextual = agent.fallback_sentence_public(context)
+        assert "but" in contextual.lower()
+
 
 @pytest.mark.asyncio
 class TestTopicSentimentAgent:
@@ -486,3 +1171,107 @@ class TestTopicSentimentAgent:
                 result = await agent.execute(context)
                 assert result.data['method'] == 'llm', f"Method should be 'llm' for size {size}"
 
+@pytest.mark.asyncio
+class TestPresentationBuilderInsights:
+    
+    def test_presentation_builder_preserves_sentiment_insights(self):
+        """Verify that PresentationBuilder uses verbatim sentiment insights."""
+        builder = PresentationBuilder()
+        
+        # Mock category results with verbatim insights
+        results = {
+            'Billing': {
+                'volume': 100,
+                'sentiment_breakdown': {
+                    'sentiment_insight': 'Users love the speed but hate the fees.',
+                    'sentiment': 'mixed',
+                    'confidence': 0.9
+                }
+            }
+        }
+        
+        output = builder._format_sentiment_breakdown(results)
+        
+        # Assert intent: Verbatim insight is preserved
+        assert 'Users love the speed but hate the fees' in output
+        assert 'Billing' in output
+        assert 'mixed' not in output  # Generic label should not be used if insight exists
+        
+    def test_methodology_slide_includes_fallback_metrics(self):
+        """Verify methodology slide includes optimization metrics."""
+        builder = PresentationBuilder()
+        
+        results = {'Billing': {'volume': 100}}
+        metadata = {
+            'start_date': '2023-01-01', 
+            'end_date': '2023-01-07',
+            'fallback_metrics': {
+                'llm_calls': 50,
+                'high_confidence_skip_count': 50,
+                'total_conversations': 100
+            }
+        }
+        
+        output = builder._build_methodology_appendix(results, metadata, 100)
+        
+        assert 'Optimization Efficiency' in output
+        assert '50.0%' in output
+        assert 'High-Confidence Skips' in output
+
+    def test_subtopic_breakdown_with_percentages(self):
+        """Verify subtopic breakdown is formatted correctly."""
+        builder = PresentationBuilder()
+        
+        results = {'Billing': {'volume': 100}}
+        metadata = {
+            'subtopics_by_tier1_topic': {
+                'Billing': {
+                    'tier2': {
+                        'Refunds': {'count': 30},
+                        'Invoices': {'count': 70}
+                    }
+                }
+            }
+        }
+        
+        output = builder._build_subtopic_breakdown_section(results, metadata)
+        
+        assert 'Billing Breakdown' in output
+        assert 'Refunds' in output
+        assert '30' in output
+        assert '30.0%' in output
+        assert 'Invoices' in output
+        assert '70.0%' in output
+
+    def test_voc_detailed_narrative_includes_sentiment_insights(self):
+        """Detailed VoC narrative should surface verbatim sentiment insights."""
+        builder = PresentationBuilder()
+        results = {
+            'Billing': {
+                'volume': 42,
+                'sentiment_breakdown': {
+                    'sentiment_insight': 'Users love the speed but hate the fees.',
+                    'sentiment': 'mixed',
+                    'confidence': 0.91
+                }
+            }
+        }
+        metadata = {
+            'total_conversations': 42,
+            'ai_model': 'gpt-4o',
+            'start_date': '2024-10-01',
+            'end_date': '2024-10-07'
+        }
+
+        narrative = builder._build_voc_detailed_narrative(
+            results=results,
+            insights=[],
+            agent_feedback={},
+            metadata=metadata,
+            historical_trends=None,
+            period_type='weekly'
+        )
+
+        assert '**Sentiment Insight Narrative**' in narrative
+        assert 'Users love the speed but hate the fees.' in narrative
+        assert '| Category | Sentiment | Confidence | Volume |' in narrative

@@ -305,8 +305,23 @@ Return ONLY valid JSON, no other text:
         return True
     
     def validate_output(self, result: Dict[str, Any]) -> bool:
-        """Validate formatted output"""
-        return 'formatted_output' in result
+        """Validate formatted output with detection method checks"""
+        if 'formatted_output' not in result:
+            self.logger.error("OutputFormatterAgent: Missing formatted_output in result payload")
+            return False
+        
+        structured_topics = result.get('structured_data', {}).get('topics', {})
+        allowed_methods = {'llm_smart', 'llm_only', 'hybrid', 'keyword', 'sdk_only', 'fallback', 'attribute'}
+        
+        for topic_name, stats in structured_topics.items():
+            method = stats.get('detection_method')
+            if not method:
+                self.logger.warning(f"Topic '{topic_name}' missing detection_method metadata")
+                continue
+            if method not in allowed_methods:
+                self.logger.warning(f"Topic '{topic_name}' has invalid detection_method '{method}'")
+        
+        return True
     
     def _generate_missing_section_placeholder(self, section_name: str, agent_name: str) -> str:
         """
@@ -427,6 +442,7 @@ Return ONLY valid JSON, no other text:
                 os.getenv('OUTPUT_FORMATTER_LEGACY_SECTIONS', 'false').lower() == 'true'
             )
             topic_names = list(topic_dist.keys())
+            detection_summary = self._calculate_detection_method_distribution(topic_dist)
             
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
@@ -535,6 +551,25 @@ Return ONLY valid JSON, no other text:
                     pct = topic_stats['percentage']
                     output_sections.append(f"- {topic_name}: {volume:,} conversations ({pct:.1f}%)")
             output_sections.append("")
+
+            if detection_summary:
+                ai_pct = detection_summary.get('ai_verified_pct', 0.0)
+                keyword_pct = detection_summary.get('keyword_pct', 0.0)
+                hybrid_pct = detection_summary.get('hybrid_pct', 0.0)
+                output_sections.append(
+                    f"**Detection Methods**: {ai_pct:.1f}% verified by AI analysis, "
+                    f"{keyword_pct:.1f}% keyword patterns, {hybrid_pct:.1f}% hybrid detection"
+                )
+                sdk_pct = detection_summary.get('sdk_only_pct', 0.0)
+                fallback_pct = detection_summary.get('fallback_pct', 0.0)
+                if sdk_pct or fallback_pct:
+                    extra_parts = []
+                    if sdk_pct:
+                        extra_parts.append(f"{sdk_pct:.1f}% Intercom attributes")
+                    if fallback_pct:
+                        extra_parts.append(f"{fallback_pct:.1f}% fallback classifications")
+                    output_sections.append(f"Additional coverage: {', '.join(extra_parts)}")
+                output_sections.append("")
             
             # Add language breakdown if available
             lang_dist = seg_summary.get('language_distribution', {})
@@ -974,7 +1009,9 @@ Return ONLY valid JSON, no other text:
                         'period_label': period_label,
                         'start_date': context.start_date.isoformat() if context.start_date else None,
                         'end_date': context.end_date.isoformat() if context.end_date else None,
-                        'total_conversations': total_convs
+                        'total_conversations': total_convs,
+                        'fallback_metrics': topic_detection.get('fallback_metrics', {}),
+                        'detection_method_distribution': detection_summary
                     },
                     'topic_summaries': topic_summaries,
                     'recommendations': recommendations
@@ -1048,19 +1085,40 @@ Return ONLY valid JSON, no other text:
         digest_mode: bool = False
     ) -> str:
         """Format a single topic card"""
-        detection_method = stats.get('detection_method', 'unknown')
-        method_label = (
-            "Intercom conversation attribute" if detection_method == 'attribute'
-            else "Keyword detection" if detection_method == 'keyword'
-            else "Detection method not specified"
-        )
+        detection_method = stats.get('detection_method')
+        method_label = self._get_detection_method_label(detection_method)
+        method_line = f"**Detection Method**: {method_label}"
+        confidence_value = stats.get('confidence')
+        if isinstance(confidence_value, (int, float)):
+            method_line += f" (Confidence: {confidence_value:.2f})"
         
         card_lines: List[str] = [
             f"### {topic_name}{trend}",
             f"**{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**",
-            f"**Detection Method**: {method_label}",
+            method_line,
             f"**Sentiment**: {sentiment}"
         ]
+
+        breakdown_parts: List[str] = []
+        ai_verified = (stats.get('llm_smart_count', 0) or 0) + (stats.get('llm_only_count', 0) or 0)
+        hybrid_count = stats.get('hybrid_count', 0) or 0
+        keyword_count = stats.get('keyword_count', 0) or 0
+        sdk_count = stats.get('sdk_only_count', 0) or 0
+        fallback_count = stats.get('fallback_count', 0) or 0
+
+        if ai_verified:
+            breakdown_parts.append(f"{ai_verified} AI-verified")
+        if keyword_count:
+            breakdown_parts.append(f"{keyword_count} Keyword")
+        if hybrid_count:
+            breakdown_parts.append(f"{hybrid_count} Hybrid")
+        if sdk_count:
+            breakdown_parts.append(f"{sdk_count} Attribute")
+        if fallback_count:
+            breakdown_parts.append(f"{fallback_count} Fallback")
+
+        if len(breakdown_parts) > 1:
+            card_lines.append(f"**Detection Mix**: {', '.join(breakdown_parts)}")
 
         if operational_notes:
             joined = " | ".join(filter(None, operational_notes))
@@ -1337,6 +1395,68 @@ Return ONLY valid JSON, no other text:
             if topic.lower() in lower_text:
                 return topic
         return None
+
+    def _get_detection_method_label(self, method: Optional[str], include_emoji: bool = True) -> str:
+        """
+        Map detection method codes to user-friendly labels with optional emojis.
+        """
+        method_key = (method or '').lower()
+        label_map = {
+            'llm_smart': ("✅", "Verified by AI Analysis (with context hints)"),
+            'llm_only': ("✅", "Verified by AI Analysis"),
+            'hybrid': ("🔗", "Hybrid Detection (AI + Keyword patterns)"),
+            'keyword': ("📊", "Trend detected via keyword patterns"),
+            'sdk_only': ("🏷️", "Detected via Intercom attributes"),
+            'attribute': ("🏷️", "Detected via Intercom attributes"),
+            'fallback': ("⚠️", "Fallback classification (low confidence)")
+        }
+        emoji, text = label_map.get(method_key, ("❓", "Detection method not specified"))
+        if include_emoji and emoji:
+            return f"{emoji} {text}"
+        return text
+
+    def _calculate_detection_method_distribution(
+        self,
+        topic_dist: Dict[str, Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Aggregate detection method usage percentages across all topics.
+        """
+        if not topic_dist:
+            return {}
+
+        totals = {
+            'llm_smart': 0,
+            'llm_only': 0,
+            'hybrid': 0,
+            'keyword': 0,
+            'sdk_only': 0,
+            'fallback': 0
+        }
+        total_volume = 0
+
+        for stats in topic_dist.values():
+            total_volume += stats.get('volume', 0)
+            for method in totals.keys():
+                totals[method] += stats.get(f"{method}_count", 0)
+
+        method_total = sum(totals.values()) or total_volume
+        if method_total <= 0:
+            return {}
+
+        ai_verified = totals['llm_smart'] + totals['llm_only']
+        distribution = {
+            'total_volume': total_volume,
+            'ai_verified_pct': round(ai_verified / method_total * 100, 1) if method_total else 0.0,
+            'keyword_pct': round(totals['keyword'] / method_total * 100, 1) if method_total else 0.0,
+            'hybrid_pct': round(totals['hybrid'] / method_total * 100, 1) if method_total else 0.0,
+            'sdk_only_pct': round(totals['sdk_only'] / method_total * 100, 1) if method_total else 0.0,
+            'fallback_pct': round(totals['fallback'] / method_total * 100, 1) if method_total else 0.0,
+            'llm_smart_pct': round(totals['llm_smart'] / method_total * 100, 1) if method_total else 0.0,
+            'llm_only_pct': round(totals['llm_only'] / method_total * 100, 1) if method_total else 0.0
+        }
+        distribution['method_totals'] = totals
+        return distribution
     
     def _build_weighted_recommendations(self, topic_summaries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         recommendations: List[Dict[str, Any]] = []

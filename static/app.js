@@ -265,6 +265,11 @@ async function runAnalysis() {
         const testMode = document.getElementById('testMode')?.checked || false;
         const auditMode = document.getElementById('auditMode')?.checked || false;
         const digestMode = document.getElementById('digestModeToggle')?.checked || false;
+        const legacyMode = document.getElementById('legacyModeToggle')?.checked || false;
+        const correlationInsightsEnabled = document.getElementById('correlationAgentToggle')?.checked ?? true;
+        const qualityInsightsEnabled = document.getElementById('qualityInsightsToggle')?.checked ?? true;
+        const churnInsightsEnabled = document.getElementById('churnRiskToggle')?.checked ?? true;
+        const confidenceMetaEnabled = document.getElementById('confidenceMetaToggle')?.checked ?? true;
         
         // Get test mode options if enabled
         const testDataCount = document.getElementById('testDataCount')?.value || '100';
@@ -410,6 +415,19 @@ async function runAnalysis() {
                 args.push('--digest-mode');
             }
             
+        }
+
+        if (analysisType && analysisType.startsWith('voice-of-customer')) {
+            appendInsightFlagArgs(args, {
+                correlation: correlationInsightsEnabled,
+                quality: qualityInsightsEnabled,
+                churn: churnInsightsEnabled,
+                confidence: confidenceMetaEnabled
+            });
+            
+            if (analysisType === 'voice-of-customer-hilary' && legacyMode) {
+                args.push('--legacy-mode');
+            }
         } else if (analysisType.startsWith('agent-performance-')) {
             args.push('agent-performance');
             
@@ -996,6 +1014,28 @@ function appendToTerminal(text, type) {
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
 }
 
+function appendInsightFlagArgs(args, flags) {
+    if (!flags) {
+        return;
+    }
+    
+    if (typeof flags.correlation === 'boolean') {
+        args.push(flags.correlation ? '--enable-correlation-analysis' : '--disable-correlation-analysis');
+    }
+    
+    if (typeof flags.quality === 'boolean') {
+        args.push(flags.quality ? '--enable-quality-insights' : '--disable-quality-insights');
+    }
+    
+    if (typeof flags.churn === 'boolean') {
+        args.push(flags.churn ? '--enable-churn-detection' : '--disable-churn-detection');
+    }
+    
+    if (typeof flags.confidence === 'boolean') {
+        args.push(flags.confidence ? '--enable-confidence-meta' : '--disable-confidence-meta');
+    }
+}
+
 /**
  * Update analysis options based on selected analysis type
  */
@@ -1063,6 +1103,24 @@ function updateAnalysisOptions() {
             const digestToggle = document.getElementById('digestModeToggle');
             if (digestToggle) {
                 digestToggle.checked = false;
+            }
+        }
+    }
+    
+    const insightFlagsContainer = document.getElementById('insightFlagsContainer');
+    if (insightFlagsContainer) {
+        const showInsightFlags = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete']).has(analysisType);
+        insightFlagsContainer.style.display = showInsightFlags ? 'block' : 'none';
+    }
+    
+    const legacyModeContainer = document.getElementById('legacyModeContainer');
+    if (legacyModeContainer) {
+        const showLegacy = analysisType === 'voice-of-customer-hilary';
+        legacyModeContainer.style.display = showLegacy ? 'block' : 'none';
+        if (!showLegacy) {
+            const legacyToggle = document.getElementById('legacyModeToggle');
+            if (legacyToggle) {
+                legacyToggle.checked = false;
             }
         }
     }

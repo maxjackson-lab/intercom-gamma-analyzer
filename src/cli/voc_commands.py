@@ -8,7 +8,8 @@ in dedicated modules.
 This module contains the flagship multi-agent VoC pipeline and comprehensive
 analysis commands, along with their supporting helper functions.
 """
-
+import asyncio
+import json
 import os
 import sys
 from datetime import datetime
@@ -38,13 +39,28 @@ async def run_topic_based_analysis_custom(
     orchestrator_cls=None,
     mode_label: str = "Topic-based analysis",
     output_slug: str = "topic_based",
-    extra_conversations: Optional[List[Dict[str, Any]]] = None
+    extra_conversations: Optional[List[Dict[str, Any]]] = None,
+    legacy_mode: bool = False
 ):
     """Run topic-based analysis with custom date range"""
     try:
         # 🔧 ENABLE CONSOLE RECORDING (capture ALL output to .log file!)
         # This ensures users have complete logs even if SSE disconnects
         console.record = True
+
+        if legacy_mode:
+            if test_mode:
+                console.print("[yellow]⚠️ Legacy mode is unavailable in test mode. Continuing with standard pipeline.[/yellow]")
+            else:
+                week_id = start_date.strftime('%Y-W%W')
+                await run_legacy_topic_analysis(
+                    start_date=start_date,
+                    end_date=end_date,
+                    week_id=week_id,
+                    generate_gamma=generate_gamma,
+                    digest_mode=digest_mode
+                )
+                return
 
         # Comment 3: Add timing logs for heavy imports
         verbose_imports = os.getenv('VERBOSE', '').lower() in ('1', 'true', 'yes')
@@ -318,6 +334,76 @@ async def run_complete_analysis_custom(
     )
 
 
+async def run_legacy_topic_analysis(
+    start_date: datetime,
+    end_date: datetime,
+    week_id: str,
+    generate_gamma: bool,
+    digest_mode: bool = False,
+) -> Dict[str, Any]:
+    """
+    Execute the original MultiAgent workflow (Data → Category → Sentiment → Insight → Presentation).
+    """
+    console.print("\n[cyan]🕰️ Legacy Mode: Running original Hilary topic workflow (MultiAgentStrategy)[/cyan]")
+    console.print("[dim]This path replays the five-agent V1 pipeline for comparison and regression checks.[/dim]\n")
+
+    from src.agents.orchestrator import MultiAgentOrchestrator
+    from src.utils.output_manager import get_output_file_path
+
+    orchestrator = MultiAgentOrchestrator()
+    results = await orchestrator.execute_analysis(
+        analysis_type="voc_legacy_topic_cards",
+        start_date=start_date,
+        end_date=end_date,
+        generate_gamma=generate_gamma,
+        metadata={'digest_mode': digest_mode}
+    )
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    markdown_file = get_output_file_path(f"voc_legacy_{week_id}_{timestamp}.md")
+    json_file = get_output_file_path(f"voc_legacy_{week_id}_{timestamp}.json")
+
+    presentation_content = (
+        results.get('agent_results', {})
+              .get('PresentationAgent', {})
+              .get('data', {})
+              .get('presentation_content')
+    )
+
+    if not presentation_content:
+        summary = results.get('summary', {})
+        lines = [
+            "# Legacy Hilary Report (Summary)\n",
+            f"- Total Agents: {summary.get('total_agents', 'N/A')}",
+            f"- Successful Agents: {summary.get('successful_agents', 'N/A')}",
+            f"- Average Confidence: {summary.get('average_confidence', 'N/A')}",
+            "",
+            "## Agent Status",
+        ]
+        for agent_name, agent_result in (results.get('agent_results') or {}).items():
+            status = "✅" if agent_result.get('success') else "⚠️"
+            confidence = agent_result.get('confidence')
+            confidence_str = f"{confidence:.2f}" if isinstance(confidence, (int, float)) else "N/A"
+            lines.append(f"- {status} {agent_name} (confidence {confidence_str})")
+        lines.append("")
+        lines.append("*(Legacy pipeline executed without PresentationAgent output; showing summary instead.)*")
+        presentation_body = "\n".join(lines)
+    else:
+        presentation_body = presentation_content
+
+    with open(markdown_file, 'w') as f:
+        f.write(presentation_body)
+
+    with open(json_file, 'w') as f:
+        json.dump(results, f, indent=2, default=str)
+
+    console.print(f"📁 Legacy markdown saved to: {markdown_file}")
+    console.print(f"📁 Workflow JSON saved to: {json_file}")
+    console.print("✅ Legacy pipeline complete\n")
+
+    return results
+
+
 async def run_voice_of_customer_analysis(
     time_period: Optional[str],
     periods_back: int,
@@ -336,7 +422,12 @@ async def run_voice_of_customer_analysis(
     analysis_type: str,
     audit_trail: bool,
     output_dir: str,
-    digest_mode: bool
+    digest_mode: bool,
+    enable_correlation_analysis: Optional[bool],
+    enable_quality_insights: Optional[bool],
+    enable_churn_detection: Optional[bool],
+    enable_confidence_meta: Optional[bool],
+    legacy_mode: bool
 ):
     """
     Generate Voice of Customer sentiment analysis.
@@ -382,155 +473,173 @@ async def run_voice_of_customer_analysis(
         - The >31 day and >90 day custom range checks emit warnings by default. Set
           VOC_STRICT_DATE_LIMITS=1 to convert the 90-day warning into a hard error.
     """
+    from src.config.modes import get_analysis_mode_config
     from src.utils.time_utils import calculate_date_range, format_date_range_for_display
     from src.utils.timezone_utils import get_date_range_pacific
 
-    # Calculate dates using shared utility
-    try:
-        start_dt, end_dt = calculate_date_range(
-            time_period=time_period,
-            periods_back=periods_back,
-            start_date=start_date,
-            end_date=end_date,
-            end_is_yesterday=True
-        )
-        start_date = start_dt.strftime('%Y-%m-%d')
-        end_date = end_dt.strftime('%Y-%m-%d')
-
-        if time_period:
-            console.print(f"[bold]Voice of Customer Analysis - {time_period.capitalize()}[/bold]")
-            console.print(f"Period: Last {periods_back} {time_period}(s)")
-        else:
-            console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
-            # Validation for custom date ranges
-            days_span = (end_dt - start_dt).days
-            strict_limits_enabled = os.getenv('VOC_STRICT_DATE_LIMITS', '').lower() in ('1', 'true', 'yes')
-            if days_span > 31:
-                console.print(f"[yellow]⚠️  Custom date range spans {days_span} days (> 31 days). This may take longer to process and could hit Intercom API limits.[/yellow]")
-            if days_span > 90:
-                warning_msg = f"Date range too large ({days_span} days). Consider using --time-period month --periods-back 3 instead."
-                if strict_limits_enabled:
-                    console.print(f"[red]❌ {warning_msg} (VOC_STRICT_DATE_LIMITS enforced)[/red]")
-                    return
-                console.print(f"[red]⚠️  {warning_msg}[/red]")
-            console.print(f"[cyan]📅 Custom Date Range: {start_date} to {end_date} ({days_span} days)[/cyan]")
-            
-            # Document API limitations
-            console.print("[dim]ℹ️  Intercom Search API has a 10,000 conversation limit per request.[/dim]")
-            console.print("[dim]ℹ️  Large ranges are chunked daily to avoid this limit.[/dim]")
-
-        console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
-    except ValueError as e:
-        console.print(f"[red]Error: {e}[/red]")
-        return
-    console.print(f"AI Model: {ai_model}")
-    console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
-
-    # Enable verbose logging if requested
-    if verbose:
-        import logging
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Also set for specific modules
-        for module in ['agents', 'services', 'src.agents', 'src.services']:
-            logging.getLogger(module).setLevel(logging.DEBUG)
-        console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
-
-    # Parse test data count (supports presets or custom numbers)
-    test_data_presets = {
-        'micro': 100,       # 1 hour of data
-        'small': 500,       # Few hours
-        'medium': 1000,     # ~1 day
-        'large': 5000,      # ~1 week (realistic)
-        'xlarge': 10000,    # 2 weeks
-        'xxlarge': 20000    # 1 month
+    config = get_analysis_mode_config()
+    feature_overrides = {
+        'enable_correlation_analysis': enable_correlation_analysis,
+        'enable_quality_insights': enable_quality_insights,
+        'enable_churn_detection': enable_churn_detection,
+        'enable_confidence_meta': enable_confidence_meta,
     }
+    applied_overrides: List[str] = []
 
     try:
-        # Check if it's a preset name
-        if test_data_count.lower() in test_data_presets:
-            test_data_count_int = test_data_presets[test_data_count.lower()]
-            preset_label = test_data_count.lower()
-        else:
-            # Try to parse as number
-            test_data_count_int = int(test_data_count)
-            preset_label = None
-    except ValueError:
-        console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge, xxlarge)[/red]")
-        return
+        for feature, value in feature_overrides.items():
+            if value is not None:
+                config.set_feature_override(feature, value)
+                applied_overrides.append(feature)
 
-    # Test mode indication
-    if test_mode:
-        preset_info = f" ({preset_label})" if preset_label else ""
-        console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
-        console.print(f"[dim]   No API calls will be made - using generated test data[/dim]")
-        if test_data_count_int >= 5000:
-            console.print(f"[dim]   💡 Note: Large datasets may take 1-3 minutes to process[/dim]")
+        try:
+            start_dt, end_dt = calculate_date_range(
+                time_period=time_period,
+                periods_back=periods_back,
+                start_date=start_date,
+                end_date=end_date,
+                end_is_yesterday=True
+            )
+            start_date = start_dt.strftime('%Y-%m-%d')
+            end_date = end_dt.strftime('%Y-%m-%d')
 
-    # Set AI model if specified
-    if ai_model:
-        os.environ['AI_MODEL'] = ai_model
-        console.print(f"[cyan]🤖 AI Model: {ai_model}[/cyan]")
+            if time_period:
+                console.print(f"[bold]Voice of Customer Analysis - {time_period.capitalize()}[/bold]")
+                console.print(f"Period: Last {periods_back} {time_period}(s)")
+            else:
+                console.print(f"[bold]Voice of Customer Analysis - Custom Range[/bold]")
+                days_span = (end_dt - start_dt).days
+                strict_limits_enabled = os.getenv('VOC_STRICT_DATE_LIMITS', '').lower() in ('1', 'true', 'yes')
+                if days_span > 31:
+                    console.print(f"[yellow]⚠️  Custom date range spans {days_span} days (> 31 days). This may take longer to process and could hit Intercom API limits.[/yellow]")
+                if days_span > 90:
+                    warning_msg = f"Date range too large ({days_span} days). Consider using --time-period month --periods-back 3 instead."
+                    if strict_limits_enabled:
+                        console.print(f"[red]❌ {warning_msg} (VOC_STRICT_DATE_LIMITS enforced)[/red]")
+                        return
+                    console.print(f"[red]⚠️  {warning_msg}[/red]")
+                console.print(f"[cyan]📅 Custom Date Range: {start_date} to {end_date} ({days_span} days)[/cyan]")
+                
+                console.print("[dim]ℹ️  Intercom Search API has a 10,000 conversation limit per request.[/dim]")
+                console.print("[dim]ℹ️  Large ranges are chunked daily to avoid this limit.[/dim]")
 
-    # Enable LLM-first topic detection if requested
-    if llm_topic_detection:
-        os.environ['LLM_TOPIC_DETECTION'] = 'true'
-        console.print(f"[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
-        console.print(f"[dim]   Uses GPT-4o-mini to classify every conversation[/dim]")
-        console.print(f"[dim]   More accurate for edge cases (~$1 per 200 convs)[/dim]\n")
+            console.print(f"Date Range: {format_date_range_for_display(start_dt, end_dt)} (Pacific Time)")
+        except ValueError as e:
+            console.print(f"[red]Error: {e}[/red]")
+            return
 
-    # This branch is multi-agent only
-    console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
+        console.print(f"AI Model: {ai_model}")
+        console.print(f"Fallback: {'enabled' if enable_fallback else 'disabled'}")
 
-    # Convert to Pacific Time timezone-aware datetimes
-    start_dt, end_dt = get_date_range_pacific(start_date, end_date)
+        # Enable verbose logging if requested
+        if verbose:
+            import logging
+            logging.getLogger().setLevel(logging.DEBUG)
+            for module in ['agents', 'services', 'src.agents', 'src.services']:
+                logging.getLogger(module).setLevel(logging.DEBUG)
+            console.print(f"[yellow]🔍 Verbose Logging: ENABLED (DEBUG level)[/yellow]")
 
-    extra_canny_conversations: Optional[List[Dict[str, Any]]] = None
-    if include_canny and not test_mode:
-        console.print("[cyan]🔗 Including Canny warehouse feedback in this run[/cyan]")
-        extra = await fetch_canny_conversations_from_warehouse(
-            start_dt,
-            end_dt,
-            board_slug=canny_board_id,
-            limit=1500,
-            log_prefix="[Canny Warehouse]",
-        )
-        if extra:
-            extra_canny_conversations = extra
-    elif include_canny and test_mode:
-        console.print("[dim]Skipping Canny ingestion in test mode.[/dim]")
+        # Parse test data count (supports presets or custom numbers)
+        test_data_presets = {
+            'micro': 100,
+            'small': 500,
+            'medium': 1000,
+            'large': 5000,
+            'xlarge': 10000,
+            'xxlarge': 20000
+        }
 
-    if analysis_type == 'topic-based':
-        from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
-        await run_topic_based_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            test_mode,
-            test_data_count_int,
-            audit_trail,
-            digest_mode=digest_mode,
-            orchestrator_cls=TopicOrchestratorV2,
-            mode_label="Voice of Customer (Topic-Based)",
-            output_slug="voc_topic_based",
-            extra_conversations=extra_canny_conversations
-        )
-    elif analysis_type == 'synthesis':
-        await run_synthesis_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            audit_trail,
-            extra_conversations=extra_canny_conversations,
-        )
-    else:  # complete
-        await run_complete_analysis_custom(
-            start_dt,
-            end_dt,
-            generate_gamma,
-            audit_trail,
-            digest_mode=digest_mode,
-            extra_conversations=extra_canny_conversations
-        )
+        try:
+            if test_data_count.lower() in test_data_presets:
+                test_data_count_int = test_data_presets[test_data_count.lower()]
+                preset_label = test_data_count.lower()
+            else:
+                test_data_count_int = int(test_data_count)
+                preset_label = None
+        except ValueError:
+            console.print(f"[red]Error: Invalid test data count '{test_data_count}'. Use a number or preset (micro, small, medium, large, xlarge, xxlarge)[/red]")
+            return
+
+        if test_mode:
+            preset_info = f" ({preset_label})" if preset_label else ""
+            console.print(f"[yellow]🧪 Test Mode: ENABLED ({test_data_count_int} mock conversations{preset_info})[/yellow]")
+            console.print(f"[dim]   No API calls will be made - using generated test data[/dim]")
+            if test_data_count_int >= 5000:
+                console.print(f"[dim]   💡 Note: Large datasets may take 1-3 minutes to process[/dim]")
+
+        if ai_model:
+            os.environ['AI_MODEL'] = ai_model
+            console.print(f"[cyan]🤖 AI Model: {ai_model}[/cyan]")
+
+        if llm_topic_detection:
+            os.environ['LLM_TOPIC_DETECTION'] = 'true'
+            console.print(f"[bold cyan]🤖 LLM-First Topic Detection: ENABLED[/bold cyan]")
+            console.print(f"[dim]   Uses GPT-4o-mini to classify every conversation[/dim]")
+            console.print(f"[dim]   More accurate for edge cases (~$1 per 200 convs)[/dim]\n")
+
+        console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
+
+        start_dt, end_dt = get_date_range_pacific(start_date, end_date)
+
+        extra_canny_conversations: Optional[List[Dict[str, Any]]] = None
+        if include_canny and legacy_mode:
+            console.print("[yellow]⚠️  Legacy mode ignores Canny data; skipping Canny ingestion.[/yellow]")
+            extra_canny_conversations = None
+        elif include_canny and not test_mode:
+            console.print("[cyan]🔗 Including Canny warehouse feedback in this run[/cyan]")
+            extra = await fetch_canny_conversations_from_warehouse(
+                start_dt,
+                end_dt,
+                board_slug=canny_board_id,
+                limit=1500,
+                log_prefix="[Canny Warehouse]",
+            )
+            if extra:
+                extra_canny_conversations = extra
+        elif include_canny and test_mode:
+            console.print("[dim]Skipping Canny ingestion in test mode.[/dim]")
+
+        if legacy_mode and analysis_type != 'topic-based':
+            console.print("[yellow]⚠️  --legacy-mode only applies to topic-based Hilary cards. Ignoring flag for this analysis type.[/yellow]")
+            legacy_mode = False
+
+        if analysis_type == 'topic-based':
+            from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+            await run_topic_based_analysis_custom(
+                start_dt,
+                end_dt,
+                generate_gamma,
+                test_mode,
+                test_data_count_int,
+                audit_trail,
+                digest_mode=digest_mode,
+                orchestrator_cls=TopicOrchestratorV2,
+                mode_label="Voice of Customer (Topic-Based)",
+                output_slug="voc_topic_based",
+                extra_conversations=extra_canny_conversations,
+                legacy_mode=legacy_mode
+            )
+        elif analysis_type == 'synthesis':
+            await run_synthesis_analysis_custom(
+                start_dt,
+                end_dt,
+                generate_gamma,
+                audit_trail,
+                extra_conversations=extra_canny_conversations,
+            )
+        else:  # complete
+            await run_complete_analysis_custom(
+                start_dt,
+                end_dt,
+                generate_gamma,
+                audit_trail,
+                digest_mode=digest_mode,
+                extra_conversations=extra_canny_conversations
+            )
+
+    finally:
+        for feature in applied_overrides:
+            config.clear_feature_override(feature)
 
 
 async def run_comprehensive_analysis(

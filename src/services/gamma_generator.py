@@ -562,6 +562,17 @@ class GammaGenerator:
             end_date = metadata.get('end_date')
             period_type, period_label = detect_period_type(start_date, end_date) if start_date and end_date else ('custom', 'Custom')
             
+            # Extract fallback metrics from agent results if available
+            agent_results = voc_results.get('agent_results', {})
+            topic_detection_data = agent_results.get('TopicDetectionAgent', {}).get('data', {})
+            fallback_metrics = topic_detection_data.get('fallback_metrics', {})
+            
+            if fallback_metrics:
+                self.logger.info("Found fallback metrics for methodology slide", metrics=fallback_metrics)
+                if 'metadata' not in voc_results:
+                    voc_results['metadata'] = {}
+                voc_results['metadata']['fallback_metrics'] = fallback_metrics
+            
             # Use VoC-specific narrative builder
             input_text = self.builder.build_voc_narrative_content(voc_results, style, period_type)
             

@@ -60,6 +60,7 @@ class AnalysisModeConfig:
         
         self.config_path = config_path
         self.config = self._load_config()
+        self.runtime_overrides: Dict[str, bool] = {}
         
         self.logger.info(f"Loaded analysis mode config from {config_path}")
     
@@ -180,8 +181,29 @@ class AnalysisModeConfig:
         Returns:
             True if feature is enabled
         """
+        # Runtime overrides (CLI/UI flags) take precedence
+        if feature_name in self.runtime_overrides:
+            return self.runtime_overrides[feature_name]
+        
         features = self.config.get('features', {})
         return features.get(feature_name, True)
+
+    def set_feature_override(self, feature_name: str, value: Optional[bool]) -> None:
+        """
+        Override a feature flag at runtime (per-request).
+        
+        Args:
+            feature_name: Name of the feature flag
+            value: True/False to force value, None to clear override
+        """
+        if value is None:
+            self.runtime_overrides.pop(feature_name, None)
+        else:
+            self.runtime_overrides[feature_name] = value
+
+    def clear_feature_override(self, feature_name: str) -> None:
+        """Remove a runtime override for the given feature."""
+        self.runtime_overrides.pop(feature_name, None)
     
     def get_multi_agent_setting(self, setting_name: str, default: Any = None) -> Any:
         """

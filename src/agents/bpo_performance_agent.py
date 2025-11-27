@@ -13,6 +13,11 @@ class BpoPerformanceAgent(BaseAgent):
     Consumes segmentation + topic outputs to highlight vendor-specific load,
     workload imbalances, and topics where a single vendor is carrying the majority
     of human volume.
+    
+    EXECUTION TIMING:
+    - Runs once per analysis in Phase 2.4 (after topic detection)
+    - Requires: agent_assignments (from SegmentationAgent) and topics_by_conversation (from TopicDetectionAgent)
+    - Should NOT be re-run in later phases as it produces the same output
     """
 
     def __init__(self):

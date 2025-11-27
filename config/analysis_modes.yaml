@@ -33,6 +33,12 @@ features:
   
   # Enable/disable Canny integration
   enable_canny: true
+
+  # Enable/disable analytical insight agents (Phase 4.5)
+  enable_correlation_analysis: true
+  enable_quality_insights: true
+  enable_churn_detection: true
+  enable_confidence_meta: true
   
   # Enable/disable historical data tracking
   enable_historical: true

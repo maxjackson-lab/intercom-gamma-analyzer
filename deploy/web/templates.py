@@ -447,6 +447,42 @@ def render_chat_html(app_version: str, git_commit: str) -> str:
                     • Recommended after LLM/prompt changes to sanity-check Narrative V2 regressions
                 </div>
             </div>
+            
+            <div id="insightFlagsContainer" style="margin-top: 15px; padding: 15px; background: rgba(249, 115, 22, 0.08); border-radius: 8px; border: 1px solid rgba(249, 115, 22, 0.3); display: none;">
+                <div style="font-weight: 600; color: #fb923c; margin-bottom: 8px;">🧠 Phase 4.5 Insight Agents</div>
+                <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">
+                    <input type="checkbox" id="correlationAgentToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="color: #fed7aa;">CorrelationAgent (Tier × CSAT × Escalation patterns)</span>
+                </label>
+                <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">
+                    <input type="checkbox" id="qualityInsightsToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="color: #fed7aa;">QualityInsightsAgent (FCR, reopen anomalies, exceptional convos)</span>
+                </label>
+                <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">
+                    <input type="checkbox" id="churnRiskToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="color: #fed7aa;">ChurnRiskAgent (High-risk accounts + signals)</span>
+                </label>
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="confidenceMetaToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="color: #fed7aa;">ConfidenceMetaAgent (Data coverage & limitations)</span>
+                </label>
+                <div style="font-size: 11px; color: #fdba74; margin-top: 10px; line-height: 1.5;">
+                    • Uncheck agents to reduce runtime / LLM cost for quick experiments.<br>
+                    • Changes apply per-run only and are logged for audit traceability.
+                </div>
+            </div>
+            
+            <div id="legacyModeContainer" style="margin-top: 15px; padding: 15px; background: rgba(148, 163, 184, 0.12); border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.3); display: none;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="legacyModeToggle" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-weight: 600; color: #cbd5f5;">🕰️ Legacy Hilary Mode (V1 Multi-Agent)</span>
+                </label>
+                <div style="font-size: 11px; color: #e2e8f0; margin-top: 10px; line-height: 1.5;">
+                    • Replays the original Data → Category → Sentiment → Insight → Presentation stack.<br>
+                    • Perfect for regression testing vs. TopicOrchestrator and validating historical decks.<br>
+                    • Available for topic-based Hilary cards only (Intercom-only data; skips Canny).
+                </div>
+            </div>
 
             <button onclick="runAnalysis()" class="run-button">▶️ Run Analysis</button>
         </div>

@@ -94,3 +94,9 @@ OPENAI_API_DOCS.md
 RAILWAY_DOCS.md
 PYDANTIC_DOCS.md
 HTTPX_DOCS.md
+
+# Data and verification artifacts
+reference_data/
+verification_outputs/
+prod run data*/
+Prod run digest*/

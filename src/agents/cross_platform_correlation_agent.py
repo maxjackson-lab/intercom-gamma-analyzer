@@ -24,6 +24,12 @@ class CrossPlatformCorrelationAgent(BaseAgent):
     - Support issues correlate with feature requests
     - Customer pain points drive feature demand
     - Feature requests correlate with support volume
+    
+    FEATURE FLAG:
+    - Controlled by 'enable_canny' flag in config/analysis_modes.yaml
+    - Orchestrator checks this flag before invoking the agent
+    - Lazy-initialized via property to avoid overhead when disabled
+    - Requires both Intercom conversations and Canny posts to run
     """
     
     def __init__(self, ai_factory: AIModelFactory):
