@@ -146,15 +146,28 @@ class TopicDetectionAgent(BaseAgent):
 
     def _test_keyword_matching(self):
         """Test method to verify keyword matching works with sample text"""
+        # Test cases: (text, keyword, should_match)
         test_cases = [
-            ("Hello", ["hello"]),
-            ("Login issue", ["login"]),
-            ("привет", []), # Russian
-            ("안녕하세요", []) # Korean
+            ("Hello world", "hello", True),
+            ("Login issue", "login", True),
+            ("helloo", "hello", False),  # Boundary check - should fail
+            ("prehello", "hello", False), # Boundary check - should fail
+            ("my account works", "account", True),
+            ("привет мир", "привет", True), # Multilingual support
         ]
-        for text, expected in test_cases:
-            pass # Regex compilation check is implicit in usage
-        self.logger.debug("Keyword regex patterns initialized")
+        
+        for text, keyword, should_match in test_cases:
+            # Simulate matching logic used in _fallback_to_keywords
+            text_lower = text.lower()
+            pattern = r'(?<!\w)' + re.escape(keyword) + r'(?!\w)'
+            match = re.search(pattern, text_lower, re.UNICODE)
+            
+            if should_match and not match:
+                self.logger.warning(f"Keyword testing: Expected match for '{keyword}' in '{text}' failed.")
+            elif not should_match and match:
+                self.logger.warning(f"Keyword testing: Unexpected match for '{keyword}' in '{text}'.")
+                
+        self.logger.debug("Keyword regex patterns initialized and validated")
 
     def _validate_confidence_value(self, confidence: float) -> float:
         """Validates that confidence values are within valid range (0.0-1.0)"""
