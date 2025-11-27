@@ -331,7 +331,15 @@ async function runAnalysis() {
             args.push('--time-period', sampleTimePeriod);
             args.push('--save-to-file');  // Always save JSON and .log file
             args.push('--test-llm');  // Always run LLM sentiment test
-            args.push('--schema-mode', schemaMode);  // User-selected depth
+            
+            // Map schema modes correctly: standard | deep | comprehensive
+            if (['standard', 'deep', 'comprehensive'].includes(schemaMode)) {
+                args.push('--schema-mode', schemaMode);
+            } else {
+                console.warn('Unknown schema mode:', schemaMode, 'defaulting to standard');
+                args.push('--schema-mode', 'standard');
+            }
+
             if (sampleCount) {
                 args.push('--count', sampleCount);  // Explicit CLI-mapped sample volume
             }
