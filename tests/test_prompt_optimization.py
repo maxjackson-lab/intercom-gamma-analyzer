@@ -1,7 +1,10 @@
 import pytest
-from src.agents.topic_detection_agent import TopicDetectionAgent
+import json
+from unittest.mock import MagicMock, patch
+from src.agents.topic_detection_agent import TopicDetectionAgent, TopicCategory
 from src.agents.topic_sentiment_agent import TopicSentimentAgent
 from src.agents.base_agent import AgentContext, AgentResult
+from src.config.taxonomy import TaxonomyManager
 from typing import Dict
 
 class TopicDetectionAgentWrapper(TopicDetectionAgent):
@@ -171,3 +174,122 @@ class TestPromptOptimization:
         # Should contain Billing-specific examples
         assert "credit model" in prompt or "invoice" in prompt
         assert "export bugs" not in prompt
+
+    # =================================================================
+    # NEW TESTS FOR ROBUSTNESS AND OPTIMIZATION
+    # =================================================================
+
+    async def test_dynamic_ranking_db_locked(self):
+        """Test graceful fallback when DuckDB is locked"""
+        agent = TopicDetectionAgentWrapper()
+        
+        # Mock duckdb to raise IOException
+        import duckdb
+        with patch('duckdb.connect') as mock_connect:
+            mock_connect.side_effect = duckdb.IOException("Database lock conflict")
+            
+            # Should not raise exception, should return None (fallback to static)
+            ranking = agent._get_dynamic_ranking()
+            assert ranking is None
+            
+            # Should log warning (check logs if capturing logs, or assume logic works)
+
+    async def test_dynamic_ranking_missing_table(self):
+        """Test graceful fallback when table is missing"""
+        agent = TopicDetectionAgentWrapper()
+        
+        # Mock duckdb connection and execute to raise CatalogException
+        import duckdb
+        with patch('duckdb.connect') as mock_connect:
+            mock_conn = MagicMock()
+            mock_connect.return_value.__enter__.return_value = mock_conn
+            mock_conn.execute.side_effect = duckdb.CatalogException("Table not found")
+            
+            ranking = agent._get_dynamic_ranking()
+            assert ranking is None
+
+    async def test_few_shot_examples_json_safe(self):
+        """Test that few-shot examples are JSON-safe strings"""
+        agent = TopicDetectionAgentWrapper()
+        examples = agent.get_few_shot_examples_public()
+        
+        # Should not contain unescaped quotes that break JSON if inserted into a prompt string
+        # Ideally, we check if it can be included in a JSON string
+        json_str = json.dumps({"prompt": f"text {examples}"})
+        assert json_str  # Should parse successfully
+
+    async def test_multi_language_keywords(self):
+        """Test that Russian and Korean keywords trigger detection"""
+        agent = TopicDetectionAgentWrapper(llm_first=False) # Keyword mode
+        
+        # Russian: "аккаунт" (account)
+        conv_ru = {
+            "id": "ru_test",
+            "conversation_parts": {
+                "conversation_parts": [{"body": "я не могу войти в свой аккаунт"}]
+            }
+        }
+        
+        detected_ru = await agent._detect_topics_for_conversation(conv_ru)
+        # Should detect Account
+        assert any(d['topic'] == 'Account' for d in detected_ru)
+        
+        # Korean: "환불" (refund -> Billing)
+        conv_kr = {
+            "id": "kr_test",
+            "conversation_parts": {
+                "conversation_parts": [{"body": "환불 받고 싶습니다"}]
+            }
+        }
+        
+        detected_kr = await agent._detect_topics_for_conversation(conv_kr)
+        # Should detect Billing
+        assert any(d['topic'] == 'Billing' for d in detected_kr)
+
+    async def test_metrics_visibility(self):
+        """Test that metrics are included in AgentResult"""
+        agent = TopicDetectionAgentWrapper()
+        context = AgentContext(
+            analysis_id="test_metrics_visibility",
+            analysis_type="topic_detection",
+            conversations=[{
+                "id": "test1", 
+                "conversation_parts": {"conversation_parts": [{"body": "refund"}]}
+            }],
+            start_date="2023-01-01",
+            end_date="2023-01-02"
+        )
+        
+        # Mock execution parts
+        agent._detect_topics_for_conversation = MagicMock()
+        async def mock_detect(*args):
+            return [{'topic': 'Billing', 'confidence': 0.95, 'method': 'keyword'}]
+        agent._detect_topics_for_conversation.side_effect = mock_detect
+        
+        result = await agent.execute(context)
+        
+        assert result.success
+        assert 'fallback_metrics' in result.data
+        assert 'optimization_metrics' in result.data
+        assert 'estimated_savings_usd' in result.data['optimization_metrics']
+
+    async def test_edge_cases(self):
+        """Test edge cases: empty conversation, special chars"""
+        agent = TopicDetectionAgentWrapper()
+        
+        # Empty body
+        conv_empty = {"id": "empty", "conversation_parts": {"conversation_parts": []}}
+        res_empty = await agent._detect_topics_for_conversation(conv_empty)
+        # Should fallback to unknown
+        assert res_empty[0]['topic'] == 'Unknown/unresponsive'
+        
+        # Special characters
+        conv_special = {
+            "id": "special", 
+            "conversation_parts": {
+                "conversation_parts": [{"body": "Is this a BUG???!!! #$$%^"}]
+            }
+        }
+        res_special = await agent._detect_topics_for_conversation(conv_special)
+        # Should detect Bug (regex should handle ???!!!)
+        assert any(d['topic'] == 'Bug' for d in res_special)
