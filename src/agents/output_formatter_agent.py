@@ -731,6 +731,10 @@ Return ONLY valid JSON, no other text:
                 # Get sentiment and examples for this topic (defensive reads)
                 sentiment_payload = topic_sentiments.get(topic_name, {}).get('data', {})
                 sentiment = sentiment_payload.get('sentiment_insight', 'No sentiment analysis available')
+                # Fallback to sentiment_summary if insight is missing (new uncapped model uses summary)
+                if sentiment == 'No sentiment analysis available':
+                    sentiment = sentiment_payload.get('sentiment_summary', 'No sentiment analysis available')
+                
                 examples_data = topic_examples.get(topic_name, {}).get('data', {})
                 examples = examples_data.get('examples', []) if examples_data else []
                 
