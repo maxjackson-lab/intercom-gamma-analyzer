@@ -36,6 +36,7 @@ async def run_topic_based_analysis_custom(
     test_data_count: str = "100",
     audit_trail: bool = False,
     digest_mode: bool = False,
+    detail_level: str = "standard",  # New flag: standard, deep, comprehensive
     orchestrator_cls=None,
     mode_label: str = "Topic-based analysis",
     output_slug: str = "topic_based",
@@ -171,7 +172,8 @@ async def run_topic_based_analysis_custom(
             end_date=end_date,
             period_type=period_type,
             period_label=period_label,
-            digest_mode=digest_mode
+            digest_mode=digest_mode,
+            detail_level=detail_level  # Pass detail level to orchestrator
         )
 
         # Save output

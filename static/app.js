@@ -42,7 +42,9 @@ async function downloadFile(filename) {
     
     try {
         // Use the new /outputs/{path} endpoint directly (replaces deprecated /download?file=)
-        const response = await fetch(`/outputs/${encodeURIComponent(filename)}`);
+        // NOTE: Removed encodeURIComponent because it double-encodes paths that are already URL-safe
+        // and breaks paths with slashes if encoded.
+        const response = await fetch(`/outputs/${filename}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -77,7 +79,9 @@ async function viewJsonFile(filename) {
     
     try {
         // Use the new /outputs/{path} endpoint directly (replaces deprecated /download?file=)
-        const response = await fetch(`/outputs/${encodeURIComponent(filename)}`);
+        // NOTE: Removed encodeURIComponent because it double-encodes paths that are already URL-safe
+        // and breaks paths with slashes if encoded.
+        const response = await fetch(`/outputs/${filename}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -382,6 +386,12 @@ async function runAnalysis() {
                 args.push('--digest-mode');
             }
             
+            // Add detail level if specified (and visible)
+            const detailLevel = document.getElementById('detailLevel')?.value;
+            if (detailLevel && detailLevel !== 'standard') {
+                args.push('--detail-level', detailLevel);
+            }
+            
         } else if (analysisType === 'voice-of-customer-narrative-v2') {
             // narrative-v2 now uses topic-based which runs TopicOrchestratorV2
             args.push('voice-of-customer');
@@ -397,6 +407,12 @@ async function runAnalysis() {
                 args.push('--digest-mode');
             }
             
+            // Add detail level if specified (and visible)
+            const detailLevel = document.getElementById('detailLevel')?.value;
+            if (detailLevel && detailLevel !== 'standard') {
+                args.push('--detail-level', detailLevel);
+            }
+            
         } else if (analysisType === 'voice-of-customer-synthesis') {
             args.push('voice-of-customer');
             args.push('--analysis-type', 'synthesis');
@@ -406,6 +422,12 @@ async function runAnalysis() {
             const llmTopicDetectionVoc = document.getElementById('llmTopicDetectionVoc')?.checked ?? false;
             if (llmTopicDetectionVoc) {
                 args.push('--llm-topic-detection');
+            }
+            
+            // Add detail level if specified (and visible)
+            const detailLevel = document.getElementById('detailLevel')?.value;
+            if (detailLevel && detailLevel !== 'standard') {
+                args.push('--detail-level', detailLevel);
             }
             
         } else if (analysisType === 'voice-of-customer-complete') {
@@ -1102,11 +1124,17 @@ function updateAnalysisOptions() {
     }
     
     const digestModeContainer = document.getElementById('digestModeContainer');
+    const detailLevelContainer = document.getElementById('detailLevelContainer');
+    
     if (digestModeContainer) {
         const digestEligible = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete', 'voice-of-customer-narrative-v2']);
         const showDigest = digestEligible.has(analysisType);
 
         digestModeContainer.style.display = showDigest ? 'block' : 'none';
+        if (detailLevelContainer) {
+            detailLevelContainer.style.display = showDigest ? 'block' : 'none';
+        }
+        
         if (!showDigest) {
             const digestToggle = document.getElementById('digestModeToggle');
             if (digestToggle) {

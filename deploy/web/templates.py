@@ -448,6 +448,19 @@ def render_chat_html(app_version: str, git_commit: str) -> str:
                 </div>
             </div>
             
+            <!-- Detail Level Dropdown (visible for VoC modes) -->
+            <div id="detailLevelContainer" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: none;">
+                <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 8px;">Output Detail Level:</label>
+                <select id="detailLevel" style="padding: 8px; background: #1a1a1a; border: 1px solid #3b82f6; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                    <option value="standard" selected>📊 Standard - Executive Summary, Top 3 Topics, Fin Metrics</option>
+                    <option value="deep">🔍 Deep - + Reasoning Snippets & Full BPO Breakdown</option>
+                    <option value="comprehensive">🎯 Comprehensive - + Raw Thoughts & Full Traceability</option>
+                </select>
+                <div style="font-size: 11px; color: #93c5fd; margin-top: 8px; line-height: 1.5;">
+                    Control the depth of the final report. "Deep" adds reasoning context; "Comprehensive" adds audit logs.
+                </div>
+            </div>
+            
             <div id="insightFlagsContainer" style="margin-top: 15px; padding: 15px; background: rgba(249, 115, 22, 0.08); border-radius: 8px; border: 1px solid rgba(249, 115, 22, 0.3); display: none;">
                 <div style="font-weight: 600; color: #fb923c; margin-bottom: 8px;">🧠 Phase 4.5 Insight Agents</div>
                 <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">

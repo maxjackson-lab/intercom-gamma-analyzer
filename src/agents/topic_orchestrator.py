@@ -281,7 +281,8 @@ class TopicOrchestrator:
         period_label: str = None,
         canny_posts: List[Dict] = None,
         ai_model: AIModel = AIModel.OPENAI_GPT4,
-        digest_mode: bool = False
+        digest_mode: bool = False,
+        detail_level: str = "standard"  # New param
     ) -> Dict[str, Any]:
         """
         Execute complete weekly VoC analysis with optional Canny integration.
@@ -295,6 +296,8 @@ class TopicOrchestrator:
             period_label: Human-readable period label
             canny_posts: Optional list of Canny feature request posts
             ai_model: AI model to use for analysis
+            digest_mode: Enable digest mode (deprecated by detail_level)
+            detail_level: standard, deep, or comprehensive
         
         Returns:
             Complete analysis in Hilary's format with optional Canny correlation
@@ -302,9 +305,18 @@ class TopicOrchestrator:
         if not week_id:
             week_id = datetime.now().strftime('%Y-W%W')
         
+        # Map digest_mode to detail_level if provided
+        if digest_mode and detail_level == "standard":
+            # digest_mode=True is basically "compact", but we don't have a compact level. 
+            # Assuming digest_mode was "standard" and normal was "deep". 
+            # But actually digest_mode was even more summarized.
+            # Let's stick to detail_level as the new truth.
+            pass
+
         start_time = datetime.now()
         self.logger.info(f"🤖 TopicOrchestrator: Starting weekly analysis for {week_id}")
         self.logger.info(f"   Total conversations: {len(conversations)}")
+        self.logger.info(f"   Detail Level: {detail_level}")
         
         # Note: conversations should already have customer_messages from DataPreprocessor
         # If not present, add empty list to avoid errors (for backward compatibility)
@@ -323,7 +335,8 @@ class TopicOrchestrator:
                 'week_id': week_id,
                 'period_type': period_type,
                 'period_label': period_label,
-                'digest_mode': digest_mode
+                'digest_mode': digest_mode,
+                'detail_level': detail_level  # Pass to agents
             }
         )
         
