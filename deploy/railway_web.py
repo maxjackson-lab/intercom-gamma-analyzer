@@ -266,6 +266,26 @@ if HAS_FASTAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # DEBUG ENDPOINT: Inspect the template file content on disk
+    @app.get("/debug-template")
+    async def debug_template():
+        try:
+            # deploy/web/templates.py is relative to deploy/railway_web.py
+            template_path = Path(__file__).parent / "web" / "templates.py"
+            if not template_path.exists():
+                return {"error": f"File not found: {template_path}"}
+            
+            content = template_path.read_text()
+            return {
+                "path": str(template_path),
+                "exists": template_path.exists(),
+                "has_marker": "DL_MARKER_VISIBLE_TEST_20251128" in content,
+                "content_preview_marker": [line for line in content.splitlines() if "DL_MARKER" in line],
+                "content_preview": content[:500]
+            }
+        except Exception as e:
+            return {"error": str(e)}
     
     # Security scheme for bearer token authentication
     security = HTTPBearer(auto_error=False)
