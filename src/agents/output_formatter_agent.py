@@ -438,6 +438,7 @@ Return ONLY valid JSON, no other text:
                 self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics - proceeding with formatting")
             
             digest_mode = context.metadata.get('digest_mode', False)
+            detail_level = context.metadata.get('detail_level', 'standard')
             legacy_sections_enabled = (not digest_mode) and (
                 os.getenv('OUTPUT_FORMATTER_LEGACY_SECTIONS', 'false').lower() == 'true'
             )
@@ -603,12 +604,19 @@ Return ONLY valid JSON, no other text:
             
             bpo_section = self._format_bpo_snapshot_section(bpo_performance)
             # Always add BPO section if agent ran, even if data is sparse
-            if bpo_performance and (bpo_performance.get('vendor_overview') or bpo_performance.get('bpo_snapshot_summary')):
-                if bpo_section:
-                    output_sections.append(bpo_section)
-            elif bpo_performance:
-                 # Fallback if BPO ran but returned empty structure
-                 output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
+            # In DEEP/COMPREHENSIVE mode, show full breakdown. In STANDARD, show summary only.
+            if detail_level in ['deep', 'comprehensive']:
+                if bpo_performance and (bpo_performance.get('vendor_overview') or bpo_performance.get('bpo_snapshot_summary')):
+                    if bpo_section:
+                        output_sections.append(bpo_section)
+                elif bpo_performance:
+                     # Fallback if BPO ran but returned empty structure
+                     output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
+            elif bpo_section and detail_level == 'standard':
+                # Standard mode: concise summary only (first paragraph)
+                summary_only = bpo_section.split('\n\n')[0:3] # Title + summary
+                output_sections.extend(summary_only)
+                output_sections.append("")
 
             cross_section = self._format_cross_agent_section(analytical_insights)
             if cross_section:
@@ -744,11 +752,17 @@ Return ONLY valid JSON, no other text:
                 
                 # DEEP DIVE: Add reasoning snippets for top 3 topics (like sample mode)
                 deep_dive_notes = []
-                if topic_stats.get('volume', 0) > 0 and len(topic_cards) < 3:
-                    # This is a top topic - add "Why" context
-                    reasoning = sentiment_payload.get('sentiment_reasoning') or sentiment_payload.get('sentiment_summary')
-                    if reasoning:
-                        deep_dive_notes.append(f"**Analysis**: {reasoning}")
+                if detail_level in ['deep', 'comprehensive']:
+                    if topic_stats.get('volume', 0) > 0 and len(topic_cards) < 3:
+                        # This is a top topic - add "Why" context
+                        reasoning = sentiment_payload.get('sentiment_reasoning') or sentiment_payload.get('sentiment_summary')
+                        if reasoning:
+                            deep_dive_notes.append(f"**Analysis**: {reasoning}")
+                
+                # COMPREHENSIVE: Add raw thought process snippets if available
+                if detail_level == 'comprehensive' and topic_stats.get('volume', 0) > 0:
+                    raw_thoughts = sentiment_payload.get('llm_thoughts') or "Raw thought process not captured."
+                    deep_dive_notes.append(f"\n**Agent Thoughts**:\n> {raw_thoughts}")
                 
                 actionable_insight = self._derive_actionable_insight(
                     topic_name,
