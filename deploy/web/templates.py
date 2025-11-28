@@ -154,6 +154,8 @@ def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str
                 </optgroup>
             </select>
             
+            <!-- DL_MARKER_VISIBLE_TEST_20251128 -->
+            <div style="background: red; color: white; padding: 10px; margin: 10px 0; font-weight: bold; text-align: center;">🚨 TEMPLATE UPDATE TEST - IF YOU SEE THIS, RAILWAY IS SERVING NEW CODE 🚨</div>
             <div id="detailLevelContainer" style="margin-top: 10px; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.45); display: none;">
                 <!-- DL_MARKER_20251128 -->
                 <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 6px;">Output Detail Level:</label>
