@@ -249,15 +249,31 @@ identify pressure points, and highlight imbalances executives should see.
             if vendor not in {'horatio', 'boldr', 'senior'} or total == 0:
                 continue
             share = (total / paid_human_total) if paid_human_total else 0.0
-            top_topics = sorted(
-                vendor_topic_totals[vendor].items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:3]
+            
+            # Identify struggling topics (topics with disproportionately high volume for this vendor)
+            topic_counts = vendor_topic_totals[vendor]
+            total_vendor_vol = sum(topic_counts.values())
+            struggling_topics = []
+            
+            # Sort topics by volume
+            sorted_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)
+            top_topics = sorted_topics[:3]
+            
+            for topic, count in sorted_topics[:5]:
+                topic_share = count / total_vendor_vol if total_vendor_vol > 0 else 0
+                # Heuristic: If >30% of a vendor's work is one topic, they might be struggling/bogged down
+                if topic_share > 0.3:
+                    struggling_topics.append({
+                        'topic': topic,
+                        'volume': count,
+                        'share': topic_share
+                    })
+            
             overview[vendor] = {
                 'total_conversations': total,
                 'share_of_paid_workload': share,
                 'top_topics': top_topics,
+                'struggling_topics': struggling_topics,
                 'pressure_level': self._derive_pressure_level(total, share),
                 'notes': self._build_vendor_note(vendor, total, share)
             }

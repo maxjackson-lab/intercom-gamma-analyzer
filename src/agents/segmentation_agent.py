@@ -959,6 +959,13 @@ Output: Segmented conversations with agent type labels
             
             # Scenario 1: JUST FIN (no escalation)
             else:
+                # CRITICAL FIX: Check resolution state before declaring "Fin Only"
+                # If routed to team, it's an escalation even if no human picked it up yet
+                if ai_resolution_state and ai_resolution_state.lower() in ['routed_to_team', 'escalated', 'handed_off', 'transferred']:
+                     self.logger.info(f"📈 ESCALATION: Fin → Team (Pending Pickup)")
+                     # Classify as generic human escalation until picked up
+                     return 'paid', 'unknown', 'team_queue'
+
                 self.logger.info(f"✅ NO ESCALATION: Just Fin")
                 return 'paid', 'fin_only', 'fin'
         

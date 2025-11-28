@@ -1471,22 +1471,10 @@ class SampleMode:
         context = context.model_copy(update={
             'previous_results': {
                 'SegmentationAgent': seg_result.dict(),
-                'TopicDetectionAgent': topic_result.dict()
+                'TopicDetectionAgent': topic_result.dict(),
+                **results  # Add successful results incrementally
             }
         })
-        
-        # Test each agent
-        agents_to_test = [
-            ("SubTopicDetectionAgent", SubTopicDetectionAgent()),
-            ("ExampleExtractionAgent", ExampleExtractionAgent()),
-            ("FinPerformanceAgent", FinPerformanceAgent()),
-            ("CorrelationAgent", CorrelationAgent()),
-            ("QualityInsightsAgent", QualityInsightsAgent()),
-            ("ChurnRiskAgent", ChurnRiskAgent()),
-            ("ConfidenceMetaAgent", ConfidenceMetaAgent())
-        ]
-        
-        results = {}
         
         for agent_name, agent in agents_to_test:
             console.print(f"{'─'*80}")
@@ -1499,6 +1487,10 @@ class SampleMode:
                 elapsed = time.time() - start_time
                 
                 if result.success:
+                    # Add result to context for subsequent agents
+                    context = context.model_copy(update={
+                        'previous_results': {**context.previous_results, agent_name: result.dict()}
+                    })
                     console.print(f"[green]✅ {agent_name} succeeded in {elapsed:.1f}s[/green]")
                     console.print(f"   Confidence: {result.confidence_level.value if hasattr(result, 'confidence_level') else result.confidence}")
                     
