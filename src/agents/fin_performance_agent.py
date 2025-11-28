@@ -396,8 +396,22 @@ Calculate tier-specific metrics:
                 if isinstance(part, dict)
             )
         
-        resolved_by_fin = [c for c in conversations if not _admin_participated(c)]
-        escalated = [c for c in conversations if _admin_participated(c)]
+        def _is_fin_resolved(conv):
+            # 1. Trust explicit resolution state if available (SDK spec)
+            ai_agent = conv.get('ai_agent')
+            if ai_agent and isinstance(ai_agent, dict):
+                state = ai_agent.get('resolution_state')
+                if state:
+                    if state.lower() in ['resolved', 'completed', 'closed']:
+                        return True
+                    if state.lower() in ['routed_to_team', 'escalated', 'handed_off', 'transferred']:
+                        return False
+            
+            # 2. Fallback to admin participation check
+            return not _admin_participated(conv)
+        
+        resolved_by_fin = [c for c in conversations if _is_fin_resolved(c)]
+        escalated = [c for c in conversations if not _is_fin_resolved(c)]
         
         self.logger.info(
             f"{tier_name} tier: "
@@ -433,6 +447,38 @@ Calculate tier-specific metrics:
                 )
         
         self.logger.info(f"{tier_name} tier knowledge gaps: {len(knowledge_gaps)} ({len(knowledge_gaps)/total*100:.1f}%)")
+
+        # Detect Negative Fin Interactions (where Fin is unhelpful/annoying)
+        # Scan ALL user messages for frustration signals, not just the last one.
+        # Frustration often builds up in the middle of the conversation.
+        negative_fin_interactions = []
+        
+        negative_patterns = [
+            "not helpful", "useless", "bad bot", "human", "person", "real person", 
+            "stop", "no", "that isn't it", "wrong", "doesn't help", "stupid",
+            "not what i asked", "can i speak to", "talk to someone"
+        ]
+        
+        for c in conversations:
+            # Only check if Fin was the last responder (or user gave up after Fin)
+            # and it wasn't escalated to a human (we track escalations separately)
+            if c in resolved_by_fin:
+                messages = extract_customer_messages(c, clean_html=True)
+                if messages:
+                    # Check ALL messages, not just the last one
+                    # Look for frustration patterns in any user message during the Fin interaction
+                    has_negative_signal = False
+                    for msg in messages:
+                        msg_lower = msg.lower()
+                        if any(p in msg_lower for p in negative_patterns):
+                            has_negative_signal = True
+                            break
+                    
+                    if has_negative_signal:
+                        negative_fin_interactions.append(c)
+        
+        negative_rate = len(negative_fin_interactions) / total if total > 0 else 0
+        self.logger.info(f"{tier_name} tier Negative Fin Interactions: {len(negative_fin_interactions)} ({negative_rate:.1%})")
 
         # Performance by topic
         topic_performance = defaultdict(lambda: {'total': 0, 'resolved': 0})
@@ -565,6 +611,8 @@ Calculate tier-specific metrics:
             'resolved_count': len(resolved_by_fin),
             'knowledge_gaps_count': len(knowledge_gaps),
             'knowledge_gap_rate': len(knowledge_gaps) / total if total > 0 else 0,
+            'negative_fin_rate': negative_rate,
+            'negative_fin_count': len(negative_fin_interactions),
             'knowledge_gap_examples': [
                 {
                     'id': c.get('id'),

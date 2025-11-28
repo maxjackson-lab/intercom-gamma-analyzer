@@ -162,17 +162,15 @@ Top Topics:
 Emerging Themes (Tier 3 - AI Discovered):
 {tier3_summary}
 
-Statistical Insights Available:
-- Correlation analysis: {len(correlations.get('correlations', [])) if correlations else 0} patterns found
-- Quality insights: {len(quality.get('quality_insights', [])) if quality else 0} issues identified
-
 YOUR TASK:
 As an executive presentation strategist, provide guidance in JSON format:
 
-1. **top_insights** (array of 3-5 strings): What are the most important takeaways for executives?
-2. **card_priority_order** (array of topic names): Which topics should appear first? (Order by strategic importance, not just volume)
+1. **top_insights** (array of 3-5 strings): Headline the FIRES. Don't be generic. Be specific about what is broken or burning.
+   - Bad: "Billing issues increased"
+   - Good: "Billing Refunds spiked 20% due to double-charge bug on Tuesday"
+2. **card_priority_order** (array of topic names): Order by SEVERITY/PAIN, not just volume.
 3. **emphasis_areas** (object): Which specific sub-topics/themes deserve extra attention? {{topic: [subtopic1, subtopic2]}}
-4. **executive_summary** (string): 2-3 sentence summary for the opening slide
+4. **executive_summary** (string): 2-3 sentence summary that HEADLINES THE FIRES. Focus on pain points, friction, and volume drivers. Avoid corporate fluff.
 5. **narrative_arc** (string): What story does this data tell? (e.g., "Quality improving but billing remains pain point")
 
 Return ONLY valid JSON, no other text:
@@ -507,6 +505,10 @@ Return ONLY valid JSON, no other text:
             # Build output
             output_sections = []
             
+            # Ensure we show richer sentiment in ALL modes that support it (Standard/Deep/Comprehensive)
+            # Previously, we filtered this out in Standard mode, leading to "grey mass" summaries.
+            # Now, we will trust the TopicSentimentAgent's 3-4 sentence output to be high quality.
+            
             # Get period type from metadata
             period_type = context.metadata.get('period_type', 'weekly')
             period_label = context.metadata.get('period_label', 'Weekly')
@@ -639,7 +641,10 @@ Return ONLY valid JSON, no other text:
             
             # Pattern Intelligence Section (if analytical insights available)
             # Note: This now returns separate top-level sections for Correlations and Anomalies
-            if legacy_sections_enabled and analytical_insights:
+            # Disable by default in standard/deep modes to reduce noise (user request)
+            show_analytics = (detail_level == 'comprehensive')
+            
+            if legacy_sections_enabled and analytical_insights and show_analytics:
                 try:
                     pattern_section = self._format_pattern_intelligence_section(analytical_insights)
                     if pattern_section:
@@ -858,7 +863,7 @@ Return ONLY valid JSON, no other text:
                 output_sections.append("")
             
             # Churn Risk Section (if analytical insights available)
-            if legacy_sections_enabled and analytical_insights:
+            if legacy_sections_enabled and analytical_insights and show_analytics:
                 try:
                     churn_data = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
                     if churn_data and churn_data.get('high_risk_conversations'):

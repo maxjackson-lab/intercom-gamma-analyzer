@@ -35,41 +35,52 @@ class TopicSentimentAgent(BaseAgent):
         return """
 TOPIC SENTIMENT AGENT SPECIFIC RULES:
 
-1. Generate ONE-SENTENCE sentiment insights that are:
-   - Specific to the topic
-   - Nuanced (show complexity: "appreciative BUT frustrated")
-   - Actionable (tells us what to fix)
-   - Natural language (how a human analyst would say it)
+1. IDENTIFY CUSTOMER PAIN (Priority #1):
+   - Do NOT write generic summaries like "Users have feedback about X"
+   - Your job is to find what HURTS the customer.
+   - If they are confused, say they are confused.
+   - If they are angry, say they are angry.
+   - If they can't find a button, say the button is hidden.
 
-2. GOOD EXAMPLES (match this style):
-   ✓ "Users are appreciative of the ability to buy more credits, but frustrated that Gamma moved to a credit model"
-   ✓ "Users hate buddy so much"
-   ✓ "Users think templates are rad but want to be able to use them with API"
-   ✓ "Customers love the export feature but are confused by format options"
+2. CLASSIFY THE PAIN:
+   - Assign a "Pain Level":
+     - SEVERE: Blocking work, money lost, angry language ("hate", "useless", "terrible")
+     - MODERATE: Annoying friction, confusion, workarounds needed
+     - LOW: Feature requests, minor UX polish, general questions
 
-3. BAD EXAMPLES (avoid these):
-   ✗ "Negative sentiment detected"
-   ✗ "Users are frustrated with this feature"
-   ✗ "Mixed sentiment with both positive and negative elements"
-   ✗ "Customers express dissatisfaction"
+3. GENERATE 3-4 SENTENCE DEEP DIVE:
+   - Sentence 1: The primary friction point (what is broken/missing?)
+   - Sentence 2: The customer emotion/impact (anger, confusion, lost time)
+   - Sentence 3: The specific context or nuance (e.g. "They love the feature BUT hate the export")
+   - Sentence 4: (Optional) A direct quote or specific phrasing used by customers
 
-4. Capture the SPECIFIC sentiment:
+4. GOOD EXAMPLES (match this style):
+   ✓ "Users are blocked by the hidden cancel button, leading to severe frustration and feelings of being trapped. Many describe the process as 'deceptive' and threaten chargebacks. While they like the core product, this billing friction is destroying trust. One user noted: 'I shouldn't have to email support just to leave.'"
+   ✓ "Customers are furious about the double-charge bug on the Pro plan. The lack of immediate refund confirmation exacerbates the anxiety, leading to multiple follow-up tickets. This is a severe trust-breaker despite the quick resolution time."
+
+5. BAD EXAMPLES (avoid these):
+   ✗ "Negative sentiment detected."
+   ✗ "Users are frustrated with this feature." (Too vague)
+   ✗ "Mixed sentiment with both positive and negative elements." (Useless)
+   ✗ "Customers express dissatisfaction." (Corporate fluff)
+
+6. Capture the SPECIFIC sentiment:
    - What do users LIKE? (be specific)
    - What do users HATE? (be specific)
    - What's the tension/nuance?
 
-5. Use strong, clear language:
+7. Use strong, clear language:
    - "hate" if users really hate it
    - "love" if users really love it
    - "rad" if users think it's cool
    - "frustrated" for specific frustrations
    - "confused" for clarity issues
 
-6. Base ONLY on the conversations provided:
+8. Base ONLY on the conversations provided:
    - Quote actual customer language when possible
    - Don't invent sentiment not present in data
-7. Treat the sample as representative, and output exactly ONE sentence even if the signal is ambiguous.
-8. Never refuse; if uncertain, describe the strongest pattern visible in the sample.
+9. Treat the sample as representative.
+10. Never refuse; if uncertain, describe the strongest pattern visible in the sample.
 """
     
     def _get_topic_specific_examples(self, topic_name: str) -> str:
@@ -125,13 +136,14 @@ Analyze sentiment for the topic: {topic_name}
 
 You will receive a curated, representative sample of these conversations (from a total of {conv_count}).
 
-Generate exactly ONE SENTENCE that:
-1. Captures the specific sentiment for THIS topic
-2. Shows nuance (e.g., "love X BUT want Y")
-3. Uses natural, conversational language
-4. Is immediately actionable and grounded in the sample provided
+Generate a 3-4 SENTENCE DEEP DIVE that:
+1. Identifies the specific CUSTOMER PAIN (confusion, anger, blockage)
+2. Explains the impact on the user (lost time, money, trust)
+3. Shows nuance (e.g., "love X BUT want Y")
+4. Uses natural, conversational language
+5. Is immediately actionable
 
-For {topic_name} sentiment, match this style from past analyses:
+For {topic_name} sentiment, match this style from past analyses (but allow more detail):
 {examples_block}
 """
     
@@ -239,24 +251,27 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
         if 'sentiment_metrics' in result:
             result['sentiment_metrics']['generic_pattern_count'] = generic_pattern_count
         
-        # Length check
+        # Length check (Relaxed for Deep Dive)
         if len(insight) < 20:
             warnings.append("Insight too short (<20 chars)")
-        elif len(insight) > 200:
-            warnings.append("Insight too long (>200 chars)")
+        # Allow longer insights for nuanced Deep Dive
+        elif len(insight) > 500:
+            warnings.append("Insight too long (>500 chars)")
             
-        # Nuance check
-        nuance_connectors = ["but", "however", "although", "yet"]
+        # Nuance check (Relaxed - 'but' isn't the only way to show nuance)
+        nuance_connectors = ["but", "however", "although", "yet", "while", "despite", "versus"]
         contains_nuance = any(connector in insight.lower() for connector in nuance_connectors)
-        if not contains_nuance:
+        # Don't penalize missing connector if length is sufficient (might use multiple sentences)
+        if not contains_nuance and len(insight) < 100:
             warnings.append("Missing nuance connector (but/however/etc)")
             
         # Compute quality score (0.0 to 1.0)
         score = 1.0
         if warnings:
             score -= 0.1 * len(warnings)  # Dock points for warnings
-        if not contains_nuance:
-            score -= 0.2  # Major penalty for lack of nuance
+        # Less penalty for nuance if it's a longer analysis
+        if not contains_nuance and len(insight) < 100:
+            score -= 0.2
         if generic_pattern_count > 0:
             score -= 0.3  # Major penalty for generic patterns
             
@@ -316,7 +331,7 @@ Sample conversations (representative {len(sample)} of {len(topic_conversations)}
                 self.logger.warning(f"TopicSentimentAgent detected refusal for {topic_name}; reinforcing prompt")
                 reinforcement_prompt = (
                     f"{prompt}\n\n"
-                    "Reminder: respond with ONE Hilary-style sentence summarizing the dominant pattern in "
+                    "Reminder: respond with a 3-4 sentence deep dive summarizing the dominant pattern in "
                     "the representative sample above. Do not refuse."
                 )
                 try:
