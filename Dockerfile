@@ -38,12 +38,12 @@ RUN pip install --no-cache-dir -r /app/python-intercom-master/requirements.txt
 # Install main application dependencies (now SDK is available)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy deploy/web first (templates.py changes frequently)
-# This forces a cache miss when templates change
-COPY deploy/web/ /app/deploy/web/
-
 # Copy rest of source code (respects .dockerignore)
 COPY . .
+
+# Copy deploy/web LAST to always get latest templates.py
+# This forces a cache miss when templates change, overwriting any cached version
+COPY deploy/web/ /app/deploy/web/
 
 # Copy frontend build artifacts from builder stage
 COPY --from=frontend-builder /app/frontend/build /app/frontend/build
