@@ -493,29 +493,29 @@ def initialize_chat():
 if HAS_FASTAPI:
     @app.get("/files", response_class=HTMLResponse)
     async def files_page():
-    """Serve files browser page via templates."""
-    cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
-    return HTMLResponse(
-        content=render_files_html(cache_bust=cache_bust),
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-    )
+        """Serve files browser page via templates."""
+        cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
+        return HTMLResponse(
+            content=render_files_html(cache_bust=cache_bust),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     
     @app.get("/", response_class=HTMLResponse)
     async def root():
-    """Serve the chat interface HTML (delegated to templates)."""
-    cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
-    return HTMLResponse(
-        content=render_chat_html_v2(app_version=APP_VERSION, git_commit=GIT_COMMIT, cache_bust=cache_bust),
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-    )
+        """Serve the chat interface HTML (delegated to templates)."""
+        cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
+        return HTMLResponse(
+            content=render_chat_html_v2(app_version=APP_VERSION, git_commit=GIT_COMMIT, cache_bust=cache_bust),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
     @app.post("/chat", response_model=ChatResponse)
     async def chat_endpoint(request: ChatRequest):
