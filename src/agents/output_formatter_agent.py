@@ -604,21 +604,26 @@ Return ONLY valid JSON, no other text:
                     output_sections.append(f"{i}. {insight}")
                     output_sections.append("")
             
+            # BPO Section - Show in ALL modes, but vary detail
+            # Standard: Summary only
+            # Deep/Comp: Full breakdown
             bpo_section = self._format_bpo_snapshot_section(bpo_performance)
-            # Always add BPO section if agent ran, even if data is sparse
-            # In DEEP/COMPREHENSIVE mode, show full breakdown. In STANDARD, show summary only.
-            if detail_level in ['deep', 'comprehensive']:
-                if bpo_performance and (bpo_performance.get('vendor_overview') or bpo_performance.get('bpo_snapshot_summary')):
-                    if bpo_section:
-                        output_sections.append(bpo_section)
-                elif bpo_performance:
-                     # Fallback if BPO ran but returned empty structure
+            
+            if bpo_section:
+                # Clean up the section based on detail level
+                if detail_level == 'standard':
+                    # Extract just the top summary part
+                    parts = bpo_section.split('\n\n')
+                    # Title + Summary + Overview bullets
+                    filtered_parts = [p for p in parts if "Pressure Points" not in p]
+                    output_sections.append('\n\n'.join(filtered_parts))
+                else:
+                    # Deep/Comprehensive: Show everything
+                    output_sections.append(bpo_section)
+            else:
+                # If BPO failed or no data, show placeholder if appropriate
+                if bpo_performance:
                      output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
-            elif bpo_section and detail_level == 'standard':
-                # Standard mode: concise summary only (first paragraph)
-                summary_only = bpo_section.split('\n\n')[0:3] # Title + summary
-                output_sections.extend(summary_only)
-                output_sections.append("")
 
             cross_section = self._format_cross_agent_section(analytical_insights)
             if cross_section:
