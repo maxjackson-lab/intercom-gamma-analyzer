@@ -544,6 +544,7 @@ Return ONLY valid JSON, no other text:
             # Topics summary
             output_sections.append(f"**Topics Identified**: {len(topic_dist)} categories")
             if len(topic_dist) > 0:
+                # Sort by volume for the default list, but allow LLM override if available
                 top_3_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:3]
                 output_sections.append(f"**Top Issues**:")
                 for topic_name, topic_stats in top_3_topics:
@@ -601,8 +602,13 @@ Return ONLY valid JSON, no other text:
                     output_sections.append("")
             
             bpo_section = self._format_bpo_snapshot_section(bpo_performance)
-            if bpo_section:
-                output_sections.append(bpo_section)
+            # Always add BPO section if agent ran, even if data is sparse
+            if bpo_performance and (bpo_performance.get('vendor_overview') or bpo_performance.get('bpo_snapshot_summary')):
+                if bpo_section:
+                    output_sections.append(bpo_section)
+            elif bpo_performance:
+                 # Fallback if BPO ran but returned empty structure
+                 output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
 
             cross_section = self._format_cross_agent_section(analytical_insights)
             if cross_section:
@@ -735,6 +741,15 @@ Return ONLY valid JSON, no other text:
                 subtopics_for_topic = subtopics_data.get(topic_name, {}) if subtopics_data else {}
                 subtopic_summary = self._summarize_subtopics(subtopics_for_topic)
                 supporting_evidence = macro_callouts.get(topic_name, [])
+                
+                # DEEP DIVE: Add reasoning snippets for top 3 topics (like sample mode)
+                deep_dive_notes = []
+                if topic_stats.get('volume', 0) > 0 and len(topic_cards) < 3:
+                    # This is a top topic - add "Why" context
+                    reasoning = sentiment_payload.get('sentiment_reasoning') or sentiment_payload.get('sentiment_summary')
+                    if reasoning:
+                        deep_dive_notes.append(f"**Analysis**: {reasoning}")
+                
                 actionable_insight = self._derive_actionable_insight(
                     topic_name,
                     sentiment_payload,
@@ -756,6 +771,9 @@ Return ONLY valid JSON, no other text:
                 if vendor_callout:
                     operational_notes.append(vendor_callout)
                 operational_notes.extend(self._build_fin_operational_callout(topic_name, fin_performance))
+                
+                # Append Deep Dive notes to operational notes for visibility in card
+                operational_notes.extend(deep_dive_notes)
 
                 card = self._format_topic_card(
                     topic_name,
@@ -1223,15 +1241,18 @@ Return ONLY valid JSON, no other text:
         tier2 = subtopics.get('tier2', {})
         if tier2:
             sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:tier2_limit]
+            summary.append("**Core Themes:**")
             for name, data in sorted_tier2:
                 percentage = data.get('percentage')
-                summary.append(f"{name} ({percentage}%)")
+                summary.append(f"- {name} ({percentage}%)")
         tier3 = subtopics.get('tier3', {})
-        if tier3 and len(summary) < (tier2_limit + tier3_limit):
+        if tier3:
             sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:tier3_limit]
-            for name, data in sorted_tier3:
-                percentage = data.get('percentage')
-                summary.append(f"{name} ({percentage}% - AI discovered)")
+            if sorted_tier3:
+                summary.append("\n**Emerging Patterns (AI Detected):**")
+                for name, data in sorted_tier3:
+                    percentage = data.get('percentage')
+                    summary.append(f"- {name} ({percentage}%)")
         return summary or None
     
     def _derive_actionable_insight(
