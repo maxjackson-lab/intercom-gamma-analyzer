@@ -38,9 +38,9 @@ RUN pip install --no-cache-dir -r /app/python-intercom-master/requirements.txt
 # Install main application dependencies (now SDK is available)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Cache-busting: Create unique file to force COPY layer rebuild
-# Update timestamp below to invalidate Docker cache for COPY step
-RUN echo "2025-11-28-20:35-template-debug" > /tmp/cache-bust.txt
+# Copy deploy/web first (templates.py changes frequently)
+# This forces a cache miss when templates change
+COPY deploy/web/ /app/deploy/web/
 
 # Copy rest of source code (respects .dockerignore)
 COPY . .
