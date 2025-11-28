@@ -261,6 +261,66 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Skip Phase 4.5 ConfidenceMetaAgent for this run'
+            },
+            '--enable-subtopic-detection': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Run SubTopicDetectionAgent (Tier 2 taxonomy mapping)'
+            },
+            '--disable-subtopic-detection': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip SubTopicDetectionAgent to speed up runs'
+            },
+            '--enable-topic-sentiment': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Generate TopicSentimentAgent insights'
+            },
+            '--disable-topic-sentiment': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip TopicSentimentAgent (no per-topic narratives)'
+            },
+            '--enable-topic-examples': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Run ExampleExtractionAgent for quotes per topic'
+            },
+            '--disable-topic-examples': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip ExampleExtractionAgent'
+            },
+            '--enable-fin-analysis': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Run FinPerformanceAgent (identify Fin performance)'
+            },
+            '--disable-fin-analysis': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip FinPerformanceAgent'
+            },
+            '--enable-bpo-analysis': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Run BpoPerformanceAgent (Horatio/Boldr mapping)'
+            },
+            '--disable-bpo-analysis': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip BpoPerformanceAgent'
+            },
+            '--enable-trend-analysis': {
+                'type': 'boolean',
+                'default': True,
+                'description': 'Run TrendAgent for historical comparisons'
+            },
+            '--disable-trend-analysis': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Skip TrendAgent even if enabled in config'
             }
         },
         'estimated_duration': '10-30 minutes'

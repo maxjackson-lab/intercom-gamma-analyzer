@@ -34,6 +34,13 @@ features:
   # Enable/disable Canny integration
   enable_canny: true
 
+  # Enable/disable individual agents in the multi-agent workflow
+  enable_subtopic_detection: true
+  enable_topic_sentiment: true
+  enable_topic_examples: true
+  enable_fin_analysis: true
+  enable_bpo_analysis: true
+
   # Enable/disable analytical insight agents (Phase 4.5)
   enable_correlation_analysis: true
   enable_quality_insights: true

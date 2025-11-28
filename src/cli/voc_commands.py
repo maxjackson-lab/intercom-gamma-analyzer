@@ -429,6 +429,12 @@ async def run_voice_of_customer_analysis(
     enable_quality_insights: Optional[bool],
     enable_churn_detection: Optional[bool],
     enable_confidence_meta: Optional[bool],
+    enable_subtopic_detection: Optional[bool],
+    enable_topic_sentiment: Optional[bool],
+    enable_topic_examples: Optional[bool],
+    enable_fin_analysis: Optional[bool],
+    enable_bpo_analysis: Optional[bool],
+    enable_trend_analysis: Optional[bool],
     legacy_mode: bool,
     detail_level: str = "standard"
 ):
@@ -486,6 +492,12 @@ async def run_voice_of_customer_analysis(
         'enable_quality_insights': enable_quality_insights,
         'enable_churn_detection': enable_churn_detection,
         'enable_confidence_meta': enable_confidence_meta,
+        'enable_subtopic_detection': enable_subtopic_detection,
+        'enable_topic_sentiment': enable_topic_sentiment,
+        'enable_topic_examples': enable_topic_examples,
+        'enable_fin_analysis': enable_fin_analysis,
+        'enable_bpo_analysis': enable_bpo_analysis,
+        'enable_trends': enable_trend_analysis if enable_trend_analysis is not None else (True if include_trends else None),
     }
     applied_overrides: List[str] = []
 

@@ -470,6 +470,39 @@ def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str
                 </div>
             </div>
             
+            <div id="agentToggleContainer" style="margin-top: 15px; padding: 15px; background: rgba(107, 114, 128, 0.15); border-radius: 8px; border: 1px solid rgba(107, 114, 128, 0.4); display: none;">
+                <div style="font-weight: 600; color: #e5e7eb; margin-bottom: 8px;">🧩 Agent Controls (per-run)</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentSubtopics" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">Sub-Topic Detection</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentTopicSentiment" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">Topic Sentiment</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentTopicExamples" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">Topic Examples</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentFinAnalysis" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">Fin Performance</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentBpoAnalysis" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">BPO Vendor Analysis</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="agentTrendAnalysis" checked style="width:18px;height:18px;">
+                        <span style="color: #fbbf24;">Trend Analysis</span>
+                    </label>
+                </div>
+                <p style="margin-top:10px;font-size:12px;color:#cbd5f5;">
+                    Uncheck agents to save time/LLM spend for exploratory runs. Each toggle maps directly to CLI feature flags.
+                </p>
+            </div>
+            
             <div id="insightFlagsContainer" style="margin-top: 15px; padding: 15px; background: rgba(249, 115, 22, 0.08); border-radius: 8px; border: 1px solid rgba(249, 115, 22, 0.3); display: none;">
                 <div style="font-weight: 600; color: #fb923c; margin-bottom: 8px;">🧠 Phase 4.5 Insight Agents</div>
                 <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">

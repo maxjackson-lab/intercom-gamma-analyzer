@@ -274,6 +274,12 @@ async function runAnalysis() {
         const qualityInsightsEnabled = document.getElementById('qualityInsightsToggle')?.checked ?? true;
         const churnInsightsEnabled = document.getElementById('churnRiskToggle')?.checked ?? true;
         const confidenceMetaEnabled = document.getElementById('confidenceMetaToggle')?.checked ?? true;
+        const agentSubtopicsEnabled = document.getElementById('agentSubtopics')?.checked ?? true;
+        const agentTopicSentimentEnabled = document.getElementById('agentTopicSentiment')?.checked ?? true;
+        const agentTopicExamplesEnabled = document.getElementById('agentTopicExamples')?.checked ?? true;
+        const agentFinAnalysisEnabled = document.getElementById('agentFinAnalysis')?.checked ?? true;
+        const agentBpoAnalysisEnabled = document.getElementById('agentBpoAnalysis')?.checked ?? true;
+        const agentTrendAnalysisEnabled = document.getElementById('agentTrendAnalysis')?.checked ?? true;
         
         // Get test mode options if enabled
         const testDataCount = document.getElementById('testDataCount')?.value || '100';
@@ -453,6 +459,14 @@ async function runAnalysis() {
                 quality: qualityInsightsEnabled,
                 churn: churnInsightsEnabled,
                 confidence: confidenceMetaEnabled
+            });
+            appendAgentToggleArgs(args, {
+                subtopics: agentSubtopicsEnabled,
+                topicSentiment: agentTopicSentimentEnabled,
+                topicExamples: agentTopicExamplesEnabled,
+                finAnalysis: agentFinAnalysisEnabled,
+                bpoAnalysis: agentBpoAnalysisEnabled,
+                trendAnalysis: agentTrendAnalysisEnabled
             });
             
             if (analysisType === 'voice-of-customer-hilary' && legacyMode) {
@@ -1066,6 +1080,27 @@ function appendInsightFlagArgs(args, flags) {
     }
 }
 
+function appendAgentToggleArgs(args, toggles) {
+    if (!toggles) {
+        return;
+    }
+    
+    const mapping = [
+        { key: 'subtopics', enable: '--enable-subtopic-detection', disable: '--disable-subtopic-detection' },
+        { key: 'topicSentiment', enable: '--enable-topic-sentiment', disable: '--disable-topic-sentiment' },
+        { key: 'topicExamples', enable: '--enable-topic-examples', disable: '--disable-topic-examples' },
+        { key: 'finAnalysis', enable: '--enable-fin-analysis', disable: '--disable-fin-analysis' },
+        { key: 'bpoAnalysis', enable: '--enable-bpo-analysis', disable: '--disable-bpo-analysis' },
+        { key: 'trendAnalysis', enable: '--enable-trend-analysis', disable: '--disable-trend-analysis' },
+    ];
+    
+    mapping.forEach(({ key, enable, disable }) => {
+        if (typeof toggles[key] === 'boolean') {
+            args.push(toggles[key] ? enable : disable);
+        }
+    });
+}
+
 /**
  * Update analysis options based on selected analysis type
  */
@@ -1125,15 +1160,13 @@ function updateAnalysisOptions() {
     
     const digestModeContainer = document.getElementById('digestModeContainer');
     const detailLevelContainer = document.getElementById('detailLevelContainer');
+    const agentToggleContainer = document.getElementById('agentToggleContainer');
     
     if (digestModeContainer) {
         const digestEligible = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete', 'voice-of-customer-narrative-v2']);
         const showDigest = digestEligible.has(analysisType);
 
         digestModeContainer.style.display = showDigest ? 'block' : 'none';
-        if (detailLevelContainer) {
-            detailLevelContainer.style.display = showDigest ? 'block' : 'none';
-        }
         
         if (!showDigest) {
             const digestToggle = document.getElementById('digestModeToggle');
@@ -1143,10 +1176,24 @@ function updateAnalysisOptions() {
         }
     }
     
+    if (detailLevelContainer) {
+        const detailEligible = isVoC;
+        detailLevelContainer.style.display = detailEligible ? 'block' : 'none';
+        if (!detailEligible) {
+            const detailLevelSelect = document.getElementById('detailLevel');
+            if (detailLevelSelect) {
+                detailLevelSelect.value = 'standard';
+            }
+        }
+    }
+    
+    if (agentToggleContainer) {
+        agentToggleContainer.style.display = isVoC ? 'block' : 'none';
+    }
+    
     const insightFlagsContainer = document.getElementById('insightFlagsContainer');
     if (insightFlagsContainer) {
-        const showInsightFlags = new Set(['voice-of-customer-hilary', 'voice-of-customer-complete']).has(analysisType);
-        insightFlagsContainer.style.display = showInsightFlags ? 'block' : 'none';
+        insightFlagsContainer.style.display = isVoC ? 'block' : 'none';
     }
     
     const legacyModeContainer = document.getElementById('legacyModeContainer');

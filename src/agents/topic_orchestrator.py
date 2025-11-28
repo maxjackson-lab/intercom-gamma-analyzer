@@ -14,7 +14,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pydantic import ValidationError
 
-from src.agents.base_agent import AgentContext, BaseAgent
+from src.agents.base_agent import AgentContext, BaseAgent, AgentResult, ConfidenceLevel
 from src.agents.segmentation_agent import SegmentationAgent
 from src.agents.topic_detection_agent import TopicDetectionAgent
 from src.agents.subtopic_detection_agent import SubTopicDetectionAgent
@@ -191,6 +191,23 @@ class TopicOrchestrator:
         # Historical snapshot service (lazy initialization)
         self._historical_snapshot_service = None
         self._duckdb_storage = None
+
+    def _build_skip_result(self, agent_name: str, feature_flag: str) -> AgentResult:
+        """
+        Create a standardized AgentResult for skipped agents so downstream consumers
+        can treat it like a regular agent output.
+        """
+        message = f"{agent_name} skipped (feature flag {feature_flag}=False)"
+        return AgentResult(
+            agent_name=agent_name,
+            success=False,
+            data={'message': message, 'skipped': True},
+            confidence=0.0,
+            confidence_level=ConfidenceLevel.LOW,
+            limitations=[message],
+            sources=[],
+            verification_passed=True
+        )
 
         # Historical services are lazy-initialized because:
         # - DuckDB connection and schema migration are expensive operations
@@ -657,143 +674,157 @@ class TopicOrchestrator:
             # PHASE 2.4: BPO Vendor Performance
             self.logger.info("👥 Phase 2.4: BPO Vendor Load Analysis")
             bpo_result_data = {}
-            agent_assignments = segmentation_result.data.get('agent_assignments') or {}
-            topics_map = topics_by_conv or {}
-            self.logger.info(f"   BPO Prep: Found {len(agent_assignments)} assignments, {len(topics_map)} topic maps")
+            if config.is_feature_enabled('enable_bpo_analysis'):
+                agent_assignments = segmentation_result.data.get('agent_assignments') or {}
+                topics_map = topics_by_conv or {}
+                self.logger.info(f"   BPO Prep: Found {len(agent_assignments)} assignments, {len(topics_map)} topic maps")
 
-            if not agent_assignments:
-                self.logger.warning("SegmentationAgent returned no agent_assignments; skipping BPO vendor analysis.")
-                workflow_results['BpoPerformanceAgent'] = {
-                    'agent_name': 'BpoPerformanceAgent',
-                    'success': False,
-                    'error_message': "Missing agent_assignments from segmentation.",
-                    'data': {}
-                }
-            elif not topics_map:
-                self.logger.warning("TopicDetectionAgent returned no topics_by_conversation; skipping BPO vendor analysis.")
-                workflow_results['BpoPerformanceAgent'] = {
-                    'agent_name': 'BpoPerformanceAgent',
-                    'success': False,
-                    'error_message': "Missing topics_by_conversation for BPO analysis.",
-                    'data': {}
-                }
-            else:
-                try:
-                    bpo_metadata = {
-                        'agent_assignments': agent_assignments,
-                        'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
-                        'topics_by_conversation': topics_map,
-                        'topic_distribution': topic_dist,
-                        'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
-                    }
-                    bpo_previous = {
-                        'SegmentationAgent': _normalize_agent_result(segmentation_result),
-                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
-                    }
-                    
-                    # Immutable update
-                    bpo_context = context.model_copy(update={
-                        'metadata': {**context.metadata, **bpo_metadata},
-                        'previous_results': {**context.previous_results, **bpo_previous}
-                    })
-                    
-                    bpo_result = await self.bpo_performance_agent.execute(bpo_context)
-                    bpo_result_data = _normalize_agent_result(bpo_result)
-                    workflow_results['BpoPerformanceAgent'] = bpo_result_data
-                    try:
-                        display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
-                    except Exception as e:
-                        logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
-                    
-                    # Check for critical failure if configured
-                    if self.fail_on_critical_errors and not bpo_result.success:
-                        error_msg = bpo_result.error_message or "Unknown BPO failure"
-                        self.logger.error(f"CRITICAL: BpoPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
-                        raise RuntimeError(f"Critical failure in BpoPerformanceAgent: {error_msg}")
-
-                except Exception as e:
-                    if self.fail_on_critical_errors:
-                        # If we are failing on critical errors, re-raise the exception
-                        self.logger.error(f"CRITICAL: BpoPerformanceAgent exception and fail_on_critical_errors=True: {e}")
-                        raise
-                        
-                    self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
+                if not agent_assignments:
+                    self.logger.warning("SegmentationAgent returned no agent_assignments; skipping BPO vendor analysis.")
                     workflow_results['BpoPerformanceAgent'] = {
                         'agent_name': 'BpoPerformanceAgent',
                         'success': False,
-                        'error_message': str(e),
+                        'error_message': "Missing agent_assignments from segmentation.",
                         'data': {}
                     }
+                elif not topics_map:
+                    self.logger.warning("TopicDetectionAgent returned no topics_by_conversation; skipping BPO vendor analysis.")
+                    workflow_results['BpoPerformanceAgent'] = {
+                        'agent_name': 'BpoPerformanceAgent',
+                        'success': False,
+                        'error_message': "Missing topics_by_conversation for BPO analysis.",
+                        'data': {}
+                    }
+                else:
+                    try:
+                        bpo_metadata = {
+                            'agent_assignments': agent_assignments,
+                            'agent_distribution': segmentation_result.data.get('agent_distribution', {}),
+                            'topics_by_conversation': topics_map,
+                            'topic_distribution': topic_dist,
+                            'segmentation_summary': segmentation_result.data.get('segmentation_summary', {})
+                        }
+                        bpo_previous = {
+                            'SegmentationAgent': _normalize_agent_result(segmentation_result),
+                            'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                        }
+                        
+                        # Immutable update
+                        bpo_context = context.model_copy(update={
+                            'metadata': {**context.metadata, **bpo_metadata},
+                            'previous_results': {**context.previous_results, **bpo_previous}
+                        })
+                        
+                        bpo_result = await self.bpo_performance_agent.execute(bpo_context)
+                        bpo_result_data = _normalize_agent_result(bpo_result)
+                        workflow_results['BpoPerformanceAgent'] = bpo_result_data
+                        try:
+                            display.display_agent_result('BpoPerformanceAgent', bpo_result_data, show_full_data)
+                        except Exception as e:
+                            logger.warning(f"Failed to display BpoPerformanceAgent result: {e}")
+                        
+                        # Check for critical failure if configured
+                        if self.fail_on_critical_errors and not bpo_result.success:
+                            error_msg = bpo_result.error_message or "Unknown BPO failure"
+                            self.logger.error(f"CRITICAL: BpoPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
+                            raise RuntimeError(f"Critical failure in BpoPerformanceAgent: {error_msg}")
+
+                    except Exception as e:
+                        if self.fail_on_critical_errors:
+                            # If we are failing on critical errors, re-raise the exception
+                            self.logger.error(f"CRITICAL: BpoPerformanceAgent exception and fail_on_critical_errors=True: {e}")
+                            raise
+                            
+                        self.logger.error(f"   ❌ BpoPerformanceAgent failed: {e}", exc_info=True)
+                        workflow_results['BpoPerformanceAgent'] = {
+                            'agent_name': 'BpoPerformanceAgent',
+                            'success': False,
+                            'error_message': str(e),
+                            'data': {}
+                        }
+            else:
+                skip_result = self._build_skip_result('BpoPerformanceAgent', 'enable_bpo_analysis')
+                bpo_result_data = _normalize_agent_result(skip_result)
+                workflow_results['BpoPerformanceAgent'] = bpo_result_data
+                self.logger.info("⏭️  BpoPerformanceAgent skipped (feature flag disable)")
             
             # PHASE 2.5: Sub-Topic Detection
             self.logger.info("🔍 Phase 2.5: Sub-Topic Detection")
             subtopics_data = {}
             subtopic_detection_result = None
             subtopic_payload: Optional[SubtopicDetectionResult] = None
-            subtopic_start_time = datetime.now()
-            try:
-                subtopic_previous = {
-                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
-                }
-                
-                # Immutable update
-                subtopic_context = context.model_copy(update={
-                    'previous_results': {**context.previous_results, **subtopic_previous},
-                    'conversations': paid_conversations
-                })
-                
-                # Report agent start
-                if self.monitor:
-                    await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.RUNNING,
-                                                          f"Analyzing {len(topic_dist)} topics for sub-categories")
-                
-                subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
-                workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
-                
-                # Report agent completion
-                if self.monitor:
-                    await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.COMPLETED,
-                                                          f"Found {len(subtopic_detection_result.data.get('subtopics_by_tier1_topic', {}))} topic hierarchies",
-                                                          token_usage={'total': subtopic_detection_result.token_count},
-                                                          confidence=subtopic_detection_result.confidence)
-
-                # Record tool calls from agent if audit is enabled
-                if self.audit:
-                    if hasattr(self.audit, 'record_tool_calls_from_agent'):
-                        self.audit.record_tool_calls_from_agent(subtopic_detection_result)
-
-                # Display agent result
+            subtopic_execution_time = 0.0
+            if config.is_feature_enabled('enable_subtopic_detection'):
+                subtopic_start_time = datetime.now()
                 try:
-                    display.display_agent_result('SubTopicDetectionAgent', _normalize_agent_result(subtopic_detection_result), show_full_data)
+                    subtopic_previous = {
+                        'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                    }
+                    
+                    # Immutable update
+                    subtopic_context = context.model_copy(update={
+                        'previous_results': {**context.previous_results, **subtopic_previous},
+                        'conversations': paid_conversations
+                    })
+                    
+                    # Report agent start
+                    if self.monitor:
+                        await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.RUNNING,
+                                                              f"Analyzing {len(topic_dist)} topics for sub-categories")
+                    
+                    subtopic_detection_result = await self.subtopic_detection_agent.execute(subtopic_context)
+                    workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
+                    
+                    # Report agent completion
+                    if self.monitor:
+                        await self.monitor.update_agent_status('SubTopicDetectionAgent', AgentStatus.COMPLETED,
+                                                              f"Found {len(subtopic_detection_result.data.get('subtopics_by_tier1_topic', {}))} topic hierarchies",
+                                                              token_usage={'total': subtopic_detection_result.token_count},
+                                                              confidence=subtopic_detection_result.confidence)
+
+                    # Record tool calls from agent if audit is enabled
+                    if self.audit:
+                        if hasattr(self.audit, 'record_tool_calls_from_agent'):
+                            self.audit.record_tool_calls_from_agent(subtopic_detection_result)
+
+                    # Display agent result
+                    try:
+                        display.display_agent_result('SubTopicDetectionAgent', _normalize_agent_result(subtopic_detection_result), show_full_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to display SubTopicDetectionAgent result: {e}")
+                    
+                    # Validate and parse subtopic detection result with typed payload
+                    try:
+                        if isinstance(subtopic_detection_result.data, dict):
+                            subtopic_payload = SubtopicDetectionResult(**subtopic_detection_result.data)
+                            self.logger.debug("✅ SubtopicDetectionResult validation passed")
+                            subtopics_data = subtopic_payload.subtopics_by_tier1_topic
+                        else:
+                            raise TypeError("SubTopicDetectionAgent returned non-dict data payload")
+                    except (ValidationError, TypeError) as e:
+                        self.logger.warning(f"⚠️ SubtopicDetectionResult validation failed: {e}")
+                        subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
+                    
+                    self.logger.info(f"   ✅ Detected sub-topics for {len(subtopics_data)} Tier 1 topics")
                 except Exception as e:
-                    logger.warning(f"Failed to display SubTopicDetectionAgent result: {e}")
-                
-                # Validate and parse subtopic detection result with typed payload
-                try:
-                    if isinstance(subtopic_detection_result.data, dict):
-                        subtopic_payload = SubtopicDetectionResult(**subtopic_detection_result.data)
-                        self.logger.debug("✅ SubtopicDetectionResult validation passed")
-                        subtopics_data = subtopic_payload.subtopics_by_tier1_topic
-                    else:
-                        raise TypeError("SubTopicDetectionAgent returned non-dict data payload")
-                except (ValidationError, TypeError) as e:
-                    self.logger.warning(f"⚠️ SubtopicDetectionResult validation failed: {e}")
-                    subtopics_data = subtopic_detection_result.data.get('subtopics_by_tier1_topic', {})
-                
-                self.logger.info(f"   ✅ Detected sub-topics for {len(subtopics_data)} Tier 1 topics")
-            except Exception as e:
-                self.logger.error(f"   ❌ SubTopicDetectionAgent failed: {e}", exc_info=True)
-                subtopics_data = {}
-                # Record failed result for metrics and visibility
-                subtopic_execution_time = (datetime.now() - subtopic_start_time).total_seconds()
-                workflow_results['SubTopicDetectionAgent'] = {
-                    'agent_name': 'SubTopicDetectionAgent',
-                    'success': False,
-                    'error_message': str(e),
-                    'execution_time': subtopic_execution_time,
-                    'confidence': 0.0,
-                    'data': {}
-                }
+                    self.logger.error(f"   ❌ SubTopicDetectionAgent failed: {e}", exc_info=True)
+                    subtopics_data = {}
+                    # Record failed result for metrics and visibility
+                    subtopic_execution_time = (datetime.now() - subtopic_start_time).total_seconds()
+                    workflow_results['SubTopicDetectionAgent'] = {
+                        'agent_name': 'SubTopicDetectionAgent',
+                        'success': False,
+                        'error_message': str(e),
+                        'execution_time': subtopic_execution_time,
+                        'confidence': 0.0,
+                        'data': {}
+                    }
+                else:
+                    subtopic_execution_time = (datetime.now() - subtopic_start_time).total_seconds()
+            else:
+                subtopic_detection_result = self._build_skip_result('SubTopicDetectionAgent', 'enable_subtopic_detection')
+                workflow_results['SubTopicDetectionAgent'] = _normalize_agent_result(subtopic_detection_result)
+                self.logger.info("⏭️  SubTopicDetectionAgent skipped (feature flag disable)")
             
             # PHASE 2.6: Canny Topic Detection (if Canny posts provided)
             canny_topics_by_category = {}
@@ -852,6 +883,8 @@ class TopicOrchestrator:
             self.logger.info("💭 Phase 3: Per-Topic Analysis")
             topic_sentiments = {}
             topic_examples = {}
+            sentiment_enabled = config.is_feature_enabled('enable_topic_sentiment')
+            examples_enabled = config.is_feature_enabled('enable_topic_examples')
             
             # First, get the actual conversations_by_topic from detection result
             # The detection agent returns conversation IDs mapped to topics
@@ -914,14 +947,22 @@ class TopicOrchestrator:
                             'metadata': {**context.metadata, **topic_metadata}
                         })
                         
-                        sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
+                        if sentiment_enabled:
+                            sentiment_result = await self.topic_sentiment_agent.execute(topic_context)
+                        else:
+                            self.logger.info(f"   ⏭️ TopicSentimentAgent skipped for {topic_name} (feature disabled)")
+                            sentiment_result = self._build_skip_result('TopicSentimentAgent', 'enable_topic_sentiment')
                         
                         # Examples for this topic - Immutable update for insight
                         updated_meta = topic_context.metadata.copy()
                         updated_meta['sentiment_insight'] = sentiment_result.data.get('sentiment_insight', '')
                         topic_context = topic_context.model_copy(update={'metadata': updated_meta})
                         
-                        examples_result = await self.example_extraction_agent.execute(topic_context)
+                        if examples_enabled:
+                            examples_result = await self.example_extraction_agent.execute(topic_context)
+                        else:
+                            self.logger.info(f"   ⏭️ ExampleExtractionAgent skipped for {topic_name} (feature disabled)")
+                            examples_result = self._build_skip_result('ExampleExtractionAgent', 'enable_topic_examples')
                         
                         self.logger.info(f"   ✅ Completed topic {topic_num}/{total_topics}: {topic_name} - {len(examples_result.data.get('examples', []))} examples")
                         
@@ -992,91 +1033,98 @@ class TopicOrchestrator:
             
             # PHASE 4: Fin Analysis (on free and paid fin-resolved conversations)
             self.logger.info("🤖 Phase 4: Fin AI Performance Analysis")
+            fin_result = None
+            fin_execution_time = 0.0
             
-            if self.audit:
-                self.audit.step(
-                    "Phase 4: Fin Analysis",
-                    f"Starting Fin AI performance evaluation on {len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)} conversations",
-                    {
-                        'free_tier_conversations': len(free_fin_only_conversations),
-                        'paid_tier_conversations': len(paid_fin_resolved_conversations),
-                        'total_fin_conversations': len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)
-                    }
-                )
-            
-            fin_start_time = datetime.now()
-            fin_metadata = {
-                'free_fin_conversations': free_fin_only_conversations,
-                'paid_fin_conversations': paid_fin_resolved_conversations,
-                'week_id': week_id,
-                'subtopics_by_tier1_topic': subtopics_data
-            }
-            # Pass sub-topic data via previous_results for compatibility
-            fin_previous = {
-                'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
-                'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
-            }
-            
-            fin_context = context.model_copy(update={
-                'metadata': {**context.metadata, **fin_metadata},
-                'previous_results': {**context.previous_results, **fin_previous}
-            })
-            
-            # Report agent start
-            if self.monitor:
-                await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.RUNNING,
-                                                      f"Analyzing Fin AI performance")
-            
-            fin_result = await self.fin_performance_agent.execute(fin_context)
-            workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
-            
-            # Report agent completion
-            if self.monitor:
-                await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.COMPLETED,
-                                                      "Fin performance analysis complete",
-                                                      confidence=fin_result.confidence)
-            
-            # Check for critical failure if configured
-            if self.fail_on_critical_errors and not fin_result.success:
-                error_msg = fin_result.error_message or "Unknown Fin performance failure"
-                self.logger.error(f"CRITICAL: FinPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
-                raise RuntimeError(f"Critical failure in FinPerformanceAgent: {error_msg}")
+            if config.is_feature_enabled('enable_fin_analysis'):
+                if self.audit:
+                    self.audit.step(
+                        "Phase 4: Fin Analysis",
+                        f"Starting Fin AI performance evaluation on {len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)} conversations",
+                        {
+                            'free_tier_conversations': len(free_fin_only_conversations),
+                            'paid_tier_conversations': len(paid_fin_resolved_conversations),
+                            'total_fin_conversations': len(free_fin_only_conversations) + len(paid_fin_resolved_conversations)
+                        }
+                    )
+                
+                fin_start_time = datetime.now()
+                fin_metadata = {
+                    'free_fin_conversations': free_fin_only_conversations,
+                    'paid_fin_conversations': paid_fin_resolved_conversations,
+                    'week_id': week_id,
+                    'subtopics_by_tier1_topic': subtopics_data
+                }
+                # Pass sub-topic data via previous_results for compatibility
+                fin_previous = {
+                    'SubTopicDetectionAgent': _normalize_agent_result(subtopic_detection_result) if subtopic_detection_result and (subtopic_detection_result.success if hasattr(subtopic_detection_result, 'success') else _normalize_agent_result(subtopic_detection_result).get('success', False)) else {},
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                }
+                
+                fin_context = context.model_copy(update={
+                    'metadata': {**context.metadata, **fin_metadata},
+                    'previous_results': {**context.previous_results, **fin_previous}
+                })
+                
+                # Report agent start
+                if self.monitor:
+                    await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.RUNNING,
+                                                          f"Analyzing Fin AI performance")
+                
+                fin_result = await self.fin_performance_agent.execute(fin_context)
+                workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
+                
+                # Report agent completion
+                if self.monitor:
+                    await self.monitor.update_agent_status('FinPerformanceAgent', AgentStatus.COMPLETED,
+                                                          "Fin performance analysis complete",
+                                                          confidence=fin_result.confidence)
+                
+                # Check for critical failure if configured
+                if self.fail_on_critical_errors and not fin_result.success:
+                    error_msg = fin_result.error_message or "Unknown Fin performance failure"
+                    self.logger.error(f"CRITICAL: FinPerformanceAgent failed and fail_on_critical_errors=True. Error: {error_msg}")
+                    raise RuntimeError(f"Critical failure in FinPerformanceAgent: {error_msg}")
 
-            fin_execution_time = (datetime.now() - fin_start_time).total_seconds()
-            
-            # Validate and parse Fin analysis result with typed payload
-            fin_payload: Optional[FinAnalysisPayload] = None
-            try:
-                if isinstance(fin_result.data, dict):
-                    fin_payload = FinAnalysisPayload(**fin_result.data)
-                    self.logger.debug("✅ FinAnalysisPayload validation passed")
-                else:
-                    raise TypeError("FinPerformanceAgent returned non-dict data payload")
-            except (ValidationError, TypeError) as e:
-                self.logger.warning(f"⚠️ FinAnalysisPayload validation failed: {e}")
-            
-            if self.audit:
-                fin_data = _normalize_agent_result(fin_result).get('data', {})
-                self.audit.step(
-                    "Phase 4: Fin Analysis",
-                    f"Completed Fin AI performance evaluation in {fin_execution_time:.1f}s",
-                    {
-                        'execution_time_seconds': fin_execution_time,
-                        'total_analyzed': fin_data.get('total_fin_conversations', 0),
-                        'free_tier_resolution_rate': fin_data.get('free_tier', {}).get('resolution_rate', 0),
-                        'paid_tier_resolution_rate': fin_data.get('paid_tier', {}).get('resolution_rate', 0),
-                        'success': fin_result.success if hasattr(fin_result, 'success') else True,
-                        'payload_validation': 'passed' if fin_payload else 'failed'
-                    }
-                )
-            
-            # Display agent result
-            try:
-                display.display_agent_result('FinPerformanceAgent', _normalize_agent_result(fin_result), show_full_data)
-            except Exception as e:
-                logger.warning(f"Failed to display FinPerformanceAgent result: {e}")
+                fin_execution_time = (datetime.now() - fin_start_time).total_seconds()
+                
+                # Validate and parse Fin analysis result with typed payload
+                fin_payload: Optional[FinAnalysisPayload] = None
+                try:
+                    if isinstance(fin_result.data, dict):
+                        fin_payload = FinAnalysisPayload(**fin_result.data)
+                        self.logger.debug("✅ FinAnalysisPayload validation passed")
+                    else:
+                        raise TypeError("FinPerformanceAgent returned non-dict data payload")
+                except (ValidationError, TypeError) as e:
+                    self.logger.warning(f"⚠️ FinAnalysisPayload validation failed: {e}")
+                
+                if self.audit:
+                    fin_data = _normalize_agent_result(fin_result).get('data', {})
+                    self.audit.step(
+                        "Phase 4: Fin Analysis",
+                        f"Completed Fin AI performance evaluation in {fin_execution_time:.1f}s",
+                        {
+                            'execution_time_seconds': fin_execution_time,
+                            'total_analyzed': fin_data.get('total_fin_conversations', 0),
+                            'free_tier_resolution_rate': fin_data.get('free_tier', {}).get('resolution_rate', 0),
+                            'paid_tier_resolution_rate': fin_data.get('paid_tier', {}).get('resolution_rate', 0),
+                            'success': fin_result.success if hasattr(fin_result, 'success') else True,
+                            'payload_validation': 'passed' if fin_payload else 'failed'
+                        }
+                    )
+                
+                # Display agent result
+                try:
+                    display.display_agent_result('FinPerformanceAgent', _normalize_agent_result(fin_result), show_full_data)
+                except Exception as e:
+                    logger.warning(f"Failed to display FinPerformanceAgent result: {e}")
 
-            self.logger.info(f"   ✅ Fin analysis complete")
+                self.logger.info(f"   ✅ Fin analysis complete")
+            else:
+                fin_result = self._build_skip_result('FinPerformanceAgent', 'enable_fin_analysis')
+                workflow_results['FinPerformanceAgent'] = _normalize_agent_result(fin_result)
+                self.logger.info("⏭️  FinPerformanceAgent skipped (feature flag disable)")
             
             # PHASE 4.5: Analytical Insights
             self.logger.info("🔍 Phase 4.5: Analytical Insights (Correlation, Quality, Churn Risk, Confidence)")
@@ -1287,65 +1335,69 @@ class TopicOrchestrator:
             
             # PHASE 5: Trend Analysis
             self.logger.info("📈 Phase 5: Trend Analysis")
-            
-            if self.audit:
-                self.audit.step(
-                    "Phase 5: Trend Analysis",
-                    "Starting historical trend analysis",
-                    {
-                        'current_week': week_id,
-                        'topics_to_analyze': len(topic_dist)
-                    }
-                )
-            
-            trend_start_time = datetime.now()
-            trend_metadata = {
-                'current_week_results': {
-                    'topic_distribution': topic_dist,
-                    'topic_sentiments': {k: v['data'] for k, v in topic_sentiments.items()}
-                },
-                'week_id': week_id
-            }
-            trend_context = context.model_copy(update={
-                'metadata': {**context.metadata, **trend_metadata}
-            })
-            
-            trend_result = await self.trend_agent.execute(trend_context)
-            workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
-            
-            trend_execution_time = (datetime.now() - trend_start_time).total_seconds()
-            
-            # Validate and parse trend analysis result with typed payload
-            trend_payload: Optional[TrendAnalysisPayload] = None
-            try:
-                if isinstance(trend_result.data, dict):
-                    trend_payload = TrendAnalysisPayload(**trend_result.data)
-                    self.logger.debug("✅ TrendAnalysisPayload validation passed")
-                else:
-                    raise TypeError("TrendAgent returned non-dict data payload")
-            except (ValidationError, TypeError) as e:
-                self.logger.warning(f"⚠️ TrendAnalysisPayload validation failed: {e}")
-            
-            if self.audit:
-                trend_data = _normalize_agent_result(trend_result).get('data', {})
-                self.audit.step(
-                    "Phase 5: Trend Analysis",
-                    f"Completed trend analysis in {trend_execution_time:.1f}s",
-                    {
-                        'execution_time_seconds': trend_execution_time,
-                        'trends_identified': len(trend_data.get('trends', [])),
-                        'success': trend_result.success if hasattr(trend_result, 'success') else True,
-                        'payload_validation': 'passed' if trend_payload else 'failed'
-                    }
-                )
-            
-            # Display agent result
-            try:
-                display.display_agent_result('TrendAgent', _normalize_agent_result(trend_result), show_full_data)
-            except Exception as e:
-                logger.warning(f"Failed to display TrendAgent result: {e}")
-            
-            self.logger.info(f"   ✅ Trend analysis complete")
+            if config.is_feature_enabled('enable_trends'):
+                if self.audit:
+                    self.audit.step(
+                        "Phase 5: Trend Analysis",
+                        "Starting historical trend analysis",
+                        {
+                            'current_week': week_id,
+                            'topics_to_analyze': len(topic_dist)
+                        }
+                    )
+                
+                trend_start_time = datetime.now()
+                trend_metadata = {
+                    'current_week_results': {
+                        'topic_distribution': topic_dist,
+                        'topic_sentiments': {k: v['data'] for k, v in topic_sentiments.items()}
+                    },
+                    'week_id': week_id
+                }
+                trend_context = context.model_copy(update={
+                    'metadata': {**context.metadata, **trend_metadata}
+                })
+                
+                trend_result = await self.trend_agent.execute(trend_context)
+                workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
+                
+                trend_execution_time = (datetime.now() - trend_start_time).total_seconds()
+                
+                # Validate and parse trend analysis result with typed payload
+                trend_payload: Optional[TrendAnalysisPayload] = None
+                try:
+                    if isinstance(trend_result.data, dict):
+                        trend_payload = TrendAnalysisPayload(**trend_result.data)
+                        self.logger.debug("✅ TrendAnalysisPayload validation passed")
+                    else:
+                        raise TypeError("TrendAgent returned non-dict data payload")
+                except (ValidationError, TypeError) as e:
+                    self.logger.warning(f"⚠️ TrendAnalysisPayload validation failed: {e}")
+                
+                if self.audit:
+                    trend_data = _normalize_agent_result(trend_result).get('data', {})
+                    self.audit.step(
+                        "Phase 5: Trend Analysis",
+                        f"Completed trend analysis in {trend_execution_time:.1f}s",
+                        {
+                            'execution_time_seconds': trend_execution_time,
+                            'trends_identified': len(trend_data.get('trends', [])),
+                            'success': trend_result.success if hasattr(trend_result, 'success') else True,
+                            'payload_validation': 'passed' if trend_payload else 'failed'
+                        }
+                    )
+                
+                # Display agent result
+                try:
+                    display.display_agent_result('TrendAgent', _normalize_agent_result(trend_result), show_full_data)
+                except Exception as e:
+                    logger.warning(f"Failed to display TrendAgent result: {e}")
+                
+                self.logger.info(f"   ✅ Trend analysis complete")
+            else:
+                trend_result = self._build_skip_result('TrendAgent', 'enable_trends')
+                workflow_results['TrendAgent'] = _normalize_agent_result(trend_result)
+                self.logger.info("⏭️  TrendAgent skipped (feature flag disable)")
             
             # PHASE 5.5: Production Data Validation
             self.logger.info("🔍 Phase 5.5: Production Data Validation")

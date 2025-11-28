@@ -1295,6 +1295,42 @@ def run_comprehensive_analysis_wrapper(
 @click.option('--disable-confidence-meta', 'enable_confidence_meta',
               flag_value=False, default=None,
               help='Toggle Phase 4.5 ConfidenceMetaAgent (default: enabled)')
+@click.option('--enable-subtopic-detection', 'enable_subtopic_detection',
+              flag_value=True, default=None,
+              help='Toggle SubTopicDetectionAgent (default: enabled)')
+@click.option('--disable-subtopic-detection', 'enable_subtopic_detection',
+              flag_value=False, default=None,
+              help='Toggle SubTopicDetectionAgent (default: enabled)')
+@click.option('--enable-topic-sentiment', 'enable_topic_sentiment',
+              flag_value=True, default=None,
+              help='Toggle TopicSentimentAgent (default: enabled)')
+@click.option('--disable-topic-sentiment', 'enable_topic_sentiment',
+              flag_value=False, default=None,
+              help='Toggle TopicSentimentAgent (default: enabled)')
+@click.option('--enable-topic-examples', 'enable_topic_examples',
+              flag_value=True, default=None,
+              help='Toggle ExampleExtractionAgent (default: enabled)')
+@click.option('--disable-topic-examples', 'enable_topic_examples',
+              flag_value=False, default=None,
+              help='Toggle ExampleExtractionAgent (default: enabled)')
+@click.option('--enable-fin-analysis', 'enable_fin_analysis',
+              flag_value=True, default=None,
+              help='Run FinPerformanceAgent (default: enabled)')
+@click.option('--disable-fin-analysis', 'enable_fin_analysis',
+              flag_value=False, default=None,
+              help='Skip FinPerformanceAgent (default: enabled)')
+@click.option('--enable-bpo-analysis', 'enable_bpo_analysis',
+              flag_value=True, default=None,
+              help='Run BpoPerformanceAgent (default: enabled)')
+@click.option('--disable-bpo-analysis', 'enable_bpo_analysis',
+              flag_value=False, default=None,
+              help='Skip BpoPerformanceAgent (default: enabled)')
+@click.option('--enable-trend-analysis', 'enable_trend_analysis',
+              flag_value=True, default=None,
+              help='Run TrendAgent even if disabled in config')
+@click.option('--disable-trend-analysis', 'enable_trend_analysis',
+              flag_value=False, default=None,
+              help='Skip TrendAgent (default: enabled)')
 def voice_of_customer_analysis(
     time_period: Optional[str],
     periods_back: int,
@@ -1321,6 +1357,12 @@ def voice_of_customer_analysis(
     enable_quality_insights: Optional[bool],
     enable_churn_detection: Optional[bool],
     enable_confidence_meta: Optional[bool],
+    enable_subtopic_detection: Optional[bool],
+    enable_topic_sentiment: Optional[bool],
+    enable_topic_examples: Optional[bool],
+    enable_fin_analysis: Optional[bool],
+    enable_bpo_analysis: Optional[bool],
+    enable_trend_analysis: Optional[bool],
     detail_level: str
 ):
     asyncio.run(
@@ -1347,6 +1389,12 @@ def voice_of_customer_analysis(
             enable_quality_insights=enable_quality_insights,
             enable_churn_detection=enable_churn_detection,
             enable_confidence_meta=enable_confidence_meta,
+            enable_subtopic_detection=enable_subtopic_detection,
+            enable_topic_sentiment=enable_topic_sentiment,
+            enable_topic_examples=enable_topic_examples,
+            enable_fin_analysis=enable_fin_analysis,
+            enable_bpo_analysis=enable_bpo_analysis,
+            enable_trend_analysis=enable_trend_analysis,
             legacy_mode=legacy_mode,
             detail_level=detail_level,
         )
