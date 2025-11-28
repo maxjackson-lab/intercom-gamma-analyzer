@@ -1,9 +1,5 @@
-# Stage 1: Build Frontend (disabled temporarily to fix deployment)
-# FROM node:20-slim AS frontend-builder
-# WORKDIR /app/frontend
-# COPY frontend/ ./
-# RUN if [ -f package.json ]; then npm install; fi
-# RUN if [ -f package.json ] && [ -d src ]; then npm run build; fi
+# Stage 1: Build Frontend - REMOVED
+# Svelte frontend removed by request
 
 # Stage 2: Python Application
 FROM python:3.11-slim
@@ -41,7 +37,7 @@ COPY . .
 # This forces a cache miss when templates change, overwriting any cached version
 COPY deploy/web/ /app/deploy/web/
 
-# Copy frontend build artifacts from builder stage (disabled)
+# Copy frontend build artifacts - REMOVED
 # COPY --from=frontend-builder /app/frontend/build /app/frontend/build
 
 # Set Python path (include SDK)
