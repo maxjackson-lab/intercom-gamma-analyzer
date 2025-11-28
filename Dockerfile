@@ -1,24 +1,9 @@
-# Stage 1: Build Frontend (optional - skip if frontend not ready)
-FROM node:20-slim AS frontend-builder
-WORKDIR /app/frontend
-# Copy all frontend files at once (handles missing package-lock.json gracefully)
-COPY frontend/ ./
-# Install dependencies (use npm install if package-lock.json missing)
-RUN if [ -f package.json ]; then \
-        if [ -f package-lock.json ]; then \
-            npm ci; \
-        else \
-            npm install --no-save; \
-        fi; \
-    else \
-        echo "No frontend package.json detected - skipping npm install"; \
-    fi
-# Build SvelteKit app (only if package.json exists)
-RUN if [ -f package.json ] && [ -d src ]; then \
-        npm run build || echo "Frontend build failed - continuing"; \
-    else \
-        echo "No frontend to build"; \
-    fi
+# Stage 1: Build Frontend (disabled temporarily to fix deployment)
+# FROM node:20-slim AS frontend-builder
+# WORKDIR /app/frontend
+# COPY frontend/ ./
+# RUN if [ -f package.json ]; then npm install; fi
+# RUN if [ -f package.json ] && [ -d src ]; then npm run build; fi
 
 # Stage 2: Python Application
 FROM python:3.11-slim
@@ -56,8 +41,8 @@ COPY . .
 # This forces a cache miss when templates change, overwriting any cached version
 COPY deploy/web/ /app/deploy/web/
 
-# Copy frontend build artifacts from builder stage
-COPY --from=frontend-builder /app/frontend/build /app/frontend/build
+# Copy frontend build artifacts from builder stage (disabled)
+# COPY --from=frontend-builder /app/frontend/build /app/frontend/build
 
 # Set Python path (include SDK)
 ENV PYTHONPATH=/app:/app/src:/app/python-intercom-master/src
