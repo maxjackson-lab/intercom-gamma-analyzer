@@ -248,6 +248,14 @@ if HAS_FASTAPI:
     static_path = Path(__file__).parent.parent / "static"
     static_path.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+    # Mount new Svelte frontend (if built)
+    frontend_build_path = Path(__file__).parent.parent / "frontend" / "build"
+    if frontend_build_path.exists():
+        app.mount("/v2", StaticFiles(directory=str(frontend_build_path), html=True), name="frontend_v2")
+        logger.info(f"✅ Mounted new Svelte frontend at /v2 from {frontend_build_path}")
+    else:
+        logger.warning(f"⚠️  New frontend build not found at {frontend_build_path}. /v2 will not be available.")
     
     # Add CORS middleware
     app.add_middleware(
