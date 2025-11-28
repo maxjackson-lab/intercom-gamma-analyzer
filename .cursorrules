@@ -798,6 +798,14 @@ Before committing changes to commands/flags:
 ### Reference
 See `CLI_WEB_ALIGNMENT_CHECKLIST.md` and `docs/CLI_COMMAND_INVENTORY.md` for the authoritative command list and testing guidance
 
+## Web Template Integrity (CRITICAL)
+
+- **Never inline HTML** inside FastAPI routes (`deploy/railway_web.py`, `deploy/web/app_factory.py`, etc.). All markup lives in `deploy/web/templates.py`.
+- `/` must call `render_chat_html_v2(...)`; `/files` must call `render_files_html(...)`. If you add a new page, create a renderer in `deploy/web/templates.py` first, then delegate to it from the route.
+- Do **not** `open()` standalone `.html` files or embed multi-line strings for UI; that creates stale copies that never update.
+- `python scripts/check_web_templates.py` runs automatically with `./scripts/run_all_checks.sh` (and the pre-commit hook). Run it manually if you touch any FastAPI routes.
+- If you need diagnostics, add debug endpoints (like `/debug-template`) instead of duplicating the template.
+
 ## SSE and Background Execution (CRITICAL)
 
 ### Task Classification Rules

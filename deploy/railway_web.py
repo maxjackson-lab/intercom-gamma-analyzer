@@ -12,7 +12,11 @@ import signal
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from deploy.web.templates import render_chat_html_v2, render_files_html
+from deploy.web.templates import (
+    render_chat_html_v2,
+    render_files_html,
+    render_history_placeholder,
+)
 from functools import wraps, lru_cache
 from collections import defaultdict
 import time
@@ -1978,59 +1982,9 @@ if HAS_FASTAPI:
         # Get the historical service URL from environment or construct it
         historical_url = os.getenv("HISTORICAL_UI_URL", "http://localhost:8000")
         
-        # If no environment variable set, provide helpful instructions
+        # If no environment variable is set, render guidance instead of redirecting
         if historical_url == "http://localhost:8000":
-            return HTMLResponse(content=f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historical Analysis - Setup Required</title>
-    <link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-    <div class="container">
-        <h1>📊 Historical Analysis Timeline</h1>
-        
-        <div style="margin: 30px 0; padding: 20px; background: rgba(245, 158, 11, 0.1); border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.3);">
-            <h3 style="color: #f59e0b; margin-top: 0;">⚠️ Setup Required</h3>
-            <p style="color: #d1d5db; line-height: 1.8;">
-                The Historical Analysis Timeline UI needs to be started separately or deployed as an additional service.
-            </p>
-            
-            <h4 style="color: #e5e7eb; margin-top: 20px;">For Local Development:</h4>
-            <pre style="background: #0a0a0a; padding: 15px; border-radius: 8px; overflow-x: auto;"><code style="color: #10b981;">python railway_web.py</code></pre>
-            <p style="color: #9ca3af; font-size: 14px;">Then visit: <a href="http://localhost:8000" style="color: #667eea;">http://localhost:8000</a></p>
-            
-            <h4 style="color: #e5e7eb; margin-top: 20px;">For Production Deployment:</h4>
-            <p style="color: #9ca3af; line-height: 1.8;">
-                Set the <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 4px; color: #f59e0b;">HISTORICAL_UI_URL</code> 
-                environment variable to point to your deployed historical timeline service URL.
-            </p>
-            
-            <div style="margin-top: 30px;">
-                <a href="/" style="padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
-                    ← Back to Main Interface
-                </a>
-            </div>
-        </div>
-        
-        <div style="margin-top: 30px; padding: 20px; background: rgba(16, 185, 129, 0.1); border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
-            <h3 style="color: #10b981; margin-top: 0;">✨ Features Available in Historical Timeline:</h3>
-            <ul style="color: #d1d5db; line-height: 2;">
-                <li><strong>Timeline View:</strong> Browse weekly, monthly, and quarterly analysis snapshots</li>
-                <li><strong>Visual Indicators:</strong> Reviewed snapshots, current period, future periods</li>
-                <li><strong>Review Management:</strong> Mark snapshots as reviewed with notes</li>
-                <li><strong>Trend Visualization:</strong> Chart.js charts show topic volume trends</li>
-                <li><strong>Comparison View:</strong> Side-by-side comparison of any two periods</li>
-                <li><strong>Snapshot Details:</strong> View full analysis reports for any period</li>
-            </ul>
-        </div>
-    </div>
-</body>
-</html>
-            """)
+            return HTMLResponse(content=render_history_placeholder(historical_url))
         
         # If environment variable is set, redirect there
         from fastapi.responses import RedirectResponse

@@ -141,6 +141,10 @@ run_check "P0" "Frontend UI Completeness" \
     "scripts/check_frontend_ui_completeness.py" \
     "Validates UI controls map to Railway flags (all 4 layers)"
 
+run_check "P0" "Web Template Integrity" \
+    "scripts/check_web_templates.py" \
+    "Prevents inline HTML in FastAPI routes and enforces template delegation"
+
 # P1 Checks (High Impact - Run unless --p0)
 if [ "$CHECK_LEVEL" != "p0" ]; then
     echo ""
