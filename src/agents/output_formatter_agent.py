@@ -2010,9 +2010,9 @@ Return ONLY valid JSON, no other text:
         if skipped_count > 0:
             self.logger.info(f"Skipped {skipped_count} examples due to missing conversation matches in highlights/lowlights extraction")
         
-        # Top 2-3 are highlights, bottom 2-3 are lowlights
-        num_highlights = min(3, len(scored_examples) // 2)
-        num_lowlights = min(3, len(scored_examples) // 2)
+        # Top 3 are highlights, bottom 3 are lowlights
+        num_highlights = min(3, len(scored_examples))
+        num_lowlights = min(3, len(scored_examples) - num_highlights)
         
         highlights = [ex for score, ex in scored_examples[:num_highlights]]
         lowlights = [ex for score, ex in scored_examples[-num_lowlights:]] if num_lowlights > 0 else []
