@@ -1,6 +1,7 @@
 """HTML template rendering utilities for the Railway web server."""
 
-from typing import Any, Dict
+import time
+from typing import Any, Dict, Optional
 
 
 def render_timeline_html() -> str:
@@ -50,12 +51,12 @@ def render_timeline_html() -> str:
     """
 
 
-def render_chat_html(app_version: str, git_commit: str) -> str:
+def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str] = None) -> str:
     """Return the chat interface HTML."""
     git_short = git_commit[:8] if git_commit != "unknown" else "unknown"
     APP_VERSION = app_version
     GIT_COMMIT = git_commit
-    cache_bust = f"{app_version}-{git_short}"
+    cache_bust_value = cache_bust or f"{app_version}-{git_short}-{int(time.time())}"
     return f"""\
 <!DOCTYPE html>
 <html lang="en">
@@ -64,7 +65,15 @@ def render_chat_html(app_version: str, git_commit: str) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intercom Analysis Tool v{APP_VERSION}</title>
     <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
-    <link rel="stylesheet" href="/static/styles.css?v={cache_bust}">
+    <link rel="stylesheet" href="/static/styles.css?v={cache_bust_value}">
+    <!-- Cache busting for app.js -->
+    <script>
+        // Force reload app.js if version mismatch
+        const expectedVersion = "{cache_bust_value}";
+        const script = document.createElement('script');
+        script.src = `/static/app.js?v=${{expectedVersion}}`;
+        document.head.appendChild(script);
+    </script>
 </head>
 <body>
     <div class="container">
@@ -591,15 +600,41 @@ def render_chat_html(app_version: str, git_commit: str) -> str:
         v{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}
     </div>
 
-    <script src="/static/app.js?v={cache_bust}"></script>
-    <script src="/static/file_browser.js?v={cache_bust}"></script>
+    <script src="/static/app.js?v={cache_bust_value}"></script>
+    <script>
+        // Robust cache busting: reload app.js if version in DOM doesn't match server
+        (function() {{
+            const serverVersion = "{cache_bust_value}";
+            const scripts = document.getElementsByTagName('script');
+            let appJsFound = false;
+            
+            for (let i = 0; i < scripts.length; i++) {{
+                const src = scripts[i].src;
+                if (src && src.includes('app.js')) {{
+                    const url = new URL(src);
+                    const loadedVersion = url.searchParams.get('v');
+                    
+                    if (loadedVersion !== serverVersion) {{
+                        console.log('⚠️ app.js version mismatch. Reloading...', loadedVersion, 'vs', serverVersion);
+                        const newScript = document.createElement('script');
+                        newScript.src = '/static/app.js?v=' + serverVersion + '&t=' + new Date().getTime();
+                        document.body.appendChild(newScript);
+                    }}
+                    appJsFound = true;
+                    break;
+                }}
+            }}
+        }})();
+    </script>
+    <script src="/static/file_browser.js?v={cache_bust_value}"></script>
 </body>
 </html>
     """
 
 
-def render_files_html(cache_bust: str) -> str:
+def render_files_html(cache_bust: Optional[str] = None) -> str:
     """Return the dedicated files browser HTML."""
+    cache_bust_value = cache_bust or str(int(time.time()))
     return f"""\
 <!DOCTYPE html>
 <html lang="en">
@@ -607,7 +642,7 @@ def render_files_html(cache_bust: str) -> str:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analysis Files</title>
-    <link rel="stylesheet" href="/static/styles.css?v={cache_bust}">
+    <link rel="stylesheet" href="/static/styles.css?v={cache_bust_value}">
 </head>
 <body style="background: #0a0a0a; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px;">
     <div class="container" style="max-width: 960px; margin: 0 auto;">
@@ -626,7 +661,7 @@ def render_files_html(cache_bust: str) -> str:
             <p style="color: #60a5fa;">Loading files...</p>
         </div>
     </div>
-    <script src="/static/file_browser.js?v={cache_bust}"></script>
+    <script src="/static/file_browser.js?v={cache_bust_value}"></script>
 </body>
 </html>
     """

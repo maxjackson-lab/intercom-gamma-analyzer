@@ -202,3 +202,4 @@ class TestSentimentAgentUpgradeE2E:
         assert payload["contains_nuance"] is True
         assert payload["sentiment_metrics"]["generic_pattern_count"] == 0
 
+

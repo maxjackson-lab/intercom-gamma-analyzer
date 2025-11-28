@@ -48,6 +48,7 @@ APP_VERSION = os.getenv("APP_VERSION", "dev")
 GIT_COMMIT = os.getenv("GIT_COMMIT", "unknown")
 BUILD_DATE = os.getenv("BUILD_DATE", datetime.utcnow().isoformat())
 APP_START_TIME = datetime.utcnow()
+CACHE_BUST_TOKEN = os.getenv("CACHE_BUST_TOKEN") or datetime.utcnow().strftime("%Y%m%d%H%M%S")
 
 
 def create_app() -> FastAPI:
@@ -93,12 +94,12 @@ def _include_routers(app: FastAPI) -> None:
 
 def _register_routes(app: FastAPI) -> None:
     git_short = GIT_COMMIT[:8] if GIT_COMMIT != "unknown" else "unknown"
-    cache_bust = f"{APP_VERSION}-{git_short}"
+    cache_bust = f"{APP_VERSION}-{git_short}-{CACHE_BUST_TOKEN}"
 
     @app.get("/", response_class=HTMLResponse)
     async def chat_ui():
         return HTMLResponse(
-            render_chat_html(app_version=APP_VERSION, git_commit=GIT_COMMIT),
+            render_chat_html(app_version=APP_VERSION, git_commit=GIT_COMMIT, cache_bust=cache_bust),
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache",

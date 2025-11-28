@@ -1268,6 +1268,9 @@ def run_comprehensive_analysis_wrapper(
              help='Digest mode: executive summary, topic cards, prioritized actions only')
 @click.option('--legacy-mode', is_flag=True, default=False,
               help='Run legacy Hilary V1 multi-agent workflow (topic-based only)')
+@click.option('--detail-level', type=click.Choice(['standard', 'deep', 'comprehensive']),
+              default='standard',
+              help='Control output verbosity: standard (exec-ready), deep (adds reasoning + BPO detail), comprehensive (full traceability)')
 @click.option('--enable-correlation-analysis', 'enable_correlation_analysis',
               flag_value=True, default=None,
               help='Toggle Phase 4.5 CorrelationAgent (default: enabled)')
@@ -1317,7 +1320,8 @@ def voice_of_customer_analysis(
     enable_correlation_analysis: Optional[bool],
     enable_quality_insights: Optional[bool],
     enable_churn_detection: Optional[bool],
-    enable_confidence_meta: Optional[bool]
+    enable_confidence_meta: Optional[bool],
+    detail_level: str
 ):
     asyncio.run(
         run_voice_of_customer_analysis_impl(
@@ -1344,6 +1348,7 @@ def voice_of_customer_analysis(
             enable_churn_detection=enable_churn_detection,
             enable_confidence_meta=enable_confidence_meta,
             legacy_mode=legacy_mode,
+            detail_level=detail_level,
         )
     )
 

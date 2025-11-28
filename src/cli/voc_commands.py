@@ -429,7 +429,8 @@ async def run_voice_of_customer_analysis(
     enable_quality_insights: Optional[bool],
     enable_churn_detection: Optional[bool],
     enable_confidence_meta: Optional[bool],
-    legacy_mode: bool
+    legacy_mode: bool,
+    detail_level: str = "standard"
 ):
     """
     Generate Voice of Customer sentiment analysis.
@@ -579,7 +580,8 @@ async def run_voice_of_customer_analysis(
             console.print(f"[dim]   Uses GPT-4o-mini to classify every conversation[/dim]")
             console.print(f"[dim]   More accurate for edge cases (~$1 per 200 convs)[/dim]\n")
 
-        console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]\n")
+        console.print(f"[bold yellow]🤖 Multi-Agent Mode: {analysis_type}[/bold yellow]")
+        console.print(f"[cyan]Detail Level: {detail_level.title()}[/cyan]\n")
 
         start_dt, end_dt = get_date_range_pacific(start_date, end_date)
 
@@ -619,7 +621,8 @@ async def run_voice_of_customer_analysis(
                 mode_label="Voice of Customer (Topic-Based)",
                 output_slug="voc_topic_based",
                 extra_conversations=extra_canny_conversations,
-                legacy_mode=legacy_mode
+                legacy_mode=legacy_mode,
+                detail_level=detail_level
             )
         elif analysis_type == 'synthesis':
             await run_synthesis_analysis_custom(

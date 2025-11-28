@@ -211,6 +211,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                     'Recommended for quick LLM regression checks after prompt/model changes.'
                 )
             },
+            '--detail-level': {
+                'type': 'enum',
+                'values': ['standard', 'deep', 'comprehensive'],
+                'default': 'standard',
+                'description': 'Control report verbosity: standard (executive-ready), deep (adds reasoning + BPO detail), comprehensive (full traceability/logs).'
+            },
             '--legacy-mode': {
                 'type': 'boolean',
                 'default': False,
