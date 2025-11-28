@@ -51,7 +51,7 @@ def render_timeline_html() -> str:
     """
 
 
-def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str] = None) -> str:
+def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[str] = None) -> str:
     """Return the chat interface HTML."""
     git_short = git_commit[:8] if git_commit != "unknown" else "unknown"
     APP_VERSION = app_version
