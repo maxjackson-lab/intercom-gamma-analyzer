@@ -7,7 +7,7 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Force rebuild timestamp: 2025-11-28-20:30-template-debug
+# Force rebuild timestamp: 2025-11-28-20:45-template-debug
 # (Updated for frontend integration)
 # Cache-busting: Update timestamp above to force COPY layer rebuild
 
@@ -31,6 +31,7 @@ RUN pip install --no-cache-dir -r /app/python-intercom-master/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy rest of source code (respects .dockerignore)
+# FORCE REBUILD LAYER: 2025-11-28-20:45
 COPY . .
 
 # Copy deploy/web LAST to always get latest templates.py
