@@ -492,7 +492,7 @@ def initialize_chat():
 
 if HAS_FASTAPI:
     @app.get("/files", response_class=HTMLResponse)
-async def files_page():
+    async def files_page():
     """Serve files browser page via templates."""
     cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
     return HTMLResponse(
@@ -505,7 +505,7 @@ async def files_page():
     )
     
     @app.get("/", response_class=HTMLResponse)
-async def root():
+    async def root():
     """Serve the chat interface HTML (delegated to templates)."""
     cache_bust = f"{APP_VERSION}-{GIT_COMMIT[:8] if GIT_COMMIT != 'unknown' else 'unknown'}"
     return HTMLResponse(
