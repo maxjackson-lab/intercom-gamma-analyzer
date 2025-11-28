@@ -36,7 +36,8 @@ class TopicOrchestratorV2:
         period_label=None,
         canny_posts=None,
         ai_model=None,
-        digest_mode=False
+        digest_mode=False,
+        detail_level="standard"
     ):
         """Proxy to TopicOrchestrator.execute_weekly_analysis with same signature."""
         return await self._orchestrator.execute_weekly_analysis(
@@ -48,6 +49,7 @@ class TopicOrchestratorV2:
             period_label=period_label,
             canny_posts=canny_posts,
             ai_model=ai_model,
-            digest_mode=digest_mode
+            digest_mode=digest_mode,
+            detail_level=detail_level
         )
 
