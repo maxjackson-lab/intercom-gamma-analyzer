@@ -155,6 +155,7 @@ def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str
             </select>
             
             <div id="detailLevelContainer" style="margin-top: 10px; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.45); display: none;">
+                <!-- DL_MARKER_20251128 -->
                 <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 6px;">Output Detail Level:</label>
                 <select id="detailLevel" style="padding: 8px; background: #111827; border: 1px solid #3b82f6; border-radius: 4px; color: #e5e7eb; width: 100%;">
                     <option value="standard" selected>📊 Standard — headline fires & top topics</option>
