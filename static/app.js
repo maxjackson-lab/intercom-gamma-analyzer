@@ -1177,13 +1177,24 @@ function updateAnalysisOptions() {
     }
     
     if (detailLevelContainer) {
-        const detailEligible = isVoC;
-        detailLevelContainer.style.display = detailEligible ? 'block' : 'none';
-        if (!detailEligible) {
-            const detailLevelSelect = document.getElementById('detailLevel');
-            if (detailLevelSelect) {
+        const detailEligible = analysisType && analysisType.startsWith('voice-of-customer');
+        const detailLevelSelect = document.getElementById('detailLevel');
+        const detailLevelHelper = document.getElementById('detailLevelHelper');
+        
+        detailLevelContainer.style.display = 'block';
+        detailLevelContainer.style.opacity = detailEligible ? '1' : '0.55';
+        detailLevelContainer.style.pointerEvents = detailEligible ? 'auto' : 'none';
+        
+        if (detailLevelSelect) {
+            if (!detailEligible) {
                 detailLevelSelect.value = 'standard';
             }
+            detailLevelSelect.disabled = !detailEligible;
+        }
+        if (detailLevelHelper) {
+            detailLevelHelper.textContent = detailEligible
+                ? 'Control how deep the final VoC report goes (Standard, Deep, Comprehensive).'
+                : 'Select a Voice of Customer analysis to unlock detail presets.';
         }
     }
     

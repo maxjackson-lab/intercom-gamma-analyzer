@@ -153,6 +153,18 @@ def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str
                     <option value="canny-analysis">Canny Feedback</option>
                 </optgroup>
             </select>
+            
+            <div id="detailLevelContainer" style="margin-top: 10px; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.45); display: none;">
+                <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 6px;">Output Detail Level:</label>
+                <select id="detailLevel" style="padding: 8px; background: #111827; border: 1px solid #3b82f6; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                    <option value="standard" selected>📊 Standard — headline fires & top topics</option>
+                    <option value="deep">🔍 Deep — adds reasoning snippets & richer BPO detail</option>
+                    <option value="comprehensive">🎯 Comprehensive — audit-ready narrative (thinking + traceability)</option>
+                </select>
+                <div id="detailLevelHelper" style="font-size: 11px; color: #93c5fd; margin-top: 6px; line-height: 1.5;">
+                    Available for Voice of Customer workflows.
+                </div>
+            </div>
 
             <!-- Info Panel for Individual Breakdown -->
             <div id="individualBreakdownInfo" style="display:none; margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
@@ -458,18 +470,6 @@ def render_chat_html(app_version: str, git_commit: str, cache_bust: Optional[str
             </div>
             
             <!-- Detail Level Dropdown (visible for VoC modes) -->
-            <div id="detailLevelContainer" style="margin-top: 15px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3); display: none;">
-                <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 8px;">Output Detail Level:</label>
-                <select id="detailLevel" style="padding: 8px; background: #1a1a1a; border: 1px solid #3b82f6; border-radius: 4px; color: #e5e7eb; width: 100%;">
-                    <option value="standard" selected>📊 Standard - Executive Summary, Top 3 Topics, Fin Metrics</option>
-                    <option value="deep">🔍 Deep - + Reasoning Snippets & Full BPO Breakdown</option>
-                    <option value="comprehensive">🎯 Comprehensive - + Raw Thoughts & Full Traceability</option>
-                </select>
-                <div style="font-size: 11px; color: #93c5fd; margin-top: 8px; line-height: 1.5;">
-                    Control the depth of the final report. "Deep" adds reasoning context; "Comprehensive" adds audit logs.
-                </div>
-            </div>
-            
             <div id="agentToggleContainer" style="margin-top: 15px; padding: 15px; background: rgba(107, 114, 128, 0.15); border-radius: 8px; border: 1px solid rgba(107, 114, 128, 0.4); display: none;">
                 <div style="font-weight: 600; color: #e5e7eb; margin-bottom: 8px;">🧩 Agent Controls (per-run)</div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">
