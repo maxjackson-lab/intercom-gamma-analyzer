@@ -853,6 +853,14 @@ while True:
         continue
 ```
 
+- `python scripts/check_execution_policies.py` runs automatically (P0). Fix violations immediately if it fails.
+
+## Persistent Volume Access (CRITICAL)
+
+- All disk I/O must go through `src/utils/output_manager`, `ExecutionStateManager`, or `deploy/web/routes_execution.py`.
+- Do **not** hardcode `/app/outputs` or `/mnt/persistent` in new code. Use the helpers so local dev and Railway volumes stay aligned.
+- `python scripts/check_volume_paths.py` enforces this. Run it manually if you touch storage code.
+
 ## Pre-Commit Validation (MANDATORY)
 
 ### 🤖 Automated Checks Run on EVERY Commit

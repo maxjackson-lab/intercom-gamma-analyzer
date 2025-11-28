@@ -145,6 +145,14 @@ run_check "P0" "Web Template Integrity" \
     "scripts/check_web_templates.py" \
     "Prevents inline HTML in FastAPI routes and enforces template delegation"
 
+run_check "P0" "Execution Policy Enforcement" \
+    "scripts/check_execution_policies.py" \
+    "Validates SSE/background execution policies"
+
+run_check "P0" "Volume Path Enforcement" \
+    "scripts/check_volume_paths.py" \
+    "Prevents direct access to /app/outputs or /mnt/persistent outside helpers"
+
 # P1 Checks (High Impact - Run unless --p0)
 if [ "$CHECK_LEVEL" != "p0" ]; then
     echo ""
@@ -164,10 +172,6 @@ if [ "$CHECK_LEVEL" != "p0" ]; then
     run_check "P1" "Pydantic Model Validation" \
         "scripts/validate_pydantic_models.py" \
         "Tests Pydantic models with valid/invalid data"
-    
-    run_check "P1" "Execution Policy Enforcement" \
-        "scripts/check_execution_policies.py" \
-        "Validates SSE/background execution policies"
     
     run_check "P1" "Double-Counting Detection" \
         "scripts/check_double_counting.py" \
