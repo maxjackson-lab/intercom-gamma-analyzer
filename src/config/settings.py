@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     correlation_timeout: int = Field(60, env="CORRELATION_TIMEOUT")  # CorrelationAgent timeout
     
     # LLM Concurrency Settings (provider-specific semaphore limits)
-    openai_concurrency: int = Field(10, env="OPENAI_CONCURRENCY")  # Max concurrent OpenAI requests (default: 10)
+    openai_concurrency: int = Field(20, env="OPENAI_CONCURRENCY")  # Max concurrent OpenAI requests (default: 20)
     anthropic_concurrency: int = Field(2, env="ANTHROPIC_CONCURRENCY")  # Max concurrent Anthropic requests (default: 2, Tier 1 limit: 50 RPM)
     
     # Canny API Settings

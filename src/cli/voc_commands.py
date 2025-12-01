@@ -161,20 +161,44 @@ async def run_topic_based_analysis_custom(
             conversations_count=len(conversations)
         )
 
-        orchestrator_class = orchestrator_cls or TopicOrchestrator
-        orchestrator = orchestrator_class(audit_trail=audit, execution_monitor=monitor)
+        # Initialize Unified Orchestrator with VoC Strategy
+        from src.services.strategies.voc_strategy import VoiceOfCustomerStrategy
+        from src.services.unified_orchestrator import UnifiedOrchestrator
+        
+        strategy = VoiceOfCustomerStrategy(
+            audit_trail=audit, 
+            execution_monitor=monitor
+        )
+        orchestrator = UnifiedOrchestrator(strategy=strategy)
+        
         week_id = start_date.strftime('%Y-W%W')
-
-        results = await orchestrator.execute_weekly_analysis(
-            conversations=conversations,
-            week_id=week_id,
+        
+        # Create AgentContext
+        context = AgentContext(
+            analysis_id=f"voc_{week_id}",
+            analysis_type="voc",
             start_date=start_date,
             end_date=end_date,
-            period_type=period_type,
-            period_label=period_label,
-            digest_mode=digest_mode,
-            detail_level=detail_level  # Pass detail level to orchestrator
+            conversations=conversations,
+            metadata={
+                'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label,
+                'digest_mode': digest_mode,
+                'detail_level': detail_level,
+                'options': {} 
+            }
         )
+
+        # Execute
+        agent_result = await orchestrator.execute(context)
+        
+        if not agent_result.success:
+             console.print(f"[red]Analysis failed: {agent_result.error_message}[/red]")
+             if not agent_result.data:
+                 return
+
+        results = agent_result.data
 
         # Save output
         from src.utils.output_manager import get_output_file_path

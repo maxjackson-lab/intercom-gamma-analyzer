@@ -1990,6 +1990,17 @@ if HAS_FASTAPI:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url=historical_url)
 
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize services on startup."""
+        # Start cleanup scheduler if state manager is available
+        logger.info("🔧 Starting cleanup scheduler...")
+        scheduler = start_cleanup_scheduler()
+        if scheduler:
+            logger.info("✅ Cleanup scheduler initialized")
+        else:
+            logger.warning("⚠️ Cleanup scheduler not started (will rely on manual cleanup)")
+
 def main():
     """Main entrypoint for Railway web server."""
     if not HAS_FASTAPI:
@@ -2004,14 +2015,6 @@ def main():
     
     if chat_init_success:
         logger.info("✅ Chat interface initialized successfully")
-        
-        # Start cleanup scheduler if state manager is available
-        logger.info("🔧 Starting cleanup scheduler...")
-        scheduler = start_cleanup_scheduler()
-        if scheduler:
-            logger.info("✅ Cleanup scheduler initialized")
-        else:
-            logger.warning("⚠️ Cleanup scheduler not started (will rely on manual cleanup)")
     else:
         logger.warning("⚠️ Chat interface initialization failed, but server will start anyway")
         logger.warning("   The health endpoint will still work, but chat features may be limited")

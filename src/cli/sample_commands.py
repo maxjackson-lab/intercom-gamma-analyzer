@@ -34,8 +34,9 @@ async def run_sample_mode_command(
     include_hierarchy: bool,
     no_hierarchy: bool,
     verbose: bool,
+    audit_mode: bool,
 ) -> None:
-    """Pull real conversations with ultra-rich logging and diagnostics."""
+    """Pull real conversations with ultra-rich logging, diagnostics, and optional audit validation."""
     explicit_count = count
     if no_hierarchy:
         include_hierarchy = False
@@ -47,6 +48,15 @@ async def run_sample_mode_command(
             border_style="cyan",
         )
     )
+    
+    if audit_mode:
+        console.print(
+            Panel.fit(
+                "[bold yellow]🔍 AUDIT MODE ENABLED[/bold yellow]\n"
+                "Running validation checks on all agent outputs",
+                border_style="yellow",
+            )
+        )
 
     # Parse dates
     if time_period:
@@ -109,10 +119,22 @@ async def run_sample_mode_command(
             llm_topic_detection=llm_topic_detection,
             schema_mode=schema_mode,
             include_hierarchy=include_hierarchy,
+            audit_mode=audit_mode,
         )
 
         console.print("\n[bold green]✅ Sample mode complete![/bold green]")
         console.print(f"Analyzed {result.get('analysis', {}).get('total_conversations', 0)} conversations")
+        
+        if audit_mode and 'audit_results' in result:
+            console.print("[bold cyan]📊 Audit report generated![/bold cyan]")
+            console.print(f"Check outputs/ directory for agent_audit_report_*.md")
+            
+            audit_summary = result.get('audit_summary', {})
+            passed = audit_summary.get('passed', 0)
+            total = audit_summary.get('total', 0)
+            avg_score = audit_summary.get('average_score', 0.0)
+            console.print(f"  Audit: {passed}/{total} agents passed (avg quality: {avg_score:.2f})")
+
     except Exception as exc:
         console.print(f"\n[bold red]❌ Sample mode failed: {exc}[/bold red]")
         console.print("[yellow]⚠️  Files should still be saved despite error[/yellow]")
@@ -201,21 +223,32 @@ async def run_test_topic_based(conversations: List[Dict]) -> None:
         import_start = time_module.monotonic()
         console.print("[dim]⏱️  Importing TopicOrchestrator...[/dim]")
 
-    from src.agents.topic_orchestrator import TopicOrchestrator
+    from src.services.strategies.voc_strategy import VoiceOfCustomerStrategy
+    from src.services.unified_orchestrator import UnifiedOrchestrator
+    from src.agents.base_agent import AgentContext
 
     if verbose_imports:
         import_duration = time_module.monotonic() - import_start
-        console.print(f"[dim]✅ TopicOrchestrator imported in {import_duration:.2f}s[/dim]")
+        console.print(f"[dim]✅ Strategies imported in {import_duration:.2f}s[/dim]")
 
-    orchestrator = TopicOrchestrator()
+    strategy = VoiceOfCustomerStrategy()
+    orchestrator = UnifiedOrchestrator(strategy=strategy)
 
     try:
-        results = await orchestrator.execute_weekly_analysis(
-            conversations=conversations,
-            week_id="TEST",
+        context = AgentContext(
+            analysis_id="test_topic_based",
+            analysis_type="voc",
             start_date=datetime.now() - timedelta(days=1),
             end_date=datetime.now(),
+            conversations=conversations,
+            metadata={
+                'week_id': "TEST",
+                'period_type': "test",
+                'period_label': "Test Mode"
+            }
         )
+        agent_result = await orchestrator.execute(context)
+        results = agent_result.data
 
         console.print("\n" + "=" * 80)
         console.print("[bold green]✅ TEST PASSED[/bold green]")

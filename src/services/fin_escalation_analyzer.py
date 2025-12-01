@@ -633,6 +633,70 @@ class FinEscalationAnalyzer:
         return summary
 
 
+def detect_soft_failure(conversation: Dict[str, Any]) -> bool:
+    """
+    Detect if a conversation ended in a 'soft failure' (user gave up or was frustrated).
+    
+    This catches cases where the user didn't explicitly escalate or give a bad rating,
+    but the conversation content indicates they were not helped.
+    
+    Indicators:
+    - Last user message contains negative sentiment/frustration keywords.
+    - Last user message indicates 'giving up' (e.g., 'never mind', 'forget it').
+    - User stated 'not helpful' or 'wrong' without subsequent resolution.
+    
+    Args:
+        conversation: Conversation dictionary
+        
+    Returns:
+        True if soft failure detected
+    """
+    from src.utils.conversation_utils import extract_customer_messages
+    
+    customer_msgs = extract_customer_messages(conversation, clean_html=True)
+    if not customer_msgs:
+        return False
+        
+    # Check ALL messages for soft failure signals (not just recent)
+    # If the user expressed frustration or explicit failure at any point and didn't explicitly resolve it,
+    # it's safer to count as a soft failure for Fin performance.
+    combined_msg = " ".join(customer_msgs).lower()
+    
+    soft_failure_patterns = [
+        r'(?i)(not.*helpful|doesn.*t.*help)',
+        r'(?i)(useless|waste.*of.*time)',
+        r'(?i)(bad.*bot|stupid.*bot)',
+        r'(?i)(wrong|incorrect|false)',
+        r'(?i)(never.*mind|forget.*it|give.*up)',
+        r'(?i)(this.*is.*ridiculous|joke)',
+        r'(?i)(going.*in.*circles)',
+        r'(?i)(no.*solution|unresolved)',
+        r'(?i)(still.*broken|still.*happening)',
+        r'(?i)(that.*is.*not.*it)',
+        r'(?i)(stop.*talking)',
+        r'(?i)(talking.*to.*wall)',
+        r'(?i)(didn.*t.*fix|did.*not.*fix)',
+        r'(?i)(same.*issue|same.*problem)',
+        r'(?i)(ignored|ignoring.*me)',
+        r'(?i)(still.*not.*working)',
+        r'(?i)(didn.*t.*resolve)',
+        r'(?i)(issue.*persists)',
+        r'(?i)(problem.*remains)',
+        r'(?i)(doesn.*t.*work)',
+        # Add explicit human request patterns (escalation = failure of autonomous resolution)
+        r'(?i)(need.*human|want.*human|talk.*to.*human)',
+        r'(?i)(need.*agent|want.*agent|talk.*to.*agent)',
+        r'(?i)(real.*person|live.*person)',
+        r'(?i)(customer.*support|support.*team)'
+    ]
+    
+    for pattern in soft_failure_patterns:
+        if re.search(pattern, combined_msg):
+            return True
+            
+    return False
+
+
 def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     """
     Determine if a FIN conversation is considered resolved.
@@ -642,6 +706,7 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     2. Conversation state is 'closed' OR user sent ≤2 messages (low engagement)
     3. No negative CSAT rating (rating >= 3 if present, or no rating)
     4. No reopens (waiting_since count ≤ 1)
+    5. No 'soft failure' detected in text (frustrated exit)
     
     Edge Cases:
     - Missing CSAT: Treated as neutral (doesn't block resolution)
@@ -724,6 +789,11 @@ def is_fin_resolved(conversation: Dict[str, Any]) -> bool:
     
     if waiting_since > 1:
         # Multiple reopens = Fin didn't resolve it properly
+        return False
+        
+    # Signal 5: Check for soft failure (frustrated exit)
+    # This catches cases where user ghosts but left a negative final impression
+    if detect_soft_failure(conversation):
         return False
     
     # All checks passed - Fin resolved it!

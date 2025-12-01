@@ -32,6 +32,28 @@ class BaseOrchestrator(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.checkpoint_dir = Path(checkpoint_dir or Path("outputs/checkpoints"))
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        self._last_stage_count: Optional[int] = None
+
+    def log_stage_metrics(self, stage_name: str, count: int) -> None:
+        """
+        Log metrics for a pipeline stage to detect data drops.
+        """
+        self.logger.info(f"STAGE METRIC: {stage_name} = {count}")
+        
+        if self._last_stage_count is not None:
+            # If count increases, that's fine (e.g. expanding items). 
+            # If it decreases significantly, warn.
+            if count < self._last_stage_count:
+                drop = self._last_stage_count - count
+                drop_pct = (drop / self._last_stage_count) * 100 if self._last_stage_count > 0 else 0
+                
+                if drop_pct > 10:
+                    self.logger.warning(
+                        f"🚨 DATA DROP ALERT: {stage_name} dropped {drop} items ({drop_pct:.1f}%) "
+                        f"from previous stage ({self._last_stage_count} -> {count})"
+                    )
+        
+        self._last_stage_count = count
 
     async def _execute_with_timeout(
         self,

@@ -1428,6 +1428,8 @@ def voice_of_customer_analysis(
               help='Alias to disable hierarchy block (legacy flag)')
 @click.option('--verbose', is_flag=True, default=False,
               help='Enable verbose DEBUG logging for sampling run')
+@click.option('--audit-mode', is_flag=True, default=False,
+              help='Run validation checks on all agent outputs')
 def sample_mode_cli(
     count: Optional[int],
     time_period: Optional[str],
@@ -1443,6 +1445,7 @@ def sample_mode_cli(
     include_hierarchy: bool,
     no_hierarchy: bool,
     verbose: bool,
+    audit_mode: bool,
 ):
     """Pull a real-data sample with ultra-rich logging + diagnostics."""
     asyncio.run(
@@ -1461,6 +1464,7 @@ def sample_mode_cli(
             include_hierarchy=include_hierarchy,
             no_hierarchy=no_hierarchy,
             verbose=verbose,
+            audit_mode=audit_mode,
         )
     )
 

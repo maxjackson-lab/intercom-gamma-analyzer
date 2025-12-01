@@ -154,6 +154,13 @@ class ExecutionStore:
                     For persistence: Set EXECUTION_DB_PATH=/mnt/persistent/executions.db
         """
         import os
+        from src.utils.output_manager import get_output_directory
+        
+        # Use configured output directory if default /app/outputs is not appropriate
+        if db_path == "/app/outputs/executions.db" and not Path("/app/outputs").exists():
+            # Fallback to local output directory
+            db_path = str(get_output_directory() / "executions.db")
+            
         db_path = os.getenv('EXECUTION_DB_PATH', db_path)
         
         self.db_path = Path(db_path)

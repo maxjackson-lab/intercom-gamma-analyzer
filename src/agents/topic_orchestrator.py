@@ -91,7 +91,12 @@ def _normalize_agent_result(result: Any) -> Dict[str, Any]:
 
 
 class TopicOrchestrator:
-    """Orchestrates topic-based multi-agent workflow"""
+    """
+    Orchestrates topic-based multi-agent workflow.
+    
+    DEPRECATED: This monolithic class is being replaced by VoiceOfCustomerStrategy
+    via UnifiedOrchestrator. Use TopicOrchestratorV2 for new code.
+    """
     
     def __init__(
         self,
@@ -103,6 +108,16 @@ class TopicOrchestrator:
         report_type: str = "voc_v1",
         fail_on_critical_errors: bool = False
     ):
+        # Deprecation warning
+        import warnings
+        warnings.warn(
+            "TopicOrchestrator is deprecated and will be removed in a future version. "
+            "Please use UnifiedOrchestrator with VoiceOfCustomerStrategy instead "
+            "(or use the TopicOrchestratorV2 wrapper).",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         #Audit trail for detailed narration
         self.audit = audit_trail
         

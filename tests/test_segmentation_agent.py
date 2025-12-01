@@ -491,94 +491,126 @@ def paid_fin_only_conversation_factory():
 class TestSegmentationAgent:
     """Test suite for SegmentationAgent."""
 
-    def test_horatio_detection_via_conversation_parts(self, mock_horatio_conversation_via_parts):
+    @pytest.mark.parametrize("track_escalations", [True, False])
+    def test_horatio_detection_via_conversation_parts(self, mock_horatio_conversation_via_parts, track_escalations):
         """Test Horatio detection via email in conversation_parts."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_horatio_conversation_via_parts)
+        agent = SegmentationAgent(track_escalations=track_escalations)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_horatio_conversation_via_parts)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
-        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        if track_escalations:
+            assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        else:
+            assert agent_type == 'unknown', f"Expected 'unknown' agent type in fast path, got '{agent_type}'"
+        assert vendor_label == 'horatio', f"Expected 'horatio' vendor label, got '{vendor_label}'"
 
-    def test_horatio_detection_via_source(self, mock_horatio_conversation_via_source):
+    @pytest.mark.parametrize("track_escalations", [True, False])
+    def test_horatio_detection_via_source(self, mock_horatio_conversation_via_source, track_escalations):
         """Test Horatio detection via source.author.email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_horatio_conversation_via_source)
+        agent = SegmentationAgent(track_escalations=track_escalations)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_horatio_conversation_via_source)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
-        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        if track_escalations:
+            assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        else:
+            assert agent_type == 'unknown', f"Expected 'unknown' agent type in fast path, got '{agent_type}'"
+        assert vendor_label == 'horatio', f"Expected 'horatio' vendor label, got '{vendor_label}'"
 
-    def test_horatio_detection_via_assignee(self, mock_horatio_conversation_via_assignee):
+    @pytest.mark.parametrize("track_escalations", [True, False])
+    def test_horatio_detection_via_assignee(self, mock_horatio_conversation_via_assignee, track_escalations):
         """Test Horatio detection via assignee.email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_horatio_conversation_via_assignee)
+        agent = SegmentationAgent(track_escalations=track_escalations)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_horatio_conversation_via_assignee)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
-        assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        if track_escalations:
+            assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        else:
+            assert agent_type == 'unknown', f"Expected 'unknown' agent type in fast path, got '{agent_type}'"
+        assert vendor_label == 'horatio', f"Expected 'horatio' vendor label, got '{vendor_label}'"
 
-    def test_boldr_detection_via_email(self, mock_boldr_conversation):
+    @pytest.mark.parametrize("track_escalations", [True, False])
+    def test_boldr_detection_via_email(self, mock_boldr_conversation, track_escalations):
         """Test Boldr detection via email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_boldr_conversation)
+        agent = SegmentationAgent(track_escalations=track_escalations)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_boldr_conversation)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
-        assert agent_type == 'boldr', f"Expected 'boldr' agent type, got '{agent_type}'"
+        if track_escalations:
+            assert agent_type == 'boldr', f"Expected 'boldr' agent type, got '{agent_type}'"
+        else:
+            assert agent_type == 'unknown', f"Expected 'unknown' agent type in fast path, got '{agent_type}'"
+        assert vendor_label == 'boldr', f"Expected 'boldr' vendor label, got '{vendor_label}'"
 
     def test_escalated_detection_max_jackson(self, mock_escalated_conversation_max):
         """Test escalated detection via Max Jackson email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_escalated_conversation_max)
+        agent = SegmentationAgent(track_escalations=True)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_escalated_conversation_max)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'escalated', f"Expected 'escalated' agent type, got '{agent_type}'"
+        assert vendor_label == 'senior', f"Expected 'senior' vendor label, got '{vendor_label}'"
 
     def test_escalated_detection_daeho(self, mock_escalated_conversation_daeho):
         """Test escalated detection via Dae-Ho email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_escalated_conversation_daeho)
+        agent = SegmentationAgent(track_escalations=True)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_escalated_conversation_daeho)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'escalated', f"Expected 'escalated' agent type, got '{agent_type}'"
+        assert vendor_label == 'senior', f"Expected 'senior' vendor label, got '{vendor_label}'"
 
     def test_escalated_detection_hilary(self, mock_escalated_conversation_hilary):
         """Test escalated detection via Hilary email."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_escalated_conversation_hilary)
+        agent = SegmentationAgent(track_escalations=True)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_escalated_conversation_hilary)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'escalated', f"Expected 'escalated' agent type, got '{agent_type}'"
+        assert vendor_label == 'senior', f"Expected 'senior' vendor label, got '{vendor_label}'"
 
     def test_escalated_detection_via_text(self, mock_escalated_conversation_text):
         """Test escalated detection via text pattern (no email)."""
-        agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_escalated_conversation_text)
+        agent = SegmentationAgent(track_escalations=True)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_escalated_conversation_text)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'escalated', f"Expected 'escalated' agent type, got '{agent_type}'"
+        # Text based doesn't set vendor label to senior in basic case unless explicitly handled
+        # But escalated means senior staff. Let's check current logic.
+        # Logic: if has_senior_staff -> vendor='senior'
+        # Logic: if name in text -> has_senior_staff=True
+        assert vendor_label == 'senior', f"Expected 'senior' vendor label, got '{vendor_label}'"
 
     def test_fin_ai_only_free_customer(self, mock_fin_ai_conversation):
         """Test Fin AI only detection (free customer)."""
         agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_fin_ai_conversation)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_fin_ai_conversation)
         
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin', f"Expected 'fin' vendor label, got '{vendor_label}'"
 
     def test_unknown_classification(self, mock_unknown_conversation):
         """Test unknown classification (no admin, no AI, no tier)."""
         agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_unknown_conversation)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_unknown_conversation)
 
         # Without tier, defaults to Free tier, and with no admin or AI, becomes fin_ai (edge case)
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin', f"Expected 'fin' vendor label, got '{vendor_label}'"
 
     def test_generic_paid_customer_unknown_agent(self, mock_generic_paid_conversation):
         """Test generic paid customer with unknown agent."""
         agent = SegmentationAgent()
-        segment, agent_type = agent._classify_conversation(mock_generic_paid_conversation)
+        segment, agent_type, vendor_label = agent._classify_conversation(mock_generic_paid_conversation)
         
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'unknown', f"Expected 'unknown' agent type, got '{agent_type}'"
+        # Unknown vendor
+        assert vendor_label is None or vendor_label == 'unknown', f"Expected None/unknown vendor label, got '{vendor_label}'"
 
     def test_email_case_insensitivity(self):
         """Test that email detection is case-insensitive."""
@@ -613,8 +645,9 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv_upper)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv_upper)
         assert agent_type == 'horatio', f"Expected 'horatio' for uppercase email, got '{agent_type}'"
+        assert vendor_label == 'horatio'
 
         # Test mixed case
         conv_mixed = {
@@ -645,8 +678,9 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv_mixed)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv_mixed)
         assert agent_type == 'horatio', f"Expected 'horatio' for mixed case email, got '{agent_type}'"
+        assert vendor_label == 'horatio'
 
     def test_multiple_admin_emails_first_match_wins(self):
         """Test that with multiple admin emails, Horatio is detected."""
@@ -686,8 +720,9 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv)
         assert agent_type == 'horatio', f"Expected 'horatio' even with multiple emails, got '{agent_type}'"
+        assert vendor_label == 'horatio'
 
     def test_free_tier_classification(self):
         """Test that Free tier customers are always classified as fin_ai."""
@@ -713,9 +748,10 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv1)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv1)
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
         
         # Test 2: Free tier with ai_agent_participated=False (edge case)
         conv2 = {
@@ -737,9 +773,10 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv2)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv2)
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
         
         # Test 3: Free tier with no ai_agent_participated flag (edge case)
         conv3 = {
@@ -760,9 +797,10 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv3)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv3)
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
 
     def test_free_tier_with_admin_edge_case(self, caplog):
         """Test that Free tier with admin_assignee_id is still classified as free (abuse/trust & safety case)."""
@@ -798,10 +836,11 @@ class TestSegmentationAgent:
         }
         
         with caplog.at_level('WARNING'):
-            segment, agent_type = agent._classify_conversation(conv)
+            segment, agent_type, vendor_label = agent._classify_conversation(conv)
         
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
         
         # Verify warning log about abuse/trust & safety
         assert any('abuse/trust & safety' in record.message for record in caplog.records), \
@@ -813,21 +852,24 @@ class TestSegmentationAgent:
 
         # Test Pro tier with AI-only
         conv1 = paid_fin_only_conversation_factory('Pro', 'paid_fin_1')
-        segment, agent_type = agent._classify_conversation(conv1)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv1)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
 
         # Test Plus tier with AI-only
         conv2 = paid_fin_only_conversation_factory('Plus', 'paid_fin_2')
-        segment, agent_type = agent._classify_conversation(conv2)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv2)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
 
         # Test Ultra tier with AI-only
         conv3 = paid_fin_only_conversation_factory('Ultra', 'paid_fin_3')
-        segment, agent_type = agent._classify_conversation(conv3)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv3)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
 
     def test_ultra_tier_detection(self):
         """Test that Ultra tier is properly detected and classified."""
@@ -862,9 +904,10 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv1)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv1)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        assert vendor_label == 'horatio'
         
         # Test Ultra tier with AI-only
         conv2 = {
@@ -886,9 +929,10 @@ class TestSegmentationAgent:
                 ]
             }
         }
-        segment, agent_type = agent._classify_conversation(conv2)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv2)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'fin_resolved', f"Expected 'fin_resolved' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
 
     def test_missing_tier_defaults_to_free(self, caplog):
         """Test that missing tier defaults to Free with warning log."""
@@ -907,10 +951,11 @@ class TestSegmentationAgent:
         }
         
         with caplog.at_level('WARNING'):
-            segment, agent_type = agent._classify_conversation(conv)
+            segment, agent_type, vendor_label = agent._classify_conversation(conv)
         
         assert segment == 'free', f"Expected 'free' segment, got '{segment}'"
         assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type, got '{agent_type}'"
+        assert vendor_label == 'fin'
         
         # Verify warning log about missing tier
         assert any('No tier found' in record.message and 'defaulting to FREE' in record.message for record in caplog.records), \
@@ -941,9 +986,10 @@ class TestSegmentationAgent:
                     ]
                 }
             }
-            segment, agent_type = agent._classify_conversation(conv)
+            segment, agent_type, vendor_label = agent._classify_conversation(conv)
             assert segment == 'free', f"Expected 'free' segment for tier '{tier_variant}', got '{segment}'"
             assert agent_type == 'fin_ai', f"Expected 'fin_ai' agent type for tier '{tier_variant}', got '{agent_type}'"
+            assert vendor_label == 'fin'
         
         # Test different case variations for 'pro'
         for tier_variant in ['pro', 'Pro', 'PRO']:
@@ -975,9 +1021,10 @@ class TestSegmentationAgent:
                     ]
                 }
             }
-            segment, agent_type = agent._classify_conversation(conv)
+            segment, agent_type, vendor_label = agent._classify_conversation(conv)
             assert segment == 'paid', f"Expected 'paid' segment for tier '{tier_variant}', got '{segment}'"
             assert agent_type == 'horatio', f"Expected 'horatio' agent type for tier '{tier_variant}', got '{agent_type}'"
+            assert vendor_label == 'horatio'
 
     def test_tier_extraction_from_conversation_level(self):
         """Test tier extraction from conversation-level custom_attributes."""
@@ -1007,9 +1054,10 @@ class TestSegmentationAgent:
             # No contacts dict - should fall back to conversation-level
         }
         
-        segment, agent_type = agent._classify_conversation(conv)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv)
         assert segment == 'paid', f"Expected 'paid' segment, got '{segment}'"
         assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        assert vendor_label == 'horatio'
 
     def test_tier_priority_contact_over_conversation(self):
         """Test that contact-level tier takes priority over conversation-level tier."""
@@ -1047,9 +1095,10 @@ class TestSegmentationAgent:
             }
         }
         
-        segment, agent_type = agent._classify_conversation(conv)
+        segment, agent_type, vendor_label = agent._classify_conversation(conv)
         assert segment == 'paid', f"Expected 'paid' segment (Pro tier), got '{segment}'"
         assert agent_type == 'horatio', f"Expected 'horatio' agent type, got '{agent_type}'"
+        assert vendor_label == 'horatio'
 
     @pytest.mark.asyncio
     async def test_end_to_end_segmentation(

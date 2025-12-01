@@ -1404,7 +1404,82 @@ class SampleMode:
         console.print("  3. If enrichment is corrupting the data")
         console.print("  4. What method was used (llm vs cx_score - should always be 'llm' now)\n")
     
-    async def test_all_agents(self, conversations: List[Dict]):
+    async def audit_agents(self, conversations: List[Dict], agent_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Run audit validation on agent results.
+        
+        Args:
+            conversations: Input conversations
+            agent_results: Dictionary of agent name -> AgentResult object (or dict)
+            
+        Returns:
+            Dict of audit results keyed by agent name
+        """
+        from src.utils.agent_audit import AuditOrchestrator
+        
+        console.print("\n" + "="*80)
+        console.print("[bold yellow]🔍 AUDIT VALIDATION[/bold yellow]")
+        console.print("[dim]Checking for hallucinations, quality issues, and logic errors[/dim]")
+        console.print("="*80 + "\n")
+        
+        orchestrator = AuditOrchestrator()
+        
+        # Build audit context
+        audit_context = {
+            'conversations_count': len(conversations),
+            'start_date': conversations[0].get('created_at') if conversations else None,
+            'valid_ids': [str(c.get('id')) for c in conversations if c.get('id')],
+            # Add more context as needed
+        }
+        
+        audit_results = orchestrator.audit_all(agent_results, context=audit_context)
+        
+        # Display results
+        table = Table(title="Agent Audit Scorecard", show_header=True)
+        table.add_column("Agent", style="cyan")
+        table.add_column("Score", style="magenta")
+        table.add_column("Status", style="bold")
+        table.add_column("Issues", style="red", overflow="fold")
+        
+        for name, res in audit_results.items():
+            status_style = "green" if res.passed else "red"
+            status_icon = "✅ PASS" if res.passed else "❌ FAIL"
+            score_color = "green" if res.quality_score >= 0.8 else "yellow" if res.quality_score >= 0.6 else "red"
+            
+            issues_text = ", ".join(res.issues_found[:2])
+            if len(res.issues_found) > 2:
+                issues_text += f" (+{len(res.issues_found)-2} more)"
+            if not issues_text:
+                issues_text = "None"
+                
+            table.add_row(
+                name,
+                f"[{score_color}]{res.quality_score:.2f}[/{score_color}]",
+                f"[{status_style}]{status_icon}[/{status_style}]",
+                issues_text
+            )
+            
+        console.print(table)
+        
+        # Show hallucination flags if any
+        total_flags = sum(len(r.hallucination_flags) for r in audit_results.values())
+        if total_flags > 0:
+            console.print(f"\n[bold red]⚠️  {total_flags} Potential Hallucinations Detected:[/bold red]")
+            for name, res in audit_results.items():
+                if res.hallucination_flags:
+                    console.print(f"[bold]{name}:[/bold]")
+                    for flag in res.hallucination_flags:
+                        console.print(f"  - {flag.get('type')}: {flag.get('detail')} ('{flag.get('text', '')[:50]}...')")
+        
+        return audit_results
+
+    def generate_audit_report(self, audit_results: Dict[str, Any]) -> str:
+        """Generate detailed audit report."""
+        from src.utils.agent_audit import AuditOrchestrator
+        orchestrator = AuditOrchestrator()
+        return orchestrator.generate_report(audit_results)
+
+    async def test_all_agents(self, conversations: List[Dict], audit_mode: bool = False) -> Dict[str, Any]:
         """
         Test ALL production agents with real data to verify they work.
         
@@ -1435,6 +1510,7 @@ class SampleMode:
         from src.agents.confidence_meta_agent import ConfidenceMetaAgent
         from src.agents.segmentation_agent import SegmentationAgent
         from src.agents.bpo_performance_agent import BpoPerformanceAgent
+        from src.agents.topic_sentiment_agent import TopicSentimentAgent # Added missing import
         import time
         
         # Create base context
@@ -1446,14 +1522,19 @@ class SampleMode:
             end_date=datetime.now()
         )
         
+        results = {}
+        full_agent_results = {} # Store full result objects for audit
+        
         # First, segment conversations
         console.print("[yellow]📌 Step 0: Segmentation (paid vs free, vendor detection)[/yellow]")
         seg_agent = SegmentationAgent(track_escalations=True)
         seg_result = await seg_agent.execute(context)
         if not seg_result.success:
             console.print(f"[red]❌ SegmentationAgent failed - cannot continue: {seg_result.error_message}[/red]")
-            return
+            return {'summary': results, 'full_results': full_agent_results}
         console.print(f"[green]✅ Segmentation complete: {seg_result.data.get('segmentation_summary', {}).get('paid_count', 0)} paid conversations[/green]\n")
+        results['SegmentationAgent'] = {'status': 'success', 'confidence': seg_result.confidence}
+        full_agent_results['SegmentationAgent'] = seg_result
 
         # Next, detect topics (needed by other agents)
         console.print("[yellow]📊 Step 1: Topic Detection (prerequisite for other agents)[/yellow]")
@@ -1462,19 +1543,60 @@ class SampleMode:
         
         if not topic_result.success:
             console.print(f"[red]❌ TopicDetectionAgent failed - cannot continue: {topic_result.error_message}[/red]")
-            return
+            return {'summary': results, 'full_results': full_agent_results}
         
         topic_dist = topic_result.data.get('topic_distribution', {})
         console.print(f"[green]✅ Topics detected: {list(topic_dist.keys())[:5]}...[/green]\n")
+        results['TopicDetectionAgent'] = {'status': 'success', 'confidence': topic_result.confidence}
+        full_agent_results['TopicDetectionAgent'] = topic_result
         
-        # Update context with latest results for downstream agents (using immutable model_copy)
+        # Prepare context for downstream agents
+        # 1. Identify top topic for TopicSentiment/ExampleExtraction
+        top_topic = list(topic_dist.keys())[0] if topic_dist else "Unknown"
+        topic_convs = []
+        topics_by_conv = topic_result.data.get('topics_by_conversation', {})
+        
+        for conv in conversations:
+            conv_id = conv.get('id')
+            detected = topics_by_conv.get(conv_id, [])
+            # Check if conversation matches top topic
+            if any(t['topic'] == top_topic for t in detected):
+                topic_convs.append(conv)
+                
+        console.print(f"[yellow]🔍 Selected top topic for deep dive: {top_topic} ({len(topic_convs)} conversations)[/yellow]")
+        
+        # 2. Identify Fin conversations
+        fin_convs = [c for c in conversations if c.get('ai_agent_participated')]
+        
+        # Update context with latest results and topic data
+        # We must update metadata to include what TopicSentimentAgent expects
+        new_metadata = context.metadata.copy()
+        new_metadata.update({
+            'current_topic': top_topic,
+            'topic_conversations': topic_convs,
+            'fin_conversations': fin_convs,
+            # Also add subtopic data if available (will be added by SubTopic agent later)
+        })
+        
         context = context.model_copy(update={
+            'metadata': new_metadata,
             'previous_results': {
                 'SegmentationAgent': seg_result.dict(),
-                'TopicDetectionAgent': topic_result.dict(),
-                **results  # Add successful results incrementally
+                'TopicDetectionAgent': topic_result.dict()
             }
         })
+        
+        # Define agents to test (name, instance)
+        agents_to_test = [
+            ("SubTopicDetectionAgent", SubTopicDetectionAgent()),
+            ("TopicSentimentAgent", TopicSentimentAgent()), # Added sentiment agent
+            ("ExampleExtractionAgent", ExampleExtractionAgent()),
+            ("FinPerformanceAgent", FinPerformanceAgent()),
+            ("CorrelationAgent", CorrelationAgent()),
+            ("QualityInsightsAgent", QualityInsightsAgent()),
+            ("ChurnRiskAgent", ChurnRiskAgent()),
+            ("ConfidenceMetaAgent", ConfidenceMetaAgent())
+        ]
         
         for agent_name, agent in agents_to_test:
             console.print(f"{'─'*80}")
@@ -1488,9 +1610,10 @@ class SampleMode:
                 
                 if result.success:
                     # Add result to context for subsequent agents
-                    context = context.model_copy(update={
-                        'previous_results': {**context.previous_results, agent_name: result.dict()}
-                    })
+                    current_prev = context.previous_results.copy()
+                    current_prev[agent_name] = result.dict()
+                    context = context.model_copy(update={'previous_results': current_prev})
+                    
                     console.print(f"[green]✅ {agent_name} succeeded in {elapsed:.1f}s[/green]")
                     console.print(f"   Confidence: {result.confidence_level.value if hasattr(result, 'confidence_level') else result.confidence}")
                     
@@ -1500,6 +1623,10 @@ class SampleMode:
                         console.print(f"   Found {len(subtopics)} topics with subtopics")
                         console.print(f"   Example: {list(subtopics.keys())[:2]}")
                     
+                    elif agent_name == "TopicSentimentAgent":
+                        insight = result.data.get('sentiment_insight', '')
+                        console.print(f"   Insight: {insight[:100]}...")
+
                     elif agent_name == "ExampleExtractionAgent":
                         examples = result.data.get('examples_by_topic', {})
                         total_examples = sum(len(v) for v in examples.values())
@@ -1531,6 +1658,7 @@ class SampleMode:
                         console.print(f"   Overall analysis confidence: {overall:.2f}")
                     
                     results[agent_name] = {'status': 'success', 'elapsed': elapsed, 'confidence': result.confidence}
+                    full_agent_results[agent_name] = result
                 else:
                     console.print(f"[red]❌ {agent_name} failed: {result.error_message}[/red]")
                     results[agent_name] = {'status': 'failed', 'error': result.error_message}
@@ -1573,6 +1701,7 @@ class SampleMode:
                     for point in pressure[:3]:
                         console.print(f"     - {point}")
                 results['BpoPerformanceAgent'] = {'status': 'success', 'elapsed': elapsed, 'confidence': bpo_result.confidence}
+                full_agent_results['BpoPerformanceAgent'] = bpo_result
             else:
                 console.print(f"[red]❌ BpoPerformanceAgent failed: {bpo_result.data.get('error') or bpo_result.error_message}[/red]")
                 results['BpoPerformanceAgent'] = {'status': 'failed', 'error': bpo_result.data.get('error') or bpo_result.error_message}
@@ -1598,7 +1727,7 @@ class SampleMode:
                 console.print(f"   💥 {agent_name}: {result.get('error', 'Crashed')}")
         
         console.print()
-        return results
+        return {'summary': results, 'full_results': full_agent_results}
 
 
 async def run_sample_mode(
@@ -1609,9 +1738,10 @@ async def run_sample_mode(
     test_llm: bool = False,
     test_all_agents: bool = False,
     show_agent_thinking: bool = False,
-    llm_topic_detection: bool = False,  # ← MISSING PARAMETER!
+    llm_topic_detection: bool = False,
     schema_mode: str = 'standard',
-    include_hierarchy: bool = True
+    include_hierarchy: bool = True,
+    audit_mode: bool = False
 ) -> Dict[str, Any]:
     """
     Convenience function to run sample mode.
@@ -1624,7 +1754,10 @@ async def run_sample_mode(
         test_llm: Run actual LLM sentiment analysis on top topics (shows what agents produce)
         test_all_agents: Run ALL production agents to verify they work with real data
         show_agent_thinking: Show LLM prompts, responses, and agent reasoning
+        llm_topic_detection: Use LLM-first topic detection
+        schema_mode: Sampling preset
         include_hierarchy: Show/hide topic hierarchy debugging section
+        audit_mode: Run validation checks on all agent outputs
         
     Returns:
         Sample analysis results
@@ -1691,10 +1824,54 @@ async def run_sample_mode(
         try:
             console.print("\n[bold cyan]🧪 Running comprehensive agent testing...[/bold cyan]")
             console.print("[dim]Testing: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence[/dim]\n")
-            await sample_mode.test_all_agents(result['conversations'])
+            
+            agent_results = await sample_mode.test_all_agents(result['conversations'], audit_mode=audit_mode)
+            
+            # Handle audit mode if enabled
+            if audit_mode and 'full_results' in agent_results:
+                console.print("\n[bold yellow]🔍 Running Audit Validation...[/bold yellow]")
+                audit_results = await sample_mode.audit_agents(result['conversations'], agent_results['full_results'])
+                
+                # Add audit results to return
+                result['audit_results'] = {k: v.dict() for k, v in audit_results.items()}
+                
+                # Generate and save audit report
+                from src.utils.output_manager import get_output_file_path
+                from src.utils.timezone_utils import get_pacific_time
+                pacific_now = get_pacific_time()
+                timestamp = pacific_now.strftime("%Y%m%d_%H%M%S")
+                
+                report_content = sample_mode.generate_audit_report(audit_results)
+                report_file = get_output_file_path(f"agent_audit_report_{timestamp}.md")
+                with open(report_file, 'w', encoding='utf-8') as f:
+                    f.write(report_content)
+                
+                # Export detailed JSON
+                json_content = json.dumps({k: v.dict() for k, v in audit_results.items()}, indent=2, default=str)
+                json_file = get_output_file_path(f"agent_audit_results_{timestamp}.json")
+                with open(json_file, 'w', encoding='utf-8') as f:
+                    f.write(json_content)
+                    
+                console.print(f"\n[bold cyan]📊 Audit Report Generated:[/bold cyan]")
+                console.print(f"   Markdown: {report_file}")
+                console.print(f"   JSON Data: {json_file}\n")
+                
+                # Summarize pass/fail for CLI return
+                passed = sum(1 for r in audit_results.values() if r.passed)
+                total = len(audit_results)
+                avg_score = sum(r.quality_score for r in audit_results.values()) / total if total > 0 else 0
+                
+                result['audit_summary'] = {
+                    'passed': passed,
+                    'total': total,
+                    'average_score': avg_score
+                }
+
             console.print("\n[bold green]✅ Agent testing complete![/bold green]")
         except Exception as e:
             console.print(f"\n[bold red]❌ Agent testing failed: {e}[/bold red]")
+            import traceback
+            console.print(f"[dim]{traceback.format_exc()}[/dim]")
             console.print(f"[yellow]⚠️  Sample mode data still saved successfully[/yellow]")
             # DON'T re-raise - agent testing is optional, don't fail the whole run!
     

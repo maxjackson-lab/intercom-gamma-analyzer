@@ -403,6 +403,143 @@ Return ONLY valid JSON, no other text:
 
         return "\n".join(lines) if len(lines) > 2 else None
     
+    def _format_executive_summary(self, context: AgentContext, segmentation: Dict, topic_dist: Dict, topic_sentiments: Dict, bpo_performance: Dict) -> str:
+        """
+        Format Executive Summary prioritizing FIRES (High Severity/Negative Sentiment).
+        """
+        lines = ["## Executive Summary", ""]
+        
+        fires = []
+        
+        # 1. CHECK SENTIMENT FIRES
+        for topic, sentiment_data in topic_sentiments.items():
+            insight = sentiment_data.get('sentiment_insight', '')
+            
+            # Updated Logic: Priority to structured pain_level
+            pain_level = sentiment_data.get('pain_level', '')
+            severity = None
+            
+            if pain_level:
+                normalized_pain = str(pain_level).upper()
+                if normalized_pain == 'SEVERE':
+                    severity = 'CRITICAL'
+                elif normalized_pain == 'MODERATE':
+                    severity = 'HIGH'
+                # LOW -> No fire
+                elif normalized_pain not in ['LOW']:
+                    self.logger.warning(f"Unknown pain_level '{pain_level}' for topic '{topic}'")
+
+            # Fallback if no valid pain_level found (Backward Compatibility)
+            if not severity and not pain_level:
+                self.logger.warning(f"Missing structured pain_level for topic '{topic}'. Falling back to text analysis.")
+                insight_lower = insight.lower()
+                if any(w in insight_lower for w in ["severe", "furious", "hate", "critical", "destroying trust", "urgent"]):
+                    severity = "CRITICAL"
+                elif any(w in insight_lower for w in ["frustrat", "confus", "annoy", "friction", "struggl"]):
+                    severity = "HIGH"
+            
+            if severity:
+                fires.append({
+                    'topic': topic,
+                    'insight': insight,
+                    'severity': severity,
+                    'type': 'Sentiment',
+                    'rank': 1 if severity == "CRITICAL" else 2
+                })
+
+        # 2. CHECK VOLUME FIRES (Topics > 40% of volume)
+        total_vol = sum(t['volume'] for t in topic_dist.values()) if topic_dist else 0
+        if total_vol > 0:
+            for topic, stats in topic_dist.items():
+                vol = stats.get('volume', 0)
+                pct = (vol / total_vol) * 100
+                if pct > 40:
+                    fires.append({
+                        'topic': topic,
+                        'insight': f"High volume driver accounting for {pct:.1f}% of all tickets.",
+                        'severity': "HIGH",
+                        'type': 'Volume',
+                        'rank': 2
+                    })
+
+        # 3. CHECK FIN PERFORMANCE FIRES (if data available)
+        # We need to access Fin performance data from context if possible, but it's passed as separate arg 'fin_performance'
+        # (Assuming fin_performance dict has 'free_tier' or 'paid_tier' keys from new refactor)
+        if fin_performance:
+            # Check Free Tier gaps
+            free_tier = fin_performance.get('free_tier', {})
+            free_gap_rate = free_tier.get('knowledge_gap_rate', 0)
+            if free_gap_rate > 0.3: # >30% gaps
+                 fires.append({
+                    'topic': 'Fin AI (Free Tier)',
+                    'insight': f"High knowledge gap rate ({free_gap_rate:.1%}) - AI struggling to resolve queries autonomously.",
+                    'severity': "HIGH",
+                    'type': 'Performance',
+                    'rank': 2
+                })
+            
+            # Check Negative Interactions
+            neg_count = free_tier.get('negative_fin_count', 0)
+            if neg_count > 5:
+                 fires.append({
+                    'topic': 'Fin AI Frustration',
+                    'insight': f"Detected {neg_count} explicit negative interactions (users asking for humans/expressing anger).",
+                    'severity': "HIGH",
+                    'type': 'Experience',
+                    'rank': 2
+                })
+
+        # Sort fires: Critical first, then High
+        # Deduplicate by topic to avoid double-listing
+        seen_topics = set()
+        unique_fires = []
+        for f in sorted(fires, key=lambda x: x['rank']):
+            if f['topic'] not in seen_topics:
+                unique_fires.append(f)
+                seen_topics.add(f['topic'])
+        
+        if unique_fires:
+            lines.append("### 🚨 CRITICAL FIRES")
+            for fire in unique_fires[:4]:  # Top 4 fires
+                icon = "🔥" if fire['severity'] == "CRITICAL" else "⚠️"
+                lines.append(f"- {icon} **{fire['topic']}**: {fire['insight']}")
+            lines.append("")
+        else:
+            lines.append("### ✅ System Status: Stable")
+            lines.append("No critical sentiment or volume spikes detected.")
+            lines.append("")
+
+        # 2. Volume & Segmentation
+        seg_summary = segmentation.get('segmentation_summary', {})
+        total_convs = len(context.conversations) if context.conversations else 0
+        paid_count = seg_summary.get('paid_count', 0)
+        free_count = seg_summary.get('free_count', 0)
+        
+        lines.append(f"**Volume**: {total_convs:,} conversations")
+        lines.append(f"- Paid (Human): {paid_count:,} ({seg_summary.get('paid_percentage', 0):.1f}%)")
+        lines.append(f"- Free (AI): {free_count:,} ({seg_summary.get('free_percentage', 0):.1f}%)")
+        lines.append("")
+
+        # 3. Top Topics (Volume)
+        if len(topic_dist) > 0:
+            top_3 = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:3]
+            lines.append(f"**Top Volume Drivers**:")
+            for topic, stats in top_3:
+                lines.append(f"- {topic}: {stats['volume']:,} ({stats['percentage']:.1f}%)")
+        lines.append("")
+        
+        # 4. BPO Snapshot (Forced Inclusion)
+        lines.append("**BPO Snapshot**:")
+        if bpo_performance and bpo_performance.get('bpo_snapshot_summary'):
+            summary = bpo_performance.get('bpo_snapshot_summary')
+            # Extract first paragraph only for exec summary
+            first_para = summary.split('\n\n')[0]
+            lines.append(first_para)
+        else:
+            lines.append("_No BPO vendor data available for this period._")
+        
+        return "\n".join(lines)
+
     async def execute(self, context: AgentContext) -> AgentResult:
         """Execute output formatting"""
         start_time = datetime.now()
@@ -528,32 +665,11 @@ Return ONLY valid JSON, no other text:
             output_sections.append(header_title)
             output_sections.append("")
             
-            # Executive Summary Section
-            output_sections.append("## Executive Summary")
-            output_sections.append("")
-            
-            # Get total counts from segmentation
-            seg_summary = segmentation.get('segmentation_summary', {})
-            total_convs = len(context.conversations) if context.conversations else 0
-            paid_count = seg_summary.get('paid_count', 0)
-            free_count = seg_summary.get('free_count', 0)
-            
-            output_sections.append(f"**Total Interactions**: {total_convs:,} conversations analyzed")
-            output_sections.append(f"**Customer Breakdown**:")
-            output_sections.append(f"- Paid Customers (Human Support): {paid_count:,} ({seg_summary.get('paid_percentage', 0):.1f}%)")
-            output_sections.append(f"- Free Customers (AI-Only): {free_count:,} ({seg_summary.get('free_percentage', 0):.1f}%)")
-            output_sections.append("")
-            
-            # Topics summary
-            output_sections.append(f"**Topics Identified**: {len(topic_dist)} categories")
-            if len(topic_dist) > 0:
-                # Sort by volume for the default list, but allow LLM override if available
-                top_3_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:3]
-                output_sections.append(f"**Top Issues**:")
-                for topic_name, topic_stats in top_3_topics:
-                    volume = topic_stats['volume']
-                    pct = topic_stats['percentage']
-                    output_sections.append(f"- {topic_name}: {volume:,} conversations ({pct:.1f}%)")
+            # Executive Summary (HEADLINE THE FIRES)
+            exec_summary_content = self._format_executive_summary(
+                context, segmentation, topic_dist, topic_sentiments, bpo_performance
+            )
+            output_sections.append(exec_summary_content)
             output_sections.append("")
 
             if detection_summary:
@@ -609,21 +725,24 @@ Return ONLY valid JSON, no other text:
             # Deep/Comp: Full breakdown
             bpo_section = self._format_bpo_snapshot_section(bpo_performance)
             
+            # Create BPO section logic that respects both data availability and detail level
             if bpo_section:
-                # Clean up the section based on detail level
                 if detail_level == 'standard':
-                    # Extract just the top summary part
+                    # Standard mode: concise summary only (first paragraph + bullet points, stop before pressure points)
+                    # Split by double newline to get paragraphs
                     parts = bpo_section.split('\n\n')
-                    # Title + Summary + Overview bullets
-                    filtered_parts = [p for p in parts if "Pressure Points" not in p]
-                    output_sections.append('\n\n'.join(filtered_parts))
+                    summary_parts = []
+                    for p in parts:
+                        if "Pressure Points" in p or "Risk Watchlist" in p:
+                            break
+                        summary_parts.append(p)
+                    output_sections.append('\n\n'.join(summary_parts))
                 else:
-                    # Deep/Comprehensive: Show everything
+                    # Deep/Comprehensive: Show everything including pressure points
                     output_sections.append(bpo_section)
-            else:
-                # If BPO failed or no data, show placeholder if appropriate
-                if bpo_performance:
-                     output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
+            elif bpo_performance:
+                 # Fallback if BPO ran but returned empty structure (e.g. no paid conversations)
+                 output_sections.append("## BPO Snapshot\n\n_No vendor-specific workload detected in this period_\n")
 
             cross_section = self._format_cross_agent_section(analytical_insights)
             if cross_section:

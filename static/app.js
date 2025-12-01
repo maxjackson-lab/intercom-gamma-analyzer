@@ -336,6 +336,7 @@ async function runAnalysis() {
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
             const showAgentThinking = document.getElementById('showAgentThinking')?.checked ?? false;
             const llmTopicDetection = document.getElementById('llmTopicDetection')?.checked ?? false;
+            const auditMode = document.getElementById('auditMode')?.checked ?? false;
             
             args.push('sample-mode');
             args.push('--time-period', sampleTimePeriod);
@@ -375,6 +376,11 @@ async function runAnalysis() {
             // Add llm-topic-detection flag if checked
             if (llmTopicDetection) {
                 args.push('--llm-topic-detection');
+            }
+            
+            // Add audit-mode flag if checked
+            if (auditMode) {
+                args.push('--audit-mode');
             }
             
         } else if (analysisType === 'voice-of-customer-hilary') {

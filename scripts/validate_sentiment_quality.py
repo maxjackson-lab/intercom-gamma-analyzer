@@ -27,6 +27,10 @@ def analyze_sentiment_quality(log_file_path: str) -> Dict[str, Any]:
     insight_pattern = re.compile(r"Insight:\s+(.+)$", re.MULTILINE)
     insights = insight_pattern.findall(content)
     
+    # Pattern for Pain Level
+    pain_level_pattern = re.compile(r"Pain Level:\s+(SEVERE|MODERATE|LOW|None)", re.MULTILINE | re.IGNORECASE)
+    pain_levels = pain_level_pattern.findall(content)
+    
     if not insights:
         print(f"No sentiment insights found in {log_file_path}")
         return {}
@@ -35,10 +39,18 @@ def analyze_sentiment_quality(log_file_path: str) -> Dict[str, Any]:
         'total_insights': len(insights),
         'insights_with_nuance': 0,
         'insights_with_generic_patterns': 0,
+        'insights_with_pain_level': len(pain_levels),
+        'pain_level_distribution': {'SEVERE': 0, 'MODERATE': 0, 'LOW': 0},
         'total_quality_score': 0.0,
         'average_length': 0.0,
         'details': []
     }
+    
+    # Populate distribution
+    for pl in pain_levels:
+        pl_upper = pl.upper()
+        if pl_upper in stats['pain_level_distribution']:
+            stats['pain_level_distribution'][pl_upper] += 1
     
     nuance_connectors = ["but", "however", "although", "yet"]
     bad_patterns = [
@@ -49,8 +61,12 @@ def analyze_sentiment_quality(log_file_path: str) -> Dict[str, Any]:
     
     total_chars = 0
     
-    for insight in insights:
+    # Match insights with pain levels if possible (this is loose matching based on order)
+    # Only works reliably if log order is preserved
+    
+    for i, insight in enumerate(insights):
         insight_lower = insight.lower()
+        current_pain_level = pain_levels[i] if i < len(pain_levels) else None
         
         # Check nuance
         has_nuance = any(c in insight_lower for c in nuance_connectors)
@@ -71,17 +87,21 @@ def analyze_sentiment_quality(log_file_path: str) -> Dict[str, Any]:
         if not has_nuance:
             score -= 0.2
         if has_generic:
-            score -= 0.3
-        if length < 20:
-            score -= 0.1
-        if length > 200:
-            score -= 0.1
+            score -= 0.4
+        if length < 100:
+            score -= 0.2
+        if length > 1000:
+            score -= 0.2
+        if not current_pain_level:
+            score -= 0.5 # Penalty for missing pain level
+            
         score = max(0.0, score)
         
         stats['total_quality_score'] += score
         
         stats['details'].append({
             'insight': insight,
+            'pain_level': current_pain_level,
             'score': round(score, 2),
             'has_nuance': has_nuance,
             'has_generic': has_generic
@@ -105,6 +125,14 @@ def print_report(stats: Dict[str, Any]):
     print(f"- **Average Quality Score:** {stats['average_quality_score']:.2f} / 1.0")
     print(f"- **Insights with Nuance:** {stats['insights_with_nuance']} ({stats['insights_with_nuance']/stats['total_insights']*100:.1f}%)")
     print(f"- **Insights with Generic Patterns:** {stats['insights_with_generic_patterns']} ({stats['insights_with_generic_patterns']/stats['total_insights']*100:.1f}%)")
+    
+    pl_dist = stats.get('pain_level_distribution', {})
+    print(f"- **Insights with Pain Level:** {stats.get('insights_with_pain_level', 0)} ({stats.get('insights_with_pain_level', 0)/stats['total_insights']*100:.1f}%)")
+    print(f"- **Pain Level Distribution:** SEVERE: {pl_dist.get('SEVERE', 0)}, MODERATE: {pl_dist.get('MODERATE', 0)}, LOW: {pl_dist.get('LOW', 0)}")
+    
+    if stats.get('insights_with_pain_level', 0) < stats['total_insights'] * 0.8:
+        print("\n⚠️  **WARNING:** Many insights missing pain_level field")
+        
     print(f"- **Average Length:** {stats['average_length']:.1f} characters\n")
     
     print("## Detailed Insights (Lowest Quality First)\n")
@@ -116,6 +144,7 @@ def print_report(stats: Dict[str, Any]):
         status = "✅" if detail['score'] >= 0.8 else "⚠️" if detail['score'] >= 0.5 else "❌"
         print(f"### {status} Score: {detail['score']}")
         print(f"> {detail['insight']}")
+        print(f"- Pain Level: {detail.get('pain_level', 'N/A')}")
         print(f"- Nuance: {'Yes' if detail['has_nuance'] else 'No'}")
         print(f"- Generic: {'Yes' if detail['has_generic'] else 'No'}\n")
 
@@ -158,5 +187,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 

@@ -539,6 +539,14 @@ Selected example numbers:"""
         try:
             response = await self.ai_client.generate_analysis(prompt)
             
+            # Log thinking for observability
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking_logger = AgentThinkingLogger.get_logger()
+            if thinking_logger.is_enabled():
+                token_estimate = len(prompt) // 4 + len(response) // 4
+                thinking_logger.log_prompt(self.name, prompt, {'topic': topic, 'candidate_count': len(candidates)})
+                thinking_logger.log_response(self.name, response, token_estimate)
+            
             # Parse JSON from response
             if '[' in response and ']' in response:
                 start = response.index('[')

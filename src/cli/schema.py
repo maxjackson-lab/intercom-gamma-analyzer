@@ -86,6 +86,11 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Enable verbose logging'
+            },
+            '--audit-mode': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Run validation checks on all agent outputs'
             }
         },
         'estimated_duration': '30sec-10min (depends on --schema-mode)'

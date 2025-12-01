@@ -530,6 +530,30 @@ python scripts/test_api_date_filter.py --date today --max 50
 python scripts/diagnose_conversation_count.py --days 7 --skip-fetch
 ```
 
+## 🕵️ **Phase 1 Black Box Audit Execution**
+
+For a complete comprehensive audit of the system, run the Phase 1 Black Box Audit command. This executes all 11 production agents against real data and generates detailed audit reports.
+
+### **Command Execution**
+```bash
+PYTHONPATH=. python src/main.py sample-mode --count 100 --test-all-agents --save-to-file --show-agent-thinking --audit-mode
+```
+
+### **Flags Explained**
+- `--count 100`: Fetches 100 real conversations from Intercom
+- `--test-all-agents`: Runs all 11 production agents (Segmentation, TopicDetection, SubTopic, Sentiment, Example, Fin, Correlation, Quality, Churn, Confidence, BPO)
+- `--save-to-file`: Persists all outputs to the `outputs/` directory
+- `--show-agent-thinking`: Captures full LLM prompts and responses for debugging
+- `--audit-mode`: Enables automated validation checks on all agent outputs
+
+### **Expected Outputs**
+- `outputs/agent_thinking_{timestamp}.log` - Full human-readable agent thinking logs
+- `outputs/agent_thinking_{timestamp}.observability.json` - Structured observability data
+- `outputs/agent_audit_report_{timestamp}.md` - Audit report with scorecard
+- `outputs/agent_audit_results_{timestamp}.json` - Detailed audit JSON
+
+> **Note:** The command takes approximately 5-10 minutes to complete depending on LLM response times.
+
 ## 🚀 **Advanced Usage**
 
 ### **Custom Prompts**

@@ -1,30 +1,34 @@
 """
 Wrapper orchestrator for VOC-V2 narrative reports.
 
-This thin wrapper configures TopicOrchestrator with the NarrativeFormatterAgent
-and BpoPerformanceAgent so the rest of the pipeline can remain unchanged.
+This wrapper now uses the UnifiedOrchestrator with VoiceOfCustomerStrategy,
+replacing the legacy TopicOrchestrator monolith while maintaining the same API.
 """
 
+from datetime import datetime
 from typing import Optional
 
-from src.agents.topic_orchestrator import TopicOrchestrator
-from src.agents.output_formatter_agent import OutputFormatterAgent
-from src.agents.bpo_performance_agent import BpoPerformanceAgent
+from src.agents.base_agent import AgentContext
 from src.services.ai_model_factory import AIModelFactory
+from src.services.unified_orchestrator import UnifiedOrchestrator
+from src.services.strategies.voc_strategy import VoiceOfCustomerStrategy
 
 
 class TopicOrchestratorV2:
-    """Configure TopicOrchestrator to produce VOC-V2 narratives."""
+    """
+    Configure UnifiedOrchestrator with VoiceOfCustomerStrategy.
+    
+    This replaces the legacy TopicOrchestrator while keeping the API compatible
+    with existing callers in src/cli/voc_commands.py.
+    """
 
     def __init__(self, ai_factory: Optional[AIModelFactory] = None, audit_trail=None, execution_monitor=None):
-        self._orchestrator = TopicOrchestrator(
+        strategy = VoiceOfCustomerStrategy(
             ai_factory=ai_factory,
             audit_trail=audit_trail,
-            execution_monitor=execution_monitor,
-            formatter_agent=OutputFormatterAgent(use_llm_formatting=True),
-            bpo_agent=BpoPerformanceAgent(),
-            report_type="voc_v2"
+            execution_monitor=execution_monitor
         )
+        self._orchestrator = UnifiedOrchestrator(strategy=strategy)
 
     async def execute_weekly_analysis(
         self,
@@ -39,17 +43,35 @@ class TopicOrchestratorV2:
         digest_mode=False,
         detail_level="standard"
     ):
-        """Proxy to TopicOrchestrator.execute_weekly_analysis with same signature."""
-        return await self._orchestrator.execute_weekly_analysis(
+        """
+        Execute analysis using the UnifiedOrchestrator.
+        
+        Maps arguments to AgentContext and options dict expected by VoiceOfCustomerStrategy.
+        """
+        # Build context
+        context = AgentContext(
+            analysis_id=f"voc_v2_{week_id or 'custom'}",
+            analysis_type="voc_v2",
+            start_date=start_date or datetime.now(),
+            end_date=end_date or datetime.now(),
             conversations=conversations,
-            week_id=week_id,
-            start_date=start_date,
-            end_date=end_date,
-            period_type=period_type,
-            period_label=period_label,
-            canny_posts=canny_posts,
-            ai_model=ai_model,
-            digest_mode=digest_mode,
-            detail_level=detail_level
+            metadata={
+                'week_id': week_id,
+                'period_type': period_type,
+                'period_label': period_label,
+                'digest_mode': digest_mode,
+                'detail_level': detail_level
+            }
         )
-
+        
+        # Pass specialized arguments via kwargs
+        kwargs = {
+            'canny_posts': canny_posts,
+            'ai_model': ai_model
+        }
+        
+        # Execute via strategy
+        result = await self._orchestrator.execute(context, **kwargs)
+        
+        # Return the data payload (matching legacy return type Dict[str, Any])
+        return result.data

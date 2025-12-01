@@ -616,6 +616,39 @@ python src/main.py sample-mode --count 50 --save-to-file
 **Documentation:**
 See `SAMPLE_MODE_GUIDE.md` for detailed sample-mode usage and interpretation.
 
+### Phase 1 Audit Execution (Comprehensive Validation)
+
+Run this audit to validate the entire 11-agent pipeline against real data.
+
+**Command:**
+```bash
+PYTHONPATH=. python src/main.py sample-mode --count 100 --test-all-agents --save-to-file --show-agent-thinking --audit-mode
+```
+
+**Interpreting Results:**
+- **Quality Score**: ≥ 0.6 is PASS, < 0.6 is FAIL.
+- **Hallucination Flags**: Indicate generic/fabricated outputs (diluted insights).
+- **Observability Metrics**: Check for high error rates, timeouts, or rate limits.
+
+**Workflow:**
+1. Run the audit command.
+2. Analyze observability: `python scripts/analyze_observability.py outputs/agent_thinking_*.observability.json`
+3. Consolidate findings: `python scripts/consolidate_audit_results.py ...`
+4. Update `docs/AGENT_AUDIT_RESULTS.md`.
+
+**Common Failure Patterns:**
+- **Timeouts**: Prompts sent but no responses (check observability JSON).
+- **Rate Limits (429)**: Semaphore misconfiguration.
+- **Hallucinations**: Generic language ("customers are frustrated").
+- **Data Drops**: Empty outputs despite success.
+- **Double-Counting**: >120% topic volume (inflation).
+
+**Prioritization:**
+1. **Critical Failures** (< 0.4 score)
+2. **Hallucinations** (Diluted quality)
+3. **High Error Rates** (Timeouts/Rate Limits)
+4. **Data Quality** (Drops/Inflation)
+
 ## Common Mistakes to Avoid
 
 ### ❌ DON'T:
