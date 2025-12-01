@@ -91,13 +91,13 @@ class SegmentationAgent(BaseAgent):
     based on conversation state, ratings, reopens, and admin participation.
     """
     
-    def __init__(self, track_escalations: bool = False):
+    def __init__(self, track_escalations: bool = True):
         """
         Initialize SegmentationAgent.
         
         Args:
-            track_escalations: If True, tracks detailed escalation chains (Fin→Horatio, etc.)
-                              If False (default), only does basic Paid/Free segmentation
+            track_escalations: If True (default), tracks detailed escalation chains (Fin→Horatio, etc.)
+                              If False, only does basic Paid/Free segmentation
                               Set to False for Hilary topic cards (faster)
                               Set to True for agent performance/operational metrics
         """
@@ -750,7 +750,7 @@ Output: Segmented conversations with agent type labels
             segment: 'paid', 'free', 'unknown'
             agent_type: 'fin_only', 'fin_to_horatio', 'fin_to_boldr', 'fin_to_vendor_to_senior', 
                        'escalated', 'horatio', 'boldr', 'fin_ai', 'unknown'
-            vendor_label: 'horatio', 'boldr', 'senior', 'fin', or None
+            vendor_label: 'horatio', 'boldr', 'senior', 'fin', 'mixed', 'team_queue', 'unknown', or None
         """
         conv_id = conv.get('id', 'unknown')
         detected_vendor: Optional[str] = None
@@ -786,8 +786,56 @@ Output: Segmented conversations with agent type labels
                 # Fin-only (no human)
                 return ('paid', 'fin_only', 'fin')
             else:
-                # Has human involvement (don't care which vendor)
-                return ('paid', 'unknown', detected_vendor)  # Generic paid with human
+                # Has human involvement - perform lightweight vendor detection
+                # Reuse minimal subset of detailed path logic without regex scanning
+                admin_emails = []
+                
+                # 1. Conversation parts
+                conversation_parts_data = conv.get('conversation_parts', {}) or {}
+                conv_parts = conversation_parts_data.get('conversation_parts', []) or []
+                for part in conv_parts:
+                    author = part.get('author', {})
+                    if author.get('type') == 'admin':
+                        if not is_sal_or_fin(author):
+                            email = author.get('email')
+                            if email:
+                                admin_emails.append(email.lower())
+                
+                # 2. Source author
+                source = conv.get('source', {}) or {}
+                source_author = source.get('author', {})
+                if source_author.get('type') == 'admin':
+                    if not is_sal_or_fin(source_author):
+                        email = source_author.get('email')
+                        if email:
+                            admin_emails.append(email.lower())
+                            
+                # 3. Assignee
+                assignee_data = conv.get('assignee')
+                if assignee_data and isinstance(assignee_data, dict):
+                    assignee_email = assignee_data.get('email')
+                    if assignee_email:
+                        admin_emails.append(assignee_email.lower())
+                
+                # Check for vendor markers
+                detected_vendor = 'unknown'
+                has_horatio = False
+                has_boldr = False
+                
+                for email in admin_emails:
+                    if 'horatio' in email or 'hirehoratio' in email:
+                        has_horatio = True
+                    if 'boldr' in email:
+                        has_boldr = True
+                
+                if has_horatio and has_boldr:
+                    detected_vendor = 'mixed'
+                elif has_horatio:
+                    detected_vendor = 'horatio'
+                elif has_boldr:
+                    detected_vendor = 'boldr'
+                
+                return ('paid', 'unknown', detected_vendor)
         
         # DETAILED PATH: Track full escalation chains
         # Extract actual conversation text for vendor/staff detection
