@@ -19,7 +19,7 @@ from pydantic import ValidationError
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
 from src.utils.ai_client_helper import get_ai_client
-from src.services.fin_escalation_analyzer import FinEscalationAnalyzer, is_fin_resolved, has_knowledge_gap
+from src.services.fin_escalation_analyzer import FinEscalationAnalyzer, is_fin_resolved, has_knowledge_gap, detect_soft_failure
 from src.models.analysis_models import FinAnalysisPayload
 from src.utils.conversation_utils import extract_customer_messages, extract_conversation_text
 
@@ -396,22 +396,10 @@ Calculate tier-specific metrics:
                 if isinstance(part, dict)
             )
         
-        def _is_fin_resolved(conv):
-            # 1. Trust explicit resolution state if available (SDK spec)
-            ai_agent = conv.get('ai_agent')
-            if ai_agent and isinstance(ai_agent, dict):
-                state = ai_agent.get('resolution_state')
-                if state:
-                    if state.lower() in ['resolved', 'completed', 'closed']:
-                        return True
-                    if state.lower() in ['routed_to_team', 'escalated', 'handed_off', 'transferred']:
-                        return False
-            
-            # 2. Fallback to admin participation check
-            return not _admin_participated(conv)
+        # Remove local _is_fin_resolved definition and use the imported one which includes soft failure logic
         
-        resolved_by_fin = [c for c in conversations if _is_fin_resolved(c)]
-        escalated = [c for c in conversations if not _is_fin_resolved(c)]
+        resolved_by_fin = [c for c in conversations if is_fin_resolved(c)]
+        escalated = [c for c in conversations if not is_fin_resolved(c)]
         
         self.logger.info(
             f"{tier_name} tier: "
@@ -479,6 +467,57 @@ Calculate tier-specific metrics:
         
         negative_rate = len(negative_fin_interactions) / total if total > 0 else 0
         self.logger.info(f"{tier_name} tier Negative Fin Interactions: {len(negative_fin_interactions)} ({negative_rate:.1%})")
+
+        # Soft Failure Detection & True Resolution Rate
+        # Check "technically resolved" conversations for hidden failures (e.g., "still broken", "I need a human")
+        # This catches the "100% Resolution" bug where Fin thinks it resolved but user was unhappy
+        
+        # Helper to check technical resolution (Intercom definition: Closed/NoAdmin/LowEngagement)
+        # We can't use is_fin_resolved() because it strictly filters soft failures.
+        def _is_technically_resolved(c):
+            # 1. No human admin (Support Sal/Fin allowed)
+            parts = c.get('conversation_parts', {})
+            parts_list = parts.get('conversation_parts', []) if isinstance(parts, dict) else (parts if isinstance(parts, list) else [])
+            
+            from src.services.fin_escalation_analyzer import _is_sal_or_fin
+            human_admin_parts = [
+                p for p in parts_list 
+                if p.get('author', {}).get('type') == 'admin' 
+                and not _is_sal_or_fin(p.get('author', {}))
+            ]
+            if human_admin_parts:
+                return False
+                
+            # 2. Closed OR Low Engagement
+            is_closed = c.get('state') == 'closed'
+            user_parts = [p for p in parts_list if p.get('author', {}).get('type') == 'user']
+            if not is_closed and len(user_parts) > 2:
+                return False
+                
+            return True
+
+        soft_failures = []
+        for c in conversations:
+            # Only check technically resolved conversations
+            if _is_technically_resolved(c):
+                # If it has soft failure signals, it's a "Soft Failure"
+                if detect_soft_failure(c):
+                    soft_failures.append(c)
+                    conv_id = c.get('id')
+                    self.logger.info(f"Soft failure detected in technically resolved conversation {conv_id} (Tier: {tier_name})")
+        
+        soft_failure_count = len(soft_failures)
+        soft_failure_rate = soft_failure_count / total if total > 0 else 0
+        
+        # Calculate TRUE resolution rate
+        # True resolution rate is derived from deflected_count minus soft failures to match the documented formula
+        true_resolved_count = max(0, deflected_count - soft_failure_count)
+        true_resolution_rate = true_resolved_count / total if total > 0 else 0.0
+        
+        self.logger.info(
+            f"{tier_name} tier Soft Failures: {soft_failure_count} ({soft_failure_rate:.1%}), "
+            f"True Resolution Rate: {true_resolution_rate:.1%}"
+        )
 
         # Performance by topic
         topic_performance = defaultdict(lambda: {'total': 0, 'resolved': 0})
@@ -613,6 +652,19 @@ Calculate tier-specific metrics:
             'knowledge_gap_rate': len(knowledge_gaps) / total if total > 0 else 0,
             'negative_fin_rate': negative_rate,
             'negative_fin_count': len(negative_fin_interactions),
+            'soft_failure_count': soft_failure_count,
+            'soft_failure_rate': soft_failure_rate,
+            'true_resolution_rate': true_resolution_rate,
+            'soft_failure_examples': [
+                {
+                    'id': c.get('id'),
+                    'preview': (extract_customer_messages(c, clean_html=True)[-1][:100] 
+                              if extract_customer_messages(c, clean_html=True) 
+                              else 'No preview available'),
+                    'intercom_url': self._build_intercom_url(c.get('id'))
+                }
+                for c in soft_failures[:3]
+            ],
             'knowledge_gap_examples': [
                 {
                     'id': c.get('id'),
@@ -702,6 +754,14 @@ Calculate tier-specific metrics:
         free_gaps = free_tier.get('knowledge_gaps_count', 0)
         paid_gaps = paid_tier.get('knowledge_gaps_count', 0)
 
+        # Extract Soft Failure Metrics
+        free_soft_failures = free_tier.get('soft_failure_count', 0)
+        paid_soft_failures = paid_tier.get('soft_failure_count', 0)
+        free_soft_failure_rate = free_tier.get('soft_failure_rate', 0)
+        paid_soft_failure_rate = paid_tier.get('soft_failure_rate', 0)
+        free_true_resolution = free_tier.get('true_resolution_rate', 0)
+        paid_true_resolution = paid_tier.get('true_resolution_rate', 0)
+
         # Format top topics for each tier
         free_top = free_tier.get('top_performing_topics', [])
         paid_top = paid_tier.get('top_performing_topics', [])
@@ -738,6 +798,8 @@ Analyze Fin AI's performance across customer tiers and provide nuanced, actionab
 Free Tier (Fin-only) Metrics:
 - Total conversations: {total_free}
 - Resolution rate: {free_resolution:.1%}
+- True resolution rate (excluding soft failures): {free_true_resolution:.1%}
+- Soft failures: {free_soft_failures} conversations ({free_soft_failure_rate:.1%})
 - Knowledge gaps: {free_gaps} conversations
 - Top performing topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in free_top]) if free_top else 'N/A'}
 - Struggling topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in free_struggling]) if free_struggling else 'N/A'}
@@ -745,6 +807,8 @@ Free Tier (Fin-only) Metrics:
 Paid Tier (Fin-resolved) Metrics:
 - Total conversations: {total_paid}
 - Resolution rate: {paid_resolution:.1%}
+- True resolution rate (excluding soft failures): {paid_true_resolution:.1%}
+- Soft failures: {paid_soft_failures} conversations ({paid_soft_failure_rate:.1%})
 - Knowledge gaps: {paid_gaps} conversations
 - Top performing topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in paid_top]) if paid_top else 'N/A'}
 - Struggling topics: {', '.join([f"{t[0]} ({t[1]['resolution_rate']:.1%})" for t in paid_struggling]) if paid_struggling else 'N/A'}
@@ -763,16 +827,27 @@ Instructions:
 5. Keep it under 200 words, professional executive tone
 6. Focus on actionable insights for improving AI performance
 7. Highlight sub-topic patterns if available (which specific sub-topics Fin excels at vs struggles with)
+8. Highlight soft failure patterns (resolved tickets with escalation requests like 'I need a human', 'still broken') and their impact on true resolution quality
 
 Insights:"""
 
         try:
             insights = await self.ai_client.generate_analysis(prompt)
-            return insights.strip()
+            insights = insights.strip()
+            
+            # Log thinking for observability
+            from src.utils.agent_thinking_logger import AgentThinkingLogger
+            thinking_logger = AgentThinkingLogger.get_logger()
+            if thinking_logger.is_enabled():
+                token_estimate = len(prompt) // 4 + len(insights) // 4
+                thinking_logger.log_prompt(self.name, prompt, {'tiers': 'Free vs Paid', 'comparison': True})
+                thinking_logger.log_response(self.name, insights, token_estimate)
+                
+            return insights
         except Exception as e:
             self.logger.warning(f"LLM insights generation failed: {e}")
             # Fallback insight
-            fallback = f"Free tier: {free_resolution:.1%} resolution ({free_gaps} gaps). Paid tier: {paid_resolution:.1%} resolution ({paid_gaps} gaps)."
+            fallback = f"Free tier: {free_resolution:.1%} resolution ({free_gaps} gaps, {free_soft_failures} soft failures). Paid tier: {paid_resolution:.1%} resolution ({paid_gaps} gaps, {paid_soft_failures} soft failures)."
             if tier_comparison:
                 fallback += f" {tier_comparison.get('resolution_rate_interpretation', '')}"
             return fallback

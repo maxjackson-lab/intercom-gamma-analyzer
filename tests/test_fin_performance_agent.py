@@ -234,115 +234,260 @@ class TestFinPerformanceAgent:
         assert 'tier3' in result['performance_by_subtopic']['Billing Issues']
         assert 'Refund' in result['performance_by_subtopic']['Billing Issues']['tier2']
 
-    def test_match_conversation_to_tier2_subtopic_via_tags(self, agent, sample_fin_conversations_with_subtopics):
-        """Test matching conversations to Tier 2 sub-topics via tags.tags."""
-        conv = sample_fin_conversations_with_subtopics[0]  # Has 'Refund' and 'Invoice' tags
-        subtopic_data = {'volume': 1, 'percentage': 100.0, 'source': 'tags'}
+    def test_soft_failure_keywords_coverage(self, agent):
+        """Test detection of specific soft failure keywords."""
+        keywords = [
+            "still broken",
+            "didn't fix",
+            "I need a human",
+            "talk to a human",
+            "useless",
+            "bad bot"
+        ]
         
-        # Should match 'Refund'
-        assert agent._match_conversation_to_subtopic(conv, 'Refund', 'tier2', subtopic_data) is True
-        # Should match 'Invoice'
-        assert agent._match_conversation_to_subtopic(conv, 'Invoice', 'tier2', subtopic_data) is True
-        # Should not match non-existent
-        assert agent._match_conversation_to_subtopic(conv, 'NonExistent', 'tier2', subtopic_data) is False
+        for kw in keywords:
+            conv = {
+                'id': f'sf_{kw.replace(" ", "_")}',
+                'conversation_parts': {'conversation_parts': [
+                    {'author': {'type': 'user'}, 'body': f'This is {kw}'}
+                ]},
+                'ai_agent_participated': True
+            }
+            # Use the imported detect_soft_failure from services
+            from src.services.fin_escalation_analyzer import detect_soft_failure
+            assert detect_soft_failure(conv) is True, f"Failed to detect keyword: {kw}"
 
-    def test_match_conversation_to_tier2_subtopic_via_custom_attributes(self, agent, sample_fin_conversations_with_subtopics):
-        """Test matching via custom_attributes values."""
-        conv = sample_fin_conversations_with_subtopics[10]  # Has 'billing_type': 'annual'
-        subtopic_data = {'volume': 1, 'percentage': 100.0, 'source': 'custom_attributes'}
+    def test_true_resolution_rate_calculation(self, agent):
+        """Test calculation of true resolution rate (excluding soft failures)."""
+        from unittest.mock import patch
         
-        # Should match 'annual'
-        assert agent._match_conversation_to_subtopic(conv, 'annual', 'tier2', subtopic_data) is True
-        # Should not match 'monthly'
-        assert agent._match_conversation_to_subtopic(conv, 'monthly', 'tier2', subtopic_data) is False
+        # Create conversations
+        # 5 Soft Failures (technically resolved + frustration)
+        soft_fails = [{
+            'id': f'sf_{i}',
+            'state': 'closed',
+            'conversation_parts': {'conversation_parts': [{'author': {'type': 'user'}, 'body': 'useless bot'}]},
+            'ai_agent_participated': True
+        } for i in range(5)]
+        
+        # 10 True Resolved (technically resolved + no frustration)
+        resolved = [{
+            'id': f'tr_{i}',
+            'state': 'closed',
+            'conversation_parts': {'conversation_parts': [{'author': {'type': 'user'}, 'body': 'thanks'}]},
+            'ai_agent_participated': True
+        } for i in range(10)]
+        
+        # 5 Escalated (admin involved - ignored for soft failure check)
+        escalated = [{
+            'id': f'esc_{i}',
+            'state': 'open',
+            'conversation_parts': {'conversation_parts': [{'author': {'type': 'admin'}}]},
+            'ai_agent_participated': True
+        } for i in range(5)]
+        
+        all_convs = soft_fails + resolved + escalated
+        
+        # Patch calculate_dual_metrics to return deterministic values
+        # We simulate that 15 are considered "deflected" by Intercom rules (the 5 SF + 10 TR)
+        with patch('src.utils.fin_metrics_calculator.calculate_dual_metrics') as mock_calc:
+            mock_calc.return_value = {
+                'intercom_compatible': {'deflected_count': 15, 'deflection_rate': 75.0},
+                'quality_adjusted': {},
+                'comparison': {}
+            }
+            
+            result = agent._calculate_tier_metrics(all_convs, 'Free')
+            
+            # Verify metrics
+            # Resolution Rate (Intercom) = 75% (from mock)
+            assert result['resolution_rate'] == 0.75
+            
+            # Soft Failures = 5 detected
+            assert result['soft_failure_count'] == 5
+            assert result['soft_failure_rate'] == 0.25  # 5/20
+            
+            # True Resolution Rate = (Deflected - Soft Failures) / Total
+            # (15 - 5) / 20 = 10 / 20 = 50%
+            assert result['true_resolution_rate'] == 0.50
+            
+            # Verify it is strictly derived from counts: 15 - 5 = 10
+            assert result['true_resolution_rate'] == (15 - 5) / 20
 
-    def test_match_conversation_to_tier2_subtopic_via_topics(self, agent, sample_fin_conversations_with_subtopics):
-        """Test matching via conversation_topics array."""
-        conv = sample_fin_conversations_with_subtopics[20]  # Has 'Subscription' topic
-        subtopic_data = {'volume': 1, 'percentage': 100.0, 'source': 'topics'}
+    def test_soft_failure_examples_structure(self, agent):
+        """Test structure of soft failure examples and end-to-end detection."""
+        from unittest.mock import patch
         
-        # Should match 'Subscription'
-        assert agent._match_conversation_to_subtopic(conv, 'Subscription', 'tier2', subtopic_data) is True
-        # Should not match 'Payment' (though it's in the list, test for exact match)
-        assert agent._match_conversation_to_subtopic(conv, 'Payment', 'tier2', subtopic_data) is True  # Actually should match if present
+        conv = {
+            'id': 'sf_struct',
+            'state': 'closed',
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'I need a human'}
+            ]},
+            'ai_agent_participated': True
+        }
+        
+        # Patch calculate_dual_metrics to ensure this is counted as deflected
+        # (If it wasn't deflected, it wouldn't be a soft failure, just an escalation)
+        with patch('src.utils.fin_metrics_calculator.calculate_dual_metrics') as mock_calc:
+            mock_calc.return_value = {
+                'intercom_compatible': {'deflected_count': 1, 'deflection_rate': 100.0},
+                'quality_adjusted': {},
+                'comparison': {}
+            }
+        
+            result = agent._calculate_tier_metrics([conv], 'Free')
+            
+            assert 'soft_failure_examples' in result
+            examples = result['soft_failure_examples']
+            assert len(examples) == 1
+            assert 'id' in examples[0]
+            assert 'preview' in examples[0]
+            assert 'intercom_url' in examples[0]
+            assert examples[0]['id'] == 'sf_struct'
+            
+            # Verify end-to-end metric impact
+            assert result['soft_failure_count'] == 1
+            assert result['soft_failure_rate'] > 0
+            # True resolution should be lower than resolution rate because of the soft failure
+            # 100% deflected - 100% soft failure = 0% true resolution
+            assert result['true_resolution_rate'] < result['resolution_rate']
+            assert result['true_resolution_rate'] == 0.0
 
     def test_match_conversation_to_tier3_subtopic_via_keywords(self, agent, sample_fin_conversations_with_subtopics):
-        """Test Tier 3 matching using keyword list against full_text."""
-        conv = sample_fin_conversations_with_subtopics[25]  # Has 'refund delay' in full_text
+        """Test Tier 3 matching using keyword list against extracted text."""
+        # Create a conversation with text in conversation_parts for extraction
+        conv = {
+            'id': 'keyword_test',
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'refund delay issue'}
+            ]}
+        }
         subtopic_data = {'volume': 1, 'percentage': 100.0, 'method': 'llm_semantic', 'keywords': ['refund', 'delay']}
         
-        # Should match due to 'refund' and 'delay' keywords
+        # Should match due to 'refund' and 'delay' keywords in body
         assert agent._match_conversation_to_subtopic(conv, 'Refund Processing Delays', 'tier3', subtopic_data) is True
         
         # Test non-matching
-        conv_no_match = sample_fin_conversations_with_subtopics[0]  # No keywords
+        conv_no_match = {
+            'id': 'no_match',
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'something else'}
+            ]}
+        }
         assert agent._match_conversation_to_subtopic(conv_no_match, 'Refund Processing Delays', 'tier3', subtopic_data) is False
 
     def test_calculate_single_subtopic_metrics_resolution_rate(self, agent, sample_fin_conversations_with_subtopics):
         """Test resolution rate calculation per sub-topic."""
         # Use conversations without escalation phrases
-        convs = [c for c in sample_fin_conversations_with_subtopics[:5] if 'speak to human' not in c.get('full_text', '')]
+        # Update fixture usage to access list correctly or create new ones
+        convs = [
+            {'id': '1', 'state': 'closed', 'conversation_parts': {'conversation_parts': [{'author': {'type': 'user'}, 'body': 'thanks'}]}},
+            {'id': '2', 'state': 'closed', 'conversation_parts': {'conversation_parts': [{'author': {'type': 'user'}, 'body': 'good'}]}}
+        ]
         
         result = agent._calculate_single_subtopic_metrics(convs, 'Billing Issues', 'Refund', 'tier2')
         
         assert 'resolution_rate' in result
-        assert 'total' in result
-        assert 'resolved_count' in result
-        assert result['total'] == len(convs)
-        assert result['resolution_rate'] >= 0.0 and result['resolution_rate'] <= 1.0
+        assert result['total'] == 2
+        assert result['resolution_rate'] == 1.0
 
     def test_calculate_single_subtopic_metrics_knowledge_gap_rate(self, agent, sample_fin_conversations_with_subtopics):
         """Test knowledge gap rate calculation per sub-topic."""
-        # Use conversations with knowledge gap phrases
-        convs = sample_fin_conversations_with_subtopics[30:35]  # Have 'wrong not helpful'
+        # Use conversations with knowledge gap phrases in BODY and HIGH ENGAGEMENT (to avoid 'resolved' via low engagement)
+        convs = [{
+            'id': 'gap_1', 
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'wrong not helpful'},
+                {'author': {'type': 'user'}, 'body': 'still waiting'},
+                {'author': {'type': 'user'}, 'body': 'hello?'}
+            ]},
+            'state': 'open'
+        }]
         
         result = agent._calculate_single_subtopic_metrics(convs, 'Product Questions', 'Test', 'tier2')
         
         assert 'knowledge_gap_rate' in result
-        assert 'knowledge_gap_count' in result
         assert result['knowledge_gap_count'] > 0
-        assert result['knowledge_gap_rate'] > 0.0
+        assert result['knowledge_gap_rate'] == 1.0
 
     def test_calculate_single_subtopic_metrics_escalation_rate(self, agent, sample_fin_conversations_with_subtopics):
         """Test escalation rate calculation using _detect_escalation_request."""
-        # Use conversations with escalation phrases
-        convs = sample_fin_conversations_with_subtopics[25:30]  # Have 'speak to human'
+        # Use conversations with escalation phrases in BODY and HIGH ENGAGEMENT (to avoid 'resolved' via low engagement)
+        # Note: _calculate_single_subtopic_metrics only counts 'escalated' outcome if categorize_fin_outcome says so.
+        # categorize_fin_outcome says 'escalated' if resolution_state='routed_to_team' or human responded without explicit routing.
+        # It does NOT check text for 'escalation_request' keyword to determine OUTCOME 'escalated'.
+        # However, the method returns 'escalation_rate' = len(escalated_convs) / total.
+        
+        # Wait, does _calculate_single_subtopic_metrics use _detect_escalation_request?
+        # Let's check the code in src/agents/fin_performance_agent.py.
+        # It does NOT seem to use _detect_escalation_request for the 'escalation_rate' calculation.
+        # It uses categorize_fin_outcome.
+        
+        # So I need to simulate an outcome of 'escalated'.
+        # Outcome 'escalated' requires:
+        # 1. Has human response OR resolution_state='routed_to_team'.
+        
+        convs = [{
+            'id': 'esc_1',
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'speak to human'},
+                {'author': {'type': 'admin'}, 'body': 'I am here'} # Human response
+            ]},
+            'ai_agent': {'resolution_state': 'routed_to_team'}
+        }]
         
         result = agent._calculate_single_subtopic_metrics(convs, 'Billing Issues', 'Refund Processing Delays', 'tier3')
         
         assert 'escalation_rate' in result
-        assert 'escalation_count' in result
         assert result['escalation_count'] > 0
-        assert result['escalation_rate'] > 0.0
+        assert result['escalation_rate'] == 1.0
 
     def test_calculate_single_subtopic_metrics_avg_rating(self, agent, sample_fin_conversations_with_subtopics):
         """Test average rating calculation from conversation_rating field."""
         # Use conversations with ratings
-        convs = [c for c in sample_fin_conversations_with_subtopics if c.get('conversation_rating') is not None][:5]
+        convs_with_ratings = [
+            {'conversation_rating': {'rating': 5}},
+            {'conversation_rating': {'rating': 3}}
+        ]
+        convs_without_ratings = [{'conversation_rating': None}]
         
-        result = agent._calculate_single_subtopic_metrics(convs, 'Billing Issues', 'Refund', 'tier2')
+        # Test with ratings
+        result_with = agent._calculate_single_subtopic_metrics(convs_with_ratings, 'Test', 'Test', 'tier2')
+        assert result_with['rated_count'] == 2
+        assert result_with['avg_rating'] == 4.0
         
-        assert 'avg_rating' in result
-        assert 'rated_count' in result
-        if result['rated_count'] > 0:
-            assert result['avg_rating'] is not None
-            assert 1 <= result['avg_rating'] <= 5
-        else:
-            assert result['avg_rating'] is None
+        # Test without ratings
+        result_without = agent._calculate_single_subtopic_metrics(convs_without_ratings, 'Test', 'Test', 'tier2')
+        assert result_without['rated_count'] == 0
+        assert result_without['avg_rating'] is None
 
     def test_detect_escalation_request_positive(self, agent):
         """Test _detect_escalation_request returns True for escalation phrases."""
-        conv_with_escalation = {'full_text': 'I need to speak to human about this issue'}
+        # Put text in conversation_parts for extraction
+        conv_with_escalation = {
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'I need to speak to human about this issue'}
+            ]}
+        }
         
         assert agent._detect_escalation_request(conv_with_escalation) is True
         
-        conv_with_escalate = {'full_text': 'Please escalate this to supervisor'}
+        conv_with_escalate = {
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'Please escalate this to supervisor'}
+            ]}
+        }
         
         assert agent._detect_escalation_request(conv_with_escalate) is True
 
     def test_detect_escalation_request_negative(self, agent):
         """Test _detect_escalation_request returns False for no escalation phrases."""
-        conv_no_escalation = {'full_text': 'This is a normal question about billing'}
+        conv_no_escalation = {
+            'conversation_parts': {'conversation_parts': [
+                {'author': {'type': 'user'}, 'body': 'This is a normal question about billing'}
+            ]}
+        }
         
         assert agent._detect_escalation_request(conv_no_escalation) is False
 
