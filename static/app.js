@@ -670,7 +670,9 @@ async function runAnalysis() {
             
         }
 
-        if (analysisType && analysisType.startsWith('voice-of-customer')) {
+        if (analysisType === 'sample-mode') {
+            // Already handled above; no additional flag alignment needed.
+        } else if (analysisType && analysisType.startsWith('voice-of-customer')) {
             appendInsightFlagArgs(args, {
                 correlation: correlationInsightsEnabled,
                 quality: qualityInsightsEnabled,
