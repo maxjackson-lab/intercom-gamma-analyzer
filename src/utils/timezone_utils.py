@@ -110,7 +110,7 @@ def get_pacific_time() -> datetime:
     Get the current datetime in Pacific Time.
     
     Returns:
-        Timezone-aware datetime in Pacific Time
+        Timezone-aware datetime in Pacific Time (America/Los_Angeles).
     """
     return datetime.now(PACIFIC_TZ)
 
