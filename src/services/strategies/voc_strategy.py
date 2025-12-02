@@ -584,64 +584,97 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
         return result
 
     async def _execute_phase_4_5_insights(self, context, seg_res, topic_res, sentiments, examples, fin_res, topics_map, ai_model):
+        """
+        Execute Phase 4.5 insight agents with graceful failure handling.
+        
+        If any agent fails, it will be skipped and the pipeline continues.
+        This ensures Phase 4.5 failures don't crash the entire analysis.
+        """
         self.logger.info("🔍 Phase 4.5: Analytical Insights")
-        config = get_analysis_mode_config()
         
-        # Setup agents based on flags
-        agents_to_run = []
-        if config.is_feature_enabled('enable_correlation_analysis'):
-            agents_to_run.append(('CorrelationAgent', self.correlation_agent))
-        if config.is_feature_enabled('enable_quality_insights'):
-            agents_to_run.append(('QualityInsightsAgent', self.quality_insights_agent))
-        if config.is_feature_enabled('enable_churn_detection'):
-            agents_to_run.append(('ChurnRiskAgent', self.churn_risk_agent))
-        if config.is_feature_enabled('enable_confidence_meta'):
-            agents_to_run.append(('ConfidenceMetaAgent', self.confidence_meta_agent))
+        try:
+            config = get_analysis_mode_config()
             
-        if not agents_to_run:
-            return {}
-
-        # Prepare context
-        hist_context = {'weeks_available': 0}
-        if self.historical_snapshot_service:
-            hist_context = self.historical_snapshot_service.get_historical_context()
-
-        insight_context = context.model_copy(update={
-            'previous_results': {
-                'SegmentationAgent': _normalize_agent_result(seg_res),
-                'TopicDetectionAgent': _normalize_agent_result(topic_res),
-                'TopicSentiments': sentiments,
-                'TopicExamples': examples,
-                'FinPerformanceAgent': _normalize_agent_result(fin_res)
-            },
-            'metadata': {
-                **context.metadata,
-                'topics_by_conversation': topics_map,
-                'historical_context': hist_context
-            }
-        })
-        
-        # Inject AI client
-        ai_enum = AIModel.OPENAI_GPT4 if ai_model == 'openai' else AIModel.ANTHROPIC_CLAUDE
-        client = self.ai_factory.get_client(ai_enum)
-        for _, agent in agents_to_run:
-            if hasattr(agent, 'ai_client'):
-                agent.ai_client = client
-
-        results = await asyncio.gather(
-            *(agent.execute(insight_context) for _, agent in agents_to_run),
-            return_exceptions=True
-        )
-        
-        insights = {}
-        for (name, _), res in zip(agents_to_run, results):
-            if isinstance(res, Exception):
-                self.logger.error(f"{name} failed: {res}")
-                insights[name] = {'success': False, 'error': str(res)}
-            else:
-                insights[name] = _normalize_agent_result(res)
+            # Setup agents based on flags
+            agents_to_run = []
+            if config.is_feature_enabled('enable_correlation_analysis'):
+                agents_to_run.append(('CorrelationAgent', self.correlation_agent))
+            if config.is_feature_enabled('enable_quality_insights'):
+                agents_to_run.append(('QualityInsightsAgent', self.quality_insights_agent))
+            if config.is_feature_enabled('enable_churn_detection'):
+                agents_to_run.append(('ChurnRiskAgent', self.churn_risk_agent))
+            if config.is_feature_enabled('enable_confidence_meta'):
+                agents_to_run.append(('ConfidenceMetaAgent', self.confidence_meta_agent))
                 
-        return insights
+            if not agents_to_run:
+                return {}
+
+            # Prepare context - defensive handling for None metadata
+            hist_context = {'weeks_available': 0}
+            if self.historical_snapshot_service:
+                try:
+                    hist_context = self.historical_snapshot_service.get_historical_context()
+                except Exception as e:
+                    self.logger.warning(f"Failed to get historical context: {e}")
+
+            # Safely unpack context.metadata (could be None)
+            base_metadata = context.metadata if context.metadata else {}
+            
+            insight_context = context.model_copy(update={
+                'previous_results': {
+                    'SegmentationAgent': _normalize_agent_result(seg_res),
+                    'TopicDetectionAgent': _normalize_agent_result(topic_res),
+                    'TopicSentiments': sentiments or {},
+                    'TopicExamples': examples or {},
+                    'FinPerformanceAgent': _normalize_agent_result(fin_res)
+                },
+                'metadata': {
+                    **base_metadata,
+                    'topics_by_conversation': topics_map or {},
+                    'historical_context': hist_context
+                }
+            })
+            
+            # Inject AI client with error handling
+            try:
+                ai_enum = AIModel.OPENAI_GPT4 if ai_model == 'openai' else AIModel.ANTHROPIC_CLAUDE
+                client = self.ai_factory.get_client(ai_enum)
+                for _, agent in agents_to_run:
+                    if hasattr(agent, 'ai_client'):
+                        agent.ai_client = client
+            except Exception as e:
+                self.logger.warning(f"Failed to inject AI client for insight agents: {e}")
+                # Continue without AI client - agents should handle None gracefully
+
+            results = await asyncio.gather(
+                *(agent.execute(insight_context) for _, agent in agents_to_run),
+                return_exceptions=True
+            )
+            
+            insights = {}
+            for (name, _), res in zip(agents_to_run, results):
+                if isinstance(res, Exception):
+                    self.logger.warning(f"⚠️ {name} failed (skipping): {res}")
+                    insights[name] = {
+                        'success': False, 
+                        'skipped': True,
+                        'error': str(res),
+                        'data': {}
+                    }
+                else:
+                    insights[name] = _normalize_agent_result(res)
+                    
+            return insights
+            
+        except Exception as e:
+            self.logger.error(f"⚠️ Phase 4.5 failed entirely (skipping all insight agents): {e}")
+            # Return empty insights so pipeline can continue
+            return {
+                'CorrelationAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
+                'QualityInsightsAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
+                'ChurnRiskAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
+                'ConfidenceMetaAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
+            }
 
     async def _execute_phase_4_6_cross_platform(self, paid_conversations, canny_posts, ai_model):
         self.logger.info("🔗 Phase 4.6: Cross-Platform Correlation")

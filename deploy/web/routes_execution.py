@@ -35,6 +35,27 @@ logger = logging.getLogger(__name__)
 execution_router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
+DEBUG_SESSION_ID = "debug-session"
+DEBUG_LOG_PATH = Path("/Users/max.jackson/Intercom Analysis Tool /.cursor/debug.log")
+
+
+def _write_debug_log(hypothesis_id: str, location: str, message: str, data: Dict[str, Any]):
+    """Append a debug log entry to the shared NDJSON log."""
+    try:
+        log_entry = {
+            "sessionId": DEBUG_SESSION_ID,
+            "runId": "pre-fix",
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data,
+            "timestamp": int(time.time() * 1000),
+        }
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(log_entry) + "\n")
+    except Exception:  # pragma: no cover - debug logging should never raise
+        logger.debug("Failed to write debug log entry", exc_info=True)
+
 
 class RateLimiter:
     """Simple in-memory rate limiter for per-IP requests."""
@@ -366,10 +387,34 @@ def _generate_settings_file(exec_dir: Path, command: str, args_list: List[str], 
     ])
     
     try:
+        # region agent log
+        _write_debug_log(
+            "H1",
+            "routes_execution.py:_generate_settings_file:start",
+            "Attempting to write settings file",
+            {"execution_id": execution_id, "path": str(settings_path)},
+        )
+        # endregion
         settings_path.write_text('\n'.join(lines), encoding='utf-8')
         logger.info("📝 Generated settings.txt for execution %s", execution_id)
+        # region agent log
+        _write_debug_log(
+            "H1",
+            "routes_execution.py:_generate_settings_file:success",
+            "Successfully wrote settings file",
+            {"execution_id": execution_id, "path": str(settings_path)},
+        )
+        # endregion
     except Exception as e:
         logger.error("Failed to generate settings.txt for %s: %s", execution_id, e)
+        # region agent log
+        _write_debug_log(
+            "H1",
+            "routes_execution.py:_generate_settings_file:error",
+            "Failed to write settings file",
+            {"execution_id": execution_id, "path": str(settings_path), "error": str(e)},
+        )
+        # endregion
     
     return settings_path
 
@@ -477,10 +522,15 @@ async def run_command_in_background(
             # Capture Gamma URLs from output
             output_text = output.get("data", "")
             if output_text:
+                # Match various Gamma URL formats:
+                # - "📊 Gamma URL: https://gamma.app/..."
+                # - "Gamma URL: https://gamma.app/..."
+                # - "Gamma presentation: https://gamma.app/..."
+                # - Direct URL on its own line
                 gamma_match = re.search(
-                    r'Gamma (?:URL|presentation):\s*(https://gamma\.app/[^\s]+)',
+                    r'(?:Gamma\s+(?:URL|presentation)[:\s]+|^|\s)(https://gamma\.app/[^\s\)]+)',
                     output_text,
-                    re.IGNORECASE
+                    re.IGNORECASE | re.MULTILINE
                 )
                 if gamma_match:
                     gamma_url = gamma_match.group(1)
@@ -489,6 +539,30 @@ async def run_command_in_background(
                         "gamma_url": gamma_url,
                         "captured_at": datetime.now(timezone.utc).isoformat()
                     })
+                    # region agent log
+                    _write_debug_log(
+                        "H2",
+                        "routes_execution.py:run_command_in_background:gamma_match",
+                        "Regex captured Gamma URL from output chunk",
+                        {
+                            "execution_id": execution_id,
+                            "gamma_url": gamma_url,
+                            "chunk_preview": output_text[:200],
+                        },
+                    )
+                    # endregion
+                elif "Gamma" in output_text:
+                    # region agent log
+                    _write_debug_log(
+                        "H2",
+                        "routes_execution.py:run_command_in_background:gamma_missing",
+                        "Output chunk mentioned Gamma but regex did not match",
+                        {
+                            "execution_id": execution_id,
+                            "chunk_preview": output_text[:200],
+                        },
+                    )
+                    # endregion
             
             output_type = output.get("type")
             if output_type == "status" and "completed successfully" in output.get("data", ""):
@@ -1030,6 +1104,14 @@ async def start_execution(
     execution = await state_manager.create_execution(execution_id, command, args_list)
     if hasattr(execution, "output_files"):
         execution.output_files = [exec_dir_name]
+        # region agent log
+        _write_debug_log(
+            "H3",
+            "routes_execution.py:start_execution:output_files",
+            "Recorded execution directory on execution state",
+            {"execution_id": execution_id, "output_files": execution.output_files},
+        )
+        # endregion
 
     asyncio.create_task(
         run_command_in_background(
