@@ -119,7 +119,6 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                     <option value="voice-of-customer-narrative-v2" selected>VoC: Narrative V2 (Hilary Weekly Story)</option>
                     <option value="voice-of-customer-synthesis">VoC: Synthesis (Cross-cutting Insights)</option>
                     <option value="voice-of-customer-complete">VoC: Complete (Both Formats)</option>
-                    <option value="voc-v2">VoC: Narrative V2 (Hilary Weekly Story)</option>
                 </optgroup>
                 <optgroup label="Category Deep Dives (Narrative V2)">
                     <option value="analyze-billing">Billing Analysis</option>
@@ -250,11 +249,10 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                 </p>
 
                 <label style="color: #e5e7eb; font-size: 14px; margin-top: 10px; display: block;">Analysis Depth:</label>
-                <select id="schemaMode" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
-                    <option value="quick">⚡ Quick - 50 tickets, 5 samples, 2 LLM tests (~30 sec)</option>
-                    <option value="standard" selected>📊 Standard - 200 tickets, 10 samples, 3 LLM tests (~2 min)</option>
-                    <option value="deep">🔍 Deep - 500 tickets, 15 samples, 5 LLM tests (~5 min)</option>
-                    <option value="comprehensive">🎯 Comprehensive - 1000 tickets, 20 samples, 7 LLM tests (~10 min)</option>
+                <select id="sampleDetailLevel" style="margin-bottom: 15px; padding: 8px; background: #1a1a1a; border: 1px solid #3a3a3a; border-radius: 4px; color: #e5e7eb; width: 100%;">
+                    <option value="standard">📊 Standard - Concise summary (default)</option>
+                    <option value="deep">🔍 Deep - Adds reasoning for top topics</option>
+                    <option value="comprehensive" selected>🎯 Comprehensive - Full agent thoughts & patterns</option>
                 </select>
 
                 <label for="sampleCount" style="color: #e5e7eb; font-size: 14px; display: block;">Sample Volume (10-100 conversations)</label>

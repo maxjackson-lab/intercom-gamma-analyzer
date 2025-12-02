@@ -544,8 +544,9 @@ async function runAnalysis() {
         
         // Map web UI analysis types to CLI commands
         if (analysisType === 'sample-mode') {
-            const schemaMode = document.getElementById('schemaMode')?.value || 'standard';
+            const sampleDetailLevel = document.getElementById('sampleDetailLevel')?.value || 'standard';
             const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
+            const sampleCount = document.getElementById('sampleCount')?.value || '50';
             const sampleAiModel = document.getElementById('sampleAiModel')?.value || 'openai';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
@@ -558,12 +559,9 @@ async function runAnalysis() {
             args.push('--save-to-file');  // Always save JSON and .log file
             args.push('--test-llm');  // Always run LLM sentiment test
             
-            // Map schema modes correctly: standard | deep | comprehensive
-            if (['standard', 'deep', 'comprehensive'].includes(schemaMode)) {
-                args.push('--schema-mode', schemaMode);
-            } else {
-                console.warn('Unknown schema mode:', schemaMode, 'defaulting to standard');
-                args.push('--schema-mode', 'standard');
+            // Pass detail level as schema-mode
+            if (sampleDetailLevel) {
+                args.push('--schema-mode', sampleDetailLevel);
             }
 
             if (sampleCount) {
