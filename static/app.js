@@ -266,7 +266,7 @@ let visibleJobId = null;
 /**
  * Add a new job tab
  */
-function addJobTab(executionId, label, command) {
+function addJobTab(executionId, label, command, startTime) {
     if (activeJobs[executionId]) return; // Already tracking
     
     activeJobs[executionId] = {
@@ -275,7 +275,7 @@ function addJobTab(executionId, label, command) {
         command: command || 'unknown',
         label: label || executionId.slice(0, 12),
         scrollPos: 0,
-        startTime: Date.now()
+        startTime: startTime || Date.now()
     };
     
     renderJobTabs();
@@ -430,7 +430,8 @@ async function pollAllRunningJobs() {
                 if (!activeJobs[exec.execution_id]) {
                     // New running job discovered - add it
                     const label = exec.output_files?.[0]?.replace(/_/g, ' ') || exec.command || exec.execution_id.slice(0, 12);
-                    addJobTab(exec.execution_id, label, exec.command);
+                    const jobStartTime = exec.start_time ? new Date(exec.start_time).getTime() : Date.now();
+                    addJobTab(exec.execution_id, label, exec.command, jobStartTime);
                     console.log('Discovered running job:', exec.execution_id);
                 }
             } else if (activeJobs[exec.execution_id]) {
