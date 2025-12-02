@@ -72,8 +72,9 @@ class AgentThinkingLogger:
         
         if output_file:
             # Create file and write header with PACIFIC TIME
-            from src.utils.timezone_utils import get_pacific_time
-            pacific_now = get_pacific_time()
+            # Inline timezone logic to avoid circular/stale imports
+            from zoneinfo import ZoneInfo
+            pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
             
             output_file.parent.mkdir(parents=True, exist_ok=True)
             with open(output_file, 'w', encoding='utf-8') as f:
@@ -121,8 +122,8 @@ class AgentThinkingLogger:
             return
         
         # Use Pacific time for all timestamps
-        from src.utils.timezone_utils import get_pacific_time
-        pacific_now = get_pacific_time()
+        from zoneinfo import ZoneInfo
+        pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
         timestamp = pacific_now.strftime('%I:%M:%S%p')  # "08:45:32PM"
         
         # Console output
@@ -162,8 +163,8 @@ class AgentThinkingLogger:
         
         # Structured JSON event (for observability)
         if self._enabled:
-            from src.utils.timezone_utils import get_pacific_time
-            pacific_now = get_pacific_time()
+            from zoneinfo import ZoneInfo
+            pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
             self._events.append({
                 'event_type': 'prompt',
                 'agent': agent_name,
@@ -186,8 +187,8 @@ class AgentThinkingLogger:
             return
         
         # Use Pacific time for all timestamps
-        from src.utils.timezone_utils import get_pacific_time
-        pacific_now = get_pacific_time()
+        from zoneinfo import ZoneInfo
+        pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
         timestamp = pacific_now.strftime('%I:%M:%S%p')  # "08:45:32PM"
         
         # Console output
@@ -218,8 +219,8 @@ class AgentThinkingLogger:
         
         # Structured JSON event (for observability)
         if self._enabled:
-            from src.utils.timezone_utils import get_pacific_time
-            pacific_now = get_pacific_time()
+            from zoneinfo import ZoneInfo
+            pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
             self._events.append({
                 'event_type': 'response',
                 'agent': agent_name,
@@ -302,8 +303,8 @@ class AgentThinkingLogger:
         context: Optional[Dict[str, Any]] = None
     ):
         """Log error/exception for observability (works in both full and metrics-only mode)"""
-        from src.utils.timezone_utils import get_pacific_time
-        pacific_now = get_pacific_time()
+        from zoneinfo import ZoneInfo
+        pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
         timestamp = pacific_now.strftime('%I:%M:%S%p')
         
         # Console output (only if full thinking enabled)
@@ -338,8 +339,8 @@ class AgentThinkingLogger:
         if not self._metrics_mode:
             return
         
-        from src.utils.timezone_utils import get_pacific_time
-        pacific_now = get_pacific_time()
+        from zoneinfo import ZoneInfo
+        pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
         
         self._events.append({
             'event_type': 'error',
@@ -367,8 +368,8 @@ class AgentThinkingLogger:
         if output_file is None:
             # Auto-generate filename based on mode
             from src.utils.output_manager import get_output_file_path
-            from src.utils.timezone_utils import get_pacific_time
-            pacific_now = get_pacific_time()
+            from zoneinfo import ZoneInfo
+            pacific_now = datetime.now(ZoneInfo("America/Los_Angeles"))
             timestamp = pacific_now.strftime("%b-%d-%Y_%I-%M%p").replace(" ", "")
             
             if self._log_file:
