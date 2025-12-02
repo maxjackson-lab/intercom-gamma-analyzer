@@ -67,13 +67,6 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
     <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
     <link rel="stylesheet" href="/static/styles.css?v={cache_bust_value}">
     <!-- Cache busting for app.js -->
-    <script>
-        // Force reload app.js if version mismatch
-        const expectedVersion = "{cache_bust_value}";
-        const script = document.createElement('script');
-        script.src = `/static/app.js?v=${{expectedVersion}}`;
-        document.head.appendChild(script);
-    </script>
 </head>
 <body>
     <div class="container">
