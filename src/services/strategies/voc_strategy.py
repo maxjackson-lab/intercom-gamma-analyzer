@@ -619,7 +619,7 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
 
             # Safely unpack context.metadata (could be None)
             base_metadata = context.metadata if context.metadata else {}
-            
+
             insight_context = context.model_copy(update={
                 'previous_results': {
                     'SegmentationAgent': _normalize_agent_result(seg_res),
@@ -663,7 +663,7 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
                     }
                 else:
                     insights[name] = _normalize_agent_result(res)
-                    
+                
             return insights
             
         except Exception as e:

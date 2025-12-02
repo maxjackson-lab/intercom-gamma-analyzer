@@ -500,9 +500,11 @@ async function runAnalysis() {
         const testDataCount = document.getElementById('testDataCount')?.value || '100';
         const verboseLogging = document.getElementById('verboseLogging')?.checked || false;
         
-        // Get sample mode options if sample-mode selected
+        // Sample mode controls
+        const sampleDetailLevel = document.getElementById('sampleDetailLevel')?.value || 'standard';
         const sampleCount = document.getElementById('sampleCount')?.value || '50';
         const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
+        const sampleAiModel = document.getElementById('sampleAiModel')?.value || 'openai';
         
         // Get custom dates if "custom" time period selected
         const startDate = document.getElementById('startDate')?.value || null;
@@ -544,10 +546,6 @@ async function runAnalysis() {
         
         // Map web UI analysis types to CLI commands
         if (analysisType === 'sample-mode') {
-            const sampleDetailLevel = document.getElementById('sampleDetailLevel')?.value || 'standard';
-            const sampleTimePeriod = document.getElementById('sampleTimePeriod')?.value || 'week';
-            const sampleCount = document.getElementById('sampleCount')?.value || '50';
-            const sampleAiModel = document.getElementById('sampleAiModel')?.value || 'openai';
             const includeHierarchy = document.getElementById('includeHierarchy')?.checked ?? true;
             const testAllAgents = document.getElementById('testAllAgents')?.checked ?? false;
             const showAgentThinking = document.getElementById('showAgentThinking')?.checked ?? false;
@@ -1041,8 +1039,8 @@ async function pollExecutionStatus(executionId, token) {
                         
                         // Only append to terminal if this job is currently visible
                         if (executionId === visibleJobId) {
-                            appendToTerminal(outputText, outputType);
-                            parseOutputForTabs(outputText);
+                        appendToTerminal(outputText, outputType);
+                        parseOutputForTabs(outputText);
                         }
                     }
                 });
