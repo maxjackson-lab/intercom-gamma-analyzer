@@ -5,7 +5,7 @@ Tests for data validation functionality.
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
-from src.services.orchestrator import AnalysisOrchestrator
+from src.services.strategies import ComprehensiveStrategy
 from src.services.gamma_generator import GammaGenerator
 
 
@@ -13,9 +13,9 @@ class TestDataValidation:
     """Test data validation functionality."""
 
     @pytest.fixture
-    def orchestrator(self):
-        """Fixture to provide an AnalysisOrchestrator instance."""
-        return AnalysisOrchestrator()
+    def comprehensive_strategy(self):
+        """Fixture to provide a ComprehensiveStrategy instance."""
+        return ComprehensiveStrategy()
 
     @pytest.fixture
     def gamma_generator(self):
@@ -47,12 +47,12 @@ class TestDataValidation:
         ]
 
     @pytest.mark.asyncio
-    async def test_validate_data_completeness_good_data(self, orchestrator, sample_conversations):
+    async def test_validate_data_completeness_good_data(self, comprehensive_strategy, sample_conversations):
         """Test validation with good data."""
         start_date = datetime(2024, 1, 1)
         end_date = datetime(2024, 1, 31)
         
-        validation_results = await orchestrator._validate_data_completeness(
+        validation_results = await comprehensive_strategy._validate_data_completeness(
             sample_conversations,
             max_conversations=10,  # More reasonable for test data
             start_date=start_date,
@@ -65,12 +65,12 @@ class TestDataValidation:
         assert len(validation_results['warnings']) == 0
 
     @pytest.mark.asyncio
-    async def test_validate_data_completeness_insufficient_data(self, orchestrator, sample_conversations):
+    async def test_validate_data_completeness_insufficient_data(self, comprehensive_strategy, sample_conversations):
         """Test validation with insufficient data."""
         start_date = datetime(2024, 1, 1)
         end_date = datetime(2024, 1, 31)
         
-        validation_results = await orchestrator._validate_data_completeness(
+        validation_results = await comprehensive_strategy._validate_data_completeness(
             sample_conversations,
             max_conversations=100,  # Much higher than actual count
             start_date=start_date,
@@ -83,7 +83,7 @@ class TestDataValidation:
         assert any('Only retrieved' in warning for warning in validation_results['warnings'])
 
     @pytest.mark.asyncio
-    async def test_validate_data_completeness_dominant_category(self, orchestrator):
+    async def test_validate_data_completeness_dominant_category(self, comprehensive_strategy):
         """Test validation with dominant single category."""
         conversations = [
             {'tags': {'tags': [{'name': 'Billing'}]}, 'created_at': '2024-01-01T10:00:00Z'},
@@ -96,7 +96,7 @@ class TestDataValidation:
         start_date = datetime(2024, 1, 1)
         end_date = datetime(2024, 1, 31)
         
-        validation_results = await orchestrator._validate_data_completeness(
+        validation_results = await comprehensive_strategy._validate_data_completeness(
             conversations,
             max_conversations=100,
             start_date=start_date,
@@ -107,7 +107,7 @@ class TestDataValidation:
         assert any('dominates dataset' in warning for warning in validation_results['warnings'])
 
     @pytest.mark.asyncio
-    async def test_validate_data_completeness_date_coverage(self, orchestrator):
+    async def test_validate_data_completeness_date_coverage(self, comprehensive_strategy):
         """Test validation with poor date coverage."""
         conversations = [
             {'tags': {'tags': [{'name': 'Billing'}]}, 'created_at': '2024-01-01T10:00:00Z'},
@@ -117,7 +117,7 @@ class TestDataValidation:
         start_date = datetime(2024, 1, 1)
         end_date = datetime(2024, 1, 31)  # 30-day range but only 2 days of data
         
-        validation_results = await orchestrator._validate_data_completeness(
+        validation_results = await comprehensive_strategy._validate_data_completeness(
             conversations,
             max_conversations=100,
             start_date=start_date,

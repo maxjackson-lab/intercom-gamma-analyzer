@@ -827,42 +827,78 @@ class AgentContext:
 ## Unified Orchestration Layer (Phase 4 Refactor)
 
 ### Overview
-Phase 4 consolidated the legacy Analysis, Multi-Agent, and Story-Driven orchestrators into a single unified orchestration layer. Strategies now plug into shared infrastructure instead of re-implementing timeout handling, checkpointing, and recovery logic.
+The migration is now complete: every modern workflow (CLI, web, Railway) routes through `UnifiedOrchestrator` with a pluggable strategy. Legacy orchestrators remain as thin adapters strictly for backward compatibility and now emit blocking deprecation warnings.
 
 ### Architecture
-- **UnifiedOrchestrator** – validates `AgentContext`, times execution, and delegates to a configured strategy.
-- **BaseOrchestrator** – shared utilities for timeouts, checkpoint persistence, metrics aggregation, and structured error handling.
-- **Strategies** – pluggable orchestration flows inheriting from `OrchestrationStrategy`:
-  - `ComprehensiveStrategy` for category-driven comprehensive analysis
-  - `MultiAgentStrategy` for the five-agent workflow with checkpoints
-  - `StoryDrivenStrategy` for narrative-focused journey analysis
+- **UnifiedOrchestrator** – validates `AgentContext`, manages timing, and delegates to the selected strategy.
+- **BaseOrchestrator** – shared utilities for timeouts, checkpoint persistence, metrics aggregation, retries, and circuit-breakers.
+- **Strategies** (all inherit from `OrchestrationStrategy`):
+  - `VoiceOfCustomerStrategy` – multi-agent VoC pipeline (Segmentation → Topics → Insights → Narrative)
+  - `ComprehensiveStrategy` – cross-category comprehensive analysis with Gamma generation
+  - `StoryDrivenStrategy` – narrative-first journeys that blend Intercom + Canny signals
+  - `MultiAgentStrategy` – preserved V1 five-agent workflow for regression testing
 
-### Benefits
-- Consistent timeout/checkpoint policy across every orchestration flow
-- Pydantic `AgentResult` returns instead of untyped dictionaries
-- Faster addition of new orchestration modes (implement a strategy, reuse BaseOrchestrator)
-- Legacy orchestrators remain as adapters, so existing callers keep working
+### Deprecation Status
 
-### Usage
+| Legacy Orchestrator      | Status      | Replacement                                                                 |
+|--------------------------|-------------|------------------------------------------------------------------------------|
+| `AnalysisOrchestrator`   | Deprecated  | `UnifiedOrchestrator(strategy=ComprehensiveStrategy())`                      |
+| `TopicOrchestrator`      | Deprecated  | `TopicOrchestratorV2` (wraps `VoiceOfCustomerStrategy` via Unified layer)    |
+| `StoryDrivenOrchestrator`| Deprecated  | `UnifiedOrchestrator(strategy=StoryDrivenStrategy())`                        |
+| `MultiAgentOrchestrator` | Deprecated  | `UnifiedOrchestrator(strategy=MultiAgentStrategy())`                         |
+
+### Migration Examples
 ```python
-from src.agents.base_agent import AgentContext
-from src.services.strategies import ComprehensiveStrategy
-from src.services.unified_orchestrator import UnifiedOrchestrator
-
+# Comprehensive (replaces AnalysisOrchestrator)
 context = AgentContext(
     analysis_id="analysis_123",
     analysis_type="comprehensive",
     start_date=start_date,
     end_date=end_date,
 )
-
 strategy = ComprehensiveStrategy()
 orchestrator = UnifiedOrchestrator(strategy=strategy)
 result = await orchestrator.execute(context, options={"generate_gamma_presentation": True})
+
+# Voice of Customer (replaces TopicOrchestrator)
+strategy = VoiceOfCustomerStrategy(audit_trail=audit, execution_monitor=monitor)
+orchestrator = UnifiedOrchestrator(strategy=strategy)
+result = await orchestrator.execute(voc_context)
+
+# Story-driven migration
+story_strategy = StoryDrivenStrategy()
+story_orchestrator = UnifiedOrchestrator(strategy=story_strategy)
+result = await story_orchestrator.execute(story_context, options={"canny_posts": posts})
+
+# Legacy five-agent regression path
+legacy_strategy = MultiAgentStrategy(checkpoint_dir=Path("checkpoints"))
+legacy_orchestrator = UnifiedOrchestrator(strategy=legacy_strategy)
+result = await legacy_orchestrator.execute(agent_context)
 ```
 
-### Migration
-`AnalysisOrchestrator`, `MultiAgentOrchestrator`, and `StoryDrivenOrchestrator` now log a deprecation warning and delegate directly to the unified layer. New development should instantiate strategies directly.
+### Updated Diagram
+
+```mermaid
+flowchart LR
+    CLI --> Unified[UnifiedOrchestrator]
+    WebUI[Web UI / Railway Jobs] --> Unified
+    Unified -->|strategy| Voc[VoiceOfCustomerStrategy]
+    Unified -->|strategy| Comp[ComprehensiveStrategy]
+    Unified -->|strategy| Story[StoryDrivenStrategy]
+    Unified -->|strategy| Legacy[MultiAgentStrategy]
+    Voc --> Agents
+    Comp --> Agents
+    Story --> Agents
+    Legacy --> Agents
+    Agents --> Services[Data Services & Storage]
+```
+
+### Benefits
+- Unified entry point eliminates the "five orchestrators" problem.
+- Consistent timeout/checkpoint policy across every analysis flow.
+- Pydantic `AgentResult` outputs everywhere (CLI, tests, API).
+- Adding a new orchestration mode now means implementing a strategy, not copying infrastructure.
+- Legacy adapters remain for compatibility but loudly warn developers when used.
 
 ## Refactored Architecture (Phase 1–4 Complete)
 

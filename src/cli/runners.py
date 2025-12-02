@@ -26,7 +26,6 @@ from src.services.chunked_fetcher import ChunkedFetcher
 from src.services.data_exporter import DataExporter
 from src.services.query_builder import GeneralQueryService
 from src.services.elt_pipeline import ELTPipeline
-from src.services.orchestrator import AnalysisOrchestrator
 from src.analyzers.voice_analyzer import VoiceAnalyzer
 from src.analyzers.trend_analyzer import TrendAnalyzer
 from src.analyzers.billing_analyzer import BillingAnalyzer
@@ -41,8 +40,7 @@ from src.services.ai_model_factory import AIModelFactory
 from src.services.agent_feedback_separator import AgentFeedbackSeparator
 from src.agents.agent_performance_agent import AgentPerformanceAgent
 from src.agents.base_agent import AgentContext
-from src.agents.topic_orchestrator import TopicOrchestrator
-from src.agents.orchestrator import MultiAgentOrchestrator
+from src.services.unified_orchestrator import UnifiedOrchestrator
 from src.services.test_data_generator import TestDataGenerator
 from src.utils.ai_client_helper import resolve_ai_model_choice
 from src.utils.time_utils import generate_descriptive_filename, detect_period_type
@@ -682,10 +680,18 @@ async def run_agent_performance_analysis(
         }
 
 
-async def run_comprehensive_analysis(orchestrator: AnalysisOrchestrator, start_date: datetime, end_date: datetime, 
-                                   options: Dict[str, Any], output_path: Path, timestamp: str) -> Dict[str, Any]:
+async def run_comprehensive_analysis(orchestrator: UnifiedOrchestrator, start_date: datetime, end_date: datetime,
+                                    options: Dict[str, Any], output_path: Path, timestamp: str) -> Dict[str, Any]:
     """Run comprehensive analysis across all categories and components."""
     try:
+        context = AgentContext(
+            analysis_id=f"comprehensive_{timestamp}",
+            analysis_type="comprehensive",
+            start_date=start_date,
+            end_date=end_date,
+            metadata={"options": options},
+        )
+
         # Run analysis
         with Progress(
             SpinnerColumn(),
@@ -694,11 +700,12 @@ async def run_comprehensive_analysis(orchestrator: AnalysisOrchestrator, start_d
         ) as progress:
             task = progress.add_task("Running comprehensive analysis...", total=None)
             
-            results = await orchestrator.run_comprehensive_analysis(
-                start_date=start_date,
-                end_date=end_date,
-                options=options
-            )
+            agent_result = await orchestrator.execute(context, options=options)
+            if not agent_result.success:
+                console.print(f"[yellow]⚠️ Comprehensive analysis reported issues: {agent_result.error_message or 'Unknown error'}[/yellow]")
+                if not agent_result.data:
+                    raise RuntimeError("Comprehensive analysis failed without result data.")
+            results = agent_result.data or {}
             
             progress.update(task, description="✅ Analysis completed")
         

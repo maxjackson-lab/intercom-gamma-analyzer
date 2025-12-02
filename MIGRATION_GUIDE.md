@@ -51,6 +51,102 @@ patterns that motivated the CLI/web refactor. Pair this document with:
 
 ---
 
+## 2.5 Migrating from Legacy Orchestrators
+
+All new work must use `UnifiedOrchestrator` with a pluggable strategy. The legacy wrappers now emit deprecation errors but remain available for explicit regression testing.
+
+### Replacement Map
+
+| Legacy Wrapper              | Modern Replacement                                                                    |
+|----------------------------|----------------------------------------------------------------------------------------|
+| `AnalysisOrchestrator`     | `UnifiedOrchestrator(strategy=ComprehensiveStrategy())`                                |
+| `TopicOrchestrator`        | `TopicOrchestratorV2` (internally uses `VoiceOfCustomerStrategy`)                      |
+| `StoryDrivenOrchestrator`  | `UnifiedOrchestrator(strategy=StoryDrivenStrategy())`                                  |
+| `MultiAgentOrchestrator`   | `UnifiedOrchestrator(strategy=MultiAgentStrategy())`                                   |
+
+### Migration Patterns
+
+**Comprehensive Analysis**
+
+```python
+# Before
+from src.services.orchestrator import AnalysisOrchestrator
+orchestrator = AnalysisOrchestrator()
+results = await orchestrator.run_comprehensive_analysis(start, end, options)
+
+# After
+from src.agents.base_agent import AgentContext
+from src.services.strategies import ComprehensiveStrategy
+from src.services.unified_orchestrator import UnifiedOrchestrator
+
+context = AgentContext(
+    analysis_id="comprehensive_20240101",
+    analysis_type="comprehensive",
+    start_date=start,
+    end_date=end,
+)
+strategy = ComprehensiveStrategy()
+orchestrator = UnifiedOrchestrator(strategy=strategy)
+agent_result = await orchestrator.execute(context, options=options)
+results = agent_result.data
+```
+
+**Voice of Customer (Topic) Analysis**
+
+```python
+# Before
+from src.agents.topic_orchestrator import TopicOrchestrator
+orchestrator = TopicOrchestrator()
+result = await orchestrator.execute_weekly_analysis(conversations, week_id, ...)
+
+# After
+from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+orchestrator = TopicOrchestratorV2()
+result = await orchestrator.execute_weekly_analysis(conversations, week_id, ...)
+# API surface stays identical but now uses UnifiedOrchestrator internally.
+```
+
+**Story-Driven Analysis**
+
+```python
+# After (StoryDrivenOrchestrator is deprecated)
+strategy = StoryDrivenStrategy()
+story_context = AgentContext(
+    analysis_id="story_run",
+    analysis_type="story_driven",
+    start_date=start,
+    end_date=end,
+    conversations=conversations,
+    metadata={"canny_posts": canny_posts},
+)
+orchestrator = UnifiedOrchestrator(strategy=strategy)
+agent_result = await orchestrator.execute(story_context, options=options)
+```
+
+**Multi-Agent (Legacy Regression)**
+
+```python
+legacy_strategy = MultiAgentStrategy(checkpoint_dir=checkpoint_dir)
+legacy_orchestrator = UnifiedOrchestrator(strategy=legacy_strategy)
+agent_result = await legacy_orchestrator.execute(agent_context)
+```
+
+### Testing Tips
+
+- When upgrading tests, patch the strategy methods rather than the legacy wrapper (see `tests/integration/test_gamma_api_integration.py` for an example).
+- Always assert against `AgentResult` (`success`, `data`, `error_message`) instead of untyped dicts.
+- Run `python src/main.py sample-mode --count 50 --save-to-file` after touching any LLM-facing strategy.
+
+### Common Pitfalls
+
+- Forgetting to create an `AgentContext` when calling `UnifiedOrchestrator.execute`.
+- Adding new function parameters to legacy wrappers—update the strategy instead.
+- Skipping the CLI/web alignment checks when exposing new flags for strategy options.
+
+Document migrations in this section as you deprecate additional wrappers so contributors know the sanctioned replacements.
+
+---
+
 ## 3. Adding FastAPI Routes or Web Features
 
 1. **Decide the router module.**

@@ -17,7 +17,7 @@ from typing import Dict, Any, List, Set, Optional, Tuple
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
-from src.utils.ai_client_helper import get_ai_client
+from src.utils.ai_client_helper import get_ai_client, get_recommended_semaphore
 from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -79,9 +79,8 @@ class OutputFormatterAgent(BaseAgent):
             self.client_type = "openai"
             logger.info("🧠 OutputFormatterAgent: Using GPT-4o (best for structured presentations)")
         
-        # RATE LIMITING: Per Anthropic/OpenAI docs
-        # Only 1 LLM call per analysis, but still add protection
-        self.llm_semaphore = asyncio.Semaphore(5)  # Lower limit (strategic calls only)
+        # RATE LIMITING: Provider-aware semaphores per Phase 3 resilience standards
+        self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Anthropic/OpenAI limits from settings
         self.llm_timeout = settings.output_formatter_timeout  # Configurable timeout from settings
     
     def get_agent_specific_instructions(self) -> str:
@@ -165,12 +164,12 @@ Emerging Themes (Tier 3 - AI Discovered):
 YOUR TASK:
 As an executive presentation strategist, provide guidance in JSON format:
 
-1. **top_insights** (array of 3-5 strings): Headline the FIRES. Don't be generic. Be specific about what is broken or burning.
+1. **top_insights** (array of 3-5 strings): Headline the priority issues. Don't be generic. Be specific about what is broken or burning.
    - Bad: "Billing issues increased"
    - Good: "Billing Refunds spiked 20% due to double-charge bug on Tuesday"
 2. **card_priority_order** (array of topic names): Order by SEVERITY/PAIN, not just volume.
 3. **emphasis_areas** (object): Which specific sub-topics/themes deserve extra attention? {{topic: [subtopic1, subtopic2]}}
-4. **executive_summary** (string): 2-3 sentence summary that HEADLINES THE FIRES. Focus on pain points, friction, and volume drivers. Avoid corporate fluff.
+4. **executive_summary** (string): 2-3 sentence summary that highlights the priority issues. Focus on pain points, friction, and volume drivers. Avoid corporate fluff.
 5. **narrative_arc** (string): What story does this data tell? (e.g., "Quality improving but billing remains pain point")
 
 Return ONLY valid JSON, no other text:
@@ -403,20 +402,36 @@ Return ONLY valid JSON, no other text:
 
         return "\n".join(lines) if len(lines) > 2 else None
     
-    def _format_executive_summary(self, context: AgentContext, segmentation: Dict, topic_dist: Dict, topic_sentiments: Dict, bpo_performance: Dict) -> str:
+    def _format_executive_summary(
+        self, 
+        context: AgentContext, 
+        segmentation: Dict, 
+        topic_dist: Dict, 
+        topic_sentiments: Dict, 
+        bpo_performance: Dict,
+        fin_performance: Optional[Dict],
+        topic_examples: Optional[Dict] = None,
+        trend_summary: Optional[Dict[str, List[str]]] = None,
+    ) -> str:
         """
-        Format Executive Summary prioritizing FIRES (High Severity/Negative Sentiment).
+        Format Executive Summary prioritizing the highest-risk topics.
+        Includes customer quotes for the top priority issues.
         """
+        topic_examples = topic_examples or {}
+        topic_sentiments = topic_sentiments or {}
+        fin_performance = fin_performance or {}
         lines = ["## Executive Summary", ""]
         
         fires = []
         
-        # 1. CHECK SENTIMENT FIRES
+        # 1. CHECK SENTIMENT-DRIVEN PRIORITIES
         for topic, sentiment_data in topic_sentiments.items():
-            insight = sentiment_data.get('sentiment_insight', '')
+            payload_source = sentiment_data if isinstance(sentiment_data, dict) else {}
+            sentiment_payload = payload_source.get('data') if isinstance(payload_source.get('data'), dict) else payload_source
+            insight = sentiment_payload.get('sentiment_insight', '')
             
             # Updated Logic: Priority to structured pain_level
-            pain_level = sentiment_data.get('pain_level', '')
+            pain_level = sentiment_payload.get('pain_level', '')
             severity = None
             
             if pain_level:
@@ -447,7 +462,7 @@ Return ONLY valid JSON, no other text:
                     'rank': 1 if severity == "CRITICAL" else 2
                 })
 
-        # 2. CHECK VOLUME FIRES (Topics > 40% of volume)
+        # 2. CHECK VOLUME PRIORITIES (Topics > 40% of volume)
         total_vol = sum(t['volume'] for t in topic_dist.values()) if topic_dist else 0
         if total_vol > 0:
             for topic, stats in topic_dist.items():
@@ -462,9 +477,7 @@ Return ONLY valid JSON, no other text:
                         'rank': 2
                     })
 
-        # 3. CHECK FIN PERFORMANCE FIRES (if data available)
-        # We need to access Fin performance data from context if possible, but it's passed as separate arg 'fin_performance'
-        # (Assuming fin_performance dict has 'free_tier' or 'paid_tier' keys from new refactor)
+        # 3. CHECK FIN PERFORMANCE PRIORITIES (if data available)
         if fin_performance:
             # Check Free Tier gaps
             free_tier = fin_performance.get('free_tier', {})
@@ -495,41 +508,49 @@ Return ONLY valid JSON, no other text:
         unique_fires = []
         for f in sorted(fires, key=lambda x: x['rank']):
             if f['topic'] not in seen_topics:
+                # Enrich with customer quote if available (Top 3 only)
+                if len(unique_fires) < 3 and topic_examples:
+                    examples_data = topic_examples.get(f['topic'], {}).get('data', {})
+                    examples = examples_data.get('examples', [])
+                    if examples:
+                        quote = examples[0].get('preview', '')[:100]
+                        if quote:
+                            f['insight'] += f' Customer quote: "{quote}..."'
+                            
                 unique_fires.append(f)
                 seen_topics.add(f['topic'])
         
         if unique_fires:
-            lines.append("### 🚨 CRITICAL FIRES")
-            for fire in unique_fires[:4]:  # Top 4 fires
-                icon = "🔥" if fire['severity'] == "CRITICAL" else "⚠️"
-                lines.append(f"- {icon} **{fire['topic']}**: {fire['insight']}")
+            lines.append("### 🔎 Priority Issues")
+            severity_to_score = {
+                "CRITICAL": 2.6,
+                "HIGH": 1.9,
+                "MODERATE": 1.5
+            }
+            for fire in unique_fires[:4]:  # Top 4 issues
+                score_hint = severity_to_score.get(fire['severity'], 1.5)
+                badge, label = self._get_severity_badge(score_hint)
+                lines.append(f"- {badge} **{fire['topic']}** — {fire['insight']} ({label})")
+            lines.append(
+                "_Priority scale blends sentiment, topic share, Fin AI gaps, CSAT, and quality metrics "
+                "(CRITICAL ≥2.5 • HIGH ≥1.8 • MODERATE <1.8)._"
+            )
             lines.append("")
         else:
             lines.append("### ✅ System Status: Stable")
             lines.append("No critical sentiment or volume spikes detected.")
             lines.append("")
 
-        # 2. Volume & Segmentation
-        seg_summary = segmentation.get('segmentation_summary', {})
-        total_convs = len(context.conversations) if context.conversations else 0
-        paid_count = seg_summary.get('paid_count', 0)
-        free_count = seg_summary.get('free_count', 0)
-        
-        lines.append(f"**Volume**: {total_convs:,} conversations")
-        lines.append(f"- Paid (Human): {paid_count:,} ({seg_summary.get('paid_percentage', 0):.1f}%)")
-        lines.append(f"- Free (AI): {free_count:,} ({seg_summary.get('free_percentage', 0):.1f}%)")
-        lines.append("")
-
-        # 3. Top Topics (Volume)
+        # 2. High-Volume Issues (Prioritized per user request)
         if len(topic_dist) > 0:
             top_3 = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)[:3]
-            lines.append(f"**Top Volume Drivers**:")
+            lines.append(f"### 📊 High-Volume Drivers")
             for topic, stats in top_3:
                 lines.append(f"- {topic}: {stats['volume']:,} ({stats['percentage']:.1f}%)")
-        lines.append("")
-        
-        # 4. BPO Snapshot (Forced Inclusion)
-        lines.append("**BPO Snapshot**:")
+            lines.append("")
+            
+        # 3. BPO Snapshot (Prioritized per user request)
+        lines.append("### 🏢 BPO Vendor Snapshot")
         if bpo_performance and bpo_performance.get('bpo_snapshot_summary'):
             summary = bpo_performance.get('bpo_snapshot_summary')
             # Extract first paragraph only for exec summary
@@ -537,6 +558,35 @@ Return ONLY valid JSON, no other text:
             lines.append(first_para)
         else:
             lines.append("_No BPO vendor data available for this period._")
+        lines.append("")
+
+        # 4. Volume & Segmentation Overview (Moved to end of summary)
+        seg_summary = segmentation.get('segmentation_summary', {})
+        total_convs = len(context.conversations) if context.conversations else 0
+        paid_count = seg_summary.get('paid_count', 0)
+        free_count = seg_summary.get('free_count', 0)
+        
+        lines.append("### 📈 Volume & Segmentation Overview")
+        lines.append(f"**Total Volume**: {total_convs:,} conversations")
+        lines.append(f"- Paid (Human): {paid_count:,} ({seg_summary.get('paid_percentage', 0):.1f}%)")
+        lines.append(f"- Free (AI): {free_count:,} ({seg_summary.get('free_percentage', 0):.1f}%)")
+        lines.append("")
+
+        if trend_summary:
+            lines.append("### 📈 Trends at a Glance")
+            icon_map = {
+                'rising': "🔺",
+                'declining': "🔻",
+                'stable': "⏸️",
+            }
+            for category, bullets in trend_summary.items():
+                if not bullets:
+                    continue
+                category_label = category.capitalize()
+                icon = icon_map.get(category, "📊")
+                lines.append(f"**{icon} {category_label}:**")
+                lines.extend(bullets)
+            lines.append("")
         
         return "\n".join(lines)
 
@@ -555,8 +605,10 @@ Return ONLY valid JSON, no other text:
             
             # Get results from previous agents
             segmentation = context.previous_results.get('SegmentationAgent', {}).get('data', {})
+            seg_summary = segmentation.get('segmentation_summary', {})
             topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
             topic_dist = topic_detection.get('topic_distribution', {})
+            total_convs = len(context.conversations) if context.conversations else 0
             
             # 🚨 CRITICAL VALIDATION: FAIL FAST if no topics detected
             if not topic_dist or len(topic_dist) == 0:
@@ -586,6 +638,7 @@ Return ONLY valid JSON, no other text:
             bpo_performance = context.previous_results.get('BpoPerformanceAgent', {})
             trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
             trends_lookup = {}
+            trend_insights: Dict[str, Any] = {}
             if isinstance(trend_agent_data, dict):
                 if isinstance(trend_agent_data.get('trends_by_topic'), dict):
                     trends_lookup = trend_agent_data.get('trends_by_topic', {})
@@ -599,7 +652,11 @@ Return ONLY valid JSON, no other text:
                             for entry in raw_trends
                             if isinstance(entry, dict) and entry.get('topic')
                         }
+                raw_trend_insights = trend_agent_data.get('trend_insights')
+                if isinstance(raw_trend_insights, dict):
+                    trend_insights = raw_trend_insights
             trends = trends_lookup
+            exec_trend_summary = self._build_exec_trend_summary(trends, trend_insights)
             bpo_topic_highlights = {}
             if isinstance(bpo_performance, dict):
                 bpo_topic_highlights = bpo_performance.get('topic_vendor_highlights', {})
@@ -610,6 +667,10 @@ Return ONLY valid JSON, no other text:
                 self.logger.info(f"Sub-topic data available: {len(subtopics_data)} Tier 1 topics with sub-topic breakdowns")
             else:
                 self.logger.info("No sub-topic data available (backward compatibility mode)")
+            
+            # Calculate CSAT by topic
+            topics_by_conv = topic_detection.get('topics_by_conversation', {})
+            csat_by_topic = self._aggregate_csat_by_topic(context.conversations, topics_by_conv)
             
             # 🧠 STRATEGIC LLM GUIDANCE (OPTIONAL - disabled by default per user feedback)
             # Use Sonnet 4.5 / GPT-4o to intelligently structure presentation
@@ -638,6 +699,7 @@ Return ONLY valid JSON, no other text:
             analytical_insights = context.previous_results.get('AnalyticalInsights', {})
             macro_callouts = self._build_topic_callouts(topic_names, analytical_insights)
             quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {}) if analytical_insights else {}
+            quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
             
             # Build output
             output_sections = []
@@ -665,9 +727,16 @@ Return ONLY valid JSON, no other text:
             output_sections.append(header_title)
             output_sections.append("")
             
-            # Executive Summary (HEADLINE THE FIRES)
+            # Executive Summary (surface priority issues)
             exec_summary_content = self._format_executive_summary(
-                context, segmentation, topic_dist, topic_sentiments, bpo_performance
+                context,
+                segmentation,
+                topic_dist,
+                topic_sentiments,
+                bpo_performance,
+                fin_performance,
+                topic_examples,
+                exec_trend_summary,
             )
             output_sections.append(exec_summary_content)
             output_sections.append("")
@@ -803,17 +872,34 @@ Return ONLY valid JSON, no other text:
             else:
                 # Fallback: Sort by volume (old behavior)
                 sorted_topics = sorted(topic_dist.items(), key=lambda x: x[1]['volume'], reverse=True)
-                logger.info("📊 Using volume-based ordering (LLM guidance unavailable)")
+                
+                # Optional: Sort by severity if configured
+                sort_by_severity = settings.sort_topics_by_severity
+                if sort_by_severity:
+                    # Calculate severity for all topics first (lightweight pass)
+                    topic_severities = {}
+                    for topic_name, topic_stats in sorted_topics:
+                        sentiment_payload = topic_sentiments.get(topic_name, {}).get('data', {})
+                        supporting_evidence = macro_callouts.get(topic_name, [])
+                        severity, _ = self._calculate_topic_severity(
+                            topic_name, topic_stats, sentiment_payload, 
+                            fin_performance, supporting_evidence, quality_topic_metrics, csat_by_topic
+                        )
+                        topic_severities[topic_name] = severity
+                    
+                    # Re-sort by severity (primary), volume (secondary)
+                    sorted_topics = sorted(
+                        sorted_topics,
+                        key=lambda x: (topic_severities.get(x[0], 0), x[1]['volume']),
+                        reverse=True
+                    )
+                    self.logger.info("📊 Using severity-based ordering (SORT_TOPICS_BY_SEVERITY=true)")
+                else:
+                    logger.info("📊 Using volume-based ordering (LLM guidance unavailable)")
             
-            # Get LLM trend insights from TrendAgent (outside loop for efficiency)
-            trend_agent_data = context.previous_results.get('TrendAgent', {}).get('data', {})
-            trend_insights = {}
-            if isinstance(trend_agent_data, dict):
-                trend_insights = trend_agent_data.get('trend_insights', {}) or {}
             topic_summaries: List[Dict[str, Any]] = []
             topic_cards: List[Dict[str, Any]] = []
-            quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
-
+            
             # Calculate label_summary (Comment 2)
             # Structure: { topic_name: [{'label': '...', 'count': N}, ...] }
             label_aggregation = {} 
@@ -909,8 +995,11 @@ Return ONLY valid JSON, no other text:
                     sentiment_payload,
                     fin_performance,
                     supporting_evidence,
-                    quality_topic_metrics
+                    quality_topic_metrics,
+                    csat_by_topic
                 )
+                badge_emoji, badge_label = self._get_severity_badge(severity)
+                severity_badge = f"{badge_emoji} {badge_label}".strip()
                 
                 # Format card
                 operational_notes: List[str] = []
@@ -936,7 +1025,8 @@ Return ONLY valid JSON, no other text:
                     actionable_insight=actionable_insight,
                     subtopic_summary=subtopic_summary,
                     operational_notes=operational_notes,
-                    digest_mode=digest_mode
+                    digest_mode=digest_mode,
+                    severity_badge=severity_badge
                 )
                 topic_cards.append({
                     'topic': topic_name,
@@ -1247,7 +1337,8 @@ Return ONLY valid JSON, no other text:
         actionable_insight: Optional[str] = None,
         subtopic_summary: Optional[List[str]] = None,
         operational_notes: Optional[List[str]] = None,
-        digest_mode: bool = False
+        digest_mode: bool = False,
+        severity_badge: Optional[str] = None
     ) -> str:
         """Format a single topic card"""
         detection_method = stats.get('detection_method')
@@ -1258,7 +1349,7 @@ Return ONLY valid JSON, no other text:
             method_line += f" (Confidence: {confidence_value:.2f})"
         
         card_lines: List[str] = [
-            f"### {topic_name}{trend}",
+            f"### {severity_badge + ' ' if severity_badge else ''}{topic_name}{trend}",
             f"**{stats['volume']} tickets / {stats['percentage']}% of {period_label.lower()} volume**",
             method_line,
             f"**Sentiment**: {sentiment}"
@@ -1301,14 +1392,29 @@ Return ONLY valid JSON, no other text:
             for summary_line in subtopic_summary:
                 card_lines.append(f"- {summary_line}")
         elif subtopics and (subtopics.get('tier2') or subtopics.get('tier3')):
-            card_lines.append("**Sub-Topic Breakdown:**")
+            card_lines.append("**Sub-Topic Breakdown**:")
             tier2 = subtopics.get('tier2', {})
             if tier2:
-                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:3]
+                card_lines.append("_Tier 2: From Intercom Data_")
+                sorted_tier2 = sorted(tier2.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:10]
                 for subtopic_name, subtopic_data in sorted_tier2:
                     volume = subtopic_data.get('volume', 0)
-                    percentage = subtopic_data.get('percentage', 0)
-                    card_lines.append(f"- {subtopic_name}: {volume} convs ({percentage}%)")
+                    pct_value = subtopic_data.get('percentage', 0)
+                    source = subtopic_data.get('source')
+                    pct_display = f"{pct_value:.1f}%" if isinstance(pct_value, (int, float)) else f"{pct_value}%"
+                    source_hint = f" [Source: {source}]" if source else ""
+                    card_lines.append(
+                        f"- {subtopic_name}: {volume} conversations ({pct_display}){source_hint}"
+                    )
+            tier3 = subtopics.get('tier3', {})
+            if tier3:
+                card_lines.append("_Tier 3: AI-Discovered Themes_")
+                sorted_tier3 = sorted(tier3.items(), key=lambda x: x[1].get('volume', 0), reverse=True)[:5]
+                for subtopic_name, subtopic_data in sorted_tier3:
+                    volume = subtopic_data.get('volume', 0)
+                    pct_value = subtopic_data.get('percentage', 0)
+                    pct_display = f"{pct_value:.1f}%" if isinstance(pct_value, (int, float)) else f"{pct_value}%"
+                    card_lines.append(f"- {subtopic_name}: {volume} conversations ({pct_display})")
         
         if supporting_evidence:
             card_lines.append("**Supporting Evidence:**")
@@ -1348,7 +1454,7 @@ Return ONLY valid JSON, no other text:
                 card_lines.extend(self._format_example_line(i, example))
         
         if not highlights and not lowlights:
-            card_lines.append("**Examples:**")
+            card_lines.append("**Examples**:")
             example_limit = 2 if digest_mode else 4
             if examples and len(examples) > 0:
                 for i, example in enumerate(examples[:example_limit], 1):
@@ -1421,46 +1527,239 @@ Return ONLY valid JSON, no other text:
             return f"{sentiment_label}: continue monitoring {topic_name}"
         return None
     
-    def _calculate_topic_severity(
+    def _get_severity_badge(self, severity: float) -> tuple[str, str]:
+        """
+        Map severity score to human-friendly priority label.
+        
+        Args:
+            severity: Composite severity score (1.0 - 3.5)
+            
+        Returns:
+            Tuple of (badge_emoji, badge_label)
+        """
+        if severity >= 2.5:
+            return "🔥", "CRITICAL"
+        elif severity >= 1.8:
+            return "⚠️", "HIGH"
+        else:
+            return "📊", "MODERATE"
+
+    def _build_exec_trend_summary(
         self,
-        topic_name: str,
-        stats: Dict[str, Any],
-        sentiment_payload: Dict[str, Any],
-        fin_performance: Dict[str, Any],
+        trends: Dict[str, Any],
+        trend_insights: Dict[str, Any],
+    ) -> Optional[Dict[str, List[str]]]:
+        """
+        Create a compact list of trend highlights for the executive summary.
+        """
+        if not trends:
+            return None
+
+        summary: Dict[str, List[str]] = {'rising': [], 'declining': [], 'stable': []}
+
+        def classify_direction(direction: str) -> str:
+            if not direction:
+                return 'stable'
+            normalized = direction.lower()
+            if any(symbol in direction for symbol in ("↑", "↗", "⏫")) or normalized in {'up', 'rising', 'increasing', 'accelerating'}:
+                return 'rising'
+            if any(symbol in direction for symbol in ("↓", "↘", "⏬")) or normalized in {'down', 'declining', 'decreasing', 'cooling'}:
+                return 'declining'
+            return 'stable'
+
+        for topic, info in trends.items():
+            if not isinstance(info, dict):
+                continue
+            direction = str(info.get('direction') or info.get('trend_direction') or '').strip()
+            alert = info.get('alert', '').strip()
+            category = classify_direction(direction)
+            insight_text = trend_insights.get(topic) or info.get('insight') or info.get('summary')
+            if not insight_text and info.get('change'):
+                change_value = info.get('change')
+                insight_text = f"{abs(change_value)} conversation swing"
+
+            entry = f"- {topic}"
+            adornment = " ".join(filter(None, [direction, alert])).strip()
+            if adornment:
+                entry += f" {adornment}"
+            if insight_text:
+                entry += f" — {insight_text}"
+            else:
+                entry += " — Notable shift observed this period."
+
+            summary.setdefault(category, []).append(entry)
+
+        limits = {'rising': 2, 'declining': 2, 'stable': 1}
+        trimmed = {
+            category: bullets[: limits.get(category, len(bullets))]
+            for category, bullets in summary.items()
+            if bullets
+        }
+
+        return trimmed or None
+
+
+    def _calculate_topic_severity(
+        self, 
+        topic_name: str, 
+        stats: Dict, 
+        sentiment_payload: Dict, 
+        fin_performance: Dict,
         callouts: List[str],
-        quality_topic_metrics: Dict[str, Any]
-    ) -> Tuple[float, List[str]]:
+        quality_topic_metrics: Dict = None,
+        csat_by_topic: Dict[str, float] = None
+    ) -> tuple[float, List[str]]:
+        """
+        Calculate composite severity score for a topic.
+        
+        Score components (Max ~3.5):
+        1. Base Score: 1.0
+        2. Sentiment Negativity: 0.0 - 0.8
+        3. Volume Percentage: 0.0 - 0.5 (NEW)
+        4. Fin AI Failure Rate: 0.0 - 0.6
+        5. CSAT Impact: 0.0 - 0.4 (NEW)
+        6. Quality Metrics (FCR): 0.0 - 0.5
+        7. Analytical Callouts: +0.3 per callout
+        """
         severity = 1.0
-        reasons: List[str] = []
+        reasons = []
         
-        sentiment_label = (sentiment_payload.get('sentiment_label') or sentiment_payload.get('sentiment') or '').lower()
-        if 'negative' in sentiment_label or 'very low' in sentiment_label:
+        # 1. Sentiment Impact (0 - 0.8)
+        pain_level = sentiment_payload.get('pain_level', 'UNKNOWN')
+        sentiment_insight = sentiment_payload.get('sentiment_insight', '').lower()
+        
+        if pain_level == 'SEVERE':
             severity += 0.8
-            reasons.append("Negative sentiment trend")
-        elif 'neutral' in sentiment_label:
+            reasons.append("Severe pain level")
+        elif pain_level == 'MODERATE':
             severity += 0.3
-        elif 'positive' in sentiment_label:
+            reasons.append("Moderate pain level")
+        elif pain_level == 'LOW':
             severity += 0.1
+        else:
+            # Fallback to text analysis
+            if any(w in sentiment_insight for w in ['frustrat', 'angry', 'upset', 'fail', 'broken']):
+                severity += 0.4
+                reasons.append("Negative sentiment trend")
         
-        quality_entry = quality_topic_metrics.get(topic_name, {})
-        fcr_value = quality_entry.get('fcr')
-        if isinstance(fcr_value, (int, float)) and fcr_value < 0.5:
-            severity += (0.5 - fcr_value)
-            reasons.append(f"FCR only {fcr_value:.0%}")
+        # 2. Volume Percentage Impact (0 - 0.5)
+        # Cap contribution at 50% volume (0.5 points)
+        volume_pct = stats.get('percentage', 0)
+        volume_score = min(volume_pct / 100.0 * 0.5, 0.5)
+        severity += volume_score
+        if volume_pct > 30:
+            reasons.append(f"High volume: {volume_pct:.1f}%")
+            
+        # 3. Fin AI Failure Impact (0 - 0.6)
+        # Check both tiers for this topic
+        metrics = []
         
-        fin_penalty, fin_reason = self._get_fin_topic_penalty(topic_name, fin_performance)
-        if fin_penalty > 0:
-            severity += fin_penalty
-            if fin_reason:
-                reasons.append(fin_reason)
+        # Check free tier
+        if 'free_tier' in fin_performance:
+            free_topics = fin_performance['free_tier'].get('performance_by_topic', {})
+            if topic_name in free_topics:
+                metrics.append(free_topics[topic_name])
+        # Check paid tier
+        if 'paid_tier' in fin_performance:
+            paid_topics = fin_performance['paid_tier'].get('performance_by_topic', {})
+            if topic_name in paid_topics:
+                metrics.append(paid_topics[topic_name])
+        # Legacy format fallback
+        if not metrics and 'performance_by_topic' in fin_performance:
+            legacy_topics = fin_performance.get('performance_by_topic', {})
+            if topic_name in legacy_topics:
+                metrics.append(legacy_topics[topic_name])
+                
+        # Use worst performance found
+        worst_resolution = 1.0
+        found_metrics = False
+        for m in metrics:
+            res_rate = m.get('resolution_rate', 1.0)
+            if res_rate < worst_resolution:
+                worst_resolution = res_rate
+                found_metrics = True
+                
+        if found_metrics and worst_resolution < 0.6:
+            penalty = 0.6 - worst_resolution
+            severity += penalty
+            reasons.append(f"Low Fin resolution: {worst_resolution:.1%}")
+            
+        # 4. CSAT Impact (0 - 0.4)
+        if csat_by_topic and topic_name in csat_by_topic:
+            topic_csat = csat_by_topic[topic_name]
+            if topic_csat < 3.5:
+                # Scale penalty: 3.5 -> 0, 1.0 -> ~0.28, 0.0 -> 0.4
+                csat_penalty = (3.5 - topic_csat) / 3.5 * 0.4
+                severity += csat_penalty
+                reasons.append(f"Low CSAT: {topic_csat:.1f}/5")
         
+        # 5. Quality Metrics (FCR) (0 - 0.5)
+        if quality_topic_metrics and topic_name in quality_topic_metrics:
+            fcr_data = quality_topic_metrics[topic_name]
+            fcr_rate = fcr_data.get('fcr') if isinstance(fcr_data, dict) else fcr_data.get('fcr_rate')
+            # Handle both potential key names from legacy vs new
+            if fcr_rate is None and isinstance(fcr_data, dict):
+                fcr_rate = fcr_data.get('fcr_rate')
+                
+            if isinstance(fcr_rate, (int, float)) and fcr_rate < 0.5:
+                fcr_penalty = 0.5 - fcr_rate
+                severity += fcr_penalty
+                reasons.append(f"Low FCR: {fcr_rate:.1%}")
+
+        # 6. Analytical Callouts (+0.3 each)
         if callouts:
-            severity += 0.3
-            reasons.extend(callouts[:1])
+            severity += (len(callouts) * 0.3)
+            reasons.append(f"{len(callouts)} analytical alerts")
+            
+        return min(severity, 3.5), reasons
+
+    def _aggregate_csat_by_topic(
+        self,
+        conversations: Optional[List[Dict]],
+        topics_by_conversation: Dict[str, List[Dict]]
+    ) -> Dict[str, float]:
+        """
+        Calculate average CSAT per topic using conversation ratings.
         
-        severity = min(severity, 3.0)
-        return severity, reasons
-    
+        Only topics with at least three rated conversations are included so that
+        severity adjustments aren't driven by tiny samples.
+        """
+        if not conversations or not isinstance(topics_by_conversation, dict):
+            return {}
+        
+        csat_buckets: Dict[str, List[float]] = {}
+        
+        for conv in conversations:
+            if not isinstance(conv, dict):
+                continue
+            rating_data = conv.get('conversation_rating') or {}
+            rating = rating_data.get('rating')
+            if rating is None:
+                continue
+            
+            conv_id = conv.get('id')
+            if not conv_id:
+                continue
+            
+            assignments = topics_by_conversation.get(conv_id, [])
+            if not isinstance(assignments, list) or not assignments:
+                continue
+            
+            for assignment in assignments:
+                topic_name = assignment.get('topic') if isinstance(assignment, dict) else None
+                if not topic_name:
+                    continue
+                csat_buckets.setdefault(topic_name, []).append(float(rating))
+        
+        avg_csat_by_topic: Dict[str, float] = {}
+        for topic_name, ratings in csat_buckets.items():
+            if len(ratings) < 3:
+                continue
+            avg_csat_by_topic[topic_name] = sum(ratings) / len(ratings)
+        
+        self.logger.info(f"CSAT aggregation: {len(avg_csat_by_topic)} topics with valid ratings")
+        return avg_csat_by_topic
+
     def _get_fin_topic_penalty(self, topic_name: str, fin_performance: Dict[str, Any]) -> Tuple[float, Optional[str]]:
         if not fin_performance:
             return 0.0, None

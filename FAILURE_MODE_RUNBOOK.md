@@ -86,6 +86,27 @@ python src/main.py sample-mode --count 50 --save-to-file
 # Check .log file for rate_limit_errors count (should be 0)
 ```
 
+### Phase 3 Resilience Check
+
+**Verify Semaphore Configuration**
+```bash
+python -c "from src.config.settings import settings; print(f'Anthropic: {settings.anthropic_concurrency}, OpenAI: {settings.openai_concurrency}')"
+```
+- Expected default → Anthropic: `2`, OpenAI: `20`. Adjust env vars if drifted.
+
+**Verify No Hardcoded Semaphores**
+```bash
+python scripts/validate_resilience_standards.py
+```
+- Fix any "Hardcoded Semaphore" violations before rerunning.
+
+**Lower Concurrency if Needed**
+```bash
+export ANTHROPIC_CONCURRENCY=1   # Tier 1 emergency mode
+export OPENAI_CONCURRENCY=10     # Temporary slowdown
+```
+- Re-run sample-mode and confirm rate-limit errors disappear.
+
 ### Prevention
 - Use provider-specific concurrency limits (already implemented)
 - Monitor `X-RateLimit-Remaining` headers
@@ -155,10 +176,59 @@ python src/main.py sample-mode --count 50 --save-to-file
 # Check .log for timeout_rate (should be <10%)
 ```
 
+### Phase 3 Timeout Configuration
+
+**Check Current Timeouts**
+```bash
+python -c "from src.config.settings import settings; print(f'Default: {settings.llm_timeout_default}s, Topic: {settings.topic_detection_timeout}s, Formatter: {settings.output_formatter_timeout}s')"
+```
+- Defaults: Topic = 60s, Formatter = 120s, Orchestrator window = 3× agent timeout.
+
+**Increase Timeout for Specific Agent**
+```bash
+export TOPIC_DETECTION_TIMEOUT=90
+export OUTPUT_FORMATTER_TIMEOUT=180
+```
+- Update `settings.py` only if adding a brand-new agent timeout.
+
+**Verify No Hardcoded Timeouts**
+```bash
+python scripts/validate_resilience_standards.py
+```
+- Ensure all LLM calls pull from `settings.*_timeout`.
+
 ### Prevention
 - Use configurable timeouts (already implemented)
 - Monitor timeout rate in observability JSON
 - Increase timeout if timeout rate > 10%
+
+---
+
+## 📉 Failure Mode: Data Loss / Silent Failures
+
+### Symptoms
+- OutputFormatterAgent returns generic summaries or empty sections despite successful upstream agents.
+- Logs show `🚨 DATA DROP ALERT` warnings.
+- Final topic volumes far lower than raw conversation counts.
+
+### Diagnosis
+1. **Scan logs for alerts**
+   ```bash
+   grep "DATA DROP ALERT" intercom_analysis.log
+   ```
+2. **Identify the stage name** in the warning (e.g., `Post-Segmentation`, `Post-TopicDetection`).
+3. **Inspect upstream agent outputs** (Segmentation, TopicDetection) for filtering bugs or validation errors.
+4. **Confirm `log_stage_metrics()` is called** in the relevant strategy.
+
+### Fix
+- Address the agent that dropped records (e.g., relax validation, handle missing fields, ensure context metadata is carried forward).
+- Add missing `self.log_stage_metrics(stage_name, count)` calls if the stage was invisible to the gate.
+- Re-run the pipeline with debug logging enabled to confirm counts remain stable.
+
+### Phase 3 Data Quality Checklist
+- Run `python scripts/validate_resilience_standards.py` to ensure the strategy uses `log_stage_metrics()` at every major stage.
+- If alerts persist, add instrumentation to log why items were filtered (e.g., missing `topic_id`, invalid segmentation).
+- Only mark the issue resolved once sample-mode completes with **no** `DATA DROP ALERT` warnings.
 
 ---
 

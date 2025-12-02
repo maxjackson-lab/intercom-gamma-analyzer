@@ -44,6 +44,7 @@ def topic_analysis_env(monkeypatch, tmp_path):
             period_type,
             period_label,
             digest_mode=False,
+            detail_level="standard",
         ):
             return {
                 "formatted_report": "# Report",
@@ -61,7 +62,9 @@ def topic_analysis_env(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "src.services.chunked_fetcher", chunk_module)
 
     topic_module = types.SimpleNamespace(TopicOrchestrator=DummyTopicOrchestrator)
+    topic_v2_module = types.SimpleNamespace(TopicOrchestratorV2=DummyTopicOrchestrator)
     monkeypatch.setitem(sys.modules, "src.agents.topic_orchestrator", topic_module)
+    monkeypatch.setitem(sys.modules, "src.agents.topic_orchestrator_v2", topic_v2_module)
 
     audit_module = types.SimpleNamespace(
         AuditTrail=type(

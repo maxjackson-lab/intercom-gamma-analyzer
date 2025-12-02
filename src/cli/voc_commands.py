@@ -68,9 +68,7 @@ async def run_topic_based_analysis_custom(
         if verbose_imports:
             import time as time_module
             import_start = time_module.monotonic()
-            console.print(f"[dim]⏱️  Importing TopicOrchestrator and ChunkedFetcher...[/dim]")
-
-        from src.agents.topic_orchestrator import TopicOrchestrator
+            console.print(f"[dim]⏱️  Importing ChunkedFetcher and helpers...[/dim]")
         from src.services.chunked_fetcher import ChunkedFetcher
 
         if verbose_imports:
@@ -161,44 +159,33 @@ async def run_topic_based_analysis_custom(
             conversations_count=len(conversations)
         )
 
-        # Initialize Unified Orchestrator with VoC Strategy
-        from src.services.strategies.voc_strategy import VoiceOfCustomerStrategy
-        from src.services.unified_orchestrator import UnifiedOrchestrator
-        
-        strategy = VoiceOfCustomerStrategy(
-            audit_trail=audit, 
-            execution_monitor=monitor
-        )
-        orchestrator = UnifiedOrchestrator(strategy=strategy)
-        
+        if orchestrator_cls is None:
+            from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+            orchestrator_cls = TopicOrchestratorV2
+
+        orchestrator_kwargs = {}
+        if audit:
+            orchestrator_kwargs['audit_trail'] = audit
+        if monitor:
+            orchestrator_kwargs['execution_monitor'] = monitor
+
+        orchestrator = orchestrator_cls(**orchestrator_kwargs)
         week_id = start_date.strftime('%Y-W%W')
-        
-        # Create AgentContext
-        context = AgentContext(
-            analysis_id=f"voc_{week_id}",
-            analysis_type="voc",
+
+        results = await orchestrator.execute_weekly_analysis(
+            conversations=conversations,
+            week_id=week_id,
             start_date=start_date,
             end_date=end_date,
-            conversations=conversations,
-            metadata={
-                'week_id': week_id,
-                'period_type': period_type,
-                'period_label': period_label,
-                'digest_mode': digest_mode,
-                'detail_level': detail_level,
-                'options': {} 
-            }
+            period_type=period_type,
+            period_label=period_label,
+            digest_mode=digest_mode,
+            detail_level=detail_level
         )
 
-        # Execute
-        agent_result = await orchestrator.execute(context)
-        
-        if not agent_result.success:
-             console.print(f"[red]Analysis failed: {agent_result.error_message}[/red]")
-             if not agent_result.data:
-                 return
-
-        results = agent_result.data
+        if not results:
+            console.print("[red]Analysis returned no data[/red]")
+            return
 
         # Save output
         from src.utils.output_manager import get_output_file_path
@@ -344,7 +331,7 @@ async def run_complete_analysis_custom(
     extra_conversations: Optional[List[Dict[str, Any]]] = None
 ):
     """Run complete VoC analysis (topic + synthesis) through a unified NarrativeFormatter pass."""
-    from src.agents.topic_orchestrator import TopicOrchestrator
+    from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
 
     await run_voc_narrative_analysis(
         start_date,
@@ -352,7 +339,7 @@ async def run_complete_analysis_custom(
         generate_gamma=generate_gamma,
         audit_trail=audit_trail,
         digest_mode=digest_mode,
-        orchestrator_cls=TopicOrchestrator,
+        orchestrator_cls=TopicOrchestratorV2,
         analysis_slug="voc_complete",
         analysis_mode="complete",
         include_synthesis=True,
@@ -373,6 +360,7 @@ async def run_legacy_topic_analysis(
     console.print("\n[cyan]🕰️ Legacy Mode: Running original Hilary topic workflow (MultiAgentStrategy)[/cyan]")
     console.print("[dim]This path replays the five-agent V1 pipeline for comparison and regression checks.[/dim]\n")
 
+    # Intentionally retained for backward compatibility/regression testing.
     from src.agents.orchestrator import MultiAgentOrchestrator
     from src.utils.output_manager import get_output_file_path
 

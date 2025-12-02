@@ -18,7 +18,36 @@ This tool now uses the **official Intercom Python SDK** (`python-intercom`) for 
 
 The SDK integration is wrapped in `IntercomSDKService` which maintains backward compatibility with existing analyzers and services while leveraging the official SDK's capabilities.
 
+## 🛡️ Resilience & Rate Limiting
+
+Phase 3 resilience standardizes concurrency, timeout, and data-quality controls across every agent + orchestrator.
+
+### Key Controls
+
+- **Provider-aware semaphores** – `get_recommended_semaphore()` enforces Anthropic Tier 1 (2 concurrent) and OpenAI (20 concurrent) limits, preventing 429 thrashing.
+- **Centralized timeouts** – `settings.py` exposes per-agent LLM timeouts (60s default, 120s for OutputFormatterAgent) and `BaseOrchestrator` automatically multiplies them by 3× for orchestration buffers.
+- **Data-quality gates** – `BaseOrchestrator.log_stage_metrics()` logs counts at Post-Fetch, Post-Segmentation, Post-TopicDetection, and Pre-Formatting checkpoints, alerting on >10% drops before formatter dilution.
+
+### Configuration
+
+```bash
+# Concurrency overrides (defaults: Anthropic=2, OpenAI=20)
+export ANTHROPIC_CONCURRENCY=2
+export OPENAI_CONCURRENCY=20
+
+# Timeout overrides
+export LLM_TIMEOUT_DEFAULT=60
+export TOPIC_DETECTION_TIMEOUT=60
+export OUTPUT_FORMATTER_TIMEOUT=120
+```
+
+### Further Reading
+
+- `docs/PHASE_3_RESILIENCE_STANDARDIZATION.md` – Full rollout plan, migration guide, and validation tooling.
+
 ## 🎯 **Key Features**
+
+- **Phase 3 Resilience:** Provider-aware rate limiting, standardized timeouts, and >10% data-drop alerts keep multi-agent analyses stable at scale.
 
 ### **Voice of Customer Metrics**
 - **Volume Metrics**: Total conversations, AI resolution rate, response times
@@ -177,10 +206,22 @@ intercom-analyzer/
 - [Migration Guide](MIGRATION_GUIDE.md)
 - [System Architecture Guide](SYSTEM_ARCHITECTURE_GUIDE.md)
 - [CLI ↔ Web Alignment Checklist](CLI_WEB_ALIGNMENT_CHECKLIST.md)
+- [Phase 3 Resilience Standardization](docs/PHASE_3_RESILIENCE_STANDARDIZATION.md)
+
+## 🧠 Unified Orchestrator
+
+All analysis modes now run through `UnifiedOrchestrator` with a pluggable strategy:
+
+- `VoiceOfCustomerStrategy` powers the flagship multi-agent VoC pipeline (used by `TopicOrchestratorV2`).
+- `ComprehensiveStrategy` drives cross-category analysis + Gamma generation.
+- `StoryDrivenStrategy` produces narrative journeys that blend Intercom + Canny.
+- `MultiAgentStrategy` preserves the legacy five-agent workflow for regression testing.
+
+Legacy orchestrators log deprecation errors but remain as adapters for older automation. See `MIGRATION_GUIDE.md` §2.5 for before/after examples.
 
 ## 🤖 **Multi-Agent Workflow**
 
-The TopicOrchestrator coordinates a 7-phase analysis pipeline:
+`TopicOrchestratorV2` (UnifiedOrchestrator + VoiceOfCustomerStrategy) coordinates a 7-phase analysis pipeline:
 
 ### **Phase 1: Segmentation**
 - Separates paid vs free tier conversations
@@ -231,6 +272,24 @@ The orchestrator tracks comprehensive metrics across all phases:
 - **Sub-topic statistics**: Tier 2 and Tier 3 counts per topic
 - **Agent performance**: Success rates and confidence scores
 - **Quality indicators**: Example counts, topic coverage, error rates
+
+### Priority Severity System
+
+The OutputFormatterAgent uses a calm, data-backed priority scale to surface high-impact customer issues:
+
+- **Composite Severity Scoring** blends sentiment, volume share, Fin AI gaps, CSAT, and quality metrics
+- **Severity Badges** label each topic as 🔥 CRITICAL, ⚠️ HIGH, or 📊 MODERATE
+- **Customer Quotes in Executive Summary** put a real customer voice behind the top issues
+- **Flexible Sorting** lets you keep volume-first ordering or opt into severity-first ordering
+
+**Enable severity-based sorting:**
+
+```bash
+export SORT_TOPICS_BY_SEVERITY=true
+python src/main.py analyze --start-date 2024-01-01 --end-date 2024-01-07
+```
+
+See `docs/OUTPUT_FORMATTER_PRIORITY_SYSTEM.md` for detailed documentation.
 
 ## 🔧 **Configuration**
 

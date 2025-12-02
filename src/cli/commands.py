@@ -21,6 +21,8 @@ from src.models.analysis_models import AnalysisRequest, AnalysisMode
 from src.utils.time_utils import detect_period_type
 from src.utils.timezone_utils import get_date_range_pacific
 from src.services.audit_trail import AuditTrail
+from src.services.strategies import ComprehensiveStrategy
+from src.services.unified_orchestrator import UnifiedOrchestrator
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -277,9 +279,9 @@ async def comprehensive_analysis(
     console.print(f"Max conversations: {max_conversations}")
     console.print(f"Output directory: {output_dir}")
     
-    # Initialize orchestrator
-    from src.services.orchestrator import AnalysisOrchestrator
-    orchestrator = AnalysisOrchestrator()
+    # Initialize unified orchestrator
+    strategy = ComprehensiveStrategy()
+    orchestrator = UnifiedOrchestrator(strategy=strategy)
     
     # Set up options
     options = {

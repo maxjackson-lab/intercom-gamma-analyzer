@@ -6,13 +6,18 @@ These tests require a valid GAMMA_API_KEY environment variable.
 import pytest
 import os
 import asyncio
-from pathlib import Path
 import json
+import types
+from datetime import datetime
+from pathlib import Path
 
 from src.services.gamma_client import GammaClient, GammaAPIError
 from src.services.gamma_generator import GammaGenerator
 from src.services.presentation_builder import PresentationBuilder
 from src.services.google_docs_exporter import GoogleDocsExporter
+from src.services.unified_orchestrator import UnifiedOrchestrator
+from src.services.strategies import ComprehensiveStrategy
+from src.agents.base_agent import AgentContext
 
 
 class TestGammaAPIIntegration:
@@ -364,9 +369,17 @@ This should generate a PDF export link.
     async def test_end_to_end_comprehensive_analysis_with_gamma(self, sample_analysis_results):
         """Full end-to-end test: Analysis → Gamma generation."""
         try:
-            from src.services.orchestrator import AnalysisOrchestrator
-            
-            # Create a mock comprehensive report
+            strategy = ComprehensiveStrategy()
+            orchestrator = UnifiedOrchestrator(strategy=strategy)
+            options = {
+                'generate_gamma_presentation': True,
+                'gamma_style': 'executive',
+                'gamma_export': None,
+                'export_docs': False,
+                'output_directory': Path('/tmp')
+            }
+
+            # Build deterministic comprehensive report from fixture data
             comprehensive_report = {
                 'conversations': sample_analysis_results['conversations'],
                 'category_results': sample_analysis_results['category_results'],
@@ -379,31 +392,48 @@ This should generate a PDF export link.
                     'technical_analysis': {'api_issues': 5}
                 }
             }
-            
-            # Test orchestrator's Gamma generation
-            orchestrator = AnalysisOrchestrator()
-            
-            options = {
-                'gamma_style': 'executive',
-                'gamma_export': None,
-                'export_docs': False,
-                'output_directory': Path('/tmp')
-            }
-            
-            gamma_result = await orchestrator._generate_gamma_presentation(
-                comprehensive_report=comprehensive_report,
-                start_date='2024-01-01',
-                end_date='2024-01-31',
-                options=options
+
+            async def fake_run(self, start_date, end_date, options=None):
+                gamma_result = await self._generate_gamma_presentation(
+                    comprehensive_report=comprehensive_report,
+                    start_date=start_date,
+                    end_date=end_date,
+                    options=options or {}
+                )
+                return {
+                    **comprehensive_report,
+                    'analysis_metadata': {
+                        'start_date': start_date.strftime('%Y-%m-%d'),
+                        'end_date': end_date.strftime('%Y-%m-%d'),
+                        'total_conversations': len(comprehensive_report['conversations']),
+                        'analysis_timestamp': datetime.now().isoformat(),
+                        'options': options or {}
+                    },
+                    'validation': {'passed': True, 'warnings': [], 'data_quality_score': 0.95},
+                    'gamma_presentation': gamma_result
+                }
+
+            strategy.run_comprehensive_analysis = types.MethodType(fake_run, strategy)
+
+            context = AgentContext(
+                analysis_id="test_gamma_comprehensive",
+                analysis_type="comprehensive",
+                start_date=datetime(2024, 1, 1),
+                end_date=datetime(2024, 1, 31),
             )
-            
+
+            agent_result = await orchestrator.execute(context, options=options)
+            assert agent_result.success
+            results = agent_result.data
+            gamma_result = results.get('gamma_presentation')
+            assert gamma_result
             assert gamma_result['gamma_url'] is not None
             assert gamma_result['generation_id'] is not None
             assert gamma_result['style'] == 'executive'
-            
+
             print(f"✅ End-to-end test successful!")
             print(f"Gamma URL: {gamma_result['gamma_url']}")
-            print(f"Credits used: {gamma_result['credits_used']}")
+            print(f"Credits used: {gamma_result.get('credits_used')}")
             
         except Exception as e:
             pytest.fail(f"End-to-end test error: {e}")

@@ -1,5 +1,7 @@
 # LLM Rate Limiting Implementation
 
+> **Phase 3 Context:** For system-wide semaphore/timeout/data-quality governance see `docs/PHASE_3_RESILIENCE_STANDARDIZATION.md`. This document focuses on per-agent rate limiting mechanics.
+
 **Based on Official OpenAI and Anthropic Documentation**
 
 ## Official Documentation Sources
@@ -113,28 +115,34 @@ async with self.llm_semaphore:  # Limits based on provider
 - `src/config/settings.py` - `openai_concurrency`, `anthropic_concurrency` settings
 - All LLM-using agents use `get_recommended_semaphore()` instead of hardcoded values
 
+> **Phase 3 Update:** `scripts/validate_resilience_standards.py` scans the repo to ensure every agent/orchestrator uses `get_recommended_semaphore()`; fix violations before committing.
+
 ---
 
 ### 3. Timeout Protection
 
 **Problem:** Individual LLM calls could hang indefinitely, freezing entire pipeline.
 
-**Solution:** 30-second timeout per LLM call using `asyncio.wait_for()`
+**Solution:** Configurable timeout per agent using `settings.py` (default 60s; OutputFormatterAgent = 120s). Orchestrator windows automatically scale to 3× the agent timeout.
 
 **Implementation:**
 ```python
+from src.config.settings import settings
+
 try:
     detected = await asyncio.wait_for(
         self._detect_topics_for_conversation(conv),
-        timeout=30  # 30 seconds
+        timeout=settings.topic_detection_timeout  # Override via TOPIC_DETECTION_TIMEOUT
     )
 except asyncio.TimeoutError:
-    # Fall back to keyword detection
     self.logger.warning("LLM timeout, falling back to keywords")
 ```
 
-**File:** `src/agents/topic_detection_agent.py`  
-**Lines:** 336-350
+**Files:** 
+- `src/agents/topic_detection_agent.py` (agent-level timeout)
+- `src/services/base_orchestrator.py` (`_get_agent_timeout` multiplies agent timeout by 3×)
+
+> See `docs/PHASE_3_RESILIENCE_STANDARDIZATION.md` for the full timeout catalog and tuning guidance.
 
 ---
 
@@ -264,6 +272,9 @@ All implementation decisions based on official documentation:
 
 4. **Tenacity Library Example:**  
    OpenAI Cookbook: https://cookbook.openai.com/examples/how_to_handle_rate_limits
+
+5. **Phase 3 Resilience Standardization:**  
+   `docs/PHASE_3_RESILIENCE_STANDARDIZATION.md`
 
 ---
 

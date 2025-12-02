@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     log_level: str = Field("INFO", env="LOG_LEVEL")
     log_file: str = Field("intercom_analysis.log", env="LOG_FILE")
     
+    # OutputFormatterAgent - Topic Sorting
+    # When enabled, topic cards are sorted by severity score (primary) and volume (secondary)
+    # instead of volume-only. This surfaces high-severity, lower-volume issues earlier.
+    # Default: false (volume-based sorting for backward compatibility)
+    sort_topics_by_severity: bool = Field(False, env="SORT_TOPICS_BY_SEVERITY")
+    
     @property
     def effective_output_directory(self) -> str:
         """

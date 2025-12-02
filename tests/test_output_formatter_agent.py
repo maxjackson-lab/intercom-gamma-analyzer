@@ -1912,3 +1912,243 @@ async def test_execute_without_analytical_insights():
     assert '## Pattern Intelligence' not in formatted_output
     assert '## Risk & Opportunity Signals' not in formatted_output
 
+
+# ============================================================================
+# PHASE 7 TESTS: Priority Severity System
+# ============================================================================
+
+def test_get_severity_badge(agent):
+    """Test severity badge mapping."""
+    # Critical threshold
+    badge, label = agent._get_severity_badge(2.5)
+    assert badge == "🔥"
+    assert label == "CRITICAL"
+    
+    # High threshold
+    badge, label = agent._get_severity_badge(1.8)
+    assert badge == "⚠️"
+    assert label == "HIGH"
+    
+    # Moderate
+    badge, label = agent._get_severity_badge(1.5)
+    assert badge == "📊"
+    assert label == "MODERATE"
+
+
+def test_calculate_topic_severity_with_volume_and_csat(agent):
+    """Test severity calculation includes volume % and CSAT impact."""
+    stats = {'volume': 100, 'percentage': 45.0}  # High volume
+    sentiment_payload = {'pain_level': 'SEVERE', 'sentiment_label': 'negative'}
+    csat_by_topic = {'Billing Issues': 2.1}  # Low CSAT
+    
+    severity, reasons = agent._calculate_topic_severity(
+        'Billing Issues',
+        stats,
+        sentiment_payload,
+        fin_performance={},
+        callouts=[],
+        quality_topic_metrics={},
+        csat_by_topic=csat_by_topic
+    )
+    
+    # Should have high severity due to: base(1.0) + sentiment(0.8) + volume(0.5) + CSAT(~0.4)
+    assert severity >= 2.5  # Critical threshold
+    assert any('High volume' in r for r in reasons)
+    assert any('Low CSAT' in r for r in reasons)
+
+
+def test_aggregate_csat_by_topic(agent):
+    """Test CSAT aggregation at topic level."""
+    conversations = [
+        {'id': '1', 'conversation_rating': {'rating': 2}},
+        {'id': '2', 'conversation_rating': {'rating': 3}},
+        {'id': '3', 'conversation_rating': {'rating': 1}},
+        {'id': '4'},  # No rating
+    ]
+    topics_by_conv = {
+        '1': [{'topic': 'Billing Issues'}],
+        '2': [{'topic': 'Billing Issues'}],
+        '3': [{'topic': 'Account Issues'}],
+        '4': [{'topic': 'Account Issues'}],
+    }
+    
+    csat_by_topic = agent._aggregate_csat_by_topic(conversations, topics_by_conv)
+    
+    assert 'Billing Issues' not in csat_by_topic
+    assert 'Account Issues' not in csat_by_topic
+    
+    conversations_more = [
+        {'id': '1', 'conversation_rating': {'rating': 2}},
+        {'id': '2', 'conversation_rating': {'rating': 3}},
+        {'id': '3', 'conversation_rating': {'rating': 1}},
+        {'id': '4', 'conversation_rating': {'rating': 4}},
+        {'id': '5', 'conversation_rating': {'rating': 5}},
+        {'id': '6', 'conversation_rating': {'rating': 2}},
+    ]
+    topics_by_conv_more = {
+        '1': [{'topic': 'Billing Issues'}],
+        '2': [{'topic': 'Billing Issues'}],
+        '3': [{'topic': 'Billing Issues'}],
+        '4': [{'topic': 'Account Issues'}],
+        '5': [{'topic': 'Account Issues'}],
+        '6': [{'topic': 'Account Issues'}],
+    }
+    
+    csat_by_topic = agent._aggregate_csat_by_topic(conversations_more, topics_by_conv_more)
+    
+    assert 'Billing Issues' in csat_by_topic
+    assert csat_by_topic['Billing Issues'] == pytest.approx(2.0)  # (2+3+1)/3
+    assert 'Account Issues' in csat_by_topic
+    assert csat_by_topic['Account Issues'] == pytest.approx((4 + 5 + 2) / 3)
+
+
+@pytest.mark.asyncio
+async def test_executive_summary_includes_customer_quotes(agent, mock_context_with_all_results):
+    """Test that top fires include customer quotes."""
+    topic_sentiments = {
+        'Billing Issues': {
+            'data': {
+                'pain_level': 'SEVERE',
+                'sentiment_insight': 'Customers furious about charges'
+            }
+        }
+    }
+    topic_examples = {
+        'Billing Issues': {
+            'data': {
+                'examples': [
+                    {'preview': 'I was charged twice for the same invoice and nobody is responding', 'intercom_url': 'https://...'}
+                ]
+            }
+        }
+    }
+    
+    summary = agent._format_executive_summary(
+        mock_context_with_all_results,
+        segmentation={},
+        topic_dist={'Billing Issues': {'volume': 50, 'percentage': 40}},
+        topic_sentiments=topic_sentiments,
+        bpo_performance={},
+        fin_performance={},
+        topic_examples=topic_examples,
+        trend_summary=None
+    )
+    
+    assert '🔎' in summary  # Priority section badge
+    assert 'Billing Issues' in summary
+    assert 'I was charged twice' in summary  # Customer quote included
+
+
+def test_executive_summary_surfaces_fin_fires(agent, mock_context_with_all_results):
+    """Ensure Fin performance issues populate FIRES section."""
+    fin_payload = {
+        'free_tier': {
+            'knowledge_gap_rate': 0.45,
+            'negative_fin_count': 8
+        }
+    }
+    summary = agent._format_executive_summary(
+        mock_context_with_all_results,
+        segmentation={'segmentation_summary': {'paid_count': 10, 'free_count': 5, 'paid_percentage': 66.7, 'free_percentage': 33.3}},
+        topic_dist={'Billing Issues': {'volume': 10, 'percentage': 25}},
+        topic_sentiments={},
+        bpo_performance={},
+        fin_performance=fin_payload,
+        topic_examples={},
+        trend_summary=None
+    )
+
+    assert 'Fin AI (Free Tier)' in summary
+    assert 'Fin AI Frustration' in summary
+
+
+def test_executive_summary_flags_severe_sentiment_fire(agent, mock_context_with_all_results):
+    """Verify SEVERE pain level topics appear as CRITICAL fires."""
+    topic_sentiments = {
+        'Billing Issues': {
+            'data': {
+                'pain_level': 'SEVERE',
+                'sentiment_insight': 'Customers threatening to churn.'
+            }
+        }
+    }
+    summary = agent._format_executive_summary(
+        mock_context_with_all_results,
+        segmentation={'segmentation_summary': {'paid_count': 10, 'free_count': 5, 'paid_percentage': 66.7, 'free_percentage': 33.3}},
+        topic_dist={'Billing Issues': {'volume': 50, 'percentage': 45}},
+        topic_sentiments=topic_sentiments,
+        bpo_performance={},
+        fin_performance={},
+        topic_examples={},
+        trend_summary=None
+    )
+
+    assert 'Billing Issues' in summary
+    assert 'CRITICAL' in summary
+
+
+def test_executive_summary_includes_trends_section(agent, mock_context_with_all_results):
+    """Ensure the Trends at a Glance subsection renders when provided."""
+    trend_summary = {
+        'rising': ['- Billing Issues ↑ 🔥 — Significant increase in billing complaints this week.'],
+        'declining': ['- Account Issues ↓ — Login issues are easing after last week.']
+    }
+    summary = agent._format_executive_summary(
+        mock_context_with_all_results,
+        segmentation={'segmentation_summary': {'paid_count': 10, 'free_count': 5, 'paid_percentage': 66.7, 'free_percentage': 33.3}},
+        topic_dist={'Billing Issues': {'volume': 20, 'percentage': 30}},
+        topic_sentiments={},
+        bpo_performance={},
+        fin_performance={},
+        topic_examples={},
+        trend_summary=trend_summary
+    )
+
+    assert 'Trends at a Glance' in summary
+    assert 'Billing Issues' in summary
+    assert 'Account Issues' in summary
+
+
+def test_format_topic_card_with_severity_badge(agent):
+    """Test topic card includes severity badge in header."""
+    stats = {'volume': 100, 'percentage': 40.0, 'detection_method': 'llm_smart'}
+    
+    card = agent._format_topic_card(
+        'Billing Issues',
+        stats,
+        sentiment='Customers frustrated',
+        examples=[],
+        trend=' ↑',
+        severity_badge='🔥 CRITICAL'
+    )
+    
+    assert '### 🔥 CRITICAL Billing Issues ↑' in card
+
+
+@pytest.mark.asyncio
+async def test_severity_based_topic_sorting(agent, mock_context_with_all_results, monkeypatch):
+    """Test topics sorted by severity when SORT_TOPICS_BY_SEVERITY=true."""
+    monkeypatch.setattr('src.config.settings.settings', 'sort_topics_by_severity', True, raising=False)
+    
+    # Setup context with topics of varying severity
+    # We modify the existing mock_context for simplicity
+    mock_context_with_all_results.previous_results['TopicDetectionAgent']['data']['topic_distribution'] = {
+        'Low Volume High Severity': {'volume': 10, 'percentage': 5},
+        'High Volume Low Severity': {'volume': 100, 'percentage': 50}
+    }
+    mock_context_with_all_results.previous_results['TopicSentiments'] = {
+        'Low Volume High Severity': {'data': {'pain_level': 'SEVERE'}},
+        'High Volume Low Severity': {'data': {'pain_level': 'LOW'}}
+    }
+    # Clear other data that might interfere
+    mock_context_with_all_results.previous_results['SubTopicDetectionAgent'] = {}
+    
+    result = await agent.execute(mock_context_with_all_results)
+    
+    # Verify high-severity topic appears first despite lower volume
+    output = result.data['formatted_output']
+    high_sev_idx = output.find('Low Volume High Severity')
+    low_sev_idx = output.find('High Volume Low Severity')
+    assert high_sev_idx != -1
+    assert low_sev_idx != -1
+    assert high_sev_idx < low_sev_idx

@@ -1,37 +1,59 @@
 """
 Legacy MultiAgentOrchestrator wrapper retained for backward compatibility.
 
-New code should instantiate UnifiedOrchestrator with MultiAgentStrategy
-directly instead of using this adapter.
+THIS MODULE IS DEPRECATED. Use UnifiedOrchestrator + MultiAgentStrategy directly.
 """
 
 from __future__ import annotations
 
 import logging
+import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from src.agents.base_agent import AgentContext
 from src.services.unified_orchestrator import UnifiedOrchestrator
-from src.services.strategies import MultiAgentStrategy
+
+if TYPE_CHECKING:
+    from src.services.strategies import MultiAgentStrategy
+
+_DEPRECATION_MESSAGE = (
+    "MultiAgentOrchestrator is deprecated. Instantiate UnifiedOrchestrator with "
+    "MultiAgentStrategy instead."
+)
 
 
 class MultiAgentOrchestrator:
     """
     Deprecated orchestrator wrapper that delegates to the unified orchestration layer.
 
+    Migration example:
+
+        # OLD
+        orchestrator = MultiAgentOrchestrator()
+        await orchestrator.execute_analysis(...)
+
+        # NEW
+        strategy = MultiAgentStrategy()
+        orchestrator = UnifiedOrchestrator(strategy=strategy)
+        context = AgentContext(...)
+        result = await orchestrator.execute(context, ...)
+
     The class preserves the previous interface so callers can migrate gradually.
     """
 
     def __init__(self, checkpoint_dir: Optional[Path] = None) -> None:
+        from src.services.strategies import MultiAgentStrategy as _MultiAgentStrategy
+
         self.logger = logging.getLogger(__name__)
-        self.logger.warning(
-            "MultiAgentOrchestrator is deprecated. "
-            "Use UnifiedOrchestrator with MultiAgentStrategy instead."
-        )
-        self._strategy = MultiAgentStrategy(checkpoint_dir=checkpoint_dir)
+        self.logger.error(_DEPRECATION_MESSAGE)
+        self._emit_deprecation_warning(stacklevel=3)
+        self._strategy = _MultiAgentStrategy(checkpoint_dir=checkpoint_dir)
         self._orchestrator = UnifiedOrchestrator(strategy=self._strategy)
+
+    def _emit_deprecation_warning(self, stacklevel: int = 2) -> None:
+        warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=stacklevel)
 
     async def execute_analysis(
         self,
@@ -44,6 +66,7 @@ class MultiAgentOrchestrator:
         """
         Execute the multi-agent workflow and return raw data for legacy callers.
         """
+        self._emit_deprecation_warning()
         analysis_id = kwargs.pop(
             "analysis_id", f"multi_agent_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         )

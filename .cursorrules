@@ -349,6 +349,28 @@ async with semaphore:
     return await api_call()
 ```
 
+## Phase 3 Resilience Standards
+
+**Semaphore Usage**
+- NEVER instantiate `asyncio.Semaphore(N)` directly inside agents/orchestrators.
+- ALWAYS call `get_recommended_semaphore(ai_client)` from `src/utils/ai_client_helper`.
+- Rationale: honours provider-specific limits (`settings.anthropic_concurrency=2`, `settings.openai_concurrency=20`) to prevent Anthropic Tier 1 429 storms.
+
+**Timeout Configuration**
+- NEVER hardcode `timeout=<number>` inside LLM calls.
+- ALWAYS reference `settings.<agent>_timeout` (add a new setting if one does not exist) and let `BaseOrchestrator._get_agent_timeout()` apply the 3× buffer.
+- Rationale: centralizes tuning so ops can fix incidents with env overrides instead of hotfixes.
+
+**Data Quality Gates**
+- Orchestrators/strategies MUST call `self.log_stage_metrics(stage_name, count)` at every major pipeline boundary (fetch → segmentation → topic detection → formatter).
+- Use descriptive names (`"Post-Segmentation"`, `"Post-TopicDetection"`, `"Pre-Formatting"`) so logs match dashboards.
+- Rationale: warns on >10% drops before OutputFormatterAgent produces diluted gibberish.
+
+**Validation**
+- Run `python scripts/validate_resilience_standards.py` before committing changes to agents/orchestrators.
+- Fix all reported violations (hardcoded semaphores/timeouts, missing `log_stage_metrics`, missing settings entries) before running `./scripts/run_all_checks.sh`.
+- See `docs/PHASE_3_RESILIENCE_STANDARDIZATION.md` for deep-dive guidance and troubleshooting steps.
+
 ### Data Validation
 - Use Pydantic models for all data structures
 - Validate conversation data before processing
@@ -575,6 +597,9 @@ python scripts/validate_data_schemas.py
 - [ ] Verified no crashes on missing/malformed fields
 - [ ] Confirmed metrics look sensible
 - [ ] Tested edge cases (empty results, single result, max results)
+- [ ] Confirmed all LLM agents use `get_recommended_semaphore()` (no hardcoded semaphores/timeouts)
+- [ ] Added/verified `log_stage_metrics()` calls for new or modified pipeline stages
+- [ ] Ran `python scripts/validate_resilience_standards.py` and fixed all violations
 
 ### 🚨 MANDATORY: Real-Data Sample-Mode Gate for LLM Changes
 

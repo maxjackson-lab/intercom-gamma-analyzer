@@ -8,8 +8,11 @@ Purpose:
 - Handle errors gracefully
 """
 
+# DEPRECATED: Use TopicOrchestratorV2 (UnifiedOrchestrator + VoiceOfCustomerStrategy).
+
 import logging
 import asyncio
+import warnings
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from pydantic import ValidationError
@@ -45,6 +48,11 @@ from src.models.analysis_models import (
 )
 
 logger = logging.getLogger(__name__)
+_DEPRECATION_MESSAGE = (
+    "TopicOrchestrator is deprecated and replaced by TopicOrchestratorV2, which wraps "
+    "UnifiedOrchestrator + VoiceOfCustomerStrategy. Update imports to use "
+    "TopicOrchestratorV2 (drop-in) or instantiate UnifiedOrchestrator directly."
+)
 
 
 def _normalize_agent_result(result: Any) -> Dict[str, Any]:
@@ -94,8 +102,11 @@ class TopicOrchestrator:
     """
     Orchestrates topic-based multi-agent workflow.
     
-    DEPRECATED: This monolithic class is being replaced by VoiceOfCustomerStrategy
-    via UnifiedOrchestrator. Use TopicOrchestratorV2 for new code.
+    DEPRECATED: Replace with TopicOrchestratorV2 (UnifiedOrchestrator + VoiceOfCustomerStrategy):
+    
+        from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+        orchestrator = TopicOrchestratorV2()
+        result = await orchestrator.execute_weekly_analysis(...)
     """
     
     def __init__(
@@ -108,15 +119,9 @@ class TopicOrchestrator:
         report_type: str = "voc_v1",
         fail_on_critical_errors: bool = False
     ):
-        # Deprecation warning
-        import warnings
-        warnings.warn(
-            "TopicOrchestrator is deprecated and will be removed in a future version. "
-            "Please use UnifiedOrchestrator with VoiceOfCustomerStrategy instead "
-            "(or use the TopicOrchestratorV2 wrapper).",
-            DeprecationWarning,
-            stacklevel=2
-        )
+        self.logger = logging.getLogger(__name__)
+        self.logger.error(_DEPRECATION_MESSAGE)
+        self._emit_deprecation_warning(stacklevel=3)
         
         #Audit trail for detailed narration
         self.audit = audit_trail
@@ -194,7 +199,6 @@ class TopicOrchestrator:
         # - Requires AIModelFactory which adds initialization overhead
         # See properties at lines 195-206 for lazy initialization logic
 
-        self.logger = logging.getLogger(__name__)
         self.logger.info("Analytical insight agents initialized: Correlation, QualityInsights, ChurnRisk, ConfidenceMeta")
         
         # Concurrency control
@@ -302,6 +306,9 @@ class TopicOrchestrator:
         if self._cross_platform_correlation_agent is None:
             self._cross_platform_correlation_agent = CrossPlatformCorrelationAgent(self.ai_factory)
         return self._cross_platform_correlation_agent
+
+    def _emit_deprecation_warning(self, stacklevel: int = 2) -> None:
+        warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=stacklevel)
     
     async def execute_weekly_analysis(
         self,
@@ -334,6 +341,7 @@ class TopicOrchestrator:
         Returns:
             Complete analysis in Hilary's format with optional Canny correlation
         """
+        self._emit_deprecation_warning()
         if not week_id:
             week_id = datetime.now().strftime('%Y-W%W')
         
