@@ -205,17 +205,57 @@ def _require_state_manager(request: Request) -> ExecutionStateManager:
     return manager
 
 
+def _extract_flags_shortcode(args_list: List[str]) -> str:
+    """Extract key flags into a short code for directory naming."""
+    flags = []
+    
+    # Check for LLM-first topic detection
+    if "--llm-first-topic-detection" in args_list:
+        flags.append("llm")
+    
+    # Check for multi-agent mode
+    if "--multi-agent-mode" in args_list:
+        idx = args_list.index("--multi-agent-mode")
+        if idx + 1 < len(args_list) and args_list[idx + 1] != "none":
+            flags.append("multi")
+    
+    # Check for Gamma generation
+    if "--generate-gamma" in args_list:
+        flags.append("gamma")
+    
+    # Check for model
+    if "--model" in args_list:
+        idx = args_list.index("--model")
+        if idx + 1 < len(args_list):
+            model = args_list[idx + 1].lower()
+            if "claude" in model:
+                flags.append("claude")
+            elif "gpt" in model or "openai" in model:
+                flags.append("gpt")
+    
+    return "-".join(flags) if flags else ""
+
+
 def generate_execution_directory_name(args_list: List[str], execution_id: str) -> str:
     """
     Generate a human-readable execution directory name.
 
-    Format: {mode}_{date-description}_{time}
+    Format: {mode}_{date-description}_{flags}_{time}
+    Example: voc_Last-Week_llm-multi-gamma_dec-02-1-30pm
     """
     mode = "unknown"
     if len(args_list) > 1:
         mode = args_list[1].replace(".py", "").replace("src/main.py", "").strip()
         if not mode:
             mode = args_list[0] if args_list else "unknown"
+    
+    # Shorten common mode names
+    mode_short = {
+        "voice-of-customer": "voc",
+        "sample-mode": "sample",
+        "agent-performance": "agent-perf",
+        "agent-coaching-report": "coaching",
+    }.get(mode, mode)
 
     date_desc = "unknown-date"
     if "--time-period" in args_list:
@@ -250,12 +290,88 @@ def generate_execution_directory_name(args_list: List[str], execution_id: str) -
         if idx + 1 < len(args_list):
             date_desc = f"Last-{args_list[idx + 1]}-Days"
 
+    # Extract flags shortcode
+    flags_code = _extract_flags_shortcode(args_list)
+
     now = get_pacific_time()
     time_str = now.strftime("%b-%d-%I-%M%p").replace("-0", "-").lower()
-    dir_name = f"{mode}_{date_desc}_{time_str}"
+    
+    # Build directory name with flags if present
+    if flags_code:
+        dir_name = f"{mode_short}_{date_desc}_{flags_code}_{time_str}"
+    else:
+        dir_name = f"{mode_short}_{date_desc}_{time_str}"
+    
     dir_name = re.sub(r"[^\w\-]", "-", dir_name)
     dir_name = re.sub(r"-+", "-", dir_name)
     return dir_name[:200]
+
+
+def _generate_settings_file(exec_dir: Path, command: str, args_list: List[str], execution_id: str) -> Path:
+    """
+    Generate a human-readable settings.txt file for an execution.
+    
+    This allows users to see exactly what configuration produced each output.
+    """
+    settings_path = exec_dir / "settings.txt"
+    
+    now = get_pacific_time()
+    
+    lines = [
+        "=" * 60,
+        "EXECUTION SETTINGS",
+        "=" * 60,
+        "",
+        f"Execution ID: {execution_id}",
+        f"Generated: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+        f"Command: {command}",
+        "",
+        "-" * 60,
+        "FLAGS AND OPTIONS",
+        "-" * 60,
+        "",
+    ]
+    
+    # Parse args into readable format
+    i = 0
+    while i < len(args_list):
+        arg = args_list[i]
+        if arg.startswith('--'):
+            flag_name = arg[2:].replace('-', ' ').title()
+            # Check if next arg is a value (not another flag)
+            if i + 1 < len(args_list) and not args_list[i + 1].startswith('--'):
+                value = args_list[i + 1]
+                lines.append(f"  {flag_name}: {value}")
+                i += 2
+            else:
+                lines.append(f"  {flag_name}: enabled")
+                i += 1
+        elif arg == "src/main.py" or arg == "python":
+            i += 1
+        else:
+            # Positional arg (like the command name)
+            if arg not in ["src/main.py", "python"]:
+                lines.append(f"  Mode: {arg}")
+            i += 1
+    
+    lines.extend([
+        "",
+        "-" * 60,
+        "RAW COMMAND LINE",
+        "-" * 60,
+        "",
+        f"  {command} {' '.join(args_list)}",
+        "",
+        "=" * 60,
+    ])
+    
+    try:
+        settings_path.write_text('\n'.join(lines), encoding='utf-8')
+        logger.info("📝 Generated settings.txt for execution %s", execution_id)
+    except Exception as e:
+        logger.error("Failed to generate settings.txt for %s: %s", execution_id, e)
+    
+    return settings_path
 
 
 async def _discover_execution_files() -> List[Dict[str, Any]]:
@@ -357,6 +473,23 @@ async def run_command_in_background(
             command, args, execution_id=execution_id, env_vars=env_vars
         ):
             await state_manager.add_output(execution_id, output)
+            
+            # Capture Gamma URLs from output
+            output_text = output.get("data", "")
+            if output_text:
+                gamma_match = re.search(
+                    r'Gamma (?:URL|presentation):\s*(https://gamma\.app/[^\s]+)',
+                    output_text,
+                    re.IGNORECASE
+                )
+                if gamma_match:
+                    gamma_url = gamma_match.group(1)
+                    logger.info("🎯 Captured Gamma URL for %s: %s", execution_id, gamma_url)
+                    await state_manager.update_gamma_metadata(execution_id, {
+                        "gamma_url": gamma_url,
+                        "captured_at": datetime.now(timezone.utc).isoformat()
+                    })
+            
             output_type = output.get("type")
             if output_type == "status" and "completed successfully" in output.get("data", ""):
                 await state_manager.update_execution_status(
@@ -890,6 +1023,9 @@ async def start_execution(
     exec_dir_path = _get_execution_base_path() / exec_dir_name
     exec_dir_path.mkdir(parents=True, exist_ok=True)
     logger.info("📁 Created execution directory: %s", exec_dir_name)
+    
+    # Generate settings.txt with human-readable configuration
+    _generate_settings_file(exec_dir_path, command, args_list, execution_id)
 
     execution = await state_manager.create_execution(execution_id, command, args_list)
     if hasattr(execution, "output_files"):
@@ -1002,6 +1138,7 @@ async def list_executions(request: Request, limit: int = 50):
                 "error_message": exec.error_message,
                 "return_code": exec.return_code,
                 "output_files": getattr(exec, "output_files", []),
+                "gamma_metadata": getattr(exec, "gamma_metadata", None),
             }
             for exec in executions
         ],

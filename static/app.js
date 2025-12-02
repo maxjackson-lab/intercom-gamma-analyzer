@@ -252,6 +252,220 @@ console.log('✅ Shared utilities initialized');
 // Store current execution ID
 let currentExecutionId = null;
 
+// ============================================================================
+// MULTI-JOB SUPPORT
+// ============================================================================
+
+/**
+ * Track multiple active jobs with their output buffers
+ * Structure: { executionId: { output: [], status: 'running', command: '...', label: '...', scrollPos: 0 } }
+ */
+const activeJobs = {};
+let visibleJobId = null;
+
+/**
+ * Add a new job tab
+ */
+function addJobTab(executionId, label, command) {
+    if (activeJobs[executionId]) return; // Already tracking
+    
+    activeJobs[executionId] = {
+        output: [],
+        status: 'running',
+        command: command || 'unknown',
+        label: label || executionId.slice(0, 12),
+        scrollPos: 0,
+        startTime: Date.now()
+    };
+    
+    renderJobTabs();
+    
+    // If this is the first job or current visible is done, switch to it
+    if (!visibleJobId || activeJobs[visibleJobId]?.status !== 'running') {
+        switchToJob(executionId);
+    }
+}
+
+/**
+ * Update job status
+ */
+function updateJobStatus(executionId, status) {
+    if (!activeJobs[executionId]) return;
+    
+    activeJobs[executionId].status = status;
+    renderJobTabs();
+}
+
+/**
+ * Add output to a job's buffer (does NOT append to terminal - caller handles that)
+ */
+function addJobOutput(executionId, output) {
+    if (!activeJobs[executionId]) {
+        // Auto-create job if we receive output for unknown job
+        addJobTab(executionId, executionId.slice(0, 12), 'unknown');
+    }
+    
+    activeJobs[executionId].output.push(output);
+}
+
+/**
+ * Switch terminal view to a specific job
+ */
+function switchToJob(executionId) {
+    if (!activeJobs[executionId]) return;
+    
+    // Save scroll position of current job
+    if (visibleJobId && activeJobs[visibleJobId]) {
+        const terminalOutput = document.getElementById('terminalOutput');
+        if (terminalOutput) {
+            activeJobs[visibleJobId].scrollPos = terminalOutput.scrollTop;
+        }
+    }
+    
+    visibleJobId = executionId;
+    currentExecutionId = executionId; // Keep legacy variable in sync
+    
+    // Render output for this job
+    const terminalOutput = document.getElementById('terminalOutput');
+    if (terminalOutput) {
+        terminalOutput.innerHTML = '';
+        for (const output of activeJobs[executionId].output) {
+            const div = document.createElement('div');
+            div.className = output.type || 'stdout';
+            div.textContent = output.data || '';
+            terminalOutput.appendChild(div);
+        }
+        // Restore scroll position
+        terminalOutput.scrollTop = activeJobs[executionId].scrollPos || terminalOutput.scrollHeight;
+    }
+    
+    // Update tab highlighting
+    renderJobTabs();
+    
+    // Switch to terminal tab
+    switchTab('terminal');
+}
+
+/**
+ * Render job tabs UI
+ */
+function renderJobTabs() {
+    const container = document.getElementById('jobTabsContainer');
+    const tabsDiv = document.getElementById('jobTabs');
+    
+    if (!container || !tabsDiv) return;
+    
+    const jobIds = Object.keys(activeJobs);
+    
+    // Show/hide container based on whether we have jobs
+    if (jobIds.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    
+    // Build tabs HTML
+    let html = '';
+    for (const jobId of jobIds) {
+        const job = activeJobs[jobId];
+        const isActive = jobId === visibleJobId;
+        const statusIcon = job.status === 'running' ? '⏳' : 
+                          job.status === 'completed' ? '✅' : 
+                          job.status === 'failed' ? '❌' : '⏸️';
+        
+        const elapsed = Math.floor((Date.now() - job.startTime) / 1000);
+        const elapsedStr = elapsed > 60 ? `${Math.floor(elapsed/60)}m` : `${elapsed}s`;
+        
+        const bgColor = isActive ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.1)';
+        const borderColor = isActive ? 'rgba(59, 130, 246, 0.8)' : 'rgba(59, 130, 246, 0.3)';
+        
+        html += `
+            <button onclick="switchToJob('${jobId}')" 
+                    style="padding: 8px 14px; background: ${bgColor}; border: 1px solid ${borderColor}; 
+                           border-radius: 6px; color: #e5e7eb; cursor: pointer; font-size: 12px;
+                           display: flex; align-items: center; gap: 6px; white-space: nowrap;
+                           ${isActive ? 'box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);' : ''}">
+                <span>${statusIcon}</span>
+                <span style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">${job.label}</span>
+                <span style="color: #9ca3af; font-size: 10px;">${elapsedStr}</span>
+            </button>
+        `;
+    }
+    
+    tabsDiv.innerHTML = html;
+}
+
+/**
+ * Start another job (reset form, keep current jobs running)
+ */
+function startAnotherJob() {
+    // Scroll to form
+    const analysisForm = document.querySelector('.analysis-form');
+    if (analysisForm) {
+        analysisForm.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Clear current execution ID so runAnalysis() creates a new one
+    currentExecutionId = null;
+    visibleJobId = null;
+    
+    showToast('Ready to start a new job. Configure and click Run Analysis.', 'info');
+}
+
+/**
+ * Poll for all running jobs periodically
+ */
+async function pollAllRunningJobs() {
+    try {
+        const response = await fetch('/execute/list?limit=20');
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const executions = data.executions || [];
+        
+        // Find running jobs
+        for (const exec of executions) {
+            if (exec.status === 'running' || exec.status === 'starting') {
+                if (!activeJobs[exec.execution_id]) {
+                    // New running job discovered - add it
+                    const label = exec.output_files?.[0]?.replace(/_/g, ' ') || exec.command || exec.execution_id.slice(0, 12);
+                    addJobTab(exec.execution_id, label, exec.command);
+                    console.log('Discovered running job:', exec.execution_id);
+                }
+            } else if (activeJobs[exec.execution_id]) {
+                // Job completed - update status
+                updateJobStatus(exec.execution_id, exec.status);
+            }
+        }
+        
+        // Update elapsed times
+        renderJobTabs();
+        
+    } catch (error) {
+        console.error('Failed to poll running jobs:', error);
+    }
+}
+
+// Poll for running jobs every 5 seconds
+setInterval(pollAllRunningJobs, 5000);
+
+// Initial poll on page load
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(pollAllRunningJobs, 1000);
+});
+
+// Export multi-job functions
+window.switchToJob = switchToJob;
+window.startAnotherJob = startAnotherJob;
+window.addJobTab = addJobTab;
+window.addJobOutput = addJobOutput;
+window.updateJobStatus = updateJobStatus;
+
+// ============================================================================
+// END MULTI-JOB SUPPORT
+// ============================================================================
+
 /**
  * Main function to run analysis from form
  */
@@ -749,6 +963,14 @@ async function runBackgroundExecution(command, args) {
         localStorage.setItem('active_execution_id', currentExecutionId);
         localStorage.setItem('active_execution_start', Date.now());
         
+        // Build a human-readable label for the job tab
+        const analysisType = document.getElementById('analysisType')?.value || 'analysis';
+        const timePeriod = document.getElementById('timePeriod')?.value || '';
+        const jobLabel = `${analysisType} (${timePeriod || 'custom'})`.replace(/-/g, ' ');
+        
+        // Add to multi-job tracker
+        addJobTab(currentExecutionId, jobLabel, args.join(' '));
+        
         appendToTerminal(`✓ Task queued with ID: ${currentExecutionId}\n`, 'status');
         appendToTerminal('⏳ Polling for status updates...\n\n', 'status');
         appendToTerminal('💡 Tip: You can close this window - the task will continue running\n', 'status');
@@ -782,6 +1004,13 @@ async function pollExecutionStatus(executionId, token) {
     let lastDuration = 0;
     let lastOutputIndex = 0; // Track which outputs we've already displayed
     
+    // Register this job in multi-job tracking if not already
+    if (!activeJobs[executionId]) {
+        const label = executionId.slice(0, 12);
+        addJobTab(executionId, label, currentExecutionId === executionId ? 'current' : 'unknown');
+    }
+    visibleJobId = executionId;
+    
     while (true) {
         try {
             // Fetch status with incremental output using 'since' parameter
@@ -798,6 +1027,9 @@ async function pollExecutionStatus(executionId, token) {
             const duration = statusData.duration_seconds || 0;
             const newOutput = statusData.output || []; // Fixed: API returns 'output' not 'output_buffer'
             
+            // Update job status in multi-job tracker
+            updateJobStatus(executionId, currentStatus);
+            
             // Display new output in real-time (shows "Fetching X conversations..." etc.)
             if (newOutput.length > 0) {
                 newOutput.forEach(outputItem => {
@@ -805,8 +1037,14 @@ async function pollExecutionStatus(executionId, token) {
                     const outputType = outputItem.type || 'stdout';
                     
                     if (outputText) {
-                        appendToTerminal(outputText, outputType);
-                        parseOutputForTabs(outputText);
+                        // Store in multi-job buffer
+                        addJobOutput(executionId, { data: outputText, type: outputType });
+                        
+                        // Only append to terminal if this job is currently visible
+                        if (executionId === visibleJobId) {
+                            appendToTerminal(outputText, outputType);
+                            parseOutputForTabs(outputText);
+                        }
                     }
                 });
                 

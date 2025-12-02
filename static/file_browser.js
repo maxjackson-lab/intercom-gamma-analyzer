@@ -54,16 +54,28 @@ async function loadAllAvailableFiles() {
     debugLog('📂 Fetching all available output files...');
     
     try {
-        const response = await fetch('/api/browse-files');
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+        // Fetch files and execution metadata in parallel
+        const [filesResponse, executionsResponse] = await Promise.all([
+            fetch('/api/browse-files'),
+            fetch('/execute/list?limit=100')
+        ]);
+        
+        if (!filesResponse.ok) {
+            throw new Error(`HTTP ${filesResponse.status}`);
         }
         
-        const data = await response.json();
+        const data = await filesResponse.json();
+        
+        // Parse execution data for Gamma metadata
+        let executionData = { executions: [] };
+        if (executionsResponse.ok) {
+            executionData = await executionsResponse.json();
+        }
         
         debugLog(`✅ Found ${data.total_files} files across ${data.directories} directories`);
+        debugLog(`✅ Found ${executionData.executions.length} executions with metadata`);
         
-        displayAllFiles(data);
+        displayAllFiles(data, executionData.executions);
         
     } catch (error) {
         console.error('❌ Failed to load files:', error);
@@ -77,7 +89,7 @@ async function loadAllAvailableFiles() {
     }
 }
 
-function displayAllFiles(data) {
+function displayAllFiles(data, executions = []) {
     const filesContent = document.getElementById('filesContent');
     if (!filesContent) return;
     
@@ -90,6 +102,16 @@ function displayAllFiles(data) {
         `;
         return;
     }
+    
+    // Build a map of directory names to execution metadata (including Gamma URLs)
+    const executionsByDir = {};
+    for (const exec of executions) {
+        if (exec.output_files && exec.output_files.length > 0) {
+            const dirName = exec.output_files[0];
+            executionsByDir[dirName] = exec;
+        }
+    }
+    debugLog('Execution metadata by directory:', Object.keys(executionsByDir));
     
     let html = '<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">';
     html += `<p style="color: #22c55e; font-weight: 600; margin: 0;">Found ${data.total_files} files</p>`;
@@ -105,6 +127,10 @@ function displayAllFiles(data) {
     const byDirectory = data.files_by_directory;
     
     for (const [dirName, files] of Object.entries(byDirectory)) {
+        const execMeta = executionsByDir[dirName];
+        const gammaUrl = execMeta?.gamma_metadata?.gamma_url;
+        const hasSettings = files.some(f => f.name === 'settings.txt');
+        
         html += `
             <div style="margin-bottom: 30px; padding: 15px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.2);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -116,11 +142,30 @@ function displayAllFiles(data) {
                         📦 Download Folder
                     </button>
                 </div>
-                <div style="margin-left: 10px;">
         `;
         
-        // Sort files: .log first, then .json, then others
+        // Show Gamma link prominently if available
+        if (gammaUrl) {
+            html += `
+                <div style="margin: 10px 0 15px 0; padding: 12px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15)); border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.4);">
+                    <a href="${gammaUrl}" target="_blank" style="color: #a78bfa; text-decoration: none; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 20px;">📊</span>
+                        <span>View Gamma Presentation</span>
+                        <span style="font-size: 12px; opacity: 0.7;">↗</span>
+                    </a>
+                    <div style="color: #9ca3af; font-size: 11px; margin-top: 6px; margin-left: 28px; word-break: break-all;">
+                        ${gammaUrl}
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '<div style="margin-left: 10px;">';
+        
+        // Sort files: settings.txt first, then .log, then .json, then others
         const sortedFiles = files.sort((a, b) => {
+            if (a.name === 'settings.txt') return -1;
+            if (b.name === 'settings.txt') return 1;
             const order = { 'log': 0, 'json': 1 };
             const aOrder = order[a.type] ?? 2;
             const bOrder = order[b.type] ?? 2;
@@ -128,15 +173,21 @@ function displayAllFiles(data) {
         });
         
         for (const file of sortedFiles) {
-            const icon = getFileIcon(file.type);
+            const icon = getFileIcon(file.type, file.name);
             const sizeStr = formatFileSize(file.size);
             const dateStr = new Date(file.created_at).toLocaleString();
             
+            // Highlight settings.txt specially
+            const isSettings = file.name === 'settings.txt';
+            const bgColor = isSettings ? 'rgba(34, 197, 94, 0.1)' : 'transparent';
+            const borderColor = isSettings ? 'rgba(34, 197, 94, 0.3)' : 'rgba(59, 130, 246, 0.1)';
+            const label = isSettings ? '<span style="color: #22c55e; font-size: 10px; margin-left: 8px; background: rgba(34, 197, 94, 0.2); padding: 2px 6px; border-radius: 3px;">CONFIG</span>' : '';
+            
             html += `
-                <div style="display: flex; align-items: center; padding: 8px; border-bottom: 1px solid rgba(59, 130, 246, 0.1);">
+                <div style="display: flex; align-items: center; padding: 8px; border-bottom: 1px solid ${borderColor}; background: ${bgColor}; border-radius: ${isSettings ? '4px' : '0'}; margin-bottom: ${isSettings ? '4px' : '0'};">
                     <span style="font-size: 18px; margin-right: 10px;">${icon}</span>
                     <div style="flex: 1;">
-                        <div style="color: #e5e7eb; font-weight: 500;">${file.name}</div>
+                        <div style="color: #e5e7eb; font-weight: 500;">${file.name}${label}</div>
                         <div style="color: #9ca3af; font-size: 11px;">${sizeStr} • ${dateStr}</div>
                     </div>
                     <button onclick="downloadFileFromBrowser('${file.path}')" 
@@ -153,7 +204,10 @@ function displayAllFiles(data) {
     filesContent.innerHTML = html;
 }
 
-function getFileIcon(type) {
+function getFileIcon(type, filename = '') {
+    // Special icons for specific files
+    if (filename === 'settings.txt') return '⚙️';
+    
     const icons = {
         'log': '📋',
         'json': '📄',

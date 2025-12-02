@@ -562,6 +562,19 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                 </div>
             </div>
 
+            <!-- Active Job Tabs (Multi-job Support) -->
+            <div id="jobTabsContainer" style="display: none; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; color: #9ca3af; font-weight: 600;">ACTIVE JOBS</span>
+                    <button id="startAnotherJobBtn" onclick="startAnotherJob()" style="padding: 4px 10px; background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.5); border-radius: 4px; color: #22c55e; cursor: pointer; font-size: 11px; font-weight: 600;">
+                        + New Job
+                    </button>
+                </div>
+                <div id="jobTabs" style="display: flex; gap: 8px; flex-wrap: wrap; padding: 8px; background: rgba(17, 24, 39, 0.6); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                    <!-- Job tabs will be dynamically populated -->
+                </div>
+            </div>
+
             <!-- Execution History Selector -->
             <div id="executionHistoryPanel" style="display: none; margin-bottom: 15px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
