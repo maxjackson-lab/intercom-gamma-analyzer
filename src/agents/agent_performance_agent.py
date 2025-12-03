@@ -52,7 +52,6 @@ class AgentPerformanceAgent(BaseAgent):
 
         super().__init__(
             name=f"AgentPerformanceAgent_{agent_filter}",
-            model="gpt-4o",
             temperature=0.3,
             tool_registry=tool_registry
         )

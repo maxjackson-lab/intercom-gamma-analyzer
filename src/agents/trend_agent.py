@@ -38,7 +38,6 @@ class TrendAgent(BaseAgent):
         """
         super().__init__(
             name="TrendAgent",
-            model="gpt-4o",
             temperature=0.5
         )
         self.ai_client = get_ai_client()

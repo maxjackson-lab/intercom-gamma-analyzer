@@ -103,8 +103,8 @@ class SegmentationAgent(BaseAgent):
         """
         super().__init__(
             name="SegmentationAgent",
-            model="gpt-4o-mini",  # Simple classification task
-            temperature=0.1
+            temperature=0.1,
+            model_scope="quick",  # Simple classification task
         )
         
         self.track_escalations = track_escalations

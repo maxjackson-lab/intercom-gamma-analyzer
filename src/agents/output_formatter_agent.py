@@ -45,8 +45,8 @@ class OutputFormatterAgent(BaseAgent):
     def __init__(self, use_llm_formatting: bool = None):
         super().__init__(
             name="OutputFormatterAgent",
-            model="gpt-4o",  # Use intensive model for executive presentations
-            temperature=0.3  # Moderate temp for creative structuring
+            temperature=0.3,  # Moderate temp for creative structuring
+            model_scope="intensive",
         )
         
         # LLM Strategic Formatting: Use LLM to reorder cards and generate narrative
@@ -68,16 +68,13 @@ class OutputFormatterAgent(BaseAgent):
         # Get AI client for LLM-powered formatting
         self.ai_client = get_ai_client()
         
-        # Determine which model to use (ALWAYS intensive for final output!)
         from src.services.claude_client import ClaudeClient
         if isinstance(self.ai_client, ClaudeClient):
-            self.model = "claude-sonnet-4-5-20250929"  # Sonnet 4.5 for executive writing
             self.client_type = "claude"
-            logger.info("🧠 OutputFormatterAgent: Using Claude Sonnet 4.5 (best for executive presentations)")
+            logger.info("🧠 OutputFormatterAgent: Using %s (Claude profile)", self.model)
         else:
-            self.model = "gpt-4o"  # GPT-4o for structured output
             self.client_type = "openai"
-            logger.info("🧠 OutputFormatterAgent: Using GPT-4o (best for structured presentations)")
+            logger.info("🧠 OutputFormatterAgent: Using %s (OpenAI profile)", self.model)
         
         # RATE LIMITING: Provider-aware semaphores per Phase 3 resilience standards
         self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Anthropic/OpenAI limits from settings

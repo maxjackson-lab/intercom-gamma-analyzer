@@ -17,6 +17,12 @@ import logging
 import json
 import time
 
+from src.config.model_profiles import (
+    ALLOWED_SCOPES,
+    DEFAULT_SCOPE,
+    select_model_for_scope,
+)
+
 # Conditional import for ToolRegistry to avoid circular imports
 try:
     from src.agents.tools.registry import ToolRegistry
@@ -161,11 +167,27 @@ class BaseAgent(ABC):
         # Truncate
         return snippet[:max_chars] + '...' if len(snippet) >= max_chars else snippet
 
-    def __init__(self, name: str, model: str = "gpt-4o", temperature: float = 0.3, tool_registry: Optional['ToolRegistry'] = None):
+    def __init__(
+        self,
+        name: str,
+        model: Optional[str] = None,
+        temperature: float = 0.3,
+        tool_registry: Optional['ToolRegistry'] = None,
+        model_scope: str = DEFAULT_SCOPE,
+    ):
         self.name = name
-        self.model = model
-        self.temperature = temperature
         self.logger = logging.getLogger(f"agents.{name}")
+        if model_scope not in ALLOWED_SCOPES:
+            self.logger.warning(
+                "Unknown model scope '%s' requested for %s. Falling back to '%s'.",
+                model_scope,
+                name,
+                DEFAULT_SCOPE,
+            )
+            model_scope = DEFAULT_SCOPE
+        self.model_scope = model_scope
+        self.model = model or select_model_for_scope(model_scope)
+        self.temperature = temperature
         self.tool_registry = tool_registry
         self.tool_calls_made: List[Dict[str, Any]] = []
         self._in_tool_exec = False  # Reentrancy guard to prevent infinite recursion

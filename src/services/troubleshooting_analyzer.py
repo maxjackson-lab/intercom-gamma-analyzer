@@ -16,6 +16,7 @@ import json
 
 from src.utils.ai_client_helper import get_ai_client
 from src.utils.conversation_utils import extract_conversation_text, extract_customer_messages
+from src.config.model_profiles import select_model_for_scope
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ class TroubleshootingAnalyzer:
             # Get AI analysis
             response = await self.ai_client.complete(
                 prompt=prompt,
-                model="gpt-4o-mini",  # Fast and cheap for this task
+                model=select_model_for_scope("quick"),  # Fast and cheap for this task
                 temperature=0.3,
                 response_format={"type": "json_object"}
             )

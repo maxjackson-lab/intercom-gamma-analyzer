@@ -22,7 +22,6 @@ class ConfidenceMetaAgent(BaseAgent):
     def __init__(self, ai_client=None):
         super().__init__(
             name="ConfidenceMetaAgent",
-            model="gpt-4o",
             temperature=0.3
         )
         self.ai_client = ai_client

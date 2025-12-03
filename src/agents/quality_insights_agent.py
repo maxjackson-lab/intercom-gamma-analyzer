@@ -19,6 +19,7 @@ from src.utils.conversation_utils import extract_customer_messages
 from src.utils.time_utils import format_duration
 from src.utils.ai_client_helper import get_recommended_semaphore
 from src.config.settings import settings
+from src.config.model_profiles import select_model_for_scope
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,6 @@ class QualityInsightsAgent(BaseAgent):
     def __init__(self, ai_client=None):
         super().__init__(
             name="QualityInsightsAgent",
-            model="gpt-4o",
             temperature=0.3
         )
         # Get AI client if not provided
@@ -43,15 +43,11 @@ class QualityInsightsAgent(BaseAgent):
         # Determine which models to use based on AI client type (STRATEGIC TRENDS → use Sonnet!)
         from src.services.claude_client import ClaudeClient
         if isinstance(self.ai_client, ClaudeClient):
-            # Claude: Use Sonnet 4.5 for strategic quality insights
-            self.quick_model = "claude-haiku-4-5-20251001"
-            self.intensive_model = "claude-sonnet-4-5-20250929"
             self.client_type = "claude"
         else:
-            # OpenAI: Use GPT-4o for quality insights
-            self.quick_model = "gpt-4o-mini"
-            self.intensive_model = "gpt-4o"
             self.client_type = "openai"
+        self.quick_model = select_model_for_scope("quick")
+        self.intensive_model = select_model_for_scope("intensive")
         
         # RATE LIMITING: Provider-specific concurrency limits
         # OpenAI: Default 10 concurrent (configurable via OPENAI_CONCURRENCY)

@@ -54,7 +54,7 @@ Anthropic Tier 1 (50 RPM) translates to ~0.8 requests/second. Without semaphores
 ```python
 class Settings(BaseSettings):
     llm_timeout_default: int = Field(60, env="LLM_TIMEOUT_DEFAULT")
-    topic_detection_timeout: int = Field(60, env="TOPIC_DETECTION_TIMEOUT")
+    topic_detection_timeout: int = Field(180, env="TOPIC_DETECTION_TIMEOUT")
     output_formatter_timeout: int = Field(120, env="OUTPUT_FORMATTER_TIMEOUT")
     # ...
 ```
@@ -69,7 +69,7 @@ orchestrator_timeout = agent_timeout * 3
 
 Example:
 
-- TopicDetectionAgent → 60s agent timeout → 180s orchestrator window
+- TopicDetectionAgent → 180s agent timeout → 540s orchestrator window
 - OutputFormatterAgent → 120s agent timeout → 360s orchestrator window
 
 This buffer absorbs SDK retries, network jitter, and multi-call agents without prematurely failing the pipeline.
@@ -124,7 +124,7 @@ Actionable steps appear in the Failure Mode Runbook (see §8).
 | Concurrency | `openai_concurrency` | 20 | `OPENAI_CONCURRENCY` |
 |  | `anthropic_concurrency` | 2 | `ANTHROPIC_CONCURRENCY` |
 | Timeouts | `llm_timeout_default` | 60s | `LLM_TIMEOUT_DEFAULT` |
-|  | `topic_detection_timeout` | 60s | `TOPIC_DETECTION_TIMEOUT` |
+|  | `topic_detection_timeout` | 180s | `TOPIC_DETECTION_TIMEOUT` |
 |  | `output_formatter_timeout` | 120s | `OUTPUT_FORMATTER_TIMEOUT` |
 |  | `subtopic_detection_timeout` | 60s | `SUBTOPIC_DETECTION_TIMEOUT` |
 |  | `sentiment_timeout` | 60s | `SENTIMENT_TIMEOUT` |

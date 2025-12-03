@@ -25,7 +25,6 @@ class TopicSentimentAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="TopicSentimentAgent",
-            model="gpt-4o",
             temperature=0.6  # Moderate for nuanced language
         )
         self.ai_client = get_ai_client()

@@ -29,8 +29,8 @@ class CannyTopicDetectionAgent(BaseAgent):
     def __init__(self, ai_factory: AIModelFactory):
         super().__init__(
             name="CannyTopicDetectionAgent",
-            model="gpt-4o-mini",
-            temperature=0.2
+            temperature=0.2,
+            model_scope="quick",
         )
         self.ai_factory = ai_factory
         self.logger = logging.getLogger(__name__)

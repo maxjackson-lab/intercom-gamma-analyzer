@@ -23,8 +23,8 @@ class BpoPerformanceAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="BpoPerformanceAgent",
-            model="gpt-4o-mini",
-            temperature=0.0
+            temperature=0.0,
+            model_scope="quick",
         )
         self.logger = logging.getLogger(__name__)
 

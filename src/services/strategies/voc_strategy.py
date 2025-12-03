@@ -42,6 +42,7 @@ from src.agents.topic_detection_agent import TopicDetectionAgent
 from src.agents.topic_sentiment_agent import TopicSentimentAgent
 from src.agents.trend_agent import TrendAgent
 from src.config.modes import get_analysis_mode_config
+from src.config.settings import settings
 from src.models.analysis_models import (
     FinAnalysisPayload,
     SegmentationPayload,
@@ -590,6 +591,8 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
         """
         self.logger.info("🔍 Phase 4.5: Analytical Insights")
         
+        agent_names: List[str] = []
+
         try:
             config = get_analysis_mode_config()
             
@@ -602,9 +605,24 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
             # ChurnRiskAgent removed due to instability
             if config.is_feature_enabled('enable_confidence_meta'):
                 agents_to_run.append(('ConfidenceMetaAgent', self.confidence_meta_agent))
-                
+
+            agent_names = [name for name, _ in agents_to_run]
+            
             if not agents_to_run:
                 return {}
+
+            requested_model = (ai_model or settings.voc_default_ai_model or AIModel.OPENAI_GPT4.value).lower()
+            if requested_model.startswith("claude"):
+                normalized_model = AIModel.ANTHROPIC_CLAUDE.value
+            elif requested_model.startswith("openai") or requested_model.startswith("gpt"):
+                normalized_model = AIModel.OPENAI_GPT4.value
+            else:
+                normalized_model = AIModel.OPENAI_GPT4.value
+
+            if normalized_model == AIModel.ANTHROPIC_CLAUDE.value:
+                reason = f"Phase 4.5 insights temporarily disabled for ai_model='{requested_model}'"
+                self.logger.warning("%s — skipping analytical insights", reason)
+                return self._build_insight_skip_payload(agent_names, reason)
 
             # Prepare context - defensive handling for None metadata
             hist_context = {'weeks_available': 0}
@@ -634,7 +652,11 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
             
             # Inject AI client with error handling
             try:
-                ai_enum = AIModel.OPENAI_GPT4 if ai_model == 'openai' else AIModel.ANTHROPIC_CLAUDE
+                ai_enum = (
+                    AIModel.OPENAI_GPT4
+                    if normalized_model == AIModel.OPENAI_GPT4.value
+                    else AIModel.ANTHROPIC_CLAUDE
+                )
                 client = self.ai_factory.get_client(ai_enum)
                 for _, agent in agents_to_run:
                     if hasattr(agent, 'ai_client'):
@@ -662,16 +684,13 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
                     insights[name] = _normalize_agent_result(res)
                 
             return insights
-            
+        
         except Exception as e:
             self.logger.error(f"⚠️ Phase 4.5 failed entirely (skipping all insight agents): {e}")
-            # Return empty insights so pipeline can continue
-            return {
-                'CorrelationAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
-                'QualityInsightsAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
-                # ChurnRiskAgent removed
-                'ConfidenceMetaAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
-            }
+            return self._build_insight_skip_payload(
+                agent_names or ['CorrelationAgent', 'QualityInsightsAgent', 'ConfidenceMetaAgent'],
+                str(e)
+            )
 
     async def _execute_phase_4_6_cross_platform(self, paid_conversations, canny_posts, ai_model):
         self.logger.info("🔗 Phase 4.6: Cross-Platform Correlation")
@@ -817,4 +836,16 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
             confidence=0.0,
             confidence_level=ConfidenceLevel.LOW
         )
+
+    @staticmethod
+    def _build_insight_skip_payload(agent_names: List[str], reason: str) -> Dict[str, Dict[str, Any]]:
+        return {
+            name: {
+                'success': False,
+                'skipped': True,
+                'error': reason,
+                'data': {},
+            }
+            for name in agent_names
+        }
 

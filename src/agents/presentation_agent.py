@@ -38,7 +38,6 @@ class PresentationAgent(BaseAgent):
     def __init__(self, ai_client: Optional[Any] = None):
         super().__init__(
             name="PresentationAgent",
-            model="gpt-4o",
             temperature=0.7  # Creative but controlled
         )
         self.gamma_generator = GammaGenerator()

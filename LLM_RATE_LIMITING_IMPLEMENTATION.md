@@ -123,7 +123,7 @@ async with self.llm_semaphore:  # Limits based on provider
 
 **Problem:** Individual LLM calls could hang indefinitely, freezing entire pipeline.
 
-**Solution:** Configurable timeout per agent using `settings.py` (default 60s; OutputFormatterAgent = 120s). Orchestrator windows automatically scale to 3× the agent timeout.
+**Solution:** Configurable timeout per agent using `settings.py` (TopicDetectionAgent default 180s; OutputFormatterAgent = 120s). Orchestrator windows automatically scale to 3× the agent timeout.
 
 **Implementation:**
 ```python

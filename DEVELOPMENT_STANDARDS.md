@@ -546,13 +546,28 @@ chunk_size = 50  # Conversations per batch
 
 **All LLM timeouts are now configurable via environment variables in `src/config/settings.py`.**
 
+## Model Profile Enforcement (OpenAI Production Standards)
+
+Per [OpenAI's production best practices](https://platform.openai.com/docs/guides/production-best-practices), we keep configuration predictable by routing every run through a single model profile:
+
+- **OpenAI profile** → `gpt-4o-mini` for quick tasks, `gpt-4o` for intensive reasoning/writing.
+- **Anthropic profile** → `claude-haiku-4-5-20251001` (quick) and `claude-sonnet-4-5-20250929` (intensive).
+
+Implementation details:
+
+- `src/config/model_profiles.py` declares the provider-specific scopes and exposes `select_model_for_scope()`.
+- `BaseAgent` automatically pulls the correct model based on `model_scope` ("quick" vs. "intensive"), so subclasses no longer hard-code model names.
+- Agents that manage multiple tiers (e.g., TopicDetectionAgent, QualityInsightsAgent) request both scopes from the active profile and stay aligned with the selected provider.
+
+This guarantees we never mix OpenAI and Anthropic models within the same analysis run and keeps latency/cost characteristics within the expected envelopes that OpenAI recommends for production workloads.
+
 ### Agent-Level Timeouts
 
 Each agent has its own configurable timeout:
 
 | Agent | Setting | Default | Environment Variable |
 |-------|---------|---------|---------------------|
-| TopicDetectionAgent | `topic_detection_timeout` | 60s | `TOPIC_DETECTION_TIMEOUT` |
+| TopicDetectionAgent | `topic_detection_timeout` | 180s | `TOPIC_DETECTION_TIMEOUT` |
 | SubTopicDetectionAgent | `subtopic_detection_timeout` | 60s | `SUBTOPIC_DETECTION_TIMEOUT` |
 | QualityInsightsAgent | `quality_insights_timeout` | 60s | `QUALITY_INSIGHTS_TIMEOUT` |
 | SentimentAgent | `sentiment_timeout` | 60s | `SENTIMENT_TIMEOUT` |
@@ -580,8 +595,8 @@ This multiplier provides buffer for:
 - Processing overhead between calls
 
 **Example:**
-- `TopicDetectionAgent` timeout: 60s
-- Orchestrator timeout for `TopicDetectionAgent`: 180s (3×60)
+- `TopicDetectionAgent` timeout: 180s
+- Orchestrator timeout for `TopicDetectionAgent`: 540s (3×180)
 
 ### How to Tune Timeouts
 
@@ -589,7 +604,7 @@ This multiplier provides buffer for:
 
 ```bash
 # Set per-agent timeout
-export TOPIC_DETECTION_TIMEOUT=90  # Increase to 90s for slower responses
+export TOPIC_DETECTION_TIMEOUT=240  # Increase for large datasets or slower providers
 
 # Set client-level timeout (affects all agents using that client)
 export LLM_CLIENT_TIMEOUT=90
@@ -604,7 +619,7 @@ export LLM_TIMEOUT_DEFAULT=60
 from src.config.settings import settings
 
 # Temporarily override for testing
-settings.topic_detection_timeout = 90
+settings.topic_detection_timeout = 180
 ```
 
 **When to Increase Timeouts:**

@@ -25,7 +25,6 @@ class InsightAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="InsightAgent",
-            model="gpt-4o",
             temperature=0.7  # Higher temperature for creative synthesis
         )
         self.ai_client = get_ai_client()

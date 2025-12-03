@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # LLM Timeout Settings (configurable per agent and client)
     llm_timeout_default: int = Field(60, env="LLM_TIMEOUT_DEFAULT")  # Default timeout for LLM calls (seconds)
     llm_client_timeout: int = Field(60, env="LLM_CLIENT_TIMEOUT")  # Client-level timeout for OpenAI/Claude clients
-    topic_detection_timeout: int = Field(60, env="TOPIC_DETECTION_TIMEOUT")  # TopicDetectionAgent timeout
+    topic_detection_timeout: int = Field(180, env="TOPIC_DETECTION_TIMEOUT")  # TopicDetectionAgent timeout
     subtopic_detection_timeout: int = Field(60, env="SUBTOPIC_DETECTION_TIMEOUT")  # SubTopicDetectionAgent timeout
     quality_insights_timeout: int = Field(60, env="QUALITY_INSIGHTS_TIMEOUT")  # QualityInsightsAgent timeout
     presentation_quality_timeout: int = Field(60, env="PRESENTATION_QUALITY_TIMEOUT")  # PresentationAgent quality assessment timeout

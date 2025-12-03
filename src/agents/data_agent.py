@@ -25,8 +25,8 @@ class DataAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="DataAgent",
-            model="gpt-4o-mini",  # Cost-effective for data validation
-            temperature=0.1  # Low temperature for factual accuracy
+            temperature=0.1,  # Low temperature for factual accuracy
+            model_scope="quick",  # Cost-effective for data validation
         )
         self.pipeline = ELTPipeline()
         self.preprocessor = DataPreprocessor()

@@ -18,7 +18,6 @@ class NarrativeFormatterAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="NarrativeFormatterAgent",
-            model="gpt-4o",
             temperature=0.35
         )
         self.logger = logging.getLogger(__name__)

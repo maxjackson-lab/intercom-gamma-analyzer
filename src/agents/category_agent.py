@@ -27,7 +27,6 @@ class CategoryAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="CategoryAgent",
-            model="gpt-4o",  # Needs reasoning for accurate categorization
             temperature=0.3  # Moderate temperature for classification
         )
         self.category_filters = CategoryFilters()

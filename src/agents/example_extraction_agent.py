@@ -28,7 +28,6 @@ class ExampleExtractionAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="ExampleExtractionAgent",
-            model="gpt-4o",
             temperature=0.3
         )
         self.ai_client = get_ai_client()

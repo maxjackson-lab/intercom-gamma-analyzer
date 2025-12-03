@@ -147,7 +147,7 @@ export OPENAI_CONCURRENCY=10     # Temporary slowdown
 3. **Check timeout configuration**:
    ```bash
    # Current timeout settings
-   echo $TOPIC_DETECTION_TIMEOUT  # Default: 60s
+echo $TOPIC_DETECTION_TIMEOUT  # Default: 180s
    echo $LLM_CLIENT_TIMEOUT       # Default: 60s
    ```
 
@@ -155,18 +155,18 @@ export OPENAI_CONCURRENCY=10     # Temporary slowdown
 **Increase timeout for slow providers:**
 ```bash
 # Anthropic (slower responses)
-export TOPIC_DETECTION_TIMEOUT=90
+export TOPIC_DETECTION_TIMEOUT=240
 export LLM_CLIENT_TIMEOUT=90
 
 # OpenAI (faster, but increase if needed)
-export TOPIC_DETECTION_TIMEOUT=60
+export TOPIC_DETECTION_TIMEOUT=180
 export LLM_CLIENT_TIMEOUT=60
 ```
 
 **Or adjust in code:**
 ```python
 # settings.py
-topic_detection_timeout: int = Field(90, env="TOPIC_DETECTION_TIMEOUT")
+topic_detection_timeout: int = Field(180, env="TOPIC_DETECTION_TIMEOUT")
 llm_client_timeout: int = Field(90, env="LLM_CLIENT_TIMEOUT")
 ```
 
@@ -182,11 +182,11 @@ python src/main.py sample-mode --count 50 --save-to-file
 ```bash
 python -c "from src.config.settings import settings; print(f'Default: {settings.llm_timeout_default}s, Topic: {settings.topic_detection_timeout}s, Formatter: {settings.output_formatter_timeout}s')"
 ```
-- Defaults: Topic = 60s, Formatter = 120s, Orchestrator window = 3× agent timeout.
+- Defaults: Topic = 180s, Formatter = 120s, Orchestrator window = 3× agent timeout.
 
 **Increase Timeout for Specific Agent**
 ```bash
-export TOPIC_DETECTION_TIMEOUT=90
+export TOPIC_DETECTION_TIMEOUT=240
 export OUTPUT_FORMATTER_TIMEOUT=180
 ```
 - Update `settings.py` only if adding a brand-new agent timeout.

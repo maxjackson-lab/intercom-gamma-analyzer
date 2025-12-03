@@ -32,7 +32,6 @@ class FinPerformanceAgent(BaseAgent):
     def __init__(self, audit=None):
         super().__init__(
             name="FinPerformanceAgent",
-            model="gpt-4o",
             temperature=0.4
         )
         self.logger = logging.getLogger(__name__)
