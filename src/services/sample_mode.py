@@ -1506,7 +1506,6 @@ class SampleMode:
         from src.agents.fin_performance_agent import FinPerformanceAgent
         from src.agents.correlation_agent import CorrelationAgent
         from src.agents.quality_insights_agent import QualityInsightsAgent
-        from src.agents.churn_risk_agent import ChurnRiskAgent
         from src.agents.confidence_meta_agent import ConfidenceMetaAgent
         from src.agents.segmentation_agent import SegmentationAgent
         from src.agents.bpo_performance_agent import BpoPerformanceAgent

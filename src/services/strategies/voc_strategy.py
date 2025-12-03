@@ -29,7 +29,6 @@ from pydantic import ValidationError
 from src.agents.base_agent import AgentContext, AgentResult, ConfidenceLevel
 from src.agents.bpo_performance_agent import BpoPerformanceAgent
 from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
-from src.agents.churn_risk_agent import ChurnRiskAgent
 from src.agents.confidence_meta_agent import ConfidenceMetaAgent
 from src.agents.correlation_agent import CorrelationAgent
 from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelationAgent
@@ -112,7 +111,6 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
         # Analytical Insights Agents
         self.correlation_agent = CorrelationAgent()
         self.quality_insights_agent = QualityInsightsAgent()
-        self.churn_risk_agent = ChurnRiskAgent()
         self.confidence_meta_agent = ConfidenceMetaAgent()
         
         # Lazy-loaded components

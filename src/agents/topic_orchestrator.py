@@ -31,7 +31,6 @@ from src.agents.canny_topic_detection_agent import CannyTopicDetectionAgent
 from src.agents.cross_platform_correlation_agent import CrossPlatformCorrelationAgent
 from src.agents.correlation_agent import CorrelationAgent
 from src.agents.quality_insights_agent import QualityInsightsAgent
-from src.agents.churn_risk_agent import ChurnRiskAgent
 from src.agents.confidence_meta_agent import ConfidenceMetaAgent
 from src.services.ai_model_factory import AIModelFactory, AIModel
 from src.services.duckdb_storage import DuckDBStorage
@@ -180,7 +179,6 @@ class TopicOrchestrator:
         # Analytical insight agents (Phase 4.5)
         self.correlation_agent = CorrelationAgent()
         self.quality_insights_agent = QualityInsightsAgent()
-        self.churn_risk_agent = ChurnRiskAgent()
         self.confidence_meta_agent = ConfidenceMetaAgent()
         
         # Analytical agents are eagerly instantiated because:
