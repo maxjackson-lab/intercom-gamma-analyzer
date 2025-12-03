@@ -601,8 +601,7 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
                 agents_to_run.append(('CorrelationAgent', self.correlation_agent))
             if config.is_feature_enabled('enable_quality_insights'):
                 agents_to_run.append(('QualityInsightsAgent', self.quality_insights_agent))
-            if config.is_feature_enabled('enable_churn_detection'):
-                agents_to_run.append(('ChurnRiskAgent', self.churn_risk_agent))
+            # ChurnRiskAgent removed due to instability
             if config.is_feature_enabled('enable_confidence_meta'):
                 agents_to_run.append(('ConfidenceMetaAgent', self.confidence_meta_agent))
                 
@@ -672,7 +671,7 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
             return {
                 'CorrelationAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
                 'QualityInsightsAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
-                'ChurnRiskAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
+                # ChurnRiskAgent removed
                 'ConfidenceMetaAgent': {'success': False, 'skipped': True, 'error': str(e), 'data': {}},
             }
 

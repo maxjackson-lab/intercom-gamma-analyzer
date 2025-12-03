@@ -1167,7 +1167,7 @@ class TopicOrchestrator:
             feature_map = {
                 'CorrelationAgent': ('enable_correlation_analysis', self.correlation_agent),
                 'QualityInsightsAgent': ('enable_quality_insights', self.quality_insights_agent),
-                'ChurnRiskAgent': ('enable_churn_detection', self.churn_risk_agent),
+                # ChurnRiskAgent removed due to instability
                 'ConfidenceMetaAgent': ('enable_confidence_meta', self.confidence_meta_agent),
             }
             enabled_agents = []
@@ -1222,7 +1222,7 @@ class TopicOrchestrator:
                 client = self.ai_factory.get_client(ai_model_enum)
                 self.correlation_agent.ai_client = client
                 self.quality_insights_agent.ai_client = client
-                self.churn_risk_agent.ai_client = client
+                # ChurnRiskAgent removed
                 self.confidence_meta_agent.ai_client = client
                 
                 gather_results = await asyncio.gather(
@@ -1258,7 +1258,7 @@ class TopicOrchestrator:
                 
                 # Extract metrics for summary
                 correlations_count = workflow_results.get('CorrelationAgent', {}).get('data', {}).get('total_correlations_found', 0)
-                churn_signals_count = workflow_results.get('ChurnRiskAgent', {}).get('data', {}).get('risk_breakdown', {}).get('total_risk_signals', 0)
+                churn_signals_count = 0 # ChurnRiskAgent removed
                 anomalies_count = len(workflow_results.get('QualityInsightsAgent', {}).get('data', {}).get('anomalies', []))
                 overall_confidence = workflow_results.get('ConfidenceMetaAgent', {}).get('data', {}).get('overall_data_quality_score', 0)
                 
