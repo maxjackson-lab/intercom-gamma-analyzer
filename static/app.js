@@ -487,7 +487,6 @@ async function runAnalysis() {
         const legacyMode = document.getElementById('legacyModeToggle')?.checked || false;
         const correlationInsightsEnabled = document.getElementById('correlationAgentToggle')?.checked ?? true;
         const qualityInsightsEnabled = document.getElementById('qualityInsightsToggle')?.checked ?? true;
-        const churnInsightsEnabled = document.getElementById('churnRiskToggle')?.checked ?? true;
         const confidenceMetaEnabled = document.getElementById('confidenceMetaToggle')?.checked ?? true;
         const agentSubtopicsEnabled = document.getElementById('agentSubtopics')?.checked ?? true;
         const agentTopicSentimentEnabled = document.getElementById('agentTopicSentiment')?.checked ?? true;
@@ -676,7 +675,6 @@ async function runAnalysis() {
             appendInsightFlagArgs(args, {
                 correlation: correlationInsightsEnabled,
                 quality: qualityInsightsEnabled,
-                churn: churnInsightsEnabled,
                 confidence: confidenceMetaEnabled
             });
             appendAgentToggleArgs(args, {
@@ -1312,10 +1310,6 @@ function appendInsightFlagArgs(args, flags) {
     
     if (typeof flags.quality === 'boolean') {
         args.push(flags.quality ? '--enable-quality-insights' : '--disable-quality-insights');
-    }
-    
-    if (typeof flags.churn === 'boolean') {
-        args.push(flags.churn ? '--enable-churn-detection' : '--disable-churn-detection');
     }
     
     if (typeof flags.confidence === 'boolean') {

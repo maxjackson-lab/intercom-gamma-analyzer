@@ -295,7 +295,7 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                         <span>🧪 Test ALL Production Agents</span>
                     </label>
                     <p style="margin: 5px 0 0 24px; font-size: 12px; color: #9ca3af;">
-                        Tests 7 agents: SubTopic, Example, Fin, Correlation, Quality, Churn, Confidence (+30s runtime)
+                        Tests 6 agents: SubTopic, Example, Fin, Correlation, Quality, Confidence (+30s runtime)
                     </p>
                 </div>
 
@@ -506,10 +506,6 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                 <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">
                     <input type="checkbox" id="qualityInsightsToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
                     <span style="color: #fed7aa;">QualityInsightsAgent (FCR, reopen anomalies, exceptional convos)</span>
-                </label>
-                <label style="display: flex; align-items: center; margin-bottom: 6px; cursor: pointer;">
-                    <input type="checkbox" id="churnRiskToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-                    <span style="color: #fed7aa;">ChurnRiskAgent (High-risk accounts + signals)</span>
                 </label>
                 <label style="display: flex; align-items: center; cursor: pointer;">
                     <input type="checkbox" id="confidenceMetaToggle" checked style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
