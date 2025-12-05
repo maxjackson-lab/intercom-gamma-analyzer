@@ -78,4 +78,4 @@ uvicorn[standard]>=0.24.0
 sse-starlette>=1.6.5
 
 # Optional: DeepAgents supervisor (Phase 3 pilot)
-# deepagents>=0.1.0  # Uncomment to enable --orchestrator=deep
+deepagents>=0.1.0  # DeepAgents supervisor for --orchestrator=deep
