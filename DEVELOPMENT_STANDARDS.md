@@ -790,6 +790,62 @@ log_file = output_manager.save_log(log_content)
 - `src/utils/output_manager.py` - Log persistence implementation
 - `.cursorrules` - "Output File Resilience" section
 
+## Review Packet Consumption & Approval Mode
+
+**When a VoC run generates a review packet, follow this workflow (sample-mode never pauses and only generates synthetic packets for validation scripts):**
+
+### Step 1: Locate Review Packet
+```bash
+# Review packets are saved alongside logs/JSON
+ls -lt outputs/review_packet_*.md | head -1
+cat outputs/review_packet_<analysis_id>.md
+```
+
+### Step 2: Evaluate Failed KPIs
+- **Critical failures** (composite_score < 0.50, duplicate_ratio > 0.30): Rerun with adjusted prompts
+- **Warning failures** (composite_score 0.50-0.60, duplicate_ratio 0.15-0.30): Review insights, decide if acceptable
+- **Minor failures** (metric_refs < 5, missing analytics): Acceptable for quick runs, fix for production
+- Analytics coverage only triggers when the formatter marks analytics data as available (QualityInsights + Fin + Churn inputs present). Missing telemetry before Phase 6 no longer causes automatic failures.
+
+### Step 3: Decide Next Steps
+- **Accept as-is**: Use `--override` flag to skip review packet generation on next run
+- **Rerun with fixes**: Adjust prompts, increase sample size, or enable missing features
+- **Investigate root cause**: Check logs for LLM errors, data quality issues, or config problems
+
+### Approval Mode (Optional)
+
+**Enable approval gate for high-stakes runs:**
+```bash
+python src/main.py voice-of-customer --time-period week --require-approval
+```
+
+**Workflow:**
+1. Run starts normally.
+2. After EditorAgent, if KPIs fail, review packet is generated.
+3. Execution pauses, prints: "⚠️ Review packet generated. Waiting for approval..."
+4. Review packet manually, then approve:
+   ```bash
+   python src/main.py approve-voc <execution_id>
+   ```
+5. Execution resumes after approval (or timeout after 5 minutes).
+
+**When to use approval mode:**
+- Production reports for executives
+- High-visibility analyses (board meetings, investor updates)
+- Testing new prompts or configurations
+- Debugging quality regressions
+
+**When NOT to use approval mode:**
+- Standard weekly/monthly runs (automation default)
+- Sample-mode testing
+- Exploratory analysis
+
+**Environment Variable:**
+```bash
+export REQUIRE_APPROVAL=true  # Enable by default
+export APPROVAL_TIMEOUT_SECONDS=600  # 10 minute timeout
+```
+
 ## Summary
 
 **Every feature must include:**

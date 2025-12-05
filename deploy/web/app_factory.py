@@ -41,6 +41,7 @@ from src.services.web_command_executor import WebCommandExecutor
 from deploy.web import routes_chat, routes_execution, routes_files, routes_timeline
 from deploy.web.routes_execution import get_primary_outputs_path
 from deploy.web.templates import render_chat_html_v2, render_files_html
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,12 @@ def _register_routes(app: FastAPI) -> None:
     @app.get("/", response_class=HTMLResponse)
     async def chat_ui():
         return HTMLResponse(
-            render_chat_html_v2(app_version=APP_VERSION, git_commit=GIT_COMMIT, cache_bust=cache_bust),
+            render_chat_html_v2(
+                app_version=APP_VERSION,
+                git_commit=GIT_COMMIT,
+                cache_bust=cache_bust,
+                enable_deep_orchestrator=settings.enable_deep_orchestrator,
+            ),
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache",

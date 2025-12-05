@@ -1268,9 +1268,13 @@ def run_comprehensive_analysis_wrapper(
              help='Digest mode: executive summary, topic cards, prioritized actions only')
 @click.option('--legacy-mode', is_flag=True, default=False,
               help='Run legacy Hilary V1 multi-agent workflow (topic-based only)')
+@click.option('--orchestrator', type=click.Choice(['legacy', 'deep']), default='legacy',
+              help='Orchestration mode: legacy TopicOrchestratorV2 or deep DeepAgents supervisor (Phase 3 pilot)')
 @click.option('--detail-level', type=click.Choice(['standard', 'deep', 'comprehensive']),
               default='standard',
               help='Control output verbosity: standard (exec-ready), deep (adds reasoning + BPO detail), comprehensive (full traceability)')
+@click.option('--require-approval', is_flag=True, default=False,
+              help='Pause after review packet generation for manual approval')
 @click.option('--enable-correlation-analysis', 'enable_correlation_analysis',
               flag_value=True, default=None,
               help='Toggle Phase 4.5 CorrelationAgent (default: enabled)')
@@ -1363,7 +1367,9 @@ def voice_of_customer_analysis(
     enable_fin_analysis: Optional[bool],
     enable_bpo_analysis: Optional[bool],
     enable_trend_analysis: Optional[bool],
-    detail_level: str
+    detail_level: str,
+    orchestrator: str,
+    require_approval: bool,
 ):
     asyncio.run(
         run_voice_of_customer_analysis_impl(
@@ -1397,8 +1403,28 @@ def voice_of_customer_analysis(
             enable_trend_analysis=enable_trend_analysis,
             legacy_mode=legacy_mode,
             detail_level=detail_level,
+            orchestrator=orchestrator,
+            require_approval=require_approval,
         )
     )
+
+
+@cli.command(name='approve-voc')
+@click.argument('execution_id')
+def approve_voc(execution_id: str):
+    """Approve a paused Voice of Customer execution."""
+    from src.services.execution_state_manager import ExecutionStateManager
+    from src.cli.utils import console
+
+    manager = ExecutionStateManager()
+    try:
+        approved = asyncio.run(manager.approve_execution(execution_id))
+        if approved:
+            console.print(f"[green]✅ Execution {execution_id} approved[/green]")
+        else:
+            console.print(f"[yellow]⚠️ Approval signal not found for {execution_id}[/yellow]")
+    except Exception as exc:
+        console.print(f"[red]Error approving execution {execution_id}: {exc}[/red]")
 
 
 @cli.command(name='sample-mode')
@@ -1430,6 +1456,8 @@ def voice_of_customer_analysis(
               help='Enable verbose DEBUG logging for sampling run')
 @click.option('--audit-mode', is_flag=True, default=False,
               help='Run validation checks on all agent outputs')
+@click.option('--orchestrator', type=click.Choice(['legacy', 'deep']), default='legacy',
+              help='Orchestrator mode: legacy (TopicOrchestratorV2) or deep (DeepAgents supervisor)')
 def sample_mode_cli(
     count: Optional[int],
     time_period: Optional[str],
@@ -1446,6 +1474,7 @@ def sample_mode_cli(
     no_hierarchy: bool,
     verbose: bool,
     audit_mode: bool,
+    orchestrator: str,
 ):
     """Pull a real-data sample with ultra-rich logging + diagnostics."""
     asyncio.run(
@@ -1465,6 +1494,7 @@ def sample_mode_cli(
             no_hierarchy=no_hierarchy,
             verbose=verbose,
             audit_mode=audit_mode,
+            orchestrator=orchestrator,
         )
     )
 

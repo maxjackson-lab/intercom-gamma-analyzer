@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from src.config.settings import settings
 from src.agents.base_agent import AgentContext
 from src.cli.utils import console
 from src.cli.voc_shared import (
@@ -26,6 +27,7 @@ from src.cli.voc_shared import (
 )
 from src.services.strategies import ComprehensiveStrategy
 from src.services.unified_orchestrator import UnifiedOrchestrator
+from src.services.execution_state_manager import ExecutionStateManager
 
 
 async def run_topic_based_analysis_custom(
@@ -41,7 +43,8 @@ async def run_topic_based_analysis_custom(
     mode_label: str = "Topic-based analysis",
     output_slug: str = "topic_based",
     extra_conversations: Optional[List[Dict[str, Any]]] = None,
-    legacy_mode: bool = False
+    legacy_mode: bool = False,
+    orchestrator: str = "legacy",
 ):
     """Run topic-based analysis with custom date range"""
     try:
@@ -169,19 +172,35 @@ async def run_topic_based_analysis_custom(
         if monitor:
             orchestrator_kwargs['execution_monitor'] = monitor
 
-        orchestrator = orchestrator_cls(**orchestrator_kwargs)
         week_id = start_date.strftime('%Y-W%W')
+        analysis_id = f"voc_{week_id}"
 
-        results = await orchestrator.execute_weekly_analysis(
-            conversations=conversations,
-            week_id=week_id,
-            start_date=start_date,
-            end_date=end_date,
-            period_type=period_type,
-            period_label=period_label,
-            digest_mode=digest_mode,
-            detail_level=detail_level
-        )
+        if orchestrator == "deep":
+            deep_results = await run_deep_supervisor(
+                conversations=conversations,
+                start_date=start_date,
+                end_date=end_date,
+                period_type=period_type,
+                period_label=period_label,
+                analysis_id=analysis_id,
+                analysis_mode="topic-based",
+            )
+            if not deep_results:
+                console.print("[red]❌ Deep orchestrator returned no data[/red]")
+                return
+            results = deep_results
+        else:
+            orchestrator = orchestrator_cls(**orchestrator_kwargs)
+            results = await orchestrator.execute_weekly_analysis(
+                conversations=conversations,
+                week_id=week_id,
+                start_date=start_date,
+                end_date=end_date,
+                period_type=period_type,
+                period_label=period_label,
+                digest_mode=digest_mode,
+                detail_level=detail_level
+            )
 
         if not results:
             console.print("[red]Analysis returned no data[/red]")
@@ -303,10 +322,57 @@ async def run_synthesis_analysis_custom(
     end_date: datetime,
     generate_gamma: bool,
     audit_trail: bool = False,
-    extra_conversations: Optional[List[Dict[str, Any]]] = None
+    extra_conversations: Optional[List[Dict[str, Any]]] = None,
+    test_mode: bool = False,
+    test_data_count: str = "100",
+    orchestrator: str = "legacy",
 ):
     """Run synthesis-focused VoC narrative using TopicOrchestrator + NarrativeFormatter."""
     from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+
+    if orchestrator == "deep":
+        from src.utils.time_utils import detect_period_type
+
+        period_type, period_label = detect_period_type(start_date, end_date)
+        conversations = await _load_voc_conversations_for_deep(
+            start_date=start_date,
+            end_date=end_date,
+            test_mode=test_mode,
+            test_data_count=test_data_count,
+            extra_conversations=extra_conversations,
+        )
+        deep_results = await run_deep_supervisor(
+            conversations=conversations,
+            start_date=start_date,
+            end_date=end_date,
+            period_type=period_type,
+            period_label=period_label,
+            analysis_id=f"voc_synthesis_{start_date.strftime('%Y%m%d')}",
+            analysis_mode="synthesis",
+        )
+        if not deep_results:
+            console.print("[red]❌ Deep orchestrator returned no data for synthesis[/red]")
+            return
+
+        report_file = _persist_voc_outputs(
+            deep_results,
+            slug="voc_synthesis",
+            start_date=start_date,
+            end_date=end_date,
+            period_label=period_label,
+        )
+        output_parent_dir = report_file.parent
+
+        if generate_gamma:
+            await _generate_gamma_from_report(
+                deep_results,
+                start_date=start_date,
+                end_date=end_date,
+                period_label=period_label,
+                output_parent_dir=output_parent_dir,
+                label="Gamma_URL_Synthesis",
+            )
+        return deep_results
 
     await run_voc_narrative_analysis(
         start_date,
@@ -328,10 +394,57 @@ async def run_complete_analysis_custom(
     generate_gamma: bool,
     audit_trail: bool = False,
     digest_mode: bool = False,
-    extra_conversations: Optional[List[Dict[str, Any]]] = None
+    extra_conversations: Optional[List[Dict[str, Any]]] = None,
+    test_mode: bool = False,
+    test_data_count: str = "100",
+    orchestrator: str = "legacy",
 ):
     """Run complete VoC analysis (topic + synthesis) through a unified NarrativeFormatter pass."""
     from src.agents.topic_orchestrator_v2 import TopicOrchestratorV2
+
+    if orchestrator == "deep":
+        from src.utils.time_utils import detect_period_type
+
+        period_type, period_label = detect_period_type(start_date, end_date)
+        conversations = await _load_voc_conversations_for_deep(
+            start_date=start_date,
+            end_date=end_date,
+            test_mode=test_mode,
+            test_data_count=test_data_count,
+            extra_conversations=extra_conversations,
+        )
+        deep_results = await run_deep_supervisor(
+            conversations=conversations,
+            start_date=start_date,
+            end_date=end_date,
+            period_type=period_type,
+            period_label=period_label,
+            analysis_id=f"voc_complete_{start_date.strftime('%Y%m%d')}",
+            analysis_mode="complete",
+        )
+        if not deep_results:
+            console.print("[red]❌ Deep orchestrator returned no data for complete run[/red]")
+            return
+
+        report_file = _persist_voc_outputs(
+            deep_results,
+            slug="voc_complete",
+            start_date=start_date,
+            end_date=end_date,
+            period_label=period_label,
+        )
+        output_parent_dir = report_file.parent
+
+        if generate_gamma:
+            await _generate_gamma_from_report(
+                deep_results,
+                start_date=start_date,
+                end_date=end_date,
+                period_label=period_label,
+                output_parent_dir=output_parent_dir,
+                label="Gamma_URL_Complete",
+            )
+        return deep_results
 
     await run_voc_narrative_analysis(
         start_date,
@@ -448,7 +561,9 @@ async def run_voice_of_customer_analysis(
     enable_bpo_analysis: Optional[bool],
     enable_trend_analysis: Optional[bool],
     legacy_mode: bool,
-    detail_level: str = "standard"
+    detail_level: str = "standard",
+    orchestrator: str = "legacy",
+    require_approval: bool = False,
 ):
     """
     Generate Voice of Customer sentiment analysis.
@@ -499,6 +614,8 @@ async def run_voice_of_customer_analysis(
     from src.utils.timezone_utils import get_date_range_pacific
 
     config = get_analysis_mode_config()
+    settings.require_approval = bool(require_approval)
+    console.print(f"[dim]Approval mode: {'ENABLED' if settings.require_approval else 'disabled'}[/dim]")
     feature_overrides = {
         'enable_correlation_analysis': enable_correlation_analysis,
         'enable_quality_insights': enable_quality_insights,
@@ -512,6 +629,9 @@ async def run_voice_of_customer_analysis(
         'enable_trends': enable_trend_analysis if enable_trend_analysis is not None else (True if include_trends else None),
     }
     applied_overrides: List[str] = []
+
+    if orchestrator == "legacy" and settings.enable_deep_orchestrator:
+        orchestrator = "deep"
 
     try:
         for feature, value in feature_overrides.items():
@@ -646,7 +766,8 @@ async def run_voice_of_customer_analysis(
                 output_slug="voc_topic_based",
                 extra_conversations=extra_canny_conversations,
                 legacy_mode=legacy_mode,
-                detail_level=detail_level
+                detail_level=detail_level,
+                orchestrator=orchestrator,
             )
         elif analysis_type == 'synthesis':
             await run_synthesis_analysis_custom(
@@ -655,6 +776,9 @@ async def run_voice_of_customer_analysis(
                 generate_gamma,
                 audit_trail,
                 extra_conversations=extra_canny_conversations,
+                test_mode=test_mode,
+                test_data_count=test_data_count_int,
+                orchestrator=orchestrator,
             )
         else:  # complete
             await run_complete_analysis_custom(
@@ -663,12 +787,256 @@ async def run_voice_of_customer_analysis(
                 generate_gamma,
                 audit_trail,
                 digest_mode=digest_mode,
-                extra_conversations=extra_canny_conversations
+                extra_conversations=extra_canny_conversations,
+                test_mode=test_mode,
+                test_data_count=test_data_count_int,
+                orchestrator=orchestrator,
             )
 
     finally:
         for feature in applied_overrides:
             config.clear_feature_override(feature)
+
+
+def build_voc_request(
+    conversations: List[Dict[str, Any]],
+    start_date: datetime,
+    end_date: datetime,
+    period_type: str,
+    period_label: str,
+    analysis_id: str,
+    analysis_mode: str,
+) -> Dict[str, Any]:
+    """Normalize request payload for DeepSupervisor."""
+    return {
+        "analysis_id": analysis_id,
+        "analysis_mode": analysis_mode,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "period_type": period_type,
+        "period_label": period_label,
+        "conversations": conversations,
+        "metadata": {
+            "conversation_count": len(conversations),
+        },
+    }
+
+
+async def _load_voc_conversations_for_deep(
+    start_date: datetime,
+    end_date: datetime,
+    test_mode: bool,
+    test_data_count: str,
+    extra_conversations: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Fetch the full conversation set for deep orchestration (Intercom + optional Canny).
+    Mirrors the legacy path so outputs stay comparable.
+    """
+    conversations: List[Dict[str, Any]] = []
+
+    if test_mode:
+        from src.services.test_data_generator import TestDataGenerator
+
+        generator = TestDataGenerator()
+        conversations = generator.generate_conversations(
+            count=int(test_data_count),
+            start_date=start_date,
+            end_date=end_date,
+        )
+    else:
+        conversations = await fetch_conversations_for_range(start_date, end_date)
+
+    if extra_conversations:
+        conversations.extend(extra_conversations)
+
+    return conversations
+
+
+async def run_deep_supervisor(
+    conversations: List[Dict[str, Any]],
+    start_date: datetime,
+    end_date: datetime,
+    period_type: str,
+    period_label: str,
+    analysis_id: str,
+    analysis_mode: str,
+) -> Optional[Dict[str, Any]]:
+    """Invoke DeepSupervisor with Phase 2 tool wrappers."""
+    try:
+        from src.orchestration import DeepSupervisor
+        from src.agents.tools import (
+            TopicDetectionTool,
+            InsightTool,
+            EditorTool,
+            OutputFormatterTool,
+        )
+    except ImportError as exc:
+        console.print("[red]DeepAgents not installed. Run: pip install -r requirements.txt[/red]")
+        console.print(f"[red]{exc}[/red]")
+        return None
+
+    execution_state_manager = None
+    try:
+        from src.services.execution_state_manager import ExecutionStateManager
+
+        execution_state_manager = ExecutionStateManager()
+        await execution_state_manager.create_execution(analysis_id, "voice-of-customer", [])
+        await execution_state_manager.start_execution(analysis_id, command="voice-of-customer", args=[])
+    except Exception:
+        execution_state_manager = None
+
+    supervisor = DeepSupervisor(
+        tools=[
+            TopicDetectionTool(),
+            InsightTool(),
+            EditorTool(),
+            OutputFormatterTool(),
+        ],
+        system_prompt=(
+            "You are a Voice of Customer analysis supervisor. Orchestrate topic detection, "
+            "insights synthesis, critic review, and report formatting. "
+            "Retry failed tools and keep outputs concise and specific."
+        ),
+        execution_state_manager=execution_state_manager,
+    )
+
+    request_payload = build_voc_request(
+        conversations=conversations,
+        start_date=start_date,
+        end_date=end_date,
+        period_type=period_type,
+        period_label=period_label,
+        analysis_id=analysis_id,
+        analysis_mode=analysis_mode,
+    )
+
+    result = await supervisor.run(request_payload, execution_id=analysis_id)
+    if not result.success:
+        console.print(f"[red]Deep supervisor failed: {result.error_message}[/red]")
+        return None
+
+    data = result.data or {}
+    data.setdefault("formatted_report", data.get("formatted_output", ""))
+    data.setdefault("period_label", period_label)
+    data.setdefault("analysis_mode", analysis_mode)
+    return data
+
+
+def _persist_voc_outputs(
+    results: Dict[str, Any],
+    slug: str,
+    start_date: datetime,
+    end_date: datetime,
+    period_label: str,
+) -> Path:
+    """
+    Save markdown + JSON outputs for deep orchestrator runs to mirror legacy artifacts.
+    """
+    from src.utils.output_manager import get_output_file_path
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    week_id = start_date.strftime('%Y-W%W')
+    report_file = get_output_file_path(f"{slug}_{week_id}_{timestamp}.md")
+    json_file = get_output_file_path(f"{slug}_{week_id}_{timestamp}.json")
+
+    with open(report_file, 'w') as f:
+        f.write(results.get("formatted_report", ""))
+
+    with open(json_file, 'w') as f:
+        json.dump(
+            {
+                **results,
+                "period_label": results.get("period_label") or period_label,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+            },
+            f,
+            indent=2,
+            default=str,
+        )
+
+    console.print(f"📁 Report: {report_file}")
+    console.print(f"📁 JSON: {json_file}")
+    return report_file
+
+
+async def _generate_gamma_from_report(
+    results: Dict[str, Any],
+    start_date: datetime,
+    end_date: datetime,
+    period_label: str,
+    output_parent_dir: Path,
+    label: str,
+) -> Optional[Dict[str, str]]:
+    """
+    Generate a Gamma deck from a markdown report for deep orchestrator parity.
+    """
+    if not results:
+        return None
+
+    markdown_report = results.get("formatted_report", "")
+    if not markdown_report:
+        console.print("[yellow]⚠️  No markdown report found - skipping Gamma generation[/yellow]")
+        return None
+
+    console.print("\n🎨 Generating Gamma presentation...")
+    try:
+        from src.services.gamma_client import GammaClient
+        from src.utils.time_utils import generate_descriptive_filename
+
+        gamma_client = GammaClient()
+        generation_id = await gamma_client.generate_presentation(
+            input_text=markdown_report,
+            format="presentation",
+            text_mode="preserve",
+            card_split="inputTextBreaks",
+            theme_name="Night Sky",
+            text_options={
+                "tone": "professional, analytical",
+                "audience": "executives, leadership team",
+            },
+        )
+
+        console.print(f"   ✅ Generation ID: {generation_id}")
+        console.print("   ⏳ Waiting for Gamma to process (max 8 minutes)...")
+
+        status = await gamma_client.poll_generation(generation_id, max_polls=30, poll_interval=2.0)
+        console.print(f"   Poll completed with status: {status.get('status')}")
+
+        if status.get("status") == "completed":
+            gamma_url = status.get("gammaUrl")
+            if gamma_url:
+                url_filename = generate_descriptive_filename(
+                    label,
+                    start_date,
+                    end_date,
+                    file_type="txt",
+                    period_label=period_label or "Custom",
+                )
+                url_file = output_parent_dir / url_filename
+                with open(url_file, "w") as f:
+                    f.write(gamma_url)
+                console.print(f"📁 URL saved to: {url_file}")
+                return {"gamma_url": gamma_url, "url_file": str(url_file)}
+            console.print("[yellow]⚠️  Generation completed but no URL returned[/yellow]")
+        elif status.get("status") == "failed":
+            error_msg = status.get("error", "Unknown error")
+            console.print(f"[red]❌ Gamma generation FAILED: {error_msg}[/red]")
+            console.print(f"[yellow]Generation ID: {generation_id}[/yellow]")
+        else:
+            console.print(f"[yellow]⚠️  Unexpected status: {status.get('status')}[/yellow]")
+            console.print(f"[yellow]Full status response: {status}[/yellow]")
+    except Exception as e:  # pragma: no cover - defensive logging
+        console.print(f"\n[red]{'='*60}[/red]")
+        console.print(f"[red]❌ GAMMA GENERATION ERROR[/red]")
+        console.print(f"[red]{'='*60}[/red]")
+        console.print(f"[red]Error: {e}[/red]")
+        import traceback
+
+        console.print(f"[red]{traceback.format_exc()}[/red]")
+        console.print(f"[red]{'='*60}[/red]")
+    return None
 
 
 async def run_comprehensive_analysis(
@@ -850,4 +1218,20 @@ async def run_comprehensive_analysis(
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+async def approve_voc_execution(execution_id: str, state_manager: ExecutionStateManager) -> bool:
+    """
+    Approve a paused Voice of Customer execution.
+    """
+    try:
+        approved = await state_manager.approve_execution(execution_id)
+        if approved:
+            console.print(f"[green]✅ Execution {execution_id} approved. Resuming...[/green]")
+        else:
+            console.print(f"[yellow]⚠️ Approval signal not found for execution {execution_id}[/yellow]")
+        return approved
+    except Exception as exc:
+        console.print(f"[red]Error approving execution {execution_id}: {exc}[/red]")
+        return False
 

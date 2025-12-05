@@ -396,8 +396,10 @@ async def run_agent_performance_analysis(
             )
             console.print(f"   ✅ Preprocessed: {preprocess_stats['processed_count']} valid conversations\n")
 
-            # Update context with preprocessed conversations
-            context.conversations = agent_conversations
+            # Update context immutably (AgentContext is frozen)
+            context = context.model_copy(
+                update={'conversations': agent_conversations}
+            )
 
         # Run agent performance analysis
         console.print(f"🤖 [bold cyan]Analyzing {agent_name} Performance...[/bold cyan]\n")

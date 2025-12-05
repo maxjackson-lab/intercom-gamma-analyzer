@@ -18,6 +18,27 @@ This tool now uses the **official Intercom Python SDK** (`python-intercom`) for 
 
 The SDK integration is wrapped in `IntercomSDKService` which maintains backward compatibility with existing analyzers and services while leveraging the official SDK's capabilities.
 
+## 🏗️ **Architecture**
+
+This tool now uses the **official Intercom Python SDK** (`python-intercom`) for all API interactions, providing:
+- Type-safe Pydantic models for all API entities
+- Built-in pagination with `AsyncPager` support
+- Comprehensive error handling with specific exception types
+- Automatic rate limiting and retry logic
+- Modern async/await patterns for efficient data fetching
+
+### DeepAgents Supervisor (Phase 3-5: Pilot & Adoption)
+
+An optional LangGraph-based supervisor for dynamic agent orchestration.
+
+- **Purpose**: Enables retries, conditional execution, and sub-agent spawning via a central supervisor node.
+- **Installation**: Uncomment `deepagents` in `requirements.txt`, then run `pip install -r requirements.txt`.
+- **Usage**: Add `--orchestrator deep` to VoC commands or toggle "DeepAgents Supervisor" in the web UI.
+- **Pilot Mode**: `python scripts/run_pilot_suite.py --full` seeds `outputs/deepagents_pilot/` with legacy vs deep comparisons across test-mode and real data scenarios.
+- **Analysis**: `python scripts/analyze_deepagents_pilot.py --strict` aggregates critic scores, runtime deltas, and token efficiency against the ≥20% / ≤25% adoption thresholds.
+- **Feature Flag**: Set `ENABLE_DEEP_ORCHESTRATOR=true` (Railway or `.env`) to make DeepAgents the default. The web checkbox mirrors this flag but can be overridden per run.
+- **Status**: See `docs/LANGCHAIN_ARCHITECTURE_MIGRATION.md` (Phase 5) for the current go/no-go decision. The legacy `TopicOrchestratorV2` remains default until Phase 5 is approved; rollout steps live in `docs/PHASE_5_ROLLOUT_CHECKLIST.md`.
+
 ## 🛡️ Resilience & Rate Limiting
 
 Phase 3 resilience standardizes concurrency, timeout, and data-quality controls across every agent + orchestrator.

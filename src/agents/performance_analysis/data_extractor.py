@@ -40,8 +40,10 @@ class ConversationDataExtractor:
         for admin_id, public_email in unique_admins.items():
             tasks.append(self.tool_registry.execute_tool(
                 'lookup_admin_profile',
-                admin_id=admin_id,
-                public_email=public_email
+                tool_args={
+                    'admin_id': admin_id,
+                    'public_email': public_email
+                }
             ))
 
         # Execute all lookups in parallel

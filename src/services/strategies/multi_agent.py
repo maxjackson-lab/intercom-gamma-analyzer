@@ -30,6 +30,8 @@ from src.services.unified_orchestrator import OrchestrationStrategy
 logger = logging.getLogger(__name__)
 
 
+from src.agents.editor_agent import EditorAgent
+
 class MultiAgentStrategy(OrchestrationStrategy):
     """
     Orchestrates the multi-agent analysis workflow.
@@ -46,6 +48,7 @@ class MultiAgentStrategy(OrchestrationStrategy):
         self.sentiment_agent = SentimentAgent()
         self.insight_agent = InsightAgent()
         self.presentation_agent = PresentationAgent()
+        self.editor_agent = EditorAgent()
         
         self.logger = logging.getLogger(__name__)
 
@@ -144,12 +147,16 @@ class MultiAgentStrategy(OrchestrationStrategy):
             self.logger.info("🔍 Phase 2: Category & Sentiment Analysis")
             
             # CategoryAgent
-            category_result = await self._execute_agent_with_checkpoint(
-                self.category_agent,
-                context,
-                workflow_state,
-                analysis_id
-            )
+            try:
+                category_result = await self._execute_agent_with_checkpoint(
+                    self.category_agent,
+                    context,
+                    workflow_state,
+                    analysis_id
+                )
+            except Exception as e:
+                self.logger.warning(f"   ⚠️ CategoryAgent failed: {e}")
+                category_result = AgentResult(agent_name='CategoryAgent', success=False, data={}, confidence=0.0, confidence_level=ConfidenceLevel.LOW, error_message=str(e))
             
             if category_result.success:
                 context.previous_results['CategoryAgent'] = category_result.dict()
@@ -158,6 +165,8 @@ class MultiAgentStrategy(OrchestrationStrategy):
             else:
                 self.logger.warning(f"   ⚠️ CategoryAgent failed: {category_result.error_message}")
                 workflow_state['errors'].append(f"CategoryAgent: {category_result.error_message}")
+                # Fallback for CategoryAgent failure if needed
+
             
             # SentimentAgent
             sentiment_result = await self._execute_agent_with_checkpoint(

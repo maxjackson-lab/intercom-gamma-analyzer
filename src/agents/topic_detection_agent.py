@@ -1182,9 +1182,13 @@ For each conversation:
                 else:
                     primary_method = 'fallback'
                 
+                # Use HIGH PRECISION division for percentage calculation
+                # Rounding happens ONLY in the normalization function
+                percentage = (count / total_conversations) * 100.0 if total_conversations > 0 else 0.0
+                
                 topic_distribution[topic] = {
                     'volume': count,
-                    'percentage': round(count / total_conversations * 100, 1),
+                    'percentage': percentage, # Pass raw float to normalization
                     'detection_method': primary_method,
                     'llm_smart_count': methods.get('llm_smart', 0),  # NEW!
                     'llm_only_count': methods.get('llm_only', 0),    # NEW!

@@ -35,3 +35,5 @@ Fix the `SegmentationAgent` in `src/agents/segmentation_agent.py` to ensure vend
 *   Do not break the "Fast Path" performance optimization unnecessarily (don't run full regexes if simple email checks suffice).
 *   Ensure strict type safety (no `AttributeError` on `None` values).
 
+
+

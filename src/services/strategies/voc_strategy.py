@@ -20,8 +20,10 @@ Phases:
 """
 
 import asyncio
+import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
@@ -57,7 +59,11 @@ from src.services.execution_monitor import AgentStatus
 from src.services.historical_snapshot_service import HistoricalSnapshotService
 from src.services.unified_orchestrator import OrchestrationStrategy
 from src.utils.agent_output_display import get_display
+from src.utils.output_manager import get_output_directory, get_relative_output_path
+from src.utils.review_packet_generator import ReviewPacketGenerator
 
+
+from src.agents.editor_agent import EditorAgent
 
 def _normalize_agent_result(result: Any) -> Dict[str, Any]:
     """Normalize agent result to dictionary format."""
@@ -113,6 +119,7 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
         self.correlation_agent = CorrelationAgent()
         self.quality_insights_agent = QualityInsightsAgent()
         self.confidence_meta_agent = ConfidenceMetaAgent()
+        self.editor_agent = EditorAgent()
         
         # Lazy-loaded components
         self._trend_agent = None
@@ -266,6 +273,20 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
             workflow_results.update(analytical_insights) # Flatten into main results for simplicity, or keep nested?
             # TopicOrchestrator kept them nested in 'AnalyticalInsights' key for formatter, let's do that
             workflow_results['AnalyticalInsights'] = analytical_insights
+            self.log_stage_metrics("Post-Insights", len(context.conversations or []))
+            insight_payload = analytical_insights.get('InsightAgent', {})
+            insight_data = {}
+            if isinstance(insight_payload, dict):
+                insight_data = insight_payload.get('data', {}) or insight_payload.get('result', {})
+            duplicate_ratio = 0.0
+            metric_references = 0
+            if isinstance(insight_data, dict):
+                duplicate_ratio = insight_data.get('insight_duplicate_ratio') or 0.0
+                metric_references = insight_data.get('metric_references_count') or 0
+            if isinstance(duplicate_ratio, (int, float)) and duplicate_ratio > 0.3:
+                self.logger.warning(f"InsightAgent: High duplicate ratio detected ({duplicate_ratio:.2f})")
+            if isinstance(metric_references, (int, float)) and metric_references < 2:
+                self.logger.warning(f"InsightAgent: Low metric references ({metric_references})")
 
             # --- PHASE 4.6: CROSS-PLATFORM CORRELATION ---
             if canny_posts and canny_topics:
@@ -290,6 +311,182 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
                 len(context.conversations or []),
                 len(free_fin_only_conversations)
             )
+
+            # --- PHASE 6: FORMATTING ---
+            self.log_stage_metrics("Pre-Formatting", len(context.conversations or []))
+            
+            # --- PHASE 5.9: EDITOR REFINEMENT (Quality Control) ---
+            # Insert "The Editor" before formatting to critique and sharpen insights
+            
+            # Only run editor if we have insights to edit
+            if analytical_insights or workflow_results.get('TopicSentiments'):
+                self.logger.info("✍️ Phase 5.9: Editor Refinement")
+                if self.monitor:
+                    await self.monitor.update_agent_status('EditorAgent', AgentStatus.RUNNING, "Refining insights")
+                
+                # Prepare editor context with ALL available insights
+                # Ensure InsightAgent results are accessible
+                insight_agent_result = analytical_insights.get('InsightAgent', {})
+                if not insight_agent_result:
+                    # If InsightAgent wasn't run in Phase 4.5, we can't edit its output directly.
+                    # However, we can try to synthesize first if needed, but that changes the flow significantly.
+                    # For now, let's just pass what we have.
+                    pass
+
+                editor_previous = {
+                    'InsightAgent': _normalize_agent_result(insight_agent_result),
+                    'TopicSentiments': workflow_results.get('TopicSentiments', {}),
+                    'TopicDetectionAgent': _normalize_agent_result(topic_detection_result)
+                }
+                
+                editor_context = context.model_copy(update={
+                    'previous_results': {**context.previous_results, **editor_previous}
+                })
+                
+                try:
+                    editor_result = await self._execute_with_timeout(self.editor_agent, editor_context)
+                    
+                    if editor_result.success and editor_result.data:
+                        payload = editor_result.data if isinstance(editor_result.data, dict) else {}
+                        critic_scores = payload.get('critic_scores', {}) or {}
+                        rewrite_performed = payload.get('rewrite_performed', False)
+                        revised_insights = payload.get('revised_insights', {}) or {}
+                        composite = critic_scores.get('composite_score', 0.0)
+                        
+                        if critic_scores:
+                            self.logger.info(
+                                "EditorAgent critic scores: composite=%.2f specificity=%.2f metric_density=%.2f repetition=%.2f",
+                                composite,
+                                critic_scores.get('specificity_score', 0.0),
+                                critic_scores.get('metric_density_score', 0.0),
+                                critic_scores.get('repetition_score', 0.0)
+                            )
+                            if composite < 0.60:
+                                self.logger.warning(f"⚠️ Low quality score ({composite:.2f}) - report may need manual review")
+                        if rewrite_performed:
+                            self.logger.info("✍️ EditorAgent performed rewrite based on critic feedback")
+                        else:
+                            self.logger.info("EditorAgent retained original insights (quality acceptable)")
+                        
+                        # Update InsightAgent results in analytical_insights
+                        if 'InsightAgent' not in analytical_insights:
+                            analytical_insights['InsightAgent'] = {'data': {}}
+                            
+                        if revised_insights:
+                            analytical_insights['InsightAgent']['data'].update({
+                                'executive_summary': revised_insights.get('executive_summary'),
+                                'major_themes': revised_insights.get('major_themes'),
+                                'recommendations': revised_insights.get('recommendations')
+                            })
+                            
+                            # Update TopicSentiments with refined insights
+                            refined_topic_insights = revised_insights.get('topic_insights', {})
+                            if refined_topic_insights and workflow_results.get('TopicSentiments'):
+                                for topic, insight_text in refined_topic_insights.items():
+                                    if topic in workflow_results['TopicSentiments']:
+                                        target = workflow_results['TopicSentiments'][topic]
+                                        if isinstance(target, dict) and 'data' in target:
+                                            target['data']['sentiment_insight'] = insight_text
+                                        elif isinstance(target, dict):
+                                            target['sentiment_insight'] = insight_text
+                        
+                        workflow_results['EditorAgent'] = {
+                            **_normalize_agent_result(editor_result),
+                            'critic_scores': critic_scores,
+                            'rewrite_performed': rewrite_performed
+                        }
+                        
+                    else:
+                        self.logger.warning(f"EditorAgent returned no data or failed: {editor_result.error_message}")
+                        
+                except Exception as e:
+                    self.logger.warning(f"EditorAgent failed (skipping refinement): {e}")
+            
+            # --- PHASE 5.95: QUALITY REVIEW PACKET (Non-blocking) ---
+            try:
+                evaluation = None
+                editor_entry = workflow_results.get('EditorAgent')
+                analysis_id = getattr(context, 'analysis_id', None) or context.metadata.get('analysis_id', 'unknown')
+                manager = getattr(self, 'execution_state_manager', None)
+
+                if not isinstance(editor_entry, dict) or not editor_entry:
+                    self.logger.info("Skipping review packet evaluation - EditorAgent results unavailable")
+                    evaluation = None
+                else:
+                    critic_scores = editor_entry.get('critic_scores') or {}
+                    if not critic_scores:
+                        self.logger.info("Skipping review packet evaluation - no critic scores available")
+                        evaluation = None
+                    else:
+                        evaluation = ReviewPacketGenerator.evaluate_kpis(critic_scores, None, context)
+
+                if evaluation and evaluation.failed_kpis:
+                    output_dir = get_output_directory()
+                    packet_path = ReviewPacketGenerator.generate_review_packet(evaluation, context, output_dir)
+                    if not packet_path:
+                        self.logger.warning(
+                            "Quality KPIs missed (%s) but review packet could not be written",
+                            evaluation.failed_kpis
+                        )
+                    else:
+                        packet_relative = get_relative_output_path(packet_path)
+                        packet_name = Path(packet_path).name
+                        packet_meta = {
+                            "failed_kpis": evaluation.failed_kpis,
+                            "severity": evaluation.severity,
+                            "packet_file": packet_name,
+                        }
+                        if packet_relative:
+                            packet_meta["packet_path"] = packet_relative
+                            packet_meta["web_path"] = packet_relative
+
+                        prev_results = context.previous_results or {}
+                        context = context.model_copy(update={
+                            'previous_results': {
+                                **prev_results,
+                                'ReviewPacket': packet_meta
+                            }
+                        })
+                        workflow_results['ReviewPacket'] = packet_meta
+
+                        review_payload: Dict[str, Any] = {
+                            "type": "review_required",
+                            "data": {
+                                "severity": evaluation.severity,
+                                "failed_kpis": evaluation.failed_kpis,
+                            },
+                        }
+                        if packet_relative:
+                            review_payload["data"]["packet_path"] = packet_relative
+                            review_payload["data"]["packet_file"] = packet_name
+                            review_payload["data"]["web_path"] = packet_relative
+
+                        if manager:
+                            await manager.add_output(analysis_id, review_payload)
+                            if packet_relative:
+                                await manager.update_review_packet_metadata(analysis_id, packet_meta)
+                        else:
+                            self.logger.info("SSE_EVENT %s", json.dumps(review_payload))
+
+                        self.logger.warning(
+                            "Quality KPIs missed: %s. Review packet generated at %s",
+                            evaluation.failed_kpis,
+                            packet_path,
+                        )
+
+                        if settings.require_approval and manager:
+                            await manager.add_output(
+                                analysis_id,
+                                {"type": "approval_required", "data": {"analysis_id": analysis_id}},
+                            )
+                            wait_seconds = max(5, min(600, settings.approval_timeout_seconds))
+                            approved = await manager.wait_for_approval(analysis_id, wait_seconds)
+                            if approved:
+                                self.logger.info("Approval received, resuming execution")
+                            else:
+                                self.logger.warning("Approval not received before timeout; proceeding with caution")
+            except Exception as review_exc:
+                self.logger.warning("Review packet generation failed (continuing): %s", review_exc)
 
             # --- PHASE 6: FORMATTING ---
             self.log_stage_metrics("Pre-Formatting", len(context.conversations or []))
@@ -381,14 +578,49 @@ class VoiceOfCustomerStrategy(OrchestrationStrategy):
                 except Exception:
                     pass
 
-        result = await self._execute_with_timeout(self.topic_detection_agent, context)
-        
+        try:
+            result = await self._execute_with_timeout(self.topic_detection_agent, context)
+        except Exception as e:
+            self.logger.error(f"TopicDetectionAgent failed: {e}")
+            result = AgentResult(
+                agent_name='TopicDetectionAgent',
+                success=False, 
+                data={'error': str(e)},
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                error_message=str(e)
+            )
+
         if self.monitor:
             topics_found = len(result.data.get('topic_distribution', {}))
-            await self.monitor.update_agent_status('TopicDetectionAgent', AgentStatus.COMPLETED, f"Detected {topics_found} topics", confidence=result.confidence)
+            status = AgentStatus.COMPLETED if result.success else AgentStatus.FAILED
+            await self.monitor.update_agent_status(
+                'TopicDetectionAgent', 
+                status, 
+                f"Detected {topics_found} topics" if result.success else "Topic detection failed", 
+                confidence=result.confidence
+            )
 
-        if not result.success and self.fail_on_critical_errors:
-            raise RuntimeError(f"Topic detection failed: {result.error_message}")
+        if not result.success:
+            if self.fail_on_critical_errors:
+                raise RuntimeError(f"Topic detection failed: {result.error_message}")
+            
+            self.logger.warning("⚠️ TopicDetectionAgent failed. Using fallback keyword detection.")
+            # Fallback: Attempt to use rules-based detection if available, or empty structure
+            # Since TopicDetectionAgent has internal fallbacks, a failure here is catastrophic.
+            # We must return a valid structure to prevent OutputFormatter crash.
+            result = AgentResult(
+                agent_name='TopicDetectionAgent',
+                success=True, # Fake success to keep pipeline moving
+                data={
+                    'topic_distribution': {'Unknown': {'volume': len(convs)}},
+                    'topics_by_conversation': {c.get('id'): [{'topic': 'Unknown', 'confidence': 0.0}] for c in convs},
+                    'fallback_used': True
+                },
+                confidence=0.0,
+                confidence_level=ConfidenceLevel.LOW,
+                limitations=["Topic detection failed - using fallback"]
+            )
 
         # Normalize distribution format
         raw_dist = result.data.get('topic_distribution', {})

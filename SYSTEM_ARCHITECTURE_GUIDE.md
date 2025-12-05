@@ -617,17 +617,14 @@ class AgentContext:
 
 ### 3. **Custom Agents vs Framework (LangChain/AutoGen)**
 
-**Choice:** Custom implementation  
-**Alternative:** Agent framework
+**Choice:** Custom implementation (Current) -> Migration to LangGraph Patterns (Planned)
+**Alternative:** Full Framework Adoption
 
 **Rationale:**
-- **Control:** Know exactly what happens at each step
-- **Minimal dependencies:** Frameworks add 50+ packages
-- **Railway deployment:** Smaller Docker image, faster cold starts
-- **Debugging:** No framework magic to debug
-- **Learning curve:** Team doesn't need to learn framework
+- **Current:** We use custom `UnifiedOrchestrator` for control and simplicity.
+- **Future:** We are adopting **LangGraph's Supervisor Pattern** (see `docs/LANGCHAIN_ARCHITECTURE_MIGRATION.md`) to solve fragility issues. We will implement the *architectural patterns* (state machines, centralized routing) immediately, while evaluating the library adoption for Phase 3.
 
-**Trade-off:** We implement orchestration manually, but it's only 200 lines
+**Trade-off:** We maintain our lightweight codebase now but align structurally with industry standards for easier future migration.
 
 ### 4. **Sequential vs Parallel Agent Execution**
 

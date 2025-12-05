@@ -153,6 +153,25 @@ run_check "P0" "Volume Path Enforcement" \
     "scripts/check_volume_paths.py" \
     "Prevents direct access to /app/outputs or /mnt/persistent outside helpers"
 
+# Orchestrator flag alignment (Phase 3 pilot)
+echo "Validating orchestrator flag alignment..."
+python -c "
+import sys
+from src.cli.schema import CANONICAL_COMMAND_MAPPINGS
+
+voc_flags = CANONICAL_COMMAND_MAPPINGS.get('voice_of_customer', {}).get('allowed_flags', {})
+if '--orchestrator' not in voc_flags:
+    print('ERROR: --orchestrator flag missing from voice_of_customer schema')
+    sys.exit(1)
+
+values = voc_flags['--orchestrator'].get('values')
+if values != ['legacy', 'deep']:
+    print('ERROR: --orchestrator flag values must be [legacy, deep]')
+    sys.exit(1)
+
+print('✅ Orchestrator flag alignment validated')
+"
+
 # P1 Checks (High Impact - Run unless --p0)
 if [ "$CHECK_LEVEL" != "p0" ]; then
     echo ""
@@ -182,6 +201,42 @@ if [ "$CHECK_LEVEL" != "p0" ]; then
         "Validates keyword specificity and word boundaries"
 fi
 
+echo ""
+echo "=== Phase 2: Tool Wrapper Validation ==="
+if [ -f "scripts/run_tool_wrappers.py" ]; then
+    echo "Running tool wrapper validation..."
+    if python3 scripts/run_tool_wrappers.py; then
+        echo "✅ Tool wrappers validated successfully"
+    else
+        echo "❌ Tool wrapper validation failed"
+        exit 1
+    fi
+else
+    echo "⚠️  Tool wrapper validation script not found (Phase 2 not implemented)"
+fi
+
+echo "Running Phase 4 review packet validation..."
+python scripts/validate_phase4_review_packets.py
+if [ $? -ne 0 ]; then
+    echo "❌ Phase 4 validation failed"
+    exit 1
+fi
+echo "✅ Phase 4 validation passed"
+
+echo ""
+echo "=== Phase 5: DeepAgents Pilot Validation ==="
+if [ -d "outputs/deepagents_pilot" ]; then
+    if [ -f "scripts/validate_phase5_decision.py" ]; then
+        python scripts/validate_phase5_decision.py || {
+            echo "⚠️  Phase 5 validation warnings detected"
+        }
+    else
+        echo "ℹ️  Phase 5 validation script not found (optional)"
+    fi
+else
+    echo "ℹ️  No DeepAgents pilot data found (Phase 5 not started)"
+fi
+
 # Summary
 echo ""
 echo "================================================================================"
@@ -192,6 +247,11 @@ echo "P0 Checks (Critical):"
 echo -e "   Passed: ${GREEN}$P0_PASSED${NC}"
 echo -e "   Failed: ${RED}$P0_FAILED${NC}"
 echo ""
+
+echo "Checking for cache-bust markers..."
+if grep -q "ORCHESTRATOR_TOGGLE_ADDED" deploy/web/templates.py; then
+    echo "⚠️  WARNING: Remove cache-bust test marker from templates.py before production"
+fi
 
 if [ "$CHECK_LEVEL" != "p0" ]; then
     echo "P1 Checks (High Impact):"

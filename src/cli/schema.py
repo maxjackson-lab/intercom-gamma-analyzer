@@ -91,6 +91,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Run validation checks on all agent outputs'
+            },
+            '--orchestrator': {
+                'type': 'enum',
+                'values': ['legacy', 'deep'],
+                'default': 'legacy',
+                'description': 'Orchestrator mode: legacy (TopicOrchestratorV2) or deep (DeepAgents supervisor)'
             }
         },
         'estimated_duration': '30sec-10min (depends on --schema-mode)'
@@ -157,6 +163,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Enable verbose logging'
+            },
+            '--require-approval': {
+                'type': 'boolean',
+                'default': False,
+                'description': 'Pause after review packet generation for manual approval',
+                'constraints': None
             },
             '--llm-topic-detection': {
                 'type': 'boolean',
@@ -226,6 +238,12 @@ CANONICAL_COMMAND_MAPPINGS = {
                 'type': 'boolean',
                 'default': False,
                 'description': 'Run legacy Hilary V1 multi-agent workflow (topic-based only)'
+            },
+            '--orchestrator': {
+                'type': 'enum',
+                'values': ['legacy', 'deep'],
+                'default': 'legacy',
+                'description': 'Orchestration mode: legacy (TopicOrchestratorV2) or deep (DeepAgents supervisor). Requires deepagents package for deep mode.'
             },
             '--enable-correlation-analysis': {
                 'type': 'boolean',

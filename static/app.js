@@ -237,6 +237,42 @@ style.textContent = `
             opacity: 0;
         }
     }
+    
+    .review-notice {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 4px;
+        color: #111827;
+    }
+    .review-notice.critical {
+        background: #fee2e2;
+        border-left-color: #ef4444;
+    }
+    .review-notice .review-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .review-notice .review-details {
+        display: none;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(0,0,0,0.1);
+    }
+    .review-notice.expanded .review-details {
+        display: block;
+    }
+    .badge-warning {
+        background: #f59e0b;
+        color: #fff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
 `;
 document.head.appendChild(style);
 
@@ -472,6 +508,7 @@ window.updateJobStatus = updateJobStatus;
  */
 async function runAnalysis() {
     console.log('🚀 runAnalysis() called');
+    console.log('🤖 Phase 3: Orchestrator toggle available');
     
     try {
         // Get form values
@@ -485,6 +522,7 @@ async function runAnalysis() {
         const auditMode = document.getElementById('auditMode')?.checked || false;
         const digestMode = document.getElementById('digestModeToggle')?.checked || false;
         const legacyMode = document.getElementById('legacyModeToggle')?.checked || false;
+        const deepOrchestrator = document.getElementById('deepOrchestratorToggle')?.checked || false;
         const correlationInsightsEnabled = document.getElementById('correlationAgentToggle')?.checked ?? true;
         const qualityInsightsEnabled = document.getElementById('qualityInsightsToggle')?.checked ?? true;
         const confidenceMetaEnabled = document.getElementById('confidenceMetaToggle')?.checked ?? true;
@@ -555,6 +593,7 @@ async function runAnalysis() {
             args.push('--time-period', sampleTimePeriod);
             args.push('--save-to-file');  // Always save JSON and .log file
             args.push('--test-llm');  // Always run LLM sentiment test
+            args.push('--orchestrator', deepOrchestrator ? 'deep' : 'legacy');
             
             // Pass detail level as schema-mode
             if (sampleDetailLevel) {
@@ -689,6 +728,9 @@ async function runAnalysis() {
             if (analysisType === 'voice-of-customer-hilary' && legacyMode) {
                 args.push('--legacy-mode');
             }
+
+            // Orchestrator selection
+            args.push('--orchestrator', deepOrchestrator ? 'deep' : 'legacy');
         } else if (analysisType.startsWith('agent-performance-')) {
             args.push('agent-performance');
             
@@ -1187,6 +1229,38 @@ async function runSSEExecution(command, args) {
                 // Parse output for tab population (Comment 16)
                 parseOutputForTabs(outputText);
             }
+
+            // Handle review required event
+            if (data.type === 'review_required') {
+                const payload = data.data || {};
+                const severity = (payload.severity || 'warning').toLowerCase();
+                const failedKpis = Array.isArray(payload.failed_kpis) ? payload.failed_kpis.map(k => k.kpi || '').filter(Boolean) : [];
+                const rawPacketPath = (payload.web_path || payload.packet_path || '').toString();
+                const packetPath = rawPacketPath.replace(/^\/+/, '');
+                const packetFile = payload.packet_file || (packetPath ? packetPath.split('/').pop() : '') || '';
+                const packetHref = packetPath ? `/outputs/${packetPath}` : '';
+                const summary = failedKpis.length ? failedKpis.join(', ') : 'Quality KPIs missed';
+                appendToTerminal(`⚠️ Review Required (${severity.toUpperCase()}): ${summary}`, 'status');
+
+                const terminalOutput = document.getElementById('terminalOutput');
+                if (terminalOutput) {
+                    const notice = document.createElement('div');
+                    notice.className = `review-notice ${severity}`;
+                    notice.innerHTML = `
+                        <div class="review-header" onclick="this.parentElement.classList.toggle('expanded')">
+                            <span class="icon">⚠️</span>
+                            <span class="title">Quality Review Required</span>
+                            <span class="severity">${severity.toUpperCase()}</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="review-details">
+                            <p><strong>Failed KPIs:</strong> ${summary}</p>
+                            ${packetHref ? `<p><strong>Review Packet:</strong> <a href="${packetHref}" target="_blank">${packetFile || 'View Details'}</a></p>` : ''}
+                        </div>
+                    `;
+                    terminalOutput.appendChild(notice);
+                }
+            }
             
             // Handle completion
             if (data.type === 'complete' || data.status === 'completed') {
@@ -1388,6 +1462,8 @@ function updateAnalysisOptions() {
     // Determine if this is a diagnostic mode
     const isDiagnostic = analysisType === 'sample-mode';
     const isVoC = analysisType && analysisType.startsWith('voice-of-customer');
+    const isVoCOrSample = isVoC || isDiagnostic;
+    const orchestratorContainer = document.getElementById('orchestratorModeContainer');
     
     // Show/hide LLM topic detection for VOC
     const llmTopicDetectionVocContainer = document.getElementById('llmTopicDetectionVocContainer');
@@ -1442,6 +1518,10 @@ function updateAnalysisOptions() {
     const insightFlagsContainer = document.getElementById('insightFlagsContainer');
     if (insightFlagsContainer) {
         insightFlagsContainer.style.display = isVoC ? 'block' : 'none';
+    }
+
+    if (orchestratorContainer) {
+        orchestratorContainer.style.display = isVoCOrSample ? 'block' : 'none';
     }
     
     const legacyModeContainer = document.getElementById('legacyModeContainer');
@@ -1530,6 +1610,22 @@ function updateAnalysisOptions() {
     
     // Show/hide test mode options when checkbox changes
     updateTestModeOptions();
+}
+
+/**
+ * Initialize orchestrator toggle based on server-provided flag.
+ */
+function initializeDeepOrchestratorToggle() {
+    const defaultValue = window.deepOrchestratorEnabledDefault;
+    const toggle = document.getElementById('deepOrchestratorToggle');
+
+    if (typeof defaultValue === 'boolean' && toggle) {
+        toggle.checked = defaultValue;
+        console.log(`Deep orchestrator default applied from server flag: ${defaultValue}`);
+    }
+
+    // Ensure UI reflects initial state after applying defaults
+    updateAnalysisOptions();
 }
 
 /**
@@ -2045,6 +2141,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tabNav.style.display = 'flex';  // Show tabs immediately
         console.log('✅ Tabs made visible on page load');
     }
+    // Apply server default for deep orchestrator toggle
+    initializeDeepOrchestratorToggle();
     // Switch to Files tab by default
     switchTab('files');
 });

@@ -5,6 +5,7 @@ Centralized output directory management for web executions.
 Handles per-execution directories for organized file storage.
 """
 
+import logging
 import os
 from pathlib import Path
 from typing import Optional, Union
@@ -87,4 +88,64 @@ def get_output_file_path(
     else:
         output_dir = get_output_directory()
     return output_dir / filename
+
+
+def save_review_packet(packet_content: str, output_dir: Path, analysis_id: str) -> Optional[Path]:
+    """
+    Persist review packet markdown alongside other outputs.
+
+    Args:
+        packet_content: Markdown content to write
+        output_dir: Target directory for outputs
+        analysis_id: Identifier to include in filename
+
+    Returns:
+        Path to saved file, or None on error.
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"review_packet_{analysis_id}.md"
+        filepath = output_dir / filename
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(packet_content)
+        logger.info("Review packet saved to %s", filepath)
+        return filepath
+    except Exception as exc:
+        logger.error("Failed to save review packet: %s", exc)
+        return None
+
+
+def get_relative_output_path(file_path: Union[str, Path]) -> str:
+    """
+    Convert an absolute file path into the relative path expected by /outputs routes.
+
+    Args:
+        file_path: Absolute or relative path to an output artifact.
+
+    Returns:
+        Relative path string scoped to the outputs root, or just the filename
+        when the file sits outside of known roots.
+    """
+    if not file_path:
+        return ""
+
+    path_obj = Path(file_path).resolve()
+    candidate_roots = []
+
+    volume_path = os.getenv('RAILWAY_VOLUME_MOUNT_PATH')
+    if volume_path:
+        candidate_roots.append((Path(volume_path) / "outputs").resolve())
+
+    candidate_roots.append(Path("/app/outputs").resolve())
+    candidate_roots.append((Path.cwd() / "outputs").resolve())
+
+    for root in candidate_roots:
+        try:
+            relative = path_obj.relative_to(root)
+            return str(relative)
+        except ValueError:
+            continue
+
+    return path_obj.name
 

@@ -79,6 +79,9 @@ class OutputFormatterAgent(BaseAgent):
         # RATE LIMITING: Provider-aware semaphores per Phase 3 resilience standards
         self.llm_semaphore = get_recommended_semaphore(self.ai_client)  # Anthropic/OpenAI limits from settings
         self.llm_timeout = settings.output_formatter_timeout  # Configurable timeout from settings
+        self.monitor = getattr(settings, 'enable_metrics_monitoring', False)
+        self.topic_fallback_count = 0
+        self.placeholder_count = 0
     
     def get_agent_specific_instructions(self) -> str:
         """Output formatter instructions"""
@@ -315,6 +318,11 @@ Return ONLY valid JSON, no other text:
             if method not in allowed_methods:
                 self.logger.warning(f"Topic '{topic_name}' has invalid detection_method '{method}'")
         
+        if result.get('topic_fallback_used', 0) > 2:
+            self.logger.warning(f"High topic fallback usage: {result.get('topic_fallback_used')}")
+        if result.get('placeholder_volume', 0) > 3:
+            self.logger.warning(f"High placeholder volume: {result.get('placeholder_volume')}")
+        
         return True
     
     def _generate_missing_section_placeholder(self, section_name: str, agent_name: str) -> str:
@@ -328,6 +336,11 @@ Return ONLY valid JSON, no other text:
         Returns:
             Markdown-formatted placeholder message
         """
+        self.placeholder_count += 1
+        if self.monitor:
+            self.logger.info(
+                f"Generated placeholder for {section_name} (total: {self.placeholder_count})"
+            )
         return f"""
 ## {section_name}
 
@@ -398,6 +411,77 @@ Return ONLY valid JSON, no other text:
             lines.append("")
 
         return "\n".join(lines) if len(lines) > 2 else None
+    
+    def _format_quality_control_section(self, editor_result: Dict[str, Any]) -> str:
+        """Format quality control summary from EditorAgent critic scores."""
+        critic_scores = {}
+        rewrite_performed = False
+        if not isinstance(editor_result, dict):
+            return ""
+        
+        critic_scores = editor_result.get('critic_scores') or {}
+        if not critic_scores:
+            data_payload = editor_result.get('data')
+            if isinstance(data_payload, dict):
+                critic_scores = data_payload.get('critic_scores') or {}
+                if 'rewrite_performed' in data_payload:
+                    rewrite_performed = bool(data_payload.get('rewrite_performed'))
+        if not critic_scores:
+            return ""
+        
+        if 'rewrite_performed' in editor_result:
+            rewrite_performed = bool(editor_result.get('rewrite_performed'))
+        elif not rewrite_performed:
+            rewrite_performed = False
+        
+        composite = critic_scores.get('composite_score', 0.0)
+        if composite >= 0.75:
+            badge = "✅ High Quality"
+        elif composite >= 0.60:
+            badge = "⚠️ Acceptable Quality"
+        else:
+            badge = "🔴 Needs Improvement"
+        
+        lines = [
+            "## Quality Control Summary",
+            "",
+            f"**Overall Quality**: {badge} (Score: {composite:.2f}/1.00)",
+            ""
+        ]
+        
+        lines.append("**Quality Dimensions:**")
+        dimensions = [
+            ('Specificity', 'specificity_score', 0.6),
+            ('Metric Density', 'metric_density_score', 0.5),
+            ('Repetition Control', 'repetition_score', 0.7),
+            ('Topic Distinctness', 'distinctness_score', 0.6),
+            ('Actionability', 'actionability_score', 0.5)
+        ]
+        
+        for label, key, threshold in dimensions:
+            score = critic_scores.get(key, 0.0)
+            status = "✅" if score >= threshold else "⚠️"
+            lines.append(f"- {status} {label}: {score:.2f} (threshold: {threshold:.2f})")
+        
+        lines.append("")
+        if rewrite_performed:
+            lines.append("**Editor Action**: Insights were rewritten to improve quality")
+        else:
+            lines.append("**Editor Action**: No rewrite needed (quality acceptable)")
+        
+        issues = critic_scores.get('issues_found') or []
+        if isinstance(issues, str):
+            issues = [issues]
+        if issues:
+            lines.append("")
+            lines.append("**Issues Identified:**")
+            for issue in issues[:5]:
+                lines.append(f"- {issue}")
+        
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        return "\n".join(lines)
     
     def _format_executive_summary(
         self, 
@@ -592,6 +676,9 @@ Return ONLY valid JSON, no other text:
         start_time = datetime.now()
         
         try:
+            # Reset telemetry counters per execution to avoid cross-run leakage
+            self.topic_fallback_count = 0
+            self.placeholder_count = 0
             self.validate_input(context)
             
             self.logger.info("OutputFormatterAgent: Formatting results into Hilary's structure")
@@ -605,29 +692,24 @@ Return ONLY valid JSON, no other text:
             seg_summary = segmentation.get('segmentation_summary', {})
             topic_detection = context.previous_results.get('TopicDetectionAgent', {}).get('data', {})
             topic_dist = topic_detection.get('topic_distribution', {})
+            topic_names = list(topic_dist.keys())
             total_convs = len(context.conversations) if context.conversations else 0
             
-            # 🚨 CRITICAL VALIDATION: FAIL FAST if no topics detected
+            # 🚨 CRITICAL VALIDATION: SOFT FAIL if no topics detected
             if not topic_dist or len(topic_dist) == 0:
                 error_msg = (
-                    f"FATAL: No topics detected! Cannot generate report. "
+                    f"WARNING: No topics detected! Generating partial report. "
                     f"TopicDetectionAgent present: {'TopicDetectionAgent' in context.previous_results}, "
                     f"TopicDetectionAgent success: {context.previous_results.get('TopicDetectionAgent', {}).get('success', 'N/A')}, "
-                    f"topic_detection keys: {list(topic_detection.keys()) if topic_detection else 'None'}, "
                     f"Conversations analyzed: {len(context.conversations) if context.conversations else 0}"
                 )
-                self.logger.error(f"🚨 {error_msg}")
-                raise ValueError(error_msg)
+                self.logger.warning(f"⚠️ {error_msg}")
+                # Create dummy topic distribution to allow formatting to proceed
+                topic_dist = {'Unknown': {'volume': total_convs, 'percentage': 100.0}}
+                detection_summary = {'ai_verified_pct': 0.0, 'keyword_pct': 0.0, 'hybrid_pct': 0.0, 'fallback_pct': 100.0}
             else:
                 self.logger.info(f"✅ topic_dist has {len(topic_dist)} topics - proceeding with formatting")
-            
-            digest_mode = context.metadata.get('digest_mode', False)
-            detail_level = context.metadata.get('detail_level', 'standard')
-            legacy_sections_enabled = (not digest_mode) and (
-                os.getenv('OUTPUT_FORMATTER_LEGACY_SECTIONS', 'false').lower() == 'true'
-            )
-            topic_names = list(topic_dist.keys())
-            detection_summary = self._calculate_detection_method_distribution(topic_dist)
+                detection_summary = self._calculate_detection_method_distribution(topic_dist)
             
             topic_sentiments = context.previous_results.get('TopicSentiments', {})  # Dict by topic
             topic_examples = context.previous_results.get('TopicExamples', {})  # Dict by topic
@@ -694,6 +776,21 @@ Return ONLY valid JSON, no other text:
             
             # Get analytical insights for later sections
             analytical_insights = context.previous_results.get('AnalyticalInsights', {})
+            editor_result = context.previous_results.get('EditorAgent', {})
+            review_packet = context.previous_results.get('ReviewPacket', {}) if context.previous_results else {}
+            critic_scores: Dict[str, Any] = {}
+            rewrite_performed = False
+            if isinstance(editor_result, dict):
+                critic_scores = editor_result.get('critic_scores') or {}
+                rewrite_performed = bool(editor_result.get('rewrite_performed', False))
+                if not critic_scores:
+                    data_payload = editor_result.get('data')
+                    if isinstance(data_payload, dict):
+                        critic_scores = data_payload.get('critic_scores') or {}
+                        if 'rewrite_performed' in data_payload:
+                            rewrite_performed = bool(data_payload.get('rewrite_performed'))
+            quality_composite = critic_scores.get('composite_score')
+            rewrite_needed = bool(critic_scores.get('rewrite_needed', False))
             macro_callouts = self._build_topic_callouts(topic_names, analytical_insights)
             quality_data = analytical_insights.get('QualityInsightsAgent', {}).get('data', {}) if analytical_insights else {}
             quality_topic_metrics = quality_data.get('fcr_by_topic', {}) if quality_data else {}
@@ -709,6 +806,9 @@ Return ONLY valid JSON, no other text:
             period_type = context.metadata.get('period_type', 'weekly')
             period_label = context.metadata.get('period_label', 'Weekly')
             week_id = context.metadata.get('week_id', datetime.now().strftime('%Y-W%W'))
+            detail_level = context.metadata.get('detail_level', 'standard')
+            digest_mode = bool(context.metadata.get('digest_mode', False))
+            legacy_sections_enabled = bool(context.metadata.get('legacy_sections_enabled', False))
             
             # Build header with actual date range instead of week code
             if context.start_date and context.end_date:
@@ -720,6 +820,18 @@ Return ONLY valid JSON, no other text:
                 header_title = f"# Voice of Customer Analysis: {start_str} - {end_str}"
             else:
                 header_title = f"# Voice of Customer Analysis - Week {week_id}"
+            
+            mark_partial = rewrite_needed or (
+                quality_composite is not None and quality_composite < 0.60
+            ) or bool(review_packet)
+            if mark_partial:
+                header_suffix = " [PARTIAL - REVIEW REQUIRED]" if review_packet else " [PARTIAL - Quality Review Recommended]"
+                header_title += header_suffix
+                self.placeholder_count += 1
+                self.logger.warning(
+                    "OutputFormatterAgent: Marking report as PARTIAL (composite=%.2f)",
+                    quality_composite if quality_composite is not None else float("nan")
+                )
             
             output_sections.append(header_title)
             output_sections.append("")
@@ -737,6 +849,32 @@ Return ONLY valid JSON, no other text:
             )
             output_sections.append(exec_summary_content)
             output_sections.append("")
+            
+            quality_section = ""
+            if critic_scores:
+                quality_section = self._format_quality_control_section({
+                    'critic_scores': critic_scores,
+                    'rewrite_performed': rewrite_performed
+                })
+            if quality_section:
+                output_sections.append(quality_section)
+                self.logger.info("OutputFormatterAgent: Added Quality Control Summary section")
+
+            if review_packet:
+                severity = review_packet.get('severity', 'warning')
+                failed = review_packet.get('failed_kpis', [])
+                packet_path = review_packet.get('packet_path')
+                failed_list = ", ".join([fp.get('kpi', '') for fp in failed]) if isinstance(failed, list) else ""
+                qc_lines = [
+                    "## ⚠️ Quality Control Summary",
+                    "",
+                    f"**Status**: Review Required ({severity})",
+                    f"**Failed KPIs**: {failed_list or 'See packet'}",
+                ]
+                if packet_path:
+                    qc_lines.append(f"**Review Packet**: {packet_path}")
+                output_sections.append("\n".join(qc_lines))
+                self.logger.info("OutputFormatterAgent: Added review packet metadata to report")
 
             if detection_summary:
                 ai_pct = detection_summary.get('ai_verified_pct', 0.0)
@@ -1206,6 +1344,7 @@ Return ONLY valid JSON, no other text:
 
             # Combine all sections
             formatted_output = '\n'.join(output_sections)
+            token_estimate = max(0, len(formatted_output) // 4)
             
             result_data = {
                 'formatted_output': formatted_output,
@@ -1263,12 +1402,22 @@ Return ONLY valid JSON, no other text:
                         'end_date': context.end_date.isoformat() if context.end_date else None,
                         'total_conversations': total_convs,
                         'fallback_metrics': topic_detection.get('fallback_metrics', {}),
-                        'detection_method_distribution': detection_summary
+                        'detection_method_distribution': detection_summary,
+                        'critic_scores': critic_scores,
+                        'quality_rewrite_performed': rewrite_performed
                     },
                     'topic_summaries': topic_summaries,
                     'recommendations': recommendations
                 }
             }
+            result_data['topic_fallback_used'] = self.topic_fallback_count
+            result_data['placeholder_volume'] = self.placeholder_count
+            result_data['metrics'] = self._build_formatter_metrics(
+                sorted_topics=sorted_topics,
+                quality_data=quality_data,
+                fin_performance=fin_performance,
+                analytical_insights=analytical_insights
+            )
             
             self.validate_output(result_data)
             
@@ -1292,6 +1441,13 @@ Return ONLY valid JSON, no other text:
             
             # Log total section count
             self.logger.info(f"   Total sections: {len(output_sections)}")
+            if self.monitor:
+                self.logger.info(
+                    "OutputFormatterAgent metrics: topic_fallbacks=%d, placeholders=%d, tokens=~%d",
+                    self.topic_fallback_count,
+                    self.placeholder_count,
+                    token_estimate
+                )
             
             return AgentResult(
                 agent_name=self.name,
@@ -1302,7 +1458,7 @@ Return ONLY valid JSON, no other text:
                 limitations=[],
                 sources=["All previous agent results"],
                 execution_time=execution_time,
-                token_count=0
+                token_count=token_estimate
             )
             
         except Exception as e:
@@ -1318,6 +1474,97 @@ Return ONLY valid JSON, no other text:
                 error_message=str(e),
                 execution_time=execution_time
             )
+    
+    def _build_formatter_metrics(
+        self,
+        sorted_topics: List[tuple],
+        quality_data: Dict[str, Any],
+        fin_performance: Optional[Dict[str, Any]],
+        analytical_insights: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Collect formatter-side metrics for downstream KPI evaluation.
+        """
+        metrics: Dict[str, Any] = {
+            'metrics_version': 1,
+            'topic_fallback_used': self.topic_fallback_count,
+            'placeholder_volume': self.placeholder_count,
+        }
+        
+        total_percentage = 0.0
+        for _, stats in sorted_topics:
+            try:
+                total_percentage += float(stats.get('percentage') or 0.0)
+            except (TypeError, ValueError):
+                continue
+        metrics['topic_percentage_total'] = round(total_percentage, 2)
+        
+        analytics_expected_fields: List[str] = []
+        analytics_available_fields: List[str] = []
+        analytics_computed = False
+        
+        def _register_expected(field_name: str):
+            if field_name not in analytics_expected_fields:
+                analytics_expected_fields.append(field_name)
+        
+        def _register_available(field_name: str):
+            if field_name not in analytics_available_fields:
+                analytics_available_fields.append(field_name)
+        
+        if quality_data:
+            _register_expected('csat')
+            csat_coverage = quality_data.get('csat_coverage')
+            if isinstance(csat_coverage, (int, float)):
+                normalized = csat_coverage * 100 if csat_coverage <= 1 else csat_coverage
+                metrics['csat_coverage_pct'] = round(float(normalized), 2)
+                analytics_computed = True
+                _register_available('csat')
+        
+        def _extract_resolution_rate(source: Optional[Dict[str, Any]]) -> Optional[float]:
+            if not isinstance(source, dict):
+                return None
+            value = source.get('resolution_rate')
+            if isinstance(value, (int, float)):
+                return float(value)
+            return None
+        
+        fin_rate = None
+        if isinstance(fin_performance, dict):
+            _register_expected('fin')
+            for key in ('free_tier', 'paid_tier'):
+                candidate = _extract_resolution_rate(fin_performance.get(key))
+                if candidate is not None:
+                    fin_rate = candidate
+                    break
+            if fin_rate is None:
+                tier_comparison = fin_performance.get('tier_comparison')
+                candidate = _extract_resolution_rate(tier_comparison)
+                if candidate is not None:
+                    fin_rate = candidate
+        if fin_rate is not None:
+            normalized = fin_rate * 100 if fin_rate <= 1 else fin_rate
+            metrics['fin_deflection_rate'] = round(normalized, 2)
+            analytics_computed = True
+            _register_available('fin')
+        
+        churn_count = None
+        if analytical_insights:
+            churn_raw = analytical_insights.get('ChurnRiskAgent', {}).get('data', {})
+            if isinstance(churn_raw, dict):
+                _register_expected('churn')
+                churn_entries = churn_raw.get('high_risk_conversations')
+                if isinstance(churn_entries, list):
+                    churn_count = len(churn_entries)
+        if churn_count is not None:
+            metrics['churn_risk_count'] = churn_count
+            analytics_computed = True
+            _register_available('churn')
+        
+        metrics['analytics_expected_fields'] = analytics_expected_fields
+        metrics['analytics_available_fields'] = analytics_available_fields
+        metrics['analytics_computed'] = analytics_computed
+        metrics['analytics_checks_enabled'] = bool(settings.enable_metrics_monitoring and analytics_expected_fields)
+        return metrics
     
     def _format_topic_card(
         self,
@@ -1339,6 +1586,24 @@ Return ONLY valid JSON, no other text:
     ) -> str:
         """Format a single topic card"""
         detection_method = stats.get('detection_method')
+        fallback_detection = False
+        if not stats or not stats.get('volume'):
+            fallback_detection = True
+        normalized_method = (detection_method or '').lower() if isinstance(detection_method, str) else ''
+        if normalized_method == 'fallback':
+            fallback_detection = True
+        if isinstance(topic_name, str) and topic_name.lower().startswith('unknown'):
+            fallback_detection = True
+        if not sentiment:
+            fallback_detection = True
+        if stats.get('fallback_count'):
+            fallback_detection = True
+        if fallback_detection:
+            self.topic_fallback_count += 1
+            if self.monitor:
+                self.logger.info(
+                    f"Topic fallback used for {topic_name} (total: {self.topic_fallback_count})"
+                )
         method_label = self._get_detection_method_label(detection_method)
         method_line = f"**Detection Method**: {method_label}"
         confidence_value = stats.get('confidence')

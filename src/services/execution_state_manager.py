@@ -42,8 +42,10 @@ class ExecutionState:
     return_code: Optional[int] = None
     queue_position: Optional[int] = None
     gamma_metadata: Optional[Dict[str, Any]] = None  # Store Gamma generation metadata
+    review_packet_metadata: Optional[Dict[str, Any]] = None  # Store review packet metadata
     audit_files: List[str] = field(default_factory=list)  # Track audit trail files
     output_files: List[str] = field(default_factory=list)  # Track all output files
+    approval_signal: Optional[asyncio.Event] = None  # Runtime-only approval gate
     max_output_buffer_size: int = 1000  # Maximum number of output entries to keep
     
     def __post_init__(self):
@@ -316,6 +318,77 @@ class ExecutionStateManager:
         except Exception as e:
             self.logger.error(f"Failed to add output file for {execution_id}: {e}")
             return False
+
+    async def update_review_packet_metadata(self, execution_id: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Track review packet metadata for an execution.
+        """
+        try:
+            async with self._lock:
+                execution = self._executions.get(execution_id)
+                if not execution:
+                    self.logger.warning(f"Execution {execution_id} not found for review packet metadata update")
+                    return False
+
+                if not isinstance(metadata, dict):
+                    self.logger.error("Invalid review packet metadata (not a dict)")
+                    return False
+
+                required_keys = {"failed_kpis", "severity", "packet_path"}
+                if not required_keys.issubset(metadata.keys()):
+                    self.logger.error("Review packet metadata missing required keys: %s", required_keys)
+                    return False
+
+                execution.review_packet_metadata = metadata
+                self._save_to_disk(execution_id)
+                self.logger.info(
+                    "Review packet metadata updated for %s: severity=%s, failed_kpis=%s",
+                    execution_id,
+                    metadata.get("severity"),
+                    metadata.get("failed_kpis"),
+                )
+                return True
+        except Exception as exc:
+            self.logger.error("Failed to update review packet metadata: %s", exc)
+            return False
+
+    async def wait_for_approval(self, execution_id: str, timeout_seconds: int) -> bool:
+        """
+        Wait for manual approval with timeout. Returns True if approved, False on timeout.
+        """
+        async with self._lock:
+            execution = self._executions.get(execution_id)
+            if not execution:
+                self.logger.warning("Execution %s not found for approval wait", execution_id)
+                return False
+            execution.approval_signal = asyncio.Event()
+            signal = execution.approval_signal
+
+        try:
+            await asyncio.wait_for(signal.wait(), timeout=timeout_seconds)
+            self.logger.info("Approval received for execution %s", execution_id)
+            return True
+        except asyncio.TimeoutError:
+            self.logger.warning("Approval timeout for execution %s after %s seconds", execution_id, timeout_seconds)
+            return False
+        finally:
+            async with self._lock:
+                exec_state = self._executions.get(execution_id)
+                if exec_state:
+                    exec_state.approval_signal = None
+
+    async def approve_execution(self, execution_id: str) -> bool:
+        """
+        Set approval signal to resume execution.
+        """
+        async with self._lock:
+            execution = self._executions.get(execution_id)
+            if not execution or not execution.approval_signal:
+                self.logger.warning("Approval signal not found for execution %s", execution_id)
+                return False
+            execution.approval_signal.set()
+            self.logger.info("Execution %s approved by user", execution_id)
+            return True
     
     async def get_execution(self, execution_id: str) -> Optional[ExecutionState]:
         """Get execution state by ID."""
@@ -549,6 +622,7 @@ class ExecutionStateManager:
                 "return_code": execution.return_code,
                 "queue_position": execution.queue_position,
                 "gamma_metadata": execution.gamma_metadata,  # Include Gamma metadata
+                "review_packet_metadata": execution.review_packet_metadata,  # Include review packet metadata
                 "audit_files": execution.audit_files,  # Include audit files
                 "output_files": execution.output_files,  # Include output files
                 "output_count": len(list(execution.output_buffer)) if execution.output_buffer else 0
@@ -591,6 +665,7 @@ class ExecutionStateManager:
                         return_code=data.get("return_code"),
                         queue_position=data.get("queue_position"),
                         gamma_metadata=data.get("gamma_metadata"),  # Load Gamma metadata
+                        review_packet_metadata=data.get("review_packet_metadata"),  # Load review packet metadata
                         audit_files=data.get("audit_files", []),  # Load audit files
                         output_files=data.get("output_files", [])  # Load output files
                     )

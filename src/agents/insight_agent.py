@@ -10,10 +10,12 @@ Responsibilities:
 
 import logging
 import json
+import re
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 
 from src.agents.base_agent import BaseAgent, AgentResult, AgentContext, ConfidenceLevel
+from src.config.settings import settings
 from src.utils.ai_client_helper import get_ai_client
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,7 @@ class InsightAgent(BaseAgent):
         )
         self.ai_client = get_ai_client()
         self.workflow_type = 'standard'
+        self.monitor = getattr(settings, 'enable_metrics_monitoring', False)
     
     def get_agent_specific_instructions(self) -> str:
         """Insight agent specific instructions"""
@@ -292,6 +295,14 @@ Use ONLY this data to generate insights. Do not invent additional statistics.
             if not tags:
                 self.logger.warning("LLM did not include detection method tags in topic-based insights")
         
+        duplicate_ratio = result.get('insight_duplicate_ratio')
+        if isinstance(duplicate_ratio, (int, float)) and duplicate_ratio > 0.3:
+            self.logger.warning(f"High duplicate ratio detected: {duplicate_ratio:.2f}")
+        
+        metric_references = result.get('metric_references_count')
+        if isinstance(metric_references, (int, float)) and metric_references < 2:
+            self.logger.warning("Low metric reference count - insights may be too generic")
+        
         return True
     
     async def execute(self, context: AgentContext) -> AgentResult:
@@ -353,6 +364,11 @@ Use ONLY this data to generate insights. Do not invent additional statistics.
                 result_data['detection_method_confidence'] = detection_method_confidence
                 result_data['detection_method_distribution'] = detection_method_distribution
             
+            duplicate_ratio = self._calculate_duplicate_ratio(result_data)
+            metric_references = self._count_metric_references(result_data)
+            result_data['insight_duplicate_ratio'] = duplicate_ratio
+            result_data['metric_references_count'] = metric_references
+            
             # Validate output
             self.validate_output(result_data)
             
@@ -384,6 +400,14 @@ Use ONLY this data to generate insights. Do not invent additional statistics.
             
             # Estimate token count
             token_count = len(prompt) // 4 + len(response) // 4
+
+            if self.monitor:
+                self.logger.info(
+                    "InsightAgent metrics: duplicate_ratio=%.3f, metric_refs=%d, tokens=~%d",
+                    duplicate_ratio,
+                    metric_references,
+                    token_count
+                )
 
             sources = [
                 "CategoryAgent results",
@@ -455,6 +479,65 @@ Use ONLY this data to generate insights. Do not invent additional statistics.
             'recommendations': self._extract_recommendations(response),
             'detection_method_tags': tags
         }
+
+    def _collect_insight_text_chunks(self, payload: Dict[str, Any]) -> List[str]:
+        """Gather all textual insight chunks for analysis."""
+        chunks: List[str] = []
+        for key in ('executive_summary', 'business_implications'):
+            value = payload.get(key)
+            if isinstance(value, str):
+                chunks.append(value)
+        for key in ('major_themes', 'recommendations', 'cross_category_patterns'):
+            values = payload.get(key)
+            if isinstance(values, list):
+                chunks.extend([item for item in values if isinstance(item, str)])
+        return [chunk.strip() for chunk in chunks if isinstance(chunk, str) and chunk.strip()]
+
+    def _calculate_duplicate_ratio(self, payload: Dict[str, Any]) -> float:
+        """Calculate ratio of duplicate n-grams (3-5 tokens) across insight sections."""
+        chunks = self._collect_insight_text_chunks(payload)
+        if not chunks:
+            return 0.0
+        text = " ".join(chunks).lower()
+        tokens = [token for token in re.findall(r"[a-z0-9%]+", text) if token]
+        if len(tokens) < 3:
+            return 0.0
+        ngram_counts: Dict[str, int] = {}
+        for n in range(3, 6):
+            for idx in range(len(tokens) - n + 1):
+                ngram = " ".join(tokens[idx:idx + n])
+                ngram_counts[ngram] = ngram_counts.get(ngram, 0) + 1
+        if not ngram_counts:
+            return 0.0
+        total_phrases = len(ngram_counts)
+        duplicate_phrases = sum(1 for count in ngram_counts.values() if count > 1)
+        if total_phrases == 0:
+            return 0.0
+        ratio = duplicate_phrases / total_phrases
+        return max(0.0, min(1.0, round(ratio, 4)))
+
+    def _count_metric_references(self, payload: Dict[str, Any]) -> int:
+        """Count unique occurrences of numeric metrics in insight text."""
+        chunks = self._collect_insight_text_chunks(payload)
+        if not chunks:
+            return 0
+        text = " ".join(chunks)
+        metric_patterns = [
+            re.compile(r"\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b"),
+            re.compile(r"\b\d+\.?\d*\s?%\b"),
+            re.compile(r"\b\d+\.?\d*\s?(?:points|pt|hrs|hours|days|tickets|cases|issues|agents)\b", re.IGNORECASE),
+            re.compile(r"\b\d+\.?\d*\s?(?:rate|count|average|avg|ratio)\b", re.IGNORECASE),
+        ]
+        matches = set()
+        for pattern in metric_patterns:
+            for match in pattern.findall(text):
+                if isinstance(match, tuple):
+                    normalized = " ".join([m for m in match if m]).strip()
+                else:
+                    normalized = match.strip()
+                if normalized:
+                    matches.add(normalized.lower())
+        return len(matches)
 
     def _extract_detection_method_tags_from_text(self, text: str) -> List[str]:
         """Identify detection method provenance tags emitted by the LLM."""

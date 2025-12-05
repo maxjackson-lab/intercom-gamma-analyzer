@@ -51,7 +51,12 @@ def render_timeline_html() -> str:
     """
 
 
-def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[str] = None) -> str:
+def render_chat_html_v2(
+    app_version: str,
+    git_commit: str,
+    cache_bust: Optional[str] = None,
+    enable_deep_orchestrator: bool = False,
+) -> str:
     """Return the chat interface HTML."""
     git_short = git_commit[:8] if git_commit != "unknown" else "unknown"
     APP_VERSION = app_version
@@ -65,6 +70,9 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intercom Analysis Tool v{APP_VERSION}</title>
     <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.2.1/ansi_up.min.js"></script>
+        <script>
+            window.deepOrchestratorEnabledDefault = {str(enable_deep_orchestrator).lower()};
+        </script>
     <link rel="stylesheet" href="/static/styles.css?v={cache_bust_value}">
     <!-- Cache busting for app.js -->
 </head>
@@ -147,7 +155,7 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
             </select>
             
             <!-- DL_MARKER_VISIBLE_TEST_20251128 -->
-            <div style="background: red; color: white; padding: 10px; margin: 10px 0; font-weight: bold; text-align: center;">🚨 TEMPLATE UPDATE TEST - IF YOU SEE THIS, RAILWAY IS SERVING NEW CODE 🚨</div>
+            <div style="background: red; color: white; padding: 10px; margin: 10px 0; font-weight: bold; text-align: center;">🚨 ORCHESTRATOR_TOGGLE_ADDED - PHASE 3 🚨</div>
             <div id="detailLevelContainer" style="margin-top: 10px; padding: 12px; background: rgba(59, 130, 246, 0.12); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.45); display: none;">
                 <!-- DL_MARKER_20251128 -->
                 <label style="color: #93c5fd; font-size: 14px; display: block; margin-bottom: 6px;">Output Detail Level:</label>
@@ -526,6 +534,20 @@ def render_chat_html_v2(app_version: str, git_commit: str, cache_bust: Optional[
                     • Replays the original Data → Category → Sentiment → Insight → Presentation stack.<br>
                     • Perfect for regression testing vs. TopicOrchestrator and validating historical decks.<br>
                     • Available for topic-based Hilary cards only (Intercom-only data; skips Canny).
+                </div>
+            </div>
+
+            <div id="orchestratorModeContainer" style="margin-top: 15px; padding: 15px; background: rgba(99, 102, 241, 0.12); border-radius: 8px; border: 1px solid rgba(99, 102, 241, 0.3); display: none;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="deepOrchestratorToggle" style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+                    <span style="font-weight: 600; color: #a5b4fc;">🤖 DeepAgents Supervisor (Experimental)</span>
+                </label>
+                <div style="font-size: 11px; color: #c7d2fe; margin-top: 10px; line-height: 1.5;">
+                    • Uses LangGraph-based supervisor for dynamic agent routing<br>
+                    • Enables retries, conditional execution, and sub-agent spawning<br>
+                    • Requires <code>deepagents</code> package (see README.md)<br>
+                    • Stores pilot runs in <code>outputs/deepagents_pilot/</code> for comparison<br>
+                    • Experimental: legacy orchestrator remains default
                 </div>
             </div>
 

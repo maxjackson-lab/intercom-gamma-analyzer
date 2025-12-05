@@ -20,7 +20,38 @@ class Settings(BaseSettings):
     
     # Feature Flags - Control new features
     use_dual_fin_metrics: bool = Field(False, env="USE_DUAL_FIN_METRICS")  # Set to True to show Intercom-compatible + Quality metrics
+    enable_metrics_monitoring: bool = Field(
+        default=False,
+        env="ENABLE_METRICS_MONITORING",
+        description="Enable detailed metrics logging for InsightAgent and OutputFormatterAgent"
+    )
+    # When enabled, agents log detailed quality metrics:
+    # - InsightAgent: duplicate_ratio, metric_references_count
+    # - OutputFormatterAgent: topic_fallback_used, placeholder_volume
+    # Used for Phase 0 baseline metrics collection and telemetry monitoring
     
+    enable_deep_orchestrator: bool = Field(
+        default=False,
+        env="ENABLE_DEEP_ORCHESTRATOR",
+        description="Enable DeepAgents supervisor for VoC orchestration (Phase 3 pilot). When True, --orchestrator defaults to 'deep'; when False, defaults to 'legacy'."
+    )
+
+    require_approval: bool = Field(
+        default=False,
+        env="REQUIRE_APPROVAL",
+        description="Pause after review packet generation for manual approval"
+    )
+    approval_timeout_seconds: int = Field(
+        default=300,
+        env="APPROVAL_TIMEOUT_SECONDS",
+        description="Timeout for approval wait (seconds)"
+    )
+    force_review_packet_failure: bool = Field(
+        default=False,
+        env="FORCE_REVIEW_PACKET_FAILURE",
+        description="Force KPI failures for review packet validation flows"
+    )
+
     # Intercom API Settings
     intercom_base_url: str = Field("https://api.intercom.io", env="INTERCOM_BASE_URL")
     intercom_api_version: str = Field("2.14", env="INTERCOM_API_VERSION")

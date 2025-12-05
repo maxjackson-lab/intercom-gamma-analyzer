@@ -35,6 +35,7 @@ async def run_sample_mode_command(
     no_hierarchy: bool,
     verbose: bool,
     audit_mode: bool,
+    orchestrator: str,
 ) -> None:
     """Pull real conversations with ultra-rich logging, diagnostics, and optional audit validation."""
     explicit_count = count
@@ -80,6 +81,14 @@ async def run_sample_mode_command(
     console.print(f"\n[cyan]Schema Mode: {schema_mode} - {mode_descriptions[schema_mode]}[/cyan]\n")
     if explicit_count is not None:
         console.print(f"[cyan]🔢 Sample size override via --count: {explicit_count} conversations[/cyan]\n")
+
+    # Apply orchestrator selection (legacy vs deep) for downstream components that honor the flag
+    if orchestrator == "deep":
+        os.environ["ENABLE_DEEP_ORCHESTRATOR"] = "true"
+        console.print("[bold cyan]🤖 DeepAgents Supervisor: ENABLED for sample-mode[/bold cyan]\n")
+    else:
+        os.environ["ENABLE_DEEP_ORCHESTRATOR"] = "false"
+        console.print("[cyan]🧭 Legacy orchestrator: ENABLED for sample-mode[/cyan]\n")
 
     # Set AI model for LLM test if enabled
     if test_llm and ai_model:

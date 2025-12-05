@@ -52,7 +52,7 @@ class ToolRegistry:
             definitions.append(openai_format)
         return definitions
     
-    async def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
+    async def execute_tool(self, tool_name: str, tool_args: Optional[Dict[str, Any]] = None) -> ToolResult:
         """
         Execute a tool by name with caching support.
         
@@ -66,14 +66,15 @@ class ToolRegistry:
         if tool_name not in self.tools:
             return ToolResult(success=False, data=None, error_message=f"Tool '{tool_name}' not found in registry")
         
-        cache_key = self._make_cache_key(tool_name, kwargs)
+        resolved_kwargs = tool_args or {}
+        cache_key = self._make_cache_key(tool_name, resolved_kwargs)
         if self.enable_caching and cache_key in self.cache:
             self.cache_hit_count += 1
             self.logger.info(f"Cache hit for tool: {tool_name}")
             return self.cache[cache_key].model_copy(deep=True)
         
         tool = self.tools[tool_name]
-        result = await tool.safe_execute(**kwargs)
+        result = await tool.safe_execute(**resolved_kwargs)
         self.execution_count[tool_name] += 1
         
         if result.success and self.enable_caching:

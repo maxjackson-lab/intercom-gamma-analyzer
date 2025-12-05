@@ -28,6 +28,8 @@ class OpenAIClient:
         
         self.client = AsyncOpenAI(api_key=self.api_key)
         self.logger = logging.getLogger(__name__)
+        # Expose chat namespace for compatibility with agents expecting the raw OpenAI client
+        self.chat = self.client.chat
         
         # Initialize circuit breaker for resilience
         from src.utils.circuit_breaker import CircuitBreaker, CircuitBreakerConfig

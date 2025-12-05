@@ -338,7 +338,7 @@ class BaseAgent(ABC):
                         self.logger.info(f"Agent calling tool: {tool_name} with args: {tool_args}")
 
                         # Execute tool
-                        tool_result = await self.tool_registry.execute_tool(tool_name, **tool_args)
+                        tool_result = await self.tool_registry.execute_tool(tool_name, tool_args=tool_args)
 
                         # Track tool call
                         self.tool_calls_made.append({
